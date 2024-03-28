@@ -1,0 +1,12 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+  "1:0:$lang{CONFIGURATION}:config_main:"                    => 5,
+  "2:1:$lang{PASSWORD_GENERATOR}:config_password_generator:" => 5,
+  "3:0::config_update_docs:AJAX"                      => 5,
+);
+
+if ( $conf{CONFIG_MANAGE} ) {
+  $FUNCTIONS_LIST{"2:1:$lang{ADD}:config_manage:"} = 5;
+}
+
+1

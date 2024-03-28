@@ -1,0 +1,90 @@
+.clickSearchResult {
+    cursor: pointer;
+}
+
+.port {
+    /*This sizes depends on an background image dimensions*/
+    height: 36px;
+    width: 36px;
+
+    float: left;
+    text-align: center;
+    line-height: 36px;
+}
+
+div > .equipment-panel {
+    min-width: 800px;
+}
+
+.port.port-RJ45-free {
+    background: url("/styles/default_adm/img/equipment/rj45-free.png") no-repeat center;
+}
+
+.port.port-RJ45-used {
+    background: url("/styles/default_adm/img/equipment/rj45-used.png") no-repeat center;
+}
+
+.port.port-GBIC-free {
+    background: url("/styles/default_adm/img/equipment/gbic-free.png") no-repeat center;
+}
+
+.port.port-GBIC-used {
+    background: url("/styles/default_adm/img/equipment/gbic-free.png") no-repeat center;
+    color: red;
+}
+
+.port.port-Gigabit-free {
+    background: url("/styles/default_adm/img/equipment/gigabit-free.png") no-repeat center;
+}
+
+.port.port-Gigabit-used {
+    background: url("/styles/default_adm/img/equipment/gigabit-free.png") no-repeat center;
+    color: red;
+}
+.port.port-SFP-free {
+    background: url("/styles/default_adm/img/equipment/sfp-free.png") no-repeat center;
+}
+
+.port.port-SFP-used {
+    background: url("/styles/default_adm/img/equipment/sfp-used.png") no-repeat center;
+}
+
+.port.port-QSFP-free {
+    background: url("/styles/default_adm/img/equipment/sfp-free.png") no-repeat center;
+}
+
+.port.port-QSFP-used {
+    background: url("/styles/default_adm/img/equipment/sfp-used.png") no-repeat center;
+}
+
+.port.port-EPON-free {
+    background: url("/styles/default_adm/img/equipment/sfp-free.png") no-repeat center;
+}
+
+.port.port-EPON-used {
+    background: url("/styles/default_adm/img/equipment/sfp-used.png") no-repeat center;
+}
+
+.port.port-GPON-free {
+    background: url("/styles/default_adm/img/equipment/sfp-free.png") no-repeat center;
+}
+
+.port.port-GPON-used {
+    background: url("/styles/default_adm/img/equipment/sfp-used.png") no-repeat center;
+}
+
+
+.port.port-used {
+    cursor: not-allowed;
+}
+
+.equipment-block {
+    float: left;
+    margin: 0 3px;
+}
+
+@media (min-width: 992px) {
+    .modal-lg {
+        width: 920px;
+    }
+}

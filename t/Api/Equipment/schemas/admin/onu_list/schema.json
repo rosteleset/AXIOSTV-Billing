@@ -1,0 +1,65 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+  "required": [
+  ],
+  "properties": {
+    "branch": {
+      "$id": "#/properties/branch",
+      "type": "string"
+    },
+    "branchDesc": {
+      "$id": "#/properties/branchDesc",
+      "type": "string"
+    },
+    "onuId": {
+      "$id": "#/properties/onuId",
+      "type": "string"
+    },
+    "vlan": {
+      "$id": "#/properties/vlan",
+      "type": "string"
+    },
+    "onuBillingDesc": {
+      "$id": "#/properties/onuBillingDesc",
+      "type": "string"
+    },
+    "oltRxPower": {
+      "$id": "#/properties/oltRxPower",
+      "type": "string"
+    },
+    "onuDhcpPort": {
+      "$id": "#/properties/onuDhcpPort",
+      "type": "string"
+    },
+    "onuGraph": {
+      "$id": "#/properties/onuGraph",
+      "type": "string"
+    },
+    "nasIp": {
+      "$id": "#/properties/nasIp",
+      "type": "string"
+    },
+    "ponType": {
+      "$id": "#/properties/ponType",
+      "type": "string"
+    },
+    "onuSnmpId": {
+      "$id": "#/properties/onuSnmpId",
+      "type": "number"
+    },
+    "datetime": {
+      "$id": "#/properties/datetime",
+      "type": "string"
+    },
+    "deleted": {
+      "$id": "#/properties/deleted",
+      "type": "number"
+    },
+    "serverVlan": {
+      "$id": "#/properties/serverVlan",
+      "type": "string"
+    }
+  }
+}

@@ -1,0 +1,455 @@
+use warnings;
+use strict;
+use Dom;
+use JSON qw/to_json/;
+use Users;
+use Address;
+use Nas;
+use Equipment;
+
+our (
+  $db,
+  $admin,
+  %conf,
+  $html,
+  %lang
+);
+
+my $Address = Address->new($db, $admin, \%conf);
+my $Dom = Dom->new($db, $admin, \%conf);
+my $Nas = Nas->new($db, \%conf, $admin);
+my $Equipment = Equipment->new($db, $admin, \%conf);
+
+my @USER_COLORS = ('#00a65a', "#747372", '#f39c12', '#dd4b39');
+
+#**********************************************************
+=head2 dom_info() Create 2D build model
+  Returns:
+      1
+=cut
+#**********************************************************
+sub dom_info {
+  my %info;
+  my $address_info = $Address->address_info($FORM{LOCATION_ID});
+  my $build_info = $Address->build_info({ ID => $FORM{LOCATION_ID} });
+
+  if (!$FORM{LOCATION_ID} || !$build_info->{TOTAL}) {
+    $html->message('warn', $lang{ERROR}, "$lang{BUILD} $lang{NOT_EXIST}");
+    return 0;
+  }
+
+  if (!$build_info->{FLORS} || !$build_info->{ENTRANCES} || (!$build_info->{FLATS} && !$build_info->{BUILD_SCHEMA})) {
+    $html->message('warn', $lang{ERROR},
+      "$lang{INCORRECT_PARAMETERS_BUILDINGS}
+      $lang{FLORS} = $build_info->{FLORS}
+      $lang{ENTRANCES} = $build_info->{ENTRANCES}
+      $lang{FLATS} = $build_info->{FLATS}"
+    );
+    return 0;
+  }
+
+  $info{DISTRICT_NAME} = $address_info->{ADDRESS_DISTRICT};
+  $info{STREET_NAME} = $address_info->{ADDRESS_STREET};
+  $info{BUILD_NAME} = $address_info->{ADDRESS_BUILD};
+
+  $Dom->{TOTAL} //= 1;
+
+  my %lang_pack = (FLAT => $lang{ADDRESS_FLAT}, FIO => $lang{FIO});
+
+  $info{BUILD_FLATS} = $build_info->{FLATS};
+  $info{BUILD_FLORS} = $build_info->{FLORS};
+  $info{BUILD_ENTRANCES} = $build_info->{ENTRANCES};
+  $info{FLORS_SUM} = $build_info->{FLORS} * $build_info->{ENTRANCES};
+  $info{NUMBERING_DIRECTION} = $build_info->{NUMBERING_DIRECTION};
+  $info{START_NUMBERING_FLAT} = (defined($build_info->{START_NUMBERING_FLAT})) ? ($build_info->{START_NUMBERING_FLAT} - 1) : 0;
+  if (!$build_info->{BUILD_SCHEMA}) {
+    $build_info->{BUILD_SCHEMA} = '::' . int($build_info->{FLATS} / ($build_info->{FLORS} * $build_info->{ENTRANCES}));
+  }
+
+  my %build_schema = ();
+
+  $info{BUILD_FLATS} = 0;
+  for (my $i = 1; $i <= $build_info->{ENTRANCES}; $i++) {
+    for (my $j = 1; $j <= $build_info->{FLORS}; $j++) {
+      my (undef,$flats) = $build_info->{BUILD_SCHEMA} =~ /(^|[^\d])$i:$j:(\d+)/;
+      if (!defined($flats) || $flats eq '') {
+        (undef,$flats) = $build_info->{BUILD_SCHEMA} =~ /(^|[^\d])$i\:\:(\d+)/;
+      }
+      if (!defined($flats) || $flats eq '') {
+        ($flats) = $build_info->{BUILD_SCHEMA} =~ /\D\:$j\:(\d+)/;
+      }
+      if (!defined($flats) || $flats eq '') {
+        ($flats) = $build_info->{BUILD_SCHEMA} =~ /\:\:(\d+)/;
+      }
+      if ((defined($flats) && !$info{FLORS_ROOMS}) || (defined($flats) && $flats > $info{FLORS_ROOMS})) {
+        $info{FLORS_ROOMS} = $flats;
+      }
+      $build_schema{dom}[$i - 1]{entrances} = $i;
+      $build_schema{dom}[$i - 1]{data}[$j - 1] = { floors => $j, flats => $flats };
+      $info{BUILD_FLATS} += $flats;
+    }
+  }
+  $info{FLATS_SUM_WITH_NON_DB_INFO} = $info{FLORS_ROOMS} * $info{FLORS_SUM};
+
+  my $json_lang_pack = to_json(\%lang_pack, { utf8 => 0 });
+  my $json_build_schema = to_json(\%build_schema, { utf8 => 0 });
+
+  $info{LANG_PACK} = $json_lang_pack;
+  $info{PON_INFO} = '{}';
+  $info{BUILD_SCHEMA} = $json_build_schema;
+
+  my $user_info = _dom_get_users(\%info);
+  %info = (%info, %{$user_info});
+  
+  my $internet_info = _dom_get_internet(\%info);
+  %info = (%info, %{$internet_info});
+
+  my $iptv_info = _dom_get_iptv(\%info);
+  %info = (%info, %{$iptv_info});
+  
+  my $cams_info = _dom_get_cams(\%info);
+  %info = (%info, %{$cams_info});
+
+  my $pon_info = _dom_get_pon(\%info);
+  %info = (%info, %{$pon_info});
+
+  my $nas_i = $Nas->list({
+    LOCATION_ID		=> $FORM{LOCATION_ID},
+    NAS_ID			=> $FORM{NAS_ID},
+    NAS_NAME		=> '_SHOW',
+    NAS_FLOOR		=> '_SHOW',
+    NAS_ENTRANCE	=> '_SHOW',
+	USED_PORTS		=> 1,
+    COLS_NAME		=> 1,
+  });
+
+  my $table = $html->table({
+    width   => '100%',
+    caption => $lang{SWITCHBOARDS},
+    title   => ["ID", $lang{NAME}, $lang{ENTRANCE}, $lang{FLOOR}, $lang{COUNT_USERS}],
+    ID      => 'DOM',
+  });
+  foreach my $item (@$nas_i) {
+    $table->addrow($item->{nas_id}, $item->{nas_name}, $item->{nas_entrance}, $item->{nas_floor}, $item->{used_ports});
+  }
+
+  $info{TABLE_NAS} .= $table->show({NO_DEBUG_MARKERS => 1});
+
+  $html->tpl_show(_include('dom_show', 'Dom'), \%info);
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _dom_get_users($attr)
+
+=cut
+#**********************************************************
+sub _dom_get_users {
+  my ($attr) = @_;
+
+  my %info = ();
+  my %user_by_flat;
+
+  my $users_list = $Dom->list({
+    FIO                 => '_SHOW',
+    LOCATION_ID         => $FORM{LOCATION_ID},
+    ADDRESS_BUILD       => '_SHOW',
+    UID                 => '_SHOW',
+    CITY                => '_SHOW',
+    DISABLE             => '_SHOW',
+    CREDITOR            => '_SHOW',
+    DEBETOR             => '_SHOW',
+    ADDRESS_FLAT        => '_SHOW',
+    ADDRESS_STREET      => '_SHOW',
+    NAME                => '_SHOW',
+    NUMBERING_DIRECTION => '_SHOW',
+    PAGE_ROWS           => 10000,
+    COLS_NAME           => 1,
+  });
+
+  $info{USER_SUM_WITH_NO_ROOM} = 0;
+  foreach my $user (@$users_list) {
+    $user->{fio} =~ s/\"/\\\"/g;
+    $user->{fio} =~ s/\'/&#39;/g;
+    $user->{color} = _dom_user_color($user);
+    $user->{info} = "$lang{ADDRESS_FLAT} $user->{address_flat} </br> $user->{fio}";
+    $user_by_flat{ $user->{address_flat} } = $user;
+    if ($user->{address_flat} > $attr->{FLATS_SUM_WITH_NON_DB_INFO}) {
+      $info{USER_SUM_WITH_NO_ROOM}++;
+
+      if ($info{USER_WITH_NO_ROOM_UID}) {
+        $info{USER_WITH_NO_ROOM_UID} .= ';' . $user->{uid};
+      }
+      else {
+        $info{USER_WITH_NO_ROOM_UID} .= $user->{uid};
+      }
+    }
+  }
+
+  $info{CLIENTS_FLATS_SUM} = $Dom->{TOTAL} - $attr->{USER_SUM_WITH_NO_ROOM};
+  $info{USER_PERCENTAGE} = sprintf('%.2f%%',($info{CLIENTS_FLATS_SUM} * 100 / $attr->{BUILD_FLATS}));
+  #$info{USER_PERCENTAGE} = int($info{CLIENTS_FLATS_SUM} * 100 / $attr->{BUILD_FLATS});
+  $info{SHOW_USERS} = "$SELF_URL?index=7&search_form=1&type=11&search=1&UID=" . $info{USER_WITH_NO_ROOM_UID} if ($info{USER_WITH_NO_ROOM_UID});
+
+  $info{USER_INFO} = to_json(\%user_by_flat, { utf8 => 0 });
+  return \%info;
+}
+
+#**********************************************************
+=head2 _dom_get_internet($attr)
+
+=cut
+#**********************************************************
+sub _dom_get_internet {
+  my ($attr) = @_;
+
+  my %info = ();
+  my %user_by_flat;
+
+  my $users_list = $Dom->list_internet({
+    FIO                 => '_SHOW',
+    LOCATION_ID         => $FORM{LOCATION_ID},
+    ADDRESS_BUILD       => '_SHOW',
+    UID                 => '_SHOW',
+    CITY                => '_SHOW',
+    DISABLE             => '_SHOW',
+    CREDITOR            => '_SHOW',
+    DEBETOR             => '_SHOW',
+    ADDRESS_FLAT        => '_SHOW',
+    ADDRESS_STREET      => '_SHOW',
+    NAME                => '_SHOW',
+    NUMBERING_DIRECTION => '_SHOW',
+    PAGE_ROWS           => 10000,
+    COLS_NAME           => 1,
+  });
+
+  $info{USER_SUM_WITH_NO_ROOM} = 0;
+  foreach my $user (@$users_list) {
+    $user->{fio} =~ s/\"/\\\"/g;
+    $user->{fio} =~ s/\'/&#39;/g;
+    $user->{color} = _dom_user_color($user);
+    $user->{info} = "$lang{ADDRESS_FLAT} $user->{address_flat} </br> $user->{fio}";
+    $user_by_flat{ $user->{address_flat} } = $user;
+    if ($user->{address_flat} > $attr->{FLATS_SUM_WITH_NON_DB_INFO}) {
+      $info{USER_SUM_WITH_NO_ROOM}++;
+
+      if ($info{USER_WITH_NO_ROOM_UID}) {
+        $info{USER_WITH_NO_ROOM_UID} .= ';' . $user->{uid};
+      }
+      else {
+        $info{USER_WITH_NO_ROOM_UID} .= $user->{uid};
+      }
+    }
+  }
+
+  $info{INTERNET_CLIENTS_FLATS_SUM} = $Dom->{TOTAL} - $attr->{USER_SUM_WITH_NO_ROOM};
+  $info{INTERNET_PERCENTAGE} = sprintf('%.2f%%',($info{INTERNET_CLIENTS_FLATS_SUM} * 100 / $attr->{BUILD_FLATS}));
+  #$info{INTERNET_PERCENTAGE} = int($info{CLIENTS_FLATS_SUM} * 100 / $attr->{BUILD_FLATS});
+  $info{SHOW_USERS} = "$SELF_URL?index=7&search_form=1&type=11&search=1&UID=" . $info{USER_WITH_NO_ROOM_UID} if ($info{USER_WITH_NO_ROOM_UID});
+
+  $info{INTERNET_INFO} = to_json(\%user_by_flat, { utf8 => 0 });
+  return \%info;
+}
+
+#**********************************************************
+=head2 _dom_get_iptv($attr)
+
+=cut
+#**********************************************************
+sub _dom_get_iptv {
+  my ($attr) = @_;
+
+  my %info = ();
+  my %user_by_flat;
+
+  my $users_list = $Dom->list_iptv({
+    FIO                 => '_SHOW',
+    LOCATION_ID         => $FORM{LOCATION_ID},
+    ADDRESS_BUILD       => '_SHOW',
+    UID                 => '_SHOW',
+    CITY                => '_SHOW',
+    DISABLE             => '_SHOW',
+    CREDITOR            => '_SHOW',
+    DEBETOR             => '_SHOW',
+    ADDRESS_FLAT        => '_SHOW',
+    ADDRESS_STREET      => '_SHOW',
+    NAME                => '_SHOW',
+    NUMBERING_DIRECTION => '_SHOW',
+    PAGE_ROWS           => 10000,
+    COLS_NAME           => 1,
+  });
+
+  $info{USER_SUM_WITH_NO_ROOM} = 0;
+  foreach my $user (@$users_list) {
+    $user->{fio} =~ s/\"/\\\"/g;
+    $user->{fio} =~ s/\'/&#39;/g;
+    $user->{color} = _dom_user_color($user);
+    $user->{info} = "$lang{ADDRESS_FLAT} $user->{address_flat} </br> $user->{fio}";
+    $user_by_flat{ $user->{address_flat} } = $user;
+    if ($user->{address_flat} > $attr->{FLATS_SUM_WITH_NON_DB_INFO}) {
+      $info{USER_SUM_WITH_NO_ROOM}++;
+
+      if ($info{USER_WITH_NO_ROOM_UID}) {
+        $info{USER_WITH_NO_ROOM_UID} .= ';' . $user->{uid};
+      }
+      else {
+        $info{USER_WITH_NO_ROOM_UID} .= $user->{uid};
+      }
+    }
+  }
+
+  $info{IPTV_CLIENTS_FLATS_SUM} = $Dom->{TOTAL} - $attr->{USER_SUM_WITH_NO_ROOM};
+  $info{IPTV_PERCENTAGE} = sprintf('%.2f%%',($info{IPTV_CLIENTS_FLATS_SUM} * 100 / $attr->{BUILD_FLATS}));
+  #$info{IPTV_PERCENTAGE} = int($info{CLIENTS_FLATS_SUM} * 100 / $attr->{BUILD_FLATS});
+  $info{SHOW_USERS} = "$SELF_URL?index=7&search_form=1&type=11&search=1&UID=" . $info{USER_WITH_NO_ROOM_UID} if ($info{USER_WITH_NO_ROOM_UID});
+
+  $info{IPTV_INFO} = to_json(\%user_by_flat, { utf8 => 0 });
+  return \%info;
+}
+
+#**********************************************************
+=head2 _dom_get_cams($attr)
+
+=cut
+#**********************************************************
+sub _dom_get_cams {
+  my ($attr) = @_;
+
+  my %info = ();
+  my %user_by_flat;
+
+  my $users_list = $Dom->list_cams({
+    FIO                 => '_SHOW',
+    LOCATION_ID         => $FORM{LOCATION_ID},
+    ADDRESS_BUILD       => '_SHOW',
+    UID                 => '_SHOW',
+    CITY                => '_SHOW',
+    DISABLE             => '_SHOW',
+    CREDITOR            => '_SHOW',
+    DEBETOR             => '_SHOW',
+    ADDRESS_FLAT        => '_SHOW',
+    ADDRESS_STREET      => '_SHOW',
+    NAME                => '_SHOW',
+    NUMBERING_DIRECTION => '_SHOW',
+    PAGE_ROWS           => 10000,
+    COLS_NAME           => 1,
+  });
+
+  $info{USER_SUM_WITH_NO_ROOM} = 0;
+  foreach my $user (@$users_list) {
+    $user->{fio} =~ s/\"/\\\"/g;
+    $user->{fio} =~ s/\'/&#39;/g;
+    $user->{color} = _dom_user_color($user);
+    $user->{info} = "$lang{ADDRESS_FLAT} $user->{address_flat} </br> $user->{fio}";
+    $user_by_flat{ $user->{address_flat} } = $user;
+    if ($user->{address_flat} > $attr->{FLATS_SUM_WITH_NON_DB_INFO}) {
+      $info{USER_SUM_WITH_NO_ROOM}++;
+
+      if ($info{USER_WITH_NO_ROOM_UID}) {
+        $info{USER_WITH_NO_ROOM_UID} .= ';' . $user->{uid};
+      }
+      else {
+        $info{USER_WITH_NO_ROOM_UID} .= $user->{uid};
+      }
+    }
+  }
+
+  $info{CAMS_CLIENTS_FLATS_SUM} = $Dom->{TOTAL} - $attr->{USER_SUM_WITH_NO_ROOM};
+  $info{CAMS_PERCENTAGE} = sprintf('%.2f%%',($info{CAMS_CLIENTS_FLATS_SUM} * 100 / $attr->{BUILD_FLATS}));
+  #$info{CAMS_PERCENTAGE} = int($info{CLIENTS_FLATS_SUM} * 100 / $attr->{BUILD_FLATS});
+  $info{SHOW_USERS} = "$SELF_URL?index=7&search_form=1&type=11&search=1&UID=" . $info{USER_WITH_NO_ROOM_UID} if ($info{USER_WITH_NO_ROOM_UID});
+
+  $info{CAMS_INFO} = to_json(\%user_by_flat, { utf8 => 0 });
+  return \%info;
+}
+
+#**********************************************************
+=head2 _dom_get_pon($attr)
+
+=cut
+#**********************************************************
+sub _dom_get_pon {
+  my ($attr) = @_;
+
+  my %info = ();
+  my %pon_by_flat;
+
+  my $equipment_list = $Equipment->onu_list({
+    LOCATION_ID => $FORM{LOCATION_ID},
+    UID         => '_SHOW',
+    RX_POWER    => '_SHOW',
+    COLS_NAME   => 1,
+    PAGE_ROWS   => 100000
+  });
+
+  $info{USER_SUM_WITH_NO_ROOM} = 0;
+
+  foreach my $user (@{$equipment_list}) {
+    $user->{color} = _dom_pon_color($user->{rx_power});
+    $user->{info} = "$lang{ADDRESS_FLAT} $user->{address_flat} </br> $user->{rx_power}";
+    $user->{quick_info} = $user->{rx_power};
+    $pon_by_flat{ $user->{address_flat} } = $user;
+    if ($user->{address_flat} > $attr->{FLATS_SUM_WITH_NON_DB_INFO}) {
+      $info{USER_SUM_WITH_NO_ROOM}++;
+
+      if ($info{USER_WITH_NO_ROOM_UID}) {
+        $info{USER_WITH_NO_ROOM_UID} .= ';' . $user->{uid};
+      }
+      else {
+        $info{USER_WITH_NO_ROOM_UID} .= $user->{uid};
+      }
+    }
+  }
+
+  $info{PON_CLIENTS_FLATS_SUM} = $Dom->{TOTAL} - $attr->{USER_SUM_WITH_NO_ROOM};
+  $info{PON_PERCENTAGE} = sprintf('%.2f%%',($info{PON_CLIENTS_FLATS_SUM} * 100 / $attr->{BUILD_FLATS}));
+  #$info{PON_PERCENTAGE} = int($info{CLIENTS_FLATS_SUM} * 100 / $attr->{BUILD_FLATS});
+
+  $info{PON_INFO} = to_json(\%pon_by_flat, { utf8 => 0 });
+
+  return \%info;
+}
+
+#**********************************************************
+=head2 _dom_user_color($user)
+
+=cut
+#**********************************************************
+sub _dom_user_color {
+  my ($user) = @_;
+
+  return $USER_COLORS[1] if ($user->{disable});
+  return $USER_COLORS[2] if ($user->{creditor});
+  return $USER_COLORS[3] if ($user->{debetor});
+  return $USER_COLORS[0];
+}
+
+#**********************************************************
+=head2 _dom_pon_color($rx_power)
+
+=cut
+#**********************************************************
+sub _dom_pon_color {
+  my $rx_power = shift;
+
+  return '#f8f9fa' if !$rx_power || $rx_power == 65535;
+  return '#6c757d' if $rx_power > 0;
+
+  if ($conf{PON_LEVELS_ALERT}){
+    if ($rx_power > $conf{PON_LEVELS_ALERT}{BAD}{MAX} || $rx_power < $conf{PON_LEVELS_ALERT}{BAD}{MIN}){
+      return '#dc3545';
+    }
+    elsif ($rx_power > $conf{PON_LEVELS_ALERT}{WORTH}{MAX} || $rx_power < $conf{PON_LEVELS_ALERT}{WORTH}{MIN}){
+      return '#ffc107';
+    }
+  }
+  else {
+    return '#dc3545' if $rx_power > -8 || $rx_power < -30;
+    return '#ffc107' if $rx_power > -10 || $rx_power < -27;
+  }
+
+  return '#28a745';
+}
+
+1

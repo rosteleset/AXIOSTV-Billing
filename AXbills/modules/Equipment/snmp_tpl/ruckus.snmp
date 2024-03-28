@@ -1,0 +1,44 @@
+// test SNMP temlate
+{
+"DEVICE":"test device",
+"FDB":"1",
+"FDB_MODE":"dlp",
+"FDB_IGNORE_PORTS":"20",
+
+"info" : {
+
+"SYSTEM_NAME" : {
+  "NAME" : "System name",
+  "OIDS" : ".1.3.6.1.2.1.1.5.0",
+  "PARSER" : ""
+},
+
+"SYSTEM_DESCR" : {
+  "NAME" : "System describe",
+  "OIDS" : ".1.3.6.1.2.1.1.1.0",
+  "PARSER" : ""
+},
+
+"UPTIME" : { 
+"NAME" : "Uptime",
+"OIDS" : ".1.3.6.1.2.1.1.3.0",
+"PARSER" : ""
+},
+
+"MODEL_NUMBER" : {
+"NAME" : "Model",
+"OIDS" : ".1.3.6.1.4.1.25053.1.1.2.1.1.1.1.0",
+"PARSER" : ""
+},
+
+"SERIAL" : {
+"NAME" : "Serial",
+"OIDS" : ".1.3.6.1.4.1.25053.1.1.2.1.1.1.2.0",
+"PARSER" : ""
+}
+
+
+}
+
+}
+

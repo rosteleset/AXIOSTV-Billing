@@ -1,0 +1,453 @@
+#!perl
+=head1 NAME
+
+  Ring managment functions
+
+=cut
+
+use Ring;
+use Tags;
+use strict;
+use warnings FATAL => 'all';
+
+require AXbills::Defs;
+our (
+  $db,
+  $admin,
+  %conf,
+  %lang,
+  $html
+);
+
+my $Ring = Ring->new($db, $admin, \%conf);
+my $users = Users->new($db, $admin, \%conf);
+my $Tags = Tags->new($db, $admin, \%conf);
+my $ring_path = "$conf{TPL_DIR}ring/";
+
+#*******************************************************************
+# Main function
+#*******************************************************************
+sub ring_main {
+  # изменение правила в вэбке
+  if ($FORM{chg}) {
+    my $rule_info = $Ring->select_rule({ RULE_ID => $FORM{chg} });
+
+    if(_error_show($Ring)) {
+      return 1;
+    }
+
+    my @files_select = files_list({ FILE => $rule_info->{FILE} });
+    my $file_upload_link = "$SELF_URL?index=" . get_function_index('ring_file_upload');
+
+    $html->tpl_show(
+      _include('ring_add_rule', 'Ring'),
+      {
+        NAME        => $rule_info->{NAME},
+        TIME_START  => $html->form_datetimepicker('TIME_START', "$rule_info->{DATE_START} $rule_info->{TIME_START}"),
+        TIME_END    => $html->form_datetimepicker('TIME_END', "$rule_info->{DATE_END} $rule_info->{TIME_END}"),
+        FILE_SELECT => @files_select,
+        MESSAGE     => $rule_info->{MESSAGE},
+        COMMENTS    => $rule_info->{COMMENT},
+        ID          => $FORM{chg},
+        ACTION_TYPE => 'change',
+        BUTTON      => $lang{CHANGE},
+        UPLOAD_FILE => $file_upload_link,
+        INDEX       => get_function_index('ring_rule_add'),
+        EVERY_MONTH => $rule_info->{EVERY_MONTH} ? 'checked' : '',
+        UPDATE_DAY  => $rule_info->{UPDATE_DAY},
+        SQL_QUERY   => $rule_info->{SQL_QUERY},
+      }
+    );
+  }
+
+  # удаление правила из таблицы
+  if ($FORM{del}) {
+    $Ring->del_rule({ ID => $FORM{del} });
+    $html->message('success', "$lang{RULE} $lang{DELETED}", "", {});
+  }
+
+  # показать таблицу правил
+  result_former(
+    {
+      INPUT_DATA      => $Ring,
+      FUNCTION        => 'list_rule',
+      BASE_FIELDS     => 0,
+      DEFAULT_FIELDS  => "ID, NAME, DATE_START, DATE_END, TIME_START, TIME_END, EVERY_MONTH, FILE, MESSAGE, COMMENT, UPDATE_DAY, SQL_QUERY",
+      FUNCTION_FIELDS => 'ring_user_filters:$lang{FILTER}:id, change, del',
+      SKIP_USER_TITLE => 1,
+      EXT_TITLES      => {
+        'name'        => "$lang{NAME}",
+        'id'          => "ID",
+        'date_start'  => "$lang{DATE} $lang{START}",
+        'date_end'    => "$lang{DATE} $lang{END}",
+        'time_start'  => "$lang{TIME} $lang{START}",
+        'time_end'    => "$lang{TIME} $lang{END}",
+        'every_month' => "$lang{EVERY_MONTH}",
+        'file'        => "$lang{FILE}",
+        'message'     => "$lang{MESSAGE}",
+        'comment'     => "$lang{COMMENTS}",
+        'update_day'  => "$lang{UPDATE_DAY}",
+        'sql_query'   => "$lang{SQL_QUERY}",
+      },
+      TABLE => {
+        width   => '100%',
+        caption => $lang{RULES},
+        qs      => $pages_qs,
+        ID      => 'RING_RULE',
+        header  => '',
+        EXPORT  => 1,
+        MENU    => "$lang{ADD}:index=" . get_function_index('ring_rule_add') . ':add',
+#          . ";$lang{SEARCH}:index=$index&search_form=1:search;",
+      },
+      SELECT_VALUE => {
+        every_month => {
+          0 => "$lang{NO}:text-danger",
+          1 => "$lang{YES}:text-primary"
+        },
+      },
+      MAKE_ROWS     => 1,
+      SEARCH_FORMER => 1,
+      MODULE        => 'Ring',
+      TOTAL         => 1
+    }
+  );
+
+}
+
+#*******************************************************************
+# Add rule
+#*******************************************************************
+sub ring_rule_add {
+  my $action_type = 'add';
+  my $button      = "$lang{ADD}";
+  my ($date_start, $time_start);
+  my ($date_end, $time_end);
+
+  # добавление правила в таблицу
+  if ($FORM{ACTION_TYPE} && $FORM{ACTION_TYPE} eq 'add') {
+
+    if($FORM{TIME_START}=~ /\s/ && $FORM{TIME_START}=~ /-/){
+      ($date_start, $time_start) = split(' ', $FORM{TIME_START});
+    }
+    elsif($FORM{TIME_START}=~ /-/){
+      $date_start = $FORM{TIME_START};
+    }
+    elsif($FORM{TIME_START}=~ /:/){
+      $time_start = $FORM{TIME_START};
+    }
+
+    if($FORM{TIME_END}=~ /\s/ && $FORM{TIME_END}=~ /-/){
+      ($date_end, $time_end) = split(' ', $FORM{TIME_END});
+    }
+    elsif($FORM{TIME_END}=~ /-/){
+      $date_end = $FORM{TIME_END};
+    }
+    elsif($FORM{TIME_END}=~ /:/){
+      $time_end = $FORM{TIME_END};
+    }
+
+    $Ring->add_rule(
+      {
+        NAME        => $FORM{NAME},
+        DATE_START  => $date_start,
+        DATE_END    => $date_end,
+        TIME_START  => $time_start,
+        TIME_END    => $time_end,
+        EVERY_MONTH => $FORM{EVERY_MONTH} ? 1 : 0,
+        FILE        => $FORM{FILE_SELECT},
+        MESSAGE     => $FORM{MESSAGE},
+        COMMENT     => $FORM{COMMENTS},
+        UPDATE_DAY  => $FORM{UPDATE_DAY},
+        SQL_QUERY   => $FORM{SQL_QUERY},
+      }
+    );
+
+    $html->message('success', "$lang{RULE} $lang{ADDED}", "", {});
+  }
+
+  # изменение правила в таблице
+  if ($FORM{ACTION_TYPE} && $FORM{ACTION_TYPE} eq 'change') {
+
+    if($FORM{TIME_START}=~ /\s/ && $FORM{TIME_START}=~ /-/){
+      ($date_start, $time_start) = split(' ', $FORM{TIME_START});
+    }
+    elsif($FORM{TIME_START}=~ /-/){
+      $time_start = "00:00:00";
+      $date_start = $FORM{TIME_START};
+    }
+    elsif($FORM{TIME_START}=~ /:/){
+      $time_start = $FORM{TIME_START};
+      $date_start = "0000-00-00";
+    }
+
+    if($FORM{TIME_END}=~ /\s/ && $FORM{TIME_END}=~ /-/){
+      ($date_end, $time_end) = split(' ', $FORM{TIME_END});
+    }
+    elsif($FORM{TIME_END}=~ /-/){
+      $time_end = "00:00:00";
+      $date_end = $FORM{TIME_END};
+    }
+    elsif($FORM{TIME_END}=~ /:/){
+      $time_end = $FORM{TIME_END};
+      $date_end = "0000-00-00"
+    }
+
+    $Ring->change_rule(
+      {
+        ID            => $FORM{ID},
+        NAME          => $FORM{NAME},
+        FILE          => $FORM{FILE_SELECT},
+        DATE_START    => $date_start,
+        DATE_END      => $date_end,
+        TIME_START    => $time_start,
+        TIME_END      => $time_end,
+        EVERY_MONTH   => $FORM{EVERY_MONTH} ? 1 : 0,
+        MESSAGE       => $FORM{MESSAGE},
+        COMMENT       => $FORM{COMMENTS},
+        UPDATE_DAY    => $FORM{UPDATE_DAY},
+        SQL_QUERY     => $FORM{SQL_QUERY},
+      }
+    );
+
+    $html->message('success', "$lang{RULE} $lang{CHANGED}", "", {});
+    return 1;
+  }
+
+  # загрузка файла на сервер
+  if ($FORM{FILE}) {
+    upload_file($FORM{FILE}, { PREFIX => 'ring' });
+      if ($conf{ASTERISK_AMI_REMOTE} && ($conf{ASTERISK_AMI_REMOTE} eq 'yes')) {
+        my $scp_result = qx/scp -o StrictHostKeyChecking=no -i \/usr\/axbills\/Certs\/id_rsa.axbills_admin $ring_path$FORM{FILE}{filename} axbills_admin\@$conf{ASTERISK_AMI_IP}:\/$ring_path/;
+        if ($? != 0) {
+          $html->message('error', $lang{ERROR}, "scp to $conf{ASTERISK_AMI_IP} failed.\n"
+           . "Check configuration.\n");
+        }
+        else {
+          $html->message('success', $lang{INFO}, "$lang{ADDED} $FORM{FILE}{filename} :   $ring_path  @  $conf{ASTERISK_AMI_IP}");
+        }
+        my $ssh_result = qx/ssh -o StrictHostKeyChecking=no -i \/usr\/axbills\/Certs\/id_rsa.axbills_admin axbills_admin\@$conf{ASTERISK_AMI_IP} "chown axbills_admin:asterisk $ring_path$FORM{FILE}{filename}"/;
+        if ($? != 0) {
+          $html->message('error', $lang{ERROR}, "chown axbills_admin:asterisk $ring_path  @  $conf{ASTERISK_AMI_IP} FAILED\n");
+        }
+      }
+  }
+
+  my @files_select = files_list();
+
+  my $file_upload_link = "$SELF_URL?index=" . get_function_index('ring_file_upload');
+  $html->tpl_show(_include('ring_add_rule', 'Ring'), {
+    ACTION_TYPE => $action_type,
+    BUTTON      => $button,
+    TIME_START  => $html->form_datetimepicker('TIME_START'),
+    TIME_END    => $html->form_datetimepicker('TIME_END'),
+    FILE_SELECT => @files_select,
+    UPLOAD_FILE => $file_upload_link,
+    INDEX       => get_function_index('ring_rule_add'),
+  });
+}
+
+#*******************************************************************
+# Upload file to server
+#*******************************************************************
+sub ring_file_upload {
+
+  $html->tpl_show(_include('ring_file_upload', 'Ring'), { INDEX => get_function_index('ring_rule_add'), });
+  return 1;
+}
+
+#*******************************************************************
+# Return list of files
+#*******************************************************************
+sub files_list {
+  my ($attr) = @_;
+  my $dir_len = length $ring_path;
+
+  my @files = glob("$ring_path*");
+  foreach my $file (@files) {
+    $file = substr $file, $dir_len;
+  }
+
+  my @files_select = $html->form_select('FILE_SELECT', {
+    SELECTED    => $FORM{FILE_SELECT} || $attr->{FILE},
+    SEL_ARRAY   => \@files,
+    SEL_OPTIONS => { '' => '--' },
+  });
+
+  return @files_select;
+}
+
+#*******************************************************************
+=head2 ring_user_filters() Add users to rule
+
+=cut
+#*******************************************************************
+sub ring_user_filters {
+
+  my @STATUS = ($lang{WAITING}, $lang{SUCCESS}, $lang{INTERRUPTED}, $lang{ANSWERPHONE}, $lang{NOT_AVAILABLE});
+  my $list;
+  $list = $Ring->rule_users({ RID => $FORM{ID}, COLS_NAME => 1, PAGE_ROWS => 1000000 }) if $FORM{ID};
+
+  my $group_select = sel_groups();
+  my $tags_list = $Tags->list({ NAME => '_SHOW', COLS_NAME => 1 });
+  my $Tags_info = '';
+  foreach my $tag (@$tags_list) {
+    $Tags_info .= "<div class='form-group row'>" .
+      "<label class='col-md-3 control-label' for=tag_$tag->{id}>$tag->{name}</label>" .
+      "<input type='checkbox' name='TAGS' value=$tag->{id} /></div>";
+  }
+
+  if ($FORM{action} && $FORM{action} eq 'addmore') {
+    $html->tpl_show(_include('ring_filters', 'Ring'), {
+      ADDRESS_FORM => $html->tpl_show(templates('form_address_search'), {}, { OUTPUT2RETURN => 1 }),
+      TAGS         => $Tags_info,
+      GROUPS       => $group_select,
+    });
+    return 1;
+  }
+
+  if ($FORM{ID}) {
+    my $users_count = $list ? scalar @$list : 0;
+    if ( $users_count <= 0) {
+      $html->tpl_show(_include('ring_filters', 'Ring'), {
+        ADDRESS_FORM => $html->tpl_show(templates('form_address_search'), {}, { OUTPUT2RETURN => 1 }),
+        TAGS         => $Tags_info,
+        GROUPS       => $group_select
+      });
+
+      return 1;
+    }
+    my $table = $html->table({
+      width   => '100%',
+      caption => $lang{FILTERS},
+      title   => [ 'UID', $lang{RULE}, $lang{DATE}, $lang{TIME}, $lang{STATUS} ],
+      ID      => 'FILTERS',
+      MENU    => "$lang{ADD}:index=" . get_function_index('ring_user_filters') . "&action=addmore&ID=$FORM{ID}" . ':add;'
+    });
+    my $r_info = $Ring->select_rule({ RULE_ID => $FORM{ID} });
+    foreach my $line (@$list) {
+      $table->addrow(
+        $html->button($line->{uid}, "index=15&UID=$line->{uid}", { class => 'btn btn-primary btn-xs', target => '_blank' }),
+        $html->button($r_info->{NAME}, "index=" . get_function_index('ring_main') . "&chg=$r_info->{ID}", {
+          class => 'btn btn-primary btn-xs', target => '_blank' }),
+        $line->{date},
+        $line->{time},
+        $STATUS[$line->{status}],
+        $html->button($lang{DEL}, "index=$index&del=$line->{uid}&r_id=$line->{r_id}", {
+          MESSAGE => "$lang{DEL} $line->{uid}?", class => 'del' })
+      );
+    }
+    print $table->show();
+
+    return 1;
+  }
+
+  if ($FORM{action} && $FORM{action} eq 'filter') {
+    my $r_id = $FORM{rule};
+
+    $FORM{DEPOSIT} ||= '*';
+    $FORM{CREDIT} ||= '*';
+
+    $list = $users->list({
+      UID       => '_SHOW',
+      LOGIN     => '_SHOW',
+      FIO       => '_SHOW',
+      PHONE     => '_SHOW',
+      EMAIL     => '_SHOW',
+      TAG_ID    => '_SHOW',
+      %FORM,
+      UID       => ($FORM{UID}) ? $FORM{UID} : undef,
+      GID       => $FORM{GID},
+      PAGE_ROWS => 1000000,
+      COLS_NAME => 1
+    });
+
+    my ($table) = result_former({
+      INPUT_DATA      => $users,
+      LIST            => $list,
+      BASE_FIELDS     => 1,
+      MULTISELECT     => 'UID:uid',
+      FUNCTION_FIELDS => '',
+      TABLE           => {
+        width      => '100%',
+        #caption    => "$lang{PRE} - $lang{USERS}",
+        qs         => $pages_qs,
+        ID         => 'USERS_FILTER',
+        SELECT_ALL => "users_list:UID:$lang{SELECT_ALL}",
+      },
+      MAKE_ROWS       => 1,
+      OUTPUT2RETURN   => 1
+    });
+
+    $html->tpl_show(_include('ring_add_users', 'Ring'), {
+      USER_TABLE => $table->show(),
+      RULE       => $r_id
+    });
+    return 1;
+  }
+
+  if ($FORM{action} && $FORM{action} eq $lang{ADD}) {
+    my @u_list = split(',\s?', $FORM{UID});
+    my $success_adding = 0;
+    my $not_success_adding = 0;
+    foreach my $id (@u_list) {
+      $Ring->add_user({ UID  => $id, R_ID => $FORM{rule} });
+
+      if(!$Ring->{errno}){
+        $success_adding++;
+      }
+      else{
+        $not_success_adding++;
+      }
+    }
+    print $html->message('info', "$lang{ADDED} - $success_adding<br>$lang{EXIST} - $not_success_adding");
+  }
+
+  my $rule_select = $html->form_select('ID', {
+    SELECTED  => $FORM{RULE_ID},
+    SEL_LIST  => $Ring->list_rule({ MODULE => 'Ring', NAME => '_SHOW', COLS_NAME => 1 }),
+    SEL_KEY   => 'id',
+    SEL_VALUE => 'name',
+    NO_ID     => 1,
+  });
+
+  if($FORM{del}){
+    $Ring->del_user({UID => $FORM{del}, R_ID => $FORM{r_id}});
+
+    $list = $Ring->rule_users({ RID => $FORM{r_id}, COLS_NAME => 1 });
+
+    if (! $Ring->{TOTAL}) {
+      $FORM{ID} =  $FORM{r_id};
+      $html->tpl_show(_include('ring_filters', 'Ring'),{
+        ADDRESS_FORM => $html->tpl_show(templates('form_address_search'), {}, { OUTPUT2RETURN => 1 }),
+        TAGS         => $Tags_info,
+        GROUPS       => $group_select,
+      });
+    }
+    else {
+      my $table = $html->table({
+        width   => '100%',
+        caption => $lang{FILTERS},
+        title   => [ 'UID', $lang{RULE}, $lang{DATE}, $lang{TIME}, $lang{STATUS} ],
+        ID      => 'FILTERS',
+        MENU    => "$lang{ADD}:index=" . get_function_index('ring_user_filters') . "&action=addmore&ID=$FORM{r_id}" . ':add;'
+      });
+      my $r_info = $Ring->select_rule({ RULE_ID => $FORM{r_id} });
+      foreach my $line (@$list) {
+        $table->addrow(
+          $html->button("$line->{uid}", "index=15&UID=$line->{uid}", { class => 'btn btn-primary btn-xs', target => '_blank' }),
+          $html->button("$r_info->{NAME}", "index=" . get_function_index('ring_main') . "&chg=$r_info->{ID}", { class => 'btn btn-primary btn-xs', target => '_blank' }),
+          $line->{date},
+          $line->{time},
+          $STATUS[$line->{status}],
+          $html->button($lang{DEL}, "index=$index&del=$line->{uid}&r_id=$line->{r_id}", { MESSAGE => "$lang{DEL} $line->{uid}?", class => 'del' })
+        );
+      }
+      print $table->show();
+    }
+    return 1;
+  }
+
+  $html->tpl_show(_include('ring_select_rule', 'Ring'), { RULE_SELECT => $rule_select, });
+}
+
+1

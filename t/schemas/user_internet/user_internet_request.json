@@ -1,0 +1,6 @@
+{
+  "name": "USER_INTERNET",
+  "method": "GET",
+  "path": "user/:uid/internet/",
+  "params": {}
+}

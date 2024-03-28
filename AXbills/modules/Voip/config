@@ -1,0 +1,58 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+our %FUNCTIONS_LIST = (
+  "03:2:$lang{TARIF_PLANS}:voip_chg_tp:UID"                 => 11,
+  "04:2:$lang{STATS}:voip_stats:UID"                        => 11,
+  "05:2:$lang{ERROR}:voip_error:UID"                        => 11,
+  "06:0:$lang{VOIP}:null:"                                  => 5,
+  "07:6:$lang{TARIF_PLANS}:voip_tp:"                        => 5,
+  "08:7:$lang{ADD}:voip_tp:"                                => 5,
+  "17:7:$lang{GROUPS}:form_tp_groups:"                      => 5,
+  "09:7:$lang{INTERVALS}:voip_intervals:TP_ID"              => 5,
+  "10:7:$lang{NASS}:voip_nas:TP_ID"                         => 5,
+  "11:6:$lang{ROUTES}:voip_routes:"                         => 5,
+  "12:7:$lang{ROUTES}:voip_tp_routes:TP_ID"                 => 5,
+  "14:6:$lang{EXTRA_TARIFICATION}:voip_extra_tarification:" => 5,
+  "15:6:$lang{EXCHANGE_RATE}:voip_exchange_rate:"           => 5,
+  "16:6:$lang{TRUNKS}:voip_trunks:"                         => 5,
+  "20:0:$lang{VOIP}:null:"                                  => 4,
+  "21:20:$lang{ERROR}:voip_error:"                          => 4,
+  "22:20:$lang{LAST_ENTRIES}:voip_sessions:"                => 4,
+  "23:20:$lang{USED}:voip_use:"                             => 4,
+  "24:22:$lang{MONTH}:voip_use_allmonthes:"                 => 4,
+  "31:30:Gatekeeper:voip_gk_console:"                       => 6,
+);
+
+if ($permissions{0} && $permissions{0}{16}) {
+  $FUNCTIONS_LIST{"25:2:$lang{RECALCULATE}:voip_recalculate:UID"} = 11;
+}
+
+our %USER_FUNCTION_LIST = (
+  "01:0:VoIP:voip_user_info:"            => 0,
+  "02:1:$lang{STATS}:voip_user_stats:"   => 0,
+  "03:1:$lang{ROUTES}:voip_user_routes:" => 0
+);
+
+if ($conf{VOIP_USER_CHG_TP}) {
+  $USER_FUNCTION_LIST{"04:1:$lang{TARIF_PLAN}:voip_user_portal_chg_tp:"} = 0;
+}
+
+our %PERIODIC = (
+  daily   => [ 'voip_daily_fees' ],
+  monthly => [ 'voip_monthly_fees' ],
+  report  => [ 'voip_report' ]
+);
+  
+if ($conf{VOIP_YATE}) {
+  $FUNCTIONS_LIST{"01:0:$lang{VOIP}:voip_yate_users_list:"} = 11;
+  $FUNCTIONS_LIST{"02:0:$lang{VOIP}:voip_yate_user:UID"} = 20;
+  $FUNCTIONS_LIST{"3:7:$lang{USERS}:voip_yate_users_list:TP_ID"} = 5;
+  $FUNCTIONS_LIST{"30:0:$lang{VOIP}:voip_yate_online:"} = 6;
+} 
+else {
+  $FUNCTIONS_LIST{"01:0:$lang{VOIP}:voip_users_list:"} = 11;
+  $FUNCTIONS_LIST{"02:0:$lang{VOIP}:voip_user:UID"} = 20;
+  $FUNCTIONS_LIST{"3:7:$lang{USERS}:voip_users_list:TP_ID"} = 5;
+  $FUNCTIONS_LIST{"30:0:$lang{VOIP}:voip_online:"} = 6;
+}
+
+1;

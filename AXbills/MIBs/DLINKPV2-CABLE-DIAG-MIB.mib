@@ -1,0 +1,234 @@
+--  *****************************************************************
+--  DLINKPV2-CABLE-DIAG-MIB.mib : Cable Diagnostic MIB
+--
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKPV2-CABLE-DIAG-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+	    TEXTUAL-CONVENTION			FROM SNMPv2-TC
+	    MODULE-IDENTITY,OBJECT-TYPE,
+	    Integer32            		FROM SNMPv2-SMI
+            MODULE-COMPLIANCE, OBJECT-GROUP
+		                            FROM SNMPv2-CONF
+	    ifIndex	        		    FROM IF-MIB
+	    dlinkDGS1100CommonV2	    FROM DGS1100SERMGMT-MIB;
+
+        		
+	primeV2CableDiagMIB MODULE-IDENTITY
+		LAST-UPDATED "201404260000Z"
+        ORGANIZATION "D-Link Corp."
+	  	CONTACT-INFO
+            "	        D-Link Corporation
+
+             	Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                   		Taipei City 114, Taiwan, R.O.C
+             	Tel:     +886-2-66000123
+             	E-mail: tsd@dlink.com.tw
+           	"
+	  	DESCRIPTION
+	    	"The MIB module for determining the status of 
+			the cables attached to the device."
+	
+        REVISION "201404260000Z"
+        DESCRIPTION
+            " This is the first version of this MIB file.
+            "
+	  	::= {dlinkDGS1100CommonV2 1}
+
+-- -----------------------------------------------------------------------------
+    v2CableDiagNotifications    OBJECT IDENTIFIER ::= { primeV2CableDiagMIB 0 }
+    v2CableDiagObjects          OBJECT IDENTIFIER ::= { primeV2CableDiagMIB 1 }
+    v2CableDiagConformance      OBJECT IDENTIFIER ::= { primeV2CableDiagMIB 2 }
+
+-- -----------------------------------------------------------------------------
+-- Notifications
+-- -----------------------------------------------------------------------------
+
+-- -----------------------------------------------------------------------------
+-- Objects
+-- -----------------------------------------------------------------------------	  		
+    v2CableDiagIfTable  OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2CableDiagIfEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table contains a list of information about test on the device's 	
+            interfaces. Note that entries will exist in this table when the 
+            corresponding interface is capable to run test."            
+        ::= { v2CableDiagObjects 1 }
+
+    v2CableDiagIfEntry OBJECT-TYPE
+        SYNTAX          V2CableDiagIfEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry in the v2CableDiagIfTable, contains the
+            testing controls on an interface."
+        INDEX   { ifIndex }
+        ::= { v2CableDiagIfTable 1 }
+
+    V2CableDiagIfEntry ::=   SEQUENCE {
+		v2CableDiagIfAction 	    INTEGER		
+    }  
+        
+    v2CableDiagIfAction OBJECT-TYPE 
+        SYNTAX  INTEGER {
+            noOp(1),
+            test(2),
+            clear(3)               
+        }
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object control the action to be executed on the interface.            
+		            
+            noOp(1)  - No action is taken if this object is set to 'noOp'.
+                       When read, the value 'noOp' is returned.
+                        
+            test(2)  - Start the test on the interface.
+	            	
+            clear(3) - Clear all the test results on the interface. 
+                       The value of the following objects of the entry will
+                       become 'other'.
+                       -- v2CableDiagResultPair1Status
+                       -- v2CableDiagResultPair2Status
+                       -- v2CableDiagResultPair3Status  
+                       -- v2CableDiagResultPair4Status 
+                       The value of the following objects of the entry will
+                       become -1 (unavailable)
+                       -- v2CableDiagResultPair1Length
+                       -- v2CableDiagResultPair2Length
+                       -- v2CableDiagResultPair3Length
+                       -- v2CableDiagResultPair4Length
+                       The value of v2CableDiagResultStatus of the entry will
+                       become 'notRun'.
+            "            
+        ::= { v2CableDiagIfEntry 1 }           
+        
+-- -----------------------------------------------------------------------------                	  		
+    v2CableDiagResultTable  OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2CableDiagResultEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table contains a list of interface's cable situation.
+            Note that entries will exist in this table when the 
+            corresponding interface is a copper Ethernet port.
+            "
+        ::= { v2CableDiagObjects 2 }
+
+    v2CableDiagResultEntry OBJECT-TYPE
+        SYNTAX  V2CableDiagResultEntry
+        MAX-ACCESS  not-accessible
+        STATUS  current
+        DESCRIPTION
+            "An entry in v2CableDiagResultTable contains cable situation
+            of an interface."
+        INDEX   { ifIndex }
+        ::= { v2CableDiagResultTable 1 }
+
+    V2CableDiagResultEntry ::=       SEQUENCE {
+		v2CableDiagResultCableStatus	INTEGER,
+		v2CableDiagResultCableLength	Integer32,
+		v2CableDiagLinkStatus		INTEGER,
+		v2CableDiagInterfaceType	INTEGER
+    }
+       
+    v2CableDiagResultCableStatus OBJECT-TYPE
+        SYNTAX  INTEGER {
+            no_result(0),
+            ok(1),
+            no_cable(2),
+            open(3),
+            short(4),
+            imp_mis(5)
+        } 
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+           "The status of a pair of the cable.
+             no_result(0) - The cable have not do cable daig or result have 
+                          been clear.             
+             ok(1)    - The pair or cable has no error.
+             no_cable(2) - The port does not have any cable connection to the
+                        remote partner.  
+             open(3)  - The cable in the error pair does not have a connection
+                        at the specified position.
+             short(4) - The cable in the error pair has a short problem at the
+                        specified position.   
+             imp_mis(5)- The cable in the error pair has a impedance_mismatch problem
+                        at the specified position.
+            "
+        ::= { v2CableDiagResultEntry 1 }
+        
+    v2CableDiagResultCableLength OBJECT-TYPE
+        SYNTAX          Integer32
+        UNITS           "meters"
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the approximate length or length to the failure of 
+            the cable. This value is in meter units.
+            The special value of -1 indicates the length is unavailable."
+        ::= { v2CableDiagResultEntry 2 }                         
+        	        
+    v2CableDiagLinkStatus OBJECT-TYPE
+        SYNTAX  INTEGER {
+            no_result(0),
+            up(1),
+            down(2)
+        }
+        MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+                  "The current link operational state of the interface."
+        ::= { v2CableDiagResultEntry 3 }
+
+    v2CableDiagInterfaceType OBJECT-TYPE
+        SYNTAX  INTEGER {
+            no_result(0),
+            type_1000BASET(1),
+            type_1000BASEX(2)
+        }
+        MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+                  "The current port type of the interface."
+        ::= { v2CableDiagResultEntry 4 }
+
+-- -----------------------------------------------------------------------------
+-- Conformance
+-- -----------------------------------------------------------------------------
+    v2CableDiagCompliances OBJECT IDENTIFIER ::= { v2CableDiagConformance 1 }
+		
+	v2CableDiagCompliance MODULE-COMPLIANCE
+		STATUS          current
+		DESCRIPTION 
+			"The compliance statement for entities which implement the 
+			DLINKPV2-CABLE-DIAG-MIB."
+		MODULE -- this module
+		MANDATORY-GROUPS { 
+		    v2CableDiagBasicGroup		    
+		}					                        
+	    ::= { v2CableDiagCompliances 1 }
+		
+	v2CableDiagGroups OBJECT IDENTIFIER ::= { v2CableDiagCompliances 2 }
+		
+    v2CableDiagBasicGroup OBJECT-GROUP
+		OBJECTS { 
+		    v2CableDiagIfAction, 
+		    v2CableDiagResultCableStatus,
+		    v2CableDiagResultCableLength,
+		    v2CableDiagLinkStatus,
+		    v2CableDiagInterfaceType
+		}
+		STATUS current
+		DESCRIPTION 
+			"This group contains the collection of objects related to  
+			 configuration and information of fundamental cable diagnostics feature."						
+		::= { v2CableDiagGroups 1 }
+       
+END
+

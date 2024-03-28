@@ -1,0 +1,12 @@
+sender_phone -> 380989879602
+liqpay_order_id -> 3960700u1414946023482671
+receiver_commission -> 1.00
+status -> success
+order_id -> Liqpay:45078136
+description -> Payments ID: 45078136
+currency -> UAH
+amount -> 100.00
+signature -> xWPT6Jzu1Pz0q4CaOi8CsHYzo+8=
+transaction_id -> 44126065
+type -> buy
+public_key -> i24836393008

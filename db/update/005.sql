@@ -1,0 +1,15 @@
+CREATE TABLE IF NOT EXISTS `crm_reference_works` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` CHAR(60) NOT NULL DEFAULT '',
+  `time` INT UNSIGNED NOT NULL DEFAULT 0,
+  `sum` DOUBLE(10, 2) NOT NULL DEFAULT 0.00,
+  `comments` TEXT,
+  PRIMARY KEY (`id`)
+)
+  COMMENT = 'Reference works';
+
+ALTER TABLE `events`
+  MODIFY COLUMN `group_id` SMALLINT(6) UNSIGNED NOT NULL DEFAULT 1;
+
+ALTER TABLE `builds`
+  ADD `planned_to_connect` TINYINT(1) UNSIGNED NOT NULL DEFAULT '0';

@@ -1,0 +1,8 @@
+type: object
+properties:
+  fromDate:
+    type: string
+    example: "2021-08-14"
+  toDate:
+    type: string
+    example: "2021-08-17"

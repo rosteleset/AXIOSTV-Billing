@@ -1,0 +1,20 @@
+ALTER TABLE `msgs_messages` ADD COLUMN `location_id` INT(11) UNSIGNED NOT NULL DEFAULT 0;
+
+ALTER TABLE `paysys_terminals` ADD COLUMN `work_days` SMALLINT(3) UNSIGNED NOT NULL DEFAULT 0;
+ALTER TABLE `paysys_terminals` ADD COLUMN `start_work` TIME NOT NULL DEFAULT '00:00:00';
+ALTER TABLE `paysys_terminals` ADD COLUMN `end_work` TIME NOT NULL DEFAULT '00:00:00';
+ALTER TABLE `paysys_terminals` ADD COLUMN `description` TEXT;
+
+ALTER TABLE `cams_streams` ADD UNIQUE (`name`);
+
+
+ALTER TABLE `storage_articles` ADD COLUMN `domain_id` SMALLINT(6) UNSIGNED NOT NULL DEFAULT '0';
+ALTER TABLE `storage_article_types` ADD COLUMN `domain_id` SMALLINT(6) UNSIGNED NOT NULL DEFAULT '0';
+ALTER TABLE `storage_suppliers` ADD COLUMN `domain_id` SMALLINT(6) UNSIGNED NOT NULL DEFAULT '0';
+ALTER TABLE `storage_storages` ADD COLUMN `domain_id` SMALLINT(6) UNSIGNED NOT NULL DEFAULT '0';
+ALTER TABLE `storage_property` ADD COLUMN `domain_id` SMALLINT(6) UNSIGNED NOT NULL DEFAULT '0';
+ALTER TABLE `storage_admins` ADD COLUMN `domain_id` SMALLINT(6) UNSIGNED NOT NULL DEFAULT '0';
+
+ALTER TABLE `storage_incoming` ADD COLUMN `domain_id` SMALLINT(6) UNSIGNED NOT NULL DEFAULT '0';
+ALTER TABLE `storage_inventory` ADD COLUMN `domain_id` SMALLINT(6) UNSIGNED NOT NULL DEFAULT '0';
+ALTER TABLE `tarif_plans` ADD COLUMN `status` TINYINT(1) UNSIGNED NOT NULL DEFAULT '0';

@@ -1,0 +1,160 @@
+.container {
+  position: relative;
+  border-radius: 5px;
+  background-color: #f2f2f2;
+  padding: 20px 0 30px 0;
+}
+
+.btn {
+  width: 100%;
+  padding: 12px;
+  border: none;
+  border-radius: 4px;
+  margin: 5px 0;
+  opacity: 0.95;
+  display: inline-block;
+  font-size: 17px;
+  line-height: 20px;
+  text-decoration: none;
+  box-shadow: 0 2px 4px 0 rgba(0, 0, 0, .25);
+}
+
+.btn:hover {
+  opacity: 1;
+}
+
+.btn:active {
+  opacity: 0.9;
+}
+
+.fb, .fb:focus {
+  background-color: #2374f2 !important;
+  color: white;
+}
+
+.fb:hover {
+  color: white;
+  box-shadow: 0 0 3px 3px rgba(59, 89, 152, .3);
+}
+
+.google, .google:focus {
+  background-color: #FFFFFF;
+  color: #515151;
+}
+
+.google:hover {
+  box-shadow: 0 0 3px 3px rgba(66, 133, 244, .3)!important;
+}
+
+.google:active {
+  background-color: #eeeeee !important;
+}
+
+.google > img {
+  max-width: 15px;
+  margin-right: 2px;
+}
+
+.apple, .apple:focus {
+  background-color: black !important;
+  color: white;
+}
+
+.apple:hover {
+  color: white;
+  box-shadow: 0 0 3px 3px rgba(0, 0, 0, .3)!important;
+}
+
+.telegram, .telegram:focus {
+  background-color: #54A9EB !important;
+  color: white;
+}
+
+.telegram:hover {
+  color: white;
+  box-shadow: 0 0 3px 3px rgba(84, 169, 235, .3)!important;
+}
+
+.phone, .phone:focus {
+  background-color: #4f6bf3; !important;
+  color: white !important;
+}
+
+.phone:hover {
+  color: white;
+  box-shadow: 0 0 3px 3px rgba(79, 107, 243, .3)!important;
+}
+
+.twitter, .twitter:focus {
+  background-color: #1b95e0 !important;
+  color: white !important;
+}
+
+.twitter:hover {
+  color: white;
+  box-shadow: 0 0 3px 3px rgba(27, 149, 224, .3)!important;
+}
+
+.instagram, .instagram:focus {
+  color: white !important;
+  background-color: #fb3958 !important;
+}
+
+.instagram:hover {
+  color: white;
+  box-shadow: 0 0 3px 3px rgba(251, 57, 88, .3)!important;
+}
+
+.vk, .vk:focus {
+  color: white !important;
+  background-color: #2787f5 !important;
+}
+
+.vk:hover {
+  color: white;
+  box-shadow: 0 0 3px 3px rgba(39, 135, 245, .3)!important;
+}
+
+.vl {
+  position: absolute;
+  left: 50%;
+  transform: translate(-50%);
+  border: 2px solid #ddd;
+  height: 175px;
+}
+
+.inner {
+  position: absolute;
+  top: 50%;
+  transform: translate(-50%, -50%);
+  background-color: #f1f1f1;
+  border: 1px solid #ccc;
+  border-radius: 50%;
+  padding: 8px 10px;
+}
+
+.hide-md-lg {
+  display: none;
+}
+
+.bottom-container {
+  text-align: center;
+  background-color: #666;
+  border-radius: 0 0 4px 4px;
+}
+
+@media screen and (max-width: 650px) {
+  .col {
+    width: 100%;
+    margin-top: 0;
+  }
+
+  .vl {
+    display: none;
+  }
+
+  .hide-md-lg {
+    display: block;
+    text-align: center;
+  }
+}

@@ -1,0 +1,13 @@
+$lang{STYLE} = 'Стыль';
+$lang{DETAIL} = 'Падрабязней';
+$lang{AUTHOR} = 'Аўтар';
+$lang{GALLERY_ON} = 'Уключыць галерэю';
+$lang{POSTS} = 'Пасты';
+$lang{PAGES} = 'Старонкі';
+$lang{GALLERY} = 'Галерэя';
+$lang{IMAGE_UPLOAD} = 'Загрузка карцінкі';
+$lang{CHOOSE_IMAGES} = 'Выбраць карцінкі';
+$lang{TITLE}= 'Загаловак';
+$lang{DIR_CREATED}='Папка створана';
+$lang{DESCRIPTION}='Апісанне';
+1;

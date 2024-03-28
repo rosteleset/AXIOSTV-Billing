@@ -1,0 +1,37 @@
+delete:
+  tags:
+    - contacts
+  summary: Удаление контакта
+  parameters:
+    - name: typeId
+      in: path
+      description: typeId контакта
+      required: true
+      schema:
+        type: number
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              result:
+                type: string
+                example: Successfully deleted
+    400:
+      description: Неизвестный typeId
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              errno:
+                type: integer
+                example: 10048
+              errstr:
+                type: string
+                example: No field token
+  security:
+    - USERSID: [ ]

@@ -1,0 +1,225 @@
+--  *****************************************************************
+--  DLINKPV2-TIME-RANGE-MIB.mib : DLINK Time Range MIB
+-- 
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+DLINKPV2-TIME-RANGE-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, Unsigned32     
+            FROM SNMPv2-SMI        
+        RowStatus, DisplayString
+            FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP
+		    FROM SNMPv2-CONF
+        dlinkDGS1100CommonV2            
+            FROM DGS1100SERMGMT-MIB;
+
+     primeV2TimeRangeMIB MODULE-IDENTITY
+         LAST-UPDATED "201404260000Z"
+         ORGANIZATION "D-Link Corp."
+         CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB defines time range profiles to activate features."
+         
+        REVISION "201404260000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file."
+         ::= { dlinkDGS1100CommonV2 24 }
+
+
+-- -----------------------------------------------------------------------------
+    v2TimeRangeMIBNotifications   OBJECT IDENTIFIER ::= { primeV2TimeRangeMIB 0 }
+    v2TimeRangeMIBObjects         OBJECT IDENTIFIER ::= { primeV2TimeRangeMIB 1 }
+    v2TimeRangeMIBConformance     OBJECT IDENTIFIER ::= { primeV2TimeRangeMIB 2 }
+
+-- -----------------------------------------------------------------------------  
+    v2TimeRangeProfileTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2TimeRangeProfileEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+             "A table consists of a list of time range profiles."
+        ::= { v2TimeRangeMIBObjects 1 }
+
+    v2TimeRangeProfileEntry OBJECT-TYPE
+        SYNTAX          V2TimeRangeProfileEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry contains information of a time range profile."
+        INDEX { 
+            v2TimeRangeProfileName,
+            v2TimeRangeProfilePeriodType,             
+            v2TimeRangeProfileStartDayOfWeek,
+            v2TimeRangeProfileStartHour,
+            v2TimeRangeProfileStartMinute,
+            v2TimeRangeProfileEndDayOfWeek,
+            v2TimeRangeProfileEndHour,
+            v2TimeRangeProfileEndMinute   
+        }
+        ::= { v2TimeRangeProfileTable 1 }
+
+    V2TimeRangeProfileEntry ::=           SEQUENCE {
+        v2TimeRangeProfileName               DisplayString,      
+        v2TimeRangeProfilePeriodType         INTEGER,
+        v2TimeRangeProfileStartDayOfWeek     INTEGER,
+        v2TimeRangeProfileStartHour          Unsigned32,
+        v2TimeRangeProfileStartMinute        Unsigned32,
+        v2TimeRangeProfileEndDayOfWeek       INTEGER,
+        v2TimeRangeProfileEndHour            Unsigned32,
+        v2TimeRangeProfileEndMinute          Unsigned32,      
+        v2TimeRangeProfileRowStatus          RowStatus
+    }
+
+    v2TimeRangeProfileName           OBJECT-TYPE
+        SYNTAX          DisplayString (SIZE (1..32))
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The time range name of the entry."
+        ::= { v2TimeRangeProfileEntry 1 }         
+           
+	v2TimeRangeProfilePeriodType OBJECT-TYPE
+		SYNTAX	INTEGER {
+			daily(1),
+			weekly(2)
+		}
+		MAX-ACCESS	    not-accessible
+		STATUS	        current
+	    DESCRIPTION
+			"This object indicates the type of this entry.
+            'daily' - Using the time of day to specify the time range.
+            'weekly' - Using the day of the week and time of day to specify 
+                      the time range.
+            "
+		::= { v2TimeRangeProfileEntry 2 }
+
+    v2TimeRangeProfileStartDayOfWeek          OBJECT-TYPE
+        SYNTAX          INTEGER  {
+            sunday(1),
+            monday(2),
+            tuesday(3),
+            wednesday(4),
+            thursday(5),
+            friday(6),
+            saturday(7),
+            notApplicable(8)
+        }       
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the start day of week of the entry.
+            This object is meaningful when v2TimeRangeProfilePeriodType is 'weekly'.
+            If v2TimeRangeProfilePeriodType is not 'weekly', this object is set
+            to 'notApplicable'.        
+            "
+        ::= { v2TimeRangeProfileEntry 3 }
+       
+    v2TimeRangeProfileStartHour OBJECT-TYPE
+        SYNTAX          Unsigned32 (0..23)
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object specifies the hours component of time (24 hour format)
+            at which the daily/weekly periodic start time for this entry.
+            "
+        ::= { v2TimeRangeProfileEntry 4 }
+
+    v2TimeRangeProfileStartMinute OBJECT-TYPE
+        SYNTAX          Unsigned32 (0..59)
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+           "This object specifies the minutes component of time at which
+           the daily/weekly periodic start time for this entry.
+           "
+        ::= { v2TimeRangeProfileEntry 5 }
+ 
+   v2TimeRangeProfileEndDayOfWeek          OBJECT-TYPE
+        SYNTAX          INTEGER  {
+            sunday(1),
+            monday(2),
+            tuesday(3),
+            wednesday(4),
+            thursday(5),
+            friday(6),
+            saturday(7),
+            notApplicable(8)
+        }       
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the end day of week of the entry.
+            This object is meaningful when v2TimeRangeProfilePeriodType is 'weekly'.
+            If v2TimeRangeProfilePeriodType is not 'weekly', this object is set
+            to 'notApplicable'.
+            "
+        ::= { v2TimeRangeProfileEntry 6 }
+       
+    v2TimeRangeProfileEndHour OBJECT-TYPE
+        SYNTAX          Unsigned32 (0..23)
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object specifies the hours component of time (24 hour format)
+            at which the daily/weekly periodic start time for this entry.
+            "
+        ::= { v2TimeRangeProfileEntry 7 }
+
+    v2TimeRangeProfileEndMinute OBJECT-TYPE
+        SYNTAX          Unsigned32 (0..59)
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object specifies the minutes component of time at which
+            the daily/weekly periodic end time for this entry.
+            "
+        ::= { v2TimeRangeProfileEntry 8 }
+
+    v2TimeRangeProfileRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the RowStatus of this entry."
+        ::= { v2TimeRangeProfileEntry  9 }
+
+--  ***************************************************************************	
+--  Conformance
+--  ***************************************************************************			   		
+	v2TimeRangeCompliances OBJECT IDENTIFIER ::= { v2TimeRangeMIBConformance 1 }
+		
+	v2TimeRangeCompliance MODULE-COMPLIANCE
+		STATUS current
+		DESCRIPTION 
+			"The compliance statement for entities which implement the 
+			DLINKPV2-TIME-RANGE-MIB."
+		MODULE -- this module
+		MANDATORY-GROUPS { 
+            v2TimeRangeProfileCfgGroup         
+        }	
+		
+		::= { v2TimeRangeCompliances 1 }
+		
+	v2TimeRangeGroups OBJECT IDENTIFIER ::= { v2TimeRangeMIBConformance 2 }
+	
+	v2TimeRangeProfileCfgGroup OBJECT-GROUP
+		OBJECTS { 
+			v2TimeRangeProfileRowStatus 
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing configuration for time range profiles."
+		::= { v2TimeRangeGroups 1 }
+	   
+          
+END

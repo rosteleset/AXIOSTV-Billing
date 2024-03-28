@@ -1,0 +1,11 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+  "01:0:UniFi:unifi_main"                    => 6,
+  "02:1:$lang{USERS}:unifi_guests_list"      => 6,
+  "03:1:$lang{HARDWARE}:unifi_ap_list"       => 6,
+  #"04:1:unifi_deauthorize:unifi_deauthorize" => 6,
+  #    "05:1::unifi_authorize"               => 6,
+  "06:1:unifi_restart_ap:unifi_restart_ap"   => 6,
+);
+
+1

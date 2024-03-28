@@ -1,0 +1,3 @@
+ALTER TABLE `tarif_plans` ADD COLUMN `promotional` TINYINT(1) UNSIGNED NOT NULL DEFAULT '0';
+ALTER TABLE `msgs_messages` ADD COLUMN `closed_aid` SMALLINT(6) UNSIGNED NOT NULL  DEFAULT '0' COMMENT 'Closed Admin ID';
+ALTER TABLE `tarif_plans` ADD COLUMN `ext_bill_fees_method`    TINYINT(4) UNSIGNED    NOT NULL DEFAULT '0';

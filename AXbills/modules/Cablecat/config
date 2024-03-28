@@ -1,0 +1,45 @@
+%FUNCTIONS_LIST = (
+  "01:0:Cablecat:cablecat_main:"                                     => 5,
+
+  "02:1:$lang{CABLES}:cablecat_cables:"                              => 5,
+  "03:2:$lang{COLOR_SCHEMES}:cablecat_color_schemes:"                => 5,
+  "04:2:$lang{CABLE_TYPES}:cablecat_cable_types:"                    => 5,
+
+  "05:1:$lang{WELLS}:cablecat_wells:"                                => 5,
+  "06:5:$lang{WELLS} $lang{TYPE}:cablecat_well_types:"               => 5,
+  "07:1:$lang{CONNECTERS}:cablecat_connecters:"                      => 5,
+  "08:7:$lang{TYPES}:cablecat_connecter_types:"                      => 5,
+  "09:1:$lang{SPLITTERS} :cablecat_splitters:"                       => 5,
+  "10:9:$lang{TYPES}:cablecat_splitter_types:"                       => 5,
+  "11:1:$lang{CROSSES}:cablecat_crosses:"                            => 5,
+  "12:11:$lang{CROSS_TYPES}:cablecat_cross_types:"                   => 5,
+
+  "13:1:$lang{COMMUTATIONS}:cablecat_commutations"                   => 5,
+  "14:13:$lang{COMMUTATION}:cablecat_commutation::ID"                => 5,
+
+  "16:13::cablecat_link_info:AJAX"                                   => 5,
+  "17:13:$lang{WRONG_LINKS}:cablecat_links_check"                    => 5,
+  "18:13:$lang{PRINT}:show_box"                                      => 5,
+
+  "22:1:$lang{CABLE_RESERVE}:cablecat_reserve:"                      => 5,
+
+  "40:0:Cablecat:null"                                               => 4,
+  "41:40:$lang{CABLES}:cablecat_cable_reports"                       => 4,
+
+  "51:0:$lang{CONNECTION_TRACE}:cablecat_user_trace_connection_form" => 20,
+
+  "52:1:$lang{BIG_COMMUTATION}:cablecat_big_commutation:"            => 5,
+  "53:0::cablecat_commutations_select:AJAX"                          => 5,
+  "54:0::cablecat_get_commutation:AJAX"                              => 5,
+  "55:0::cablecat_fill_scheme_coords:AJAX"                           => 5,
+  "56:0::cablecat_get_added_schemes:AJAX"                            => 5,
+  "57:5:$lang{IMPORT}:cablecat_import_wells_form:"                   => 5,
+
+  "58:0::cablecat_commutation_links:AJAX"                            => 0,
+  "59:0::cablecat_change_commutation_info:AJAX"                      => 0,
+
+  "60:0::cablecat_import_presets:AJAX"                               => 0,
+  "61:0::cablecat_equipment_trace:AJAX"                              => 0,
+);
+
+1;

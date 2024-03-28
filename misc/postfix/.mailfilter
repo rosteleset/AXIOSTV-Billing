@@ -1,0 +1,24 @@
+SHELL=/bin/sh
+UMASK=077
+mail=tolower($mail)
+LOGNAME=tolower($LOGNAME)
+VERBOSE=7
+user=`echo $LOGNAME|sed s/\@/\ /| awk '{print $1}'`
+domain=`echo $LOGNAME|sed s/\@/\ /| awk '{print $2}'`
+MAILDIR="$HOME/$domain/$user/"
+MAILDIRMAKE=`which maildirmake`
+
+#Make maildir if not exists
+`test -d $MAILDIR`
+if ($RETURNCODE!=0)
+ {
+  `test -d $HOME/$domain/`
+   if ($RETURNCODE!=0) 
+    {
+     `mkdir "$HOME/$domain/"` 
+    }
+
+  `${MAILDIRMAKE} $MAILDIR`
+  }
+
+to "$MAILDIR"

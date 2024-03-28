@@ -1,0 +1,53 @@
+#!/bin/sh
+#============================UP====================
+IFNAME=$1
+IP=$4
+
+AWK=/usr/bin/awk
+REDIRECT_IP="127.0.0.1"
+ALLOW_NET=""
+IPTABLES_WAIT="-w 20";
+IPTABLES="/sbin/iptables ${IPTABLES_WAIT}"
+DEBUG=
+IPSET_ALLOW_LIST=allowip
+IPSET=`which ipset`;
+
+if [ -f /var/run/radattr.$IFNAME ]; then
+  FILTERS=`${AWK}  '/Filter-Id/ {print $2}'  /var/run/radattr.${IFNAME}`
+fi;
+
+EXIST=`${IPTABLES} -t nat -L PREROUTING -v | grep "${IFNAME} ";  ${IPTABLES} -L -v | grep DROP | grep "${IFNAME} "` 
+if [ "" != "${EXIST}" ]; then
+  ${IPTABLES} -t nat -D PREROUTING -i ${IFNAME} -p tcp -m tcp --dport 80 -j DNAT --to-destination ${REDIRECT_IP}:80
+  ${IPTABLES} -D FORWARD -i ${IFNAME} -j DROP
+fi;
+
+
+if [ "${FILTERS}" = NEG_DEPOSIT ] ; then
+#### Filters
+  $IPTABLES -t nat -A PREROUTING -i ${IFNAME} -p tcp -m tcp --dport 80 -j DNAT --to-destination $REDIRECT_IP:80
+  $IPTABLES -t nat -A PREROUTING -i ${IFNAME} -d ${ALLOW_NET} -j RETURN
+  $IPTABLES -I FORWARD -i ${IFNAME} -d ${ALLOW_NET} -j ACCEPT 
+  $IPTABLES -A FORWARD -i ${IFNAME} -j DROP
+  if [ "${DEBUG}" != "" ] ; then
+    echo "UP neg filter User: ${USER_NAME} Filter: ${FILTERS} IF: ${IFNAME}" >> /tmp/neg
+  fi;
+  exit;
+
+else
+  if [ "${DEBUG}" != "" ] ; then
+    echo "UP User: ${USER_NAME} Filter: ${FILTERS} IF: ${IFNAME}" >> /tmp/allow
+  fi;
+
+  allownet=`${IPSET} -L |grep ${IPSET_ALLOW_LIST} |sed 's/ //'|awk -F: '{ print $2 }'`
+  if [ "${allownet}" = "" ]; then
+    #echo "ADD allownet"
+    ${IPSET} -N ${IPSET_ALLOW_LIST} nethash
+  fi;
+
+  ${IPSET} add ${IPSET_ALLOW_LIST} ${IP}
+
+fi;
+
+
+exit 1;

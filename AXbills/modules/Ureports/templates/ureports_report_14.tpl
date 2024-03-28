@@ -1,0 +1,6 @@
+_{DEAR}_, %FIO%
+
+_{TARIF_PLAN}_ _{EXPIRE}_
+
+_{DAYS_TO_EXPIRE}_: %TP_EXPIRE%
+_{DEPOSIT}_: %DEPOSIT%

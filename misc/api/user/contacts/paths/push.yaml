@@ -1,0 +1,88 @@
+post:
+  tags:
+    - contacts
+  summary: Подписка на Push уведомления
+  parameters:
+    - name: typeId
+      in: path
+      description: >
+        Тип пуша. Доступные значения `1` - *Web*, `2` - *Android*, `3` - *iOS/MacOS Silicon*
+      required: true
+      schema:
+        type: number
+  requestBody:
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            token:
+              type: string
+              example: "d61FRIQSRI2j1mOwvLqt12:APA91bGpVb1bbokiMBWAoBh6uaGhzFr6YOD9ZT_1WcFeu6b_Dc8a8glaQCEk5GtCM3LYdvnF1XewSIpiT6Y5gkoa9ztFUb8of1wxd28eG-L94DM8MHvaCGa2jIbatHWiPYcPSUOtAdsM"
+    required: true
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              result:
+                type: string
+                example: OK
+  security:
+    - USERSID: [ ]
+delete:
+  tags:
+    - contacts
+  summary: Отписка от Push уведомлений от всех устройств данного типа
+  parameters:
+    - name: typeId
+      in: path
+      description: >
+        Тип пуша. Доступные значения `1` - *Web*, `2` - *Android*, `3` - *iOS/MacOS Silicon*
+      required: true
+      schema:
+        type: number
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              result:
+                type: string
+                example: Successfully deleted
+  security:
+    - USERSID: [ ]
+get:
+  tags:
+    - contacts
+  summary: Получить FCM токен
+  parameters:
+    - name: typeId
+      in: path
+      description: >
+        Тип пуша. Доступные значения `1` - *Web*, `2` - *Android*, `3` - *iOS/MacOS Silicon*
+      required: true
+      schema:
+        type: number
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              value:
+                type: string
+                example: "d61FRIQSRI2j1mOwvLqt12:APA91bGpVb1bbokiMBWAoBh6uaGhzFr6YOD9ZT_1WcFeu6b_Dc8a8glaQCEk5GtCM3LYdvnF1XewSIpiT6Y5gkoa9ztFUb8of1wxd28eG-L94DM8MHvaCGa2jIbatHWiPYcPSUOtAdsM"
+              uid:
+                type: integer
+                example: 1
+  security:
+    - USERSID: [ ]

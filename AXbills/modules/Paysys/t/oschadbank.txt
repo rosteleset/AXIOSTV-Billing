@@ -1,0 +1,9 @@
+===== Auth =====
+num -> 1
+sec -> db2231a0eefc5e93af520762482ae4ca
+===== Payment =====
+amount -> 1
+num -> 1
+sec -> 71b73b8f267b7b4eb4d792243b577a4c
+trid -> dadbffbd7
+payment_description -> Test for oschadbank

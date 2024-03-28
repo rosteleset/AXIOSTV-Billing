@@ -1,0 +1,10 @@
+[Unit]
+Description=pppd hangup socket for killing ppp sessions
+
+[Socket]
+# ListenStream=another_ip:30000
+ListenStream=127.0.0.1:30000
+Accept=yes
+
+[Install]
+WantedBy=sockets.target

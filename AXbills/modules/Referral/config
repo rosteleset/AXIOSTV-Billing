@@ -1,0 +1,32 @@
+use Referral;
+
+my $Referral = Referral->new($db, $admin, \%conf);
+
+$Referral->request_list({
+  STATUS => 0,
+});
+my $info = '';
+
+$info = $html->badge($Referral->{TOTAL}, { TYPE => 'bg-red' }) if ($Referral->{TOTAL});
+
+%FUNCTIONS_LIST = (
+  "01:0:$lang{REFERRAL_SYSTEM}:null:"                      => 5,
+  "07:1:$lang{TARIF_PLANS}:referral_tp:"                   => 5,
+  "08:0:$lang{REQUESTS_REFERRAL} $info:referral_requests:" => 8,
+  "02:0:$lang{REFERRAL_SYSTEM}:referral_user:UID"          => 20,
+  "03:0:$lang{REFERRAL_SYSTEM}:referral_report"            => 4,
+  "04:3::referral_show:IN_MODAL"                           => 4,
+  "05:3::referral_form_search:IN_MODAL"                    => 4,
+  "06:3::referral_set:REFERRER_UID"                        => 4,
+  "07:8::referral_redirect:REFERRAL_REQUEST"               => 8,
+);
+
+%USER_FUNCTION_LIST = (
+  "01:0:$lang{ADD_FRIEND}:add_friend:" => 0,
+);
+
+%PERIODIC = (
+  daily => [ 'referral_pay' ],
+);
+
+1;

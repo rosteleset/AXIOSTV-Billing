@@ -1,0 +1,35 @@
+﻿<form action=%PAY_URL% method="POST">
+
+<input type='hidden' name='key' value=%KEY%>
+<input type='hidden' name='payment' value=%PAYMENT%>
+<input type='hidden' name='order' value=%OID%>
+<input type='hidden' name='data' value=%PRODUCT_DATA%>
+<input type='hidden' name='ext1' value=%UID%>
+<input type='hidden' name='url' value=%URL_OK%>
+<input type='hidden' name='sign' value=%SIGNATURE%>
+
+<div class='panel panel-primary'>
+<div class='panel-heading text-center'>$_BALANCE_RECHARCHE</div>
+
+
+<div class='panel-body'>
+	<div class='form-group'>
+		<label class='col-md-6 control-label text-center'>$_ORDER</label>
+		<label class='col-md-6 control-label'>$FORM{OPERATION_ID}</label>
+	</div>
+	<div class='form-group'>
+		<label class='col-md-6 control-label text-center'>$_PAY_SYSTEM</label>
+		<label class='col-md-6 control-label'>PLATON</label>
+	</div>
+	<div class='form-group'>
+		<label class='control-label col-md-6 text-center'>$_SUM</label>
+		<label class='control-label col-md-6'>$FORM{SUM}</label>
+	</div>
+</div>
+
+<div class='panel-footer text-center'>
+	<input class='btn btn-primary' type=submit value=$_PAY>
+</div>
+
+</div>
+</form>

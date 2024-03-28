@@ -1,0 +1,16 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+
+our %FUNCTIONS_LIST = (
+  "01:0:3play:null:"                          => 5,
+  "02:1:$lang{TARIF_PLANS}:triplay_tp:"       => 5,
+  "03:1:$lang{USERS}:triplay_users_services:" => 5,
+
+  "20:0:3play:triplay_user:UID"           => 20,
+);
+
+our %PERIODIC = (
+  monthly => [ 'triplay_monthly_fees' ],
+  daily   => [ 'triplay_daily_fees' ]
+);
+
+1

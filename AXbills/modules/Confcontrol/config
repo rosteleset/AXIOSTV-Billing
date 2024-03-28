@@ -1,0 +1,11 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+  "1:0:$lang{SYSTEM} $lang{FILE}:null"               => 5,
+  "2:1:$lang{CONFIG} $lang{FILE}:confcontrol_main:" => 5,
+  "3:1:$lang{STATS}:confcontrol_stats_main:"        => 5,
+  "4:3:$lang{STATS}:confcontrol_stat_single:ID"     => 5,
+);
+
+%PERIODIC = (daily   => [ 'confcontrol_periodic_check' ] );
+
+1;

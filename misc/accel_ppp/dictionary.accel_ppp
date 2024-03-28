@@ -1,0 +1,23 @@
+ATTRIBUTE DHCP-Router-IP-Address 241 ipaddr
+ATTRIBUTE DHCP-Mask              242 integer
+ATTRIBUTE L4-Redirect            243 integer
+ATTRIBUTE L4-Redirect-ipset      244 string
+ATTRIBUTE DHCP-Option82          245 octets
+ATTRIBUTE Accel-Agent-Circuit-Id  246 octets
+ATTRIBUTE Accel-Agent-Remote-Id   247 octets
+
+
+ATTRIBUTE Session-Octets-Limit 227 integer
+ATTRIBUTE Octets-Direction 228 integer
+
+ATTRIBUTE PPPD-Upstream-Speed-Limit 230 integer
+ATTRIBUTE PPPD-Downstream-Speed-Limit 231 integer
+ATTRIBUTE PPPD-Upstream-Speed-Limit-1 232 integer
+ATTRIBUTE PPPD-Downstream-Speed-Limit-1 233 integer
+ATTRIBUTE PPPD-Upstream-Speed-Limit-2 234 integer
+ATTRIBUTE PPPD-Downstream-Speed-Limit-2 235 integer
+ATTRIBUTE PPPD-Upstream-Speed-Limit-3 236 integer
+ATTRIBUTE PPPD-Downstream-Speed-Limit-3 237 integer
+ATTRIBUTE Acct-Interim-Interval 85 integer 
+ATTRIBUTE Acct-Input-Gigawords    52      integer
+ATTRIBUTE Acct-Output-Gigawords   53      integer 

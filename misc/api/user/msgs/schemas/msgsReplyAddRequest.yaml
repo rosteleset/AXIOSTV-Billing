@@ -1,0 +1,8 @@
+type: object
+properties:
+  reply_text:
+    type: string
+    example: Some reply text
+  reply_subject:
+    type: string
+    example: Subject

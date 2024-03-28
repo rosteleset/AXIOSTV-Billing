@@ -1,0 +1,51 @@
+post:
+  tags:
+    - cards
+  summary: Пополнения скретч картой
+  requestBody:
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            pin:
+              description: Пин карточки
+              type: string
+              example: 12345678
+            serial:
+              description: Серийный номер карты, необходимо передавать если не включена опция CARDS_PIN_ONLY
+              type: string
+              example: 12345678
+    required: true
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              result:
+                type: string
+                example: Success payment, ID 18342
+              amount:
+                type: number
+                example: 1.99
+              paymentId:
+                type: number
+                example: 18342
+    400:
+      description: Нет параметра pin в теле запроса
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              errno:
+                type: integer
+                example: 10051
+              errstr:
+                type: string
+                example: No field pin
+  security:
+    - USERSID: [ ]

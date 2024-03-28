@@ -1,0 +1,22 @@
+$lang{MEMORY} = 'Memory';
+$lang{CPU} = 'Cpu';
+$lang{DISC} = 'HDD';
+$lang{NETWORK} = 'Network';
+$lang{LOAD} = 'Load';
+$lang{FREE} = 'Free';
+$lang{PROCCESS_LIST} = 'Proccess list';
+$lang{RUNNING} = 'Running';
+$lang{SYSTEM_INFO} = 'System info';
+$lang{UPTIME} = 'Uptime';
+$lang{RECOMMENDED_MODULES} = 'The recommended modules';
+$lang{YOU_SHOULD_DEFINE} = 'You should define';
+$lang{EXECUTE} = 'Execute';
+$lang{TO_GRANT_PERMISSIONS} = 'to grant permissions';
+
+$lang{REMOTE_SERVERS} = 'Remote servers';
+$lang{MANAGEMENT} = 'Management';
+$lang{PRIVATE_KEY} = 'Private key';
+$lang{COPY_FROM_NAS_SERVER} = 'Copy params from NAS server';
+$lang{CHECK_STATUS_COMMAND} = 'Command to check status';
+$lang{SERVER_SERVICE} = 'Service';
+$lang{SERVER_SERVICES} = 'Services';

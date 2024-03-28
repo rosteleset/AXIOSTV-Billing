@@ -1,0 +1,1 @@
+ALTER TABLE `sms_log` MODIFY ext_id VARCHAR(40) DEFAULT '' NOT NULL;

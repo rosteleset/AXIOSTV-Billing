@@ -1,0 +1,23 @@
+%FUNCTIONS_LIST = (
+  "01:0:$lang{MAP} 2:maps2_main:"                   => 5,
+  "02:0:null:maps2_layers_list:AJAX"                => 5,
+  "03:0:null:maps2_show_map:AJAX"                   => 5,
+  "04:1:$lang{DISTRICTS}:maps2_districts_main"      => 5,
+
+  "5:1:$lang{AUTO_COORDS}:maps2_auto_coords"        => 5,
+
+  "6:1:$lang{OBJECTS}:null"                         => 5,
+  "7:6:$lang{OBJECT_TYPES}:maps2_point_types_main:" => 5,
+  "8:7::_maps2_icon_ajax_upload:IN_MODAL"           => 5,
+  "9:7::_maps2_icon_filename_select:AJAX"           => 5,
+
+  "10:0:$lang{MAP}:maps_objects_reports"            => 4,
+  "11:0:$lang{MAP} 2:maps2_without_edits:"          => 8,
+
+  "12:0::maps2_add_external_points:AJAX"            => 5,
+  "13:0:null:maps2_get_objects:AJAX"                => 5,
+);
+
+if (defined $user->{UID} && $conf{MAPS_PORTAL_UIDS} && in_array($user->{UID}, [ split(',', $conf{MAPS_PORTAL_UIDS}) ])) {
+  %USER_FUNCTION_LIST = ("01:0:$lang{MAP}:maps2_user" => 0);
+}

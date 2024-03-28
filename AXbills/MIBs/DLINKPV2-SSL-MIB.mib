@@ -1,0 +1,58 @@
+--  *****************************************************************
+--  DLINKPV2-SSL-MIB.mib : Secure Socket Layer MIB
+-- 
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+DLINKPV2-SSL-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE, Integer32, Unsigned32
+            FROM SNMPv2-SMI
+        RowStatus, TruthValue,DisplayString
+            FROM SNMPv2-TC
+        OBJECT-GROUP, MODULE-COMPLIANCE			
+            FROM SNMPv2-CONF                                    
+        InetAddressType,InetAddress
+            FROM INET-ADDRESS-MIB                           
+        dlinkDGS1100CommonV2
+            FROM DGS1100SERMGMT-MIB;
+
+
+    primeV2SslMIB MODULE-IDENTITY
+        LAST-UPDATED "201404260000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for Secure Socket Layer (SSL)."
+        REVISION "201404260000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file for 'SSL'
+             functionality."
+    ::= { dlinkDGS1100CommonV2 16}
+
+-- -----------------------------------------------------------------------------
+    v2SslNotifications    OBJECT IDENTIFIER ::= { primeV2SslMIB 0 }
+    v2SslObjects          OBJECT IDENTIFIER ::= { primeV2SslMIB 1 }
+    v2SslConformance      OBJECT IDENTIFIER ::= { primeV2SslMIB 2 }
+
+-- -------------------------------------------------------------------------- 
+    v2SslConfiguration  OBJECT IDENTIFIER ::= { v2SslObjects 1 }
+
+    v2SslServiceEnabled OBJECT-TYPE
+   		SYNTAX          TruthValue
+  		MAX-ACCESS      read-write
+   		STATUS          current
+   		DESCRIPTION
+           "A Boolean value represents the SSL server is Enabled or Disabled."
+   		::= { v2SslConfiguration 1 }
+            
+END
+    

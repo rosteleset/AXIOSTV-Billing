@@ -1,0 +1,1 @@
+ALTER TABLE sms_log MODIFY `phone` char(100) NOT NULL DEFAULT '';

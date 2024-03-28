@@ -1,0 +1,23 @@
+.dark-mode .leaflet-coordinates-control {
+	color: black !important;
+}
+
+.leaflet-coordinates-control {
+	background-color: rgba(255,255,255,.8);
+	cursor: pointer;
+	padding: 4px;
+}
+
+.input-coordinates {
+	border-radius: 3px;
+}
+
+.leaflet-control-hidden {
+	display: none;
+}
+
+.leaflet-save-coordinates {
+	color: green;
+	padding: 5px;
+	margin-left: 3px;
+}

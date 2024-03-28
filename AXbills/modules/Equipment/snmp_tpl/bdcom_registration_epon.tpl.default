@@ -1,0 +1,6 @@
+enable
+terminal length 0
+conf
+interface epon %BRANCH%
+epon bind-onu mac %MAC_SERIAL%
+show run interface epon %BRANCH% | include bind-onu

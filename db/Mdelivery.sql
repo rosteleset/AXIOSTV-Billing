@@ -1,0 +1,43 @@
+CREATE TABLE IF NOT EXISTS `mdelivery_list` (
+  `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `date` DATE NOT NULL DEFAULT '0000-00-00',
+  `added` DATETIME NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+  `aid` SMALLINT(6) UNSIGNED NOT NULL DEFAULT '0',
+  `text` TEXT NOT NULL,
+  `subject` VARCHAR(250) NOT NULL DEFAULT '',
+  `gid` SMALLINT(4) UNSIGNED NOT NULL DEFAULT '0',
+  `uid` INT(11) UNSIGNED NOT NULL DEFAULT '0',
+  `sender` VARCHAR(50) NOT NULL DEFAULT '',
+  `priority` TINYINT(2) UNSIGNED NOT NULL DEFAULT '0',
+  `status` TINYINT(1) UNSIGNED NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`)
+)
+  COMMENT = 'Mdelivery list';
+
+CREATE TABLE IF NOT EXISTS `mdelivery_users` (
+  `id` INTEGER(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `uid` INTEGER(11) UNSIGNED NOT NULL DEFAULT '0',
+  `mdelivery_id` INTEGER(11) UNSIGNED NOT NULL DEFAULT '0',
+  `status` TINYINT(1) UNSIGNED NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  UNIQUE KEY `id` (`id`),
+  UNIQUE KEY `mdelivery_id` (`mdelivery_id`, `uid`)
+)
+  COMMENT = 'Mdelivery users';
+
+
+CREATE TABLE IF NOT EXISTS `mdelivery_attachments` (
+  `id` INT(11) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `message_id` INT(11) UNSIGNED NOT NULL DEFAULT '0',
+  `filename` VARCHAR(250) DEFAULT NULL,
+  `content_size` VARCHAR(30) DEFAULT NULL,
+  `content_type` VARCHAR(250) DEFAULT NULL,
+  `content` LONGBLOB NOT NULL,
+  `create_time` DATETIME NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+  `create_by` INT(11) NOT NULL DEFAULT '0',
+  `change_time` DATETIME NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+  `change_by` INT(11) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`),
+  KEY `article_attachment_article_id` (`message_id`)
+)
+  COMMENT = 'Mdelivery Attachment table';

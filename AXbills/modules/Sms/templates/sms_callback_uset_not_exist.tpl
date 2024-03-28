@@ -1,0 +1,1 @@
+User with UID(%UID%) doesn't exist or disabled.

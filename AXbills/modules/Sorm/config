@@ -1,0 +1,5 @@
+our %FUNCTIONS_LIST = (
+  "01:0:СОРМ:null:" => 5,
+  "10:1:СОРМ dictionaries:ip_pools:" => 5
+);
+

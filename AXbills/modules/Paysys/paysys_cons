@@ -1,0 +1,1438 @@
+#!/usr/bin/perl
+=head1 NAME
+
+ PaySys Console
+ Console interface for payments and fees import
+
+=cut
+
+use strict;
+use warnings;
+
+our (
+  $begin_time,
+  %FORM,
+  $DATE,
+  $TIME,
+  $CHARSET,
+  @MODULES,
+  @_COLORS,
+  %conf,
+  %lang
+);
+
+BEGIN {
+  use FindBin '$Bin';
+  my $libpath = $Bin . '/../../../';
+  our $sql_type = 'mysql';
+
+  #unshift(@INC, $libpath . "AXbills/$sql_type/");
+  unshift(@INC, $libpath);
+  unshift(@INC, $libpath . 'libexec/');
+  unshift(@INC, $libpath . 'lib/');
+  unshift(@INC, $libpath . 'AXbills/');
+
+  unshift(@INC, '/usr/axbills/');
+  unshift(@INC, '/usr/axbills/AXbills/');
+  unshift(@INC, "/usr/axbills/AXbills/$sql_type/");
+  unshift(@INC, $libpath . "/AXbills/modules/");
+  unshift(@INC, '../../' . "$sql_type/");
+
+  eval { require Time::HiRes; };
+  if (!$@) {
+    Time::HiRes->import(qw(gettimeofday));
+    $begin_time = Time::HiRes::gettimeofday();
+  }
+  else {
+    $begin_time = 0;
+  }
+}
+
+require $Bin . '/../../../libexec/config.pl';
+
+
+use AXbills::Templates;
+use AXbills::Base qw(convert decode_base64 sendmail days_in_month parse_arguments in_array load_pmodule);
+use AXbills::SQL;
+use AXbills::HTML;
+use Users;
+use Paysys;
+use Finance;
+use Admins;
+use Customers;
+use Paysys::Init;
+use Time::Piece;
+
+our $html = AXbills::HTML->new();
+our $db   = AXbills::SQL->connect($conf{dbtype},
+  $conf{dbhost},
+  $conf{dbname},
+  $conf{dbuser},
+  $conf{dbpasswd},
+  { %conf, CHARSET => ($conf{dbcharset}) ? $conf{dbcharset} : undef });
+
+#Operation status
+our $admin  = Admins->new($db, \%conf);
+$admin->info($conf{SYSTEM_ADMIN_ID}, { IP => '127.0.0.1' });
+our Payments $Payments  = Finance->payments($db, $admin, \%conf);
+my $Fees      = Finance->fees($db, $admin, \%conf);
+our $Paysys   = Paysys->new($db, $admin, \%conf);
+my $Users     = Users->new($db, $admin, \%conf);
+
+#my $status   = '';
+my $debug     = 0;
+my $error_str = '';
+
+do "AXbills/Misc.pm";
+
+my $argv = parse_arguments(\@ARGV);
+
+if ($#ARGV < 0 || defined($argv->{help}) || defined($argv->{'-h'}) ) {
+  help();
+  exit;
+}
+
+if ($argv->{DEBUG}) {
+  $debug = $argv->{DEBUG};
+  print "DEBUG: $debug\n";
+}
+
+my DBI $db_ = $db->{db};
+
+do "language/$conf{default_language}.pl";
+do 'Paysys/lng_'.$conf{default_language}.'.pl';
+require Paysys::Paysys_Base;
+
+$DATE = $argv->{DATE} if ($argv->{DATE});
+
+if ($argv->{PLUGIN}) {
+  if (-f $Bin . '/plugins/' . $argv->{PLUGIN}) {
+    require $Bin . '/plugins/' . $argv->{PLUGIN};
+  }
+  else {
+    print "Plugin not found: $argv->{PLUGIN}\n";
+  }
+}
+elsif ($argv->{TYPE}) {
+  my $operation_type = $argv->{TYPE};
+
+  if ($argv->{EMAIL_CHECK}) {
+    paysys_import_pop3();
+  }
+  elsif ($argv->{FTP_CHECK}) {
+    paysys_import_ftp();
+  }
+  elsif ($operation_type eq 'PAYMENTS' || $operation_type eq 'CANCEL_PAYMENTS' || $operation_type eq 'AUTO') {
+    paysys_import_payments_cons();
+  }
+  elsif ($operation_type eq 'FEES') {
+    paysys_import_fees_cons();
+  }
+  elsif ($operation_type eq 'ERIPT') {
+    eript_202();
+  }
+}
+elsif($argv->{MAIL}) {
+  my $module = 'Bss.pm';
+  my $paysys_plugin = _configure_load_payment_module($module);
+  my $Paysys_plugin = $paysys_plugin->new($db, $admin, \%conf, {
+    USER => $Users, DATE => $DATE, lang => \%lang });
+
+  $Paysys_plugin->get_users_list({ MAIL => $argv->{MAIL} });
+}
+elsif($argv->{TYME}){
+  tyme_import();
+}
+elsif($argv->{IPAY}){
+  ipay_report();
+}
+elsif($argv->{EASYPAY}){
+  easypay_report();
+}
+elsif($argv->{IBOX}){
+  ibox_report();
+}
+
+#**********************************************************
+=head2 paysys_import_form_cons($attr) - Import fees from_file
+
+=cut
+#**********************************************************
+sub paysys_import_form_cons {
+  my ($attr) = @_;
+
+  my @import_types = ();
+  if ($attr->{IMPORT_RULES}) {
+    @import_types = split(/,/, $attr->{IMPORT_RULES});
+  }
+
+  #my $table;
+  #Default import extration
+  my $import_expr = ($attr->{IMPORT_EXPR}) ? $attr->{IMPORT_EXPR} : '(\d+)\t(.+)\t(\d+)\t(\S+)\t([0-9.,]+)\t(\d{2}-\d{2}-\d{4})\t(.+)\t(.+):ID, FIO, PHONE, CONTRACT_ID, SUM, DATE, ADDRESS, DESCRIBE';
+
+  #Default Binding field
+  my $BINDING_FIELD = ($attr->{BINDING_FIELDS}) ? $attr->{BINDING_FIELDS} : 'CONTRACT_ID';
+
+  if (defined($attr->{IMPORT_RULE})) {
+    $import_expr       = $conf{ 'PAYSYS_IMPORT_EXPRATION_' . $attr->{IMPORT_RULE} };
+    $BINDING_FIELD     = $conf{ 'PAYSYS_IMPORT_BINDING_' . $attr->{IMPORT_RULE} } if ($conf{ 'PAYSYS_IMPORT_BINDING_' . $attr->{IMPORT_RULE} });
+    $FORM{IMPORT_TYPE} = $attr->{IMPORT_RULE};
+  }
+
+  my ($DATA_ARR, $BINDING_IDS);
+  my %binding_hash      = ();
+  my $total_count       = 0;
+  my $total_sum         = 0;
+  my $total_added_count = 0;
+  my $total_added_sum   = 0;
+  if (!$argv->{FILE} && !$attr->{CONTENT}) {
+    print "Select input file !!!\n";
+    exit;
+  }
+
+  my $content  = '';
+  my $filename = $argv->{FILE} || '';
+
+  if ($attr->{CONTENT}) {
+    $content = $attr->{CONTENT};
+  }
+  else {
+    open(my $fh, '<', "$filename") || die "Can't open file '$filename' $!\n";
+    while (<$fh>) {
+      $content .= $_;
+    }
+    close($fh);
+  }
+
+  ($DATA_ARR, $BINDING_IDS) = paysys_import_parse($content, $import_expr,
+    $BINDING_FIELD, { SKIP_ROWS => $argv->{SKIP_ROWS} });
+
+  #Make users binding hash
+  my %binds_hash = map { $_ => 1} @$BINDING_IDS;
+  my $ids   = join(';', keys %binds_hash);
+
+  my $accounts_list;
+  if(in_array($BINDING_FIELD, [ 'BANK_ACCOUNT', 'TAX_NUMBER' ])) {
+    print "Companyy ids: $BINDING_FIELD // $ids !!!\n" if($debug > 4);
+    my $Customer = Customers->new($db, $admin, \%conf);
+    my $Company  = $Customer->company();
+    $accounts_list = $Company->list({
+      FIO            => '_SHOW',
+      LOGIN          => '_SHOW',
+      BILL_ID        => '_SHOW',
+      $BINDING_FIELD => $ids,
+      PAGE_ROWS      => 1000000,
+      COLS_NAME      => 1,
+      COMPANY_ADMIN  => '_SHOW'
+    });
+  }
+  else {
+    $Users->{debug} = 1 if ($debug > 7);
+    $accounts_list = $Users->list({
+      FIO            => '_SHOW',
+      LOGIN          => '_SHOW',
+      $BINDING_FIELD => $ids,
+      PAGE_ROWS      => 1000000,
+      COLS_NAME      => 1
+    });
+  }
+
+  my $binding_field_id = lc($BINDING_FIELD);
+
+  foreach my $line (@$accounts_list) {
+  	if (! defined($line->{$binding_field_id})) {
+  		print "Not defined bind field '$binding_field_id'\n";
+  		exit;
+  	}
+
+    if (! defined($line->{uid})) {
+      print "Company ID '$line->{id}' has no users. Skipping.\n";
+      next;
+    }
+
+  	$line->{login} = (! $line->{login}) ? $line->{id} : $line->{login};
+    $binding_hash{ lc($line->{$binding_field_id}) } = "$line->{uid}:$line->{login}:" . (($line->{fio}) ? $line->{fio} : '');
+  }
+
+  $Payments->{debug} = 1 if ($debug > 4);
+
+  my $error = 0;
+  my $bss_date;
+  for (my $i = 0 ; $i <= $#{$DATA_ARR} ; $i++) {
+    my $ID = $DATA_ARR->[$i]->{PAYSYS_EXT_ID} || $i;
+    $DATA_ARR->[$i]->{DATE} = $DATE if (!$DATA_ARR->[$i]->{DATE});
+
+    if ($binding_hash{ lc($DATA_ARR->[$i]->{$BINDING_FIELD}) }) {
+      my ($uid, $login, $fio) = split(/:/, $binding_hash{ lc($DATA_ARR->[$i]->{$BINDING_FIELD}) });
+
+      if($debug > 2) {
+        print "UID: $uid LOGIN: $login FIO: $fio\n";
+      }
+
+      next if ($DATA_ARR->[$i]->{SUM} == 0);
+      $error     = 0;
+      $error_str = '';
+      my $user           = $Users->info($uid);
+      # ddelete param for cross modules 
+      delete $user->{PAYMENTS_ADDED};
+      
+      my $describe       = $DATA_ARR->[$i]->{DESCRIBE} || '';
+      my $inner_describe = $DATA_ARR->[$i]->{INNER_DESCRIBE} || '';
+      if ($describe ne '' && $argv->{DECODE}) {
+        $describe = convert($describe, { $argv->{DECODE} => 1 });
+      }
+
+      if ($inner_describe ne '' && $argv->{DECODE}) {
+        $inner_describe = convert($inner_describe, { $argv->{DECODE} => 1 });
+      }
+
+      $db_->{AutoCommit}=0;
+      $db->{TRANSACTION}=1;
+
+      my $operation_type = '';
+
+      if($argv->{TYPE} eq 'AUTO') {
+        if($DATA_ARR->[$i]->{SUM} < 0) {
+          $operation_type= 'FEES';
+          $DATA_ARR->[$i]->{SUM} = abs($DATA_ARR->[$i]->{SUM});
+        }
+        else {
+          $operation_type = 'PAYMENTS';
+        }
+      }
+      else {
+        $operation_type = $argv->{TYPE};
+      }
+
+      if ($operation_type eq 'PAYMENTS') {
+        my $ext_id = '';
+        if ($debug < 6) {
+          $DATA_ARR->[$i]->{DATE} = date_convert($DATA_ARR->[$i]->{DATE}, { DATE_DMY => $DATA_ARR->[$i]->{DATE_DMY}  });
+
+          my $method = $DATA_ARR->[$i]->{PAYMENT_METHOD} || $argv->{METHOD} || 2;
+          $ext_id = $DATA_ARR->[$i]->{EXT_ID} || "$DATA_ARR->[$i]->{DATE}_$FORM{IMPORT_TYPE}.$ID";
+
+          if (! $DATA_ARR->[$i]->{TIME}) {
+            $DATA_ARR->[$i]->{TIME}=$TIME;
+          }
+
+          $Payments->add(
+            $user,
+            {
+              SUM            => $DATA_ARR->[$i]->{SUM},
+              DESCRIBE       => $describe,
+              METHOD         => $method,
+              DATE           => "$DATA_ARR->[$i]->{DATE} $DATA_ARR->[$i]->{TIME}",
+              EXT_ID         => $ext_id,
+              CHECK_EXT_ID   => $ext_id,
+              INNER_DESCRIBE => $inner_describe,
+              CURRENCY       => $conf{SYSTEM_CURRENCY} || 0
+            }
+          );
+
+          # adding standart payment to bss-table
+          if(!$Payments->{errno} && $argv->{METHOD} && $argv->{METHOD}==113){
+            $bss_date = $DATA_ARR->[$i]->{DATE};
+            # if($conf{PAYSYS_NEW_SCHEME}){
+            my $module = 'Bss.pm';
+            my $paysysy_plugin = _configure_load_payment_module($module);
+            my $Paysys_plugin = $paysysy_plugin->new($db, $admin, \%conf, { USERS => $Users, DATE => $DATE });
+
+            $Paysys_plugin->bss_log({
+              AFTER_PAYMENT => 1,
+              UID           => $user->{UID},
+              SUM           => $DATA_ARR->[$i]->{SUM},
+              DATE          => $DATA_ARR->[$i]->{DATE},
+              EXT_ID        => $ext_id,
+              STATUS        => 1
+            });
+            # }
+          }
+          elsif($Payments->{errno} && $argv->{METHOD} && $argv->{METHOD}==113){
+            $bss_date = $DATA_ARR->[$i]->{DATE};
+            #if($conf{PAYSYS_NEW_SCHEME}){
+              my $module = 'Bss.pm';
+              my $paysysy_plugin = _configure_load_payment_module($module);
+              my $Paysysy_plugin = $paysysy_plugin->new($db, $admin, \%conf, {USER => $Users, DATE => $DATE});
+
+              $Paysysy_plugin->bss_log({
+                AFTER_PAYMENT  =>1,
+                UID     => $user->{UID},
+                SUM     => $DATA_ARR->[$i]->{SUM},
+                DATE    => $DATA_ARR->[$i]->{DATE},
+                EXT_ID  => $ext_id,
+                STATUS  => 2
+              });
+            # }
+            # else{
+            #   bss_log({
+            #     AFTER_PAYMENT  =>1,
+            #     UID     => $user->{UID},
+            #     SUM     => $DATA_ARR->[$i]->{SUM},
+            #     DATE    => $DATA_ARR->[$i]->{DATE},
+            #     EXT_ID  => $ext_id,
+            #     STATUS  => 2
+            #   });
+            # }
+          }
+        }
+
+        if ($Payments->{errno} && $Payments->{errno} == 7) {
+          $error_str .= "ERROR: EXIST EXT_ID: $ext_id\n";
+          if ($debug > 2) {
+            $error_str .= "ID: $Payments->{ID} DATE: $Payments->{DATE} SUM: $Payments->{SUM} UID: $Payments->{UID}\n";
+          }
+          $error     = 1;
+        }
+        else {
+          if (! $argv->{SKIP_CROSSMODULES_CALLS}) {
+            cross_modules('payments_maked', {
+              USER_INFO    => $user,
+              QUITE        => 1,
+              SUM          => $DATA_ARR->[$i]->{SUM},
+              PAYMENT_ID   => $Payments->{PAYMENT_ID},
+              SKIP_MODULES => 'Paysys,Sqlcmd'
+            });
+          }
+        }
+      }
+      elsif ($operation_type eq 'FEES') {
+        if ($debug < 5) {
+          $Fees->take(
+            $user,
+            $DATA_ARR->[$i]->{SUM},
+            {
+              DESCRIBE       => $describe,
+              INNER_DESRIBE  => $DATA_ARR->[$i]->{EXT_ID},
+              DATE           => $DATA_ARR->[$i]->{DATE} || undef,
+              INNER_DESCRIBE => $inner_describe,
+              METHOD         => $DATA_ARR->[$i]->{PAYMENT_METHOD} || $argv->{METHOD},
+              #    EXT_ID       => "$DATA_ARR->[$i]->{DATE}.$FORM{IMPORT_TYPE}.$ID",
+              #    CHECK_EXT_ID => "$DATA_ARR->[$i]->{DATE}.$FORM{IMPORT_TYPE}.$ID"
+            }
+          );
+        }
+
+        if ($Fees->{errno} && $Fees->{errno} == 7) {
+          $error_str .= "ERROR: EXIST: EXT_ID: $DATA_ARR->[$i]->{DATE}.$ID\n";
+          $error     = 1;
+        }
+      }
+      elsif ($operation_type eq 'CANCEL_PAYMENTS') {
+        my @payments_arr = ();
+        for (my $num = 0 ; $num <= $#{$DATA_ARR} ; $num++) {
+          #my $ID = $DATA_ARR->[$num]->{PAYSYS_EXT_ID} || $i;
+          if ($DATA_ARR->[$num]->{EXT_ID}) {
+            if ($argv->{PAYSYS_EXT_ID}) {
+              push @payments_arr, "$DATA_ARR->[$num]->{DATE}*$DATA_ARR->[$i]->{EXT_ID}";
+            }
+            else {
+              push @payments_arr, $DATA_ARR->[$i]->{EXT_ID};
+            }
+          }
+        }
+
+        if ($#payments_arr == -1) {
+          print "Select ext ID for cancel payments\n";
+          return 0;
+        }
+
+        my $payment_list = $Payments->list({
+          EXT_ID    => join(';', @payments_arr),
+          PAGE_ROWS => 10000000,
+          COLS_NAME => 1
+        });
+
+        foreach my $p (@$payment_list) {
+          $Payments->del({ UID => $p->{uid} }, $p->{id});
+          print "ID: $p->{id} SUM: $p->{uid}\n" if ($debug > 1);
+        }
+      }
+
+      if (!$error) {
+        if (! $db_->{AutoCommit}) {
+          $db_->commit();
+          $db_->{AutoCommit}=1;
+        }
+
+        $total_added_count++;
+        $total_added_sum += $DATA_ARR->[$i]->{SUM};
+      }
+      else {
+        $db_->rollback() if(! $db_->{AutoCommit});
+      }
+    }
+    else {
+      $error_str = "ERROR: NOT_EXIST BIND_FIELD: $BINDING_FIELD - $DATA_ARR->[$i]->{$BINDING_FIELD} DATE: $DATA_ARR->[$i]->{DATE} SUM: $DATA_ARR->[$i]->{SUM}\n ";
+    }
+
+    print $error_str if ($error_str ne '');
+
+    $total_count++;
+    $total_sum += $DATA_ARR->[$i]->{SUM};
+  }
+
+  print "
+  TOTAL: $total_count SUM: $total_sum
+  ADDED: $total_added_count SUM: $total_added_sum\n" if ($debug > 0);
+
+  if($argv->{METHOD} && $argv->{METHOD} == 113){
+    my $list_of_sums = $Paysys->bss_sum_list({ DATE => $bss_date, COLS_NAME => 1,});
+
+    if($list_of_sums->[0]){
+      $Paysys->bss_sum_change({
+        DATE          => ($argv->{BSS_DATE}) ? $argv->{BSS_DATE} : $bss_date,
+        LOCAL_STD_SUM => ($list_of_sums->[0]->{local_std_sum} + $total_added_sum),
+        # LOCAL_STD_SUM => $total_added_sum,
+        STD_COUNT     => ($list_of_sums->[0]->{std_count} + $total_added_count)
+      });
+    }
+    else{
+      $Paysys->bss_sum_add({
+        DATE          => $argv->{BSS_DATE} ? $argv->{BSS_DATE} : $bss_date,
+        LOCAL_STD_SUM => $total_added_sum,
+        STD_COUNT     => $total_added_count
+      });
+    }
+
+    sendmail($conf{ADMIN_MAIL}, $conf{ADMIN_MAIL}, "BSS Отчет за " . ($bss_date || $argv->{BSS_DATE} || ''), "TOTAL: $total_count\nSUM: $total_sum\n ADDED: $total_added_count\n SUM: $total_added_sum\n", "$conf{MAIL_CHARSET}", "2 (High)");
+  }
+
+  if ($error_str) {
+  	print "Error: $error_str\n";
+  }
+
+  return ($error) ? 0 : 1;
+}
+
+#**********************************************************
+=head2 paysys_import_fees_cons($attr) Import fees from_file
+
+=cut
+#**********************************************************
+sub paysys_import_fees_cons {
+  paysys_import_form_cons(
+    {
+      TYPE           => 'FEES',
+      BINDING_FIELDS => $conf{PAYSYS_FEES_BINDING},
+      IMPORT_EXPR    => $conf{PAYSYS_FEES_IMPORT},
+      IMPORT_RULES   => 'FEES'
+    }
+  );
+}
+
+#**********************************************************
+=head2 paysys_import_payments_cons($attr) Import fees from_file
+
+=cut
+#**********************************************************
+sub paysys_import_payments_cons {
+  my @files = ();
+  my $filename = $argv->{FILE} || '';
+  my $dir   = '';
+
+  if ($filename =~ s/\*/\.\+/g) {
+    $dir = dirname($filename);
+    $filename =~ s/$dir\///;
+    opendir my $dh, $dir or die "Can't open dir '$dir' $!\n";
+      @files = grep /^$filename$/, readdir $dh;
+    closedir $dh;
+  }
+  else {
+    push @files, $filename;
+  }
+
+  foreach my $filename_ (@files) {
+    $filename_ = "$dir/$filename_" if ($dir);
+    my $content = '';
+    open(my $fh, '<', $filename_) || die "Can't open file '$filename_' $!\n";
+      while (<$fh>) {
+        $content .= $_;
+      }
+    close($fh);
+
+    paysys_import_form_cons({
+      TYPE         => $argv->{TYPE},
+      IMPORT_RULE  => $argv->{IMPORT_RULE},
+      IMPORT_RULES => $conf{PAYSYS_IMPORT_RULES},
+      CONTENT      => $content
+    });
+
+    if ($debug < 5) {
+      if ($argv->{BACKUP_FILES} && -d $argv->{BACKUP_FILES}) {
+        `cp $filename_ $argv->{BACKUP_FILES}`;
+      }
+      #unlink $filename;
+    }
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 paysys_import_pop3() - import data from mail with POP3
+
+=cut
+#**********************************************************
+sub paysys_import_pop3 {
+  print "POP3 check\n" if ($debug > 2);
+
+  load_pmodule('Net::POP3');
+
+  # Constructors
+  my @mailboxes = split(/;/, $conf{PAYSYS_EMAIL_CHECK});
+
+  if ($argv->{EMAIL_CHECK} ne '') {
+    $argv->{EMAIL_CHECK}--;
+    if (!$mailboxes[ $argv->{EMAIL_CHECK} ]) {
+      print "Not defined mail box '$argv->{EMAIL_CHECK}'\n";
+      exit;
+    }
+    else {
+      @mailboxes = ($mailboxes[ $argv->{EMAIL_CHECK} ]);
+    }
+  }
+
+  foreach my $mailbox (@mailboxes) {
+    my ($host, $username, $password) = split(/:/, $mailbox, 3);
+
+    my $pop = Net::POP3->new($host, Timeout => 60, SSL => $argv->{SSL} || 0);
+    if (!$pop) {
+      print "POP3 Error: Can't connect '$host' $!\n";
+      exit;
+    }
+
+    if ($pop->login($username, $password)) {
+      my $msgnums = $pop->list;       # hashref of msgnum => size
+      my $total   = keys %$msgnums;
+      print "Total: $total\n\n" if ($debug > 2);
+
+      foreach my $msgnum (keys %$msgnums) {
+        my $content = '';
+        #my $uidl    = $pop->uidl($msgnum);
+        my $msg     = $pop->get($msgnum);
+        my $full_message = join('', @$msg);
+        my ($header, $message) = split(/\r?\n\r?\n/, $full_message, 2);
+
+        # Parse header
+        my @lines      = split(/\r?\n/, $header);
+        my $boundary   = '';
+        my $date       = '';
+        my $subject    = '';
+        my $message_id = '';
+
+        foreach my $line (@lines) {
+          if ($line =~ /boundary="(.+)"/i) {
+            $boundary = $1;
+          }
+          elsif ($line =~ /Subject: (.+)/) {
+            $subject = $1;
+          }
+          elsif ($line =~ /Date: (.+)/) {
+            $date = $1;
+          }
+          elsif ($line =~ /Message-ID: (.+)/) {
+            $message_id = $1;
+          }
+        }
+
+        my @parts = ();
+        if ($boundary ne '') {
+          @parts = split(/--$boundary/, $message);
+        }
+
+        my $filename = '';
+        if ($#parts > -1) {
+          foreach my $part (@parts) {
+            my $encoding = '';
+
+            my ($part_header, $part_body) = split(/\r?\n\r?\n/, $part, 2);
+            @lines = ();
+            @lines = split(/\r?\n/, $part_header) if ($part_header);
+            foreach my $line (@lines) {
+              if ($line =~ /filename="(.+)"/i) {
+                $filename = $1;
+              }
+              elsif ($line =~ /name="=(.+)="/){
+                my $coded_filename = $1;
+                ($coded_filename) = $coded_filename =~ /\?UTF-8\?B\?(.+)?/;
+
+                $filename = decode_base64($coded_filename);
+              }
+              elsif ($line =~ /Content-Transfer-Encoding: (.+)/i) {
+                $encoding = $1;
+              }
+            }
+
+            if ($encoding eq 'base64') {
+              $content .= "\n" . decode_base64($part_body);
+            }
+          }
+        }
+        else {
+          $content .= $message;
+        }
+
+        if ($argv->{DECODE}) {
+          $content = convert($content, { $argv->{DECODE} => 1 });
+        }
+
+        # BSS paysys
+        my $delete_this_message = 0;
+        my $do_not_import_content = 0;
+        if($argv->{METHOD} && $argv->{METHOD} == 113){
+          $content = convert($content, {cp8662utf8 => 1});
+          @lines = split('\r?\n', $content);    # split content per lane
+
+          my $module = 'Bss.pm';
+          my $paysys_plugin = _configure_load_payment_module($module);
+          my $Plugin = $paysys_plugin->new($db, $admin, \%conf, {USER => $Users, DATE => $DATE});
+
+          ($content, $delete_this_message, $do_not_import_content) = $Plugin->bss_content_parse(\@lines, {
+              FILE_NAME => $filename,
+          });
+
+          if ($delete_this_message) {
+            print "Marking to delete this message\n";
+            $pop->delete($msgnum);
+            next if ($do_not_import_content);
+          }
+        }
+
+        my $check = paysys_import_form_cons({
+          TYPE         => $argv->{TYPE},
+          IMPORT_RULE  => $argv->{IMPORT_RULE},
+          IMPORT_RULES => $conf{PAYSYS_IMPORT_RULES},
+          CONTENT      => $content,
+        });
+
+        if ( $check ) {
+          $pop->delete($msgnum);
+          print "Delete\n" if ($debug == 1);
+        }
+        else {
+          $message = "
+   Date:  $date
+   Subject: $subject
+   Message id: $message_id
+
+   $content
+
+   Error: $error_str
+";
+
+		  sendmail("$conf{ADMIN_MAIL}", "$conf{ADMIN_MAIL}", "POP3 Import Error", "$message", "$conf{MAIL_CHARSET_ERIPT}", "2 (High)");
+        }
+      }
+
+      $pop->quit();
+    }
+    else {
+      print "POP3 Error: Wrong login or password $!\n";
+    }
+  }
+  #return $content;
+}
+
+#**********************************************************
+=head2 paysys_import_ftp($attr) - import data from ftp
+
+  Arguments:
+    $attr
+
+  Return:
+    $content
+
+=cut
+#**********************************************************
+sub paysys_import_ftp {
+  my ($attr) = @_;
+
+  print "FTP check\n" if ($debug > 2);
+  my @hosts = ();
+  # Constructors
+
+  if (!$conf{PAYSYS_SFTP_CHECK} && !$conf{PAYSYS_FTP_CHECK}) {
+    print "Do not have settings for import!Please, check config.pl and documentation.\n";
+    exit;
+  }
+
+  if ($conf{PAYSYS_SFTP_CHECK}) {
+    load_pmodule('Net::FTPSSL');
+    @hosts = split(/;/, $conf{PAYSYS_SFTP_CHECK});
+  }
+  else {
+    load_pmodule('Net::FTP');
+    @hosts = split(/;/, $conf{PAYSYS_FTP_CHECK});
+  }
+
+  if ($argv->{FTP_CHECK} && $argv->{FTP_CHECK} ne '') {
+    $argv->{FTP_CHECK}--;
+    if (!$hosts[ $argv->{FTP_CHECK} ]) {
+      print "Not defined FTP '$argv->{FTP_CHECK}'\n";
+      exit;
+    }
+    else {
+      @hosts = ($hosts[ $argv->{FTP_CHECK} ]);
+    }
+  }
+
+  foreach my $host_params (@hosts) {
+    my ($host, $username, $password, $dir, $files, $passive_mode) = split(/:/, $host_params, 6);
+    my $ftp = qq{};
+    if ($conf{PAYSYS_SFTP_CHECK}) {
+      $ftp = Net::FTPSSL->new("$host", useSSL => 0, Debug => 0, Port => 21, SSL_Client_Certificate => {
+        SSL_version   => 'TLSv1',
+      }) or die "Cannot connect to '$host': $@";
+    }
+    else {
+      $ftp = Net::FTP->new("$host", Debug => 0, Passive => $passive_mode || 0)
+        or die "Cannot connect to '$username\@$host': $@";
+    }
+
+    if ($ftp->login("$username", "$password")) {
+      $dir = $attr->{FTP_DIR} if ($attr->{FTP_DIR});
+      if ($dir) {
+        $ftp->cwd("$dir")
+        or die "Cannot change working directory '$dir' ", $ftp->message;
+      }
+
+      if ($attr->{UPLOAD}) {
+        $ftp->put("$attr->{UPLOAD}")
+        or die "Ftp get failed '$attr->{UPLOAD}' ", $ftp->message;
+        print "Upload: $attr->{UPLOAD}\n" if ($debug > 1);
+        next;
+      }
+
+      my $files_arr = $ftp->ls("$files");
+      foreach my $filename (@$files_arr) {
+        my $content = '';
+        $ftp->get("$filename")
+        or die "Ftp get failed '$filename' ", $ftp->message;
+        print $filename. "\n" if ($debug > 2);
+
+        $filename =~ /\/?([a-zA-Z0-9\.\-\_\?]+)$/;
+        my $local_filename = $1;
+        open(my $fh,'<', "$local_filename") || die "Can't open file '$filename' $!\n";
+        while (<$fh>) {
+          $content .= $_;
+        }
+        close($fh);
+
+        if ($argv->{DECODE}) {
+          $content = convert($content, { $argv->{DECODE} => 1 });
+        }
+
+        my $import_result = paysys_import_form_cons({
+          TYPE         => $argv->{TYPE},
+          IMPORT_RULE  => $argv->{IMPORT_RULE},
+          IMPORT_RULES => $conf{PAYSYS_IMPORT_RULES},
+          CONTENT      => $content
+        });
+
+        if ($import_result){
+          if ($argv->{BACKUP_FILES} && -d $argv->{BACKUP_FILES}) {
+            `cp $local_filename $argv->{BACKUP_FILES}`;
+          }
+          unlink $local_filename;
+
+          $ftp->delete("$filename") or die "Ftp del failed '$filename'\n", $ftp->message;
+
+          print "Delete LOCAL:$local_filename 'FTP:$filename'\n" if ($debug > 0);
+        }
+        else {
+          my $message = "ERROR paysys_cons:
+   Filename: $filename
+
+   $content
+
+   Error: $error_str
+";
+
+		  sendmail("$conf{ADMIN_MAIL}", "$conf{ADMIN_MAIL}", "FTP Import Error", "$message", "$conf{MAIL_CHARSET_ERIPT}", "2 (High)");
+        }
+      }
+    }
+    else {
+      print "FTP Error: Wrong login or password $!\n";
+    }
+  }
+
+  return '';
+}
+
+#**********************************************************
+# Main iport  parser
+#**********************************************************
+# sub paysys_import {
+#
+# }
+
+#**********************************************************
+=head2 help() - show manual
+
+=cut
+#**********************************************************
+sub help {
+
+  my @import_rules_arr = ();
+  if ($conf{PAYSYS_IMPORT_RULES}) {
+    @import_rules_arr = split(/,/, $conf{PAYSYS_IMPORT_RULES});
+  }
+
+  my $import_rules = '';
+  for (my $i = 0 ; $i <= $#import_rules_arr ; $i++) {
+    $import_rules .= "      $i - $import_rules_arr[$i]\n";
+  }
+
+  print << "[END]"
+Paysys console interface:
+
+  TYPE=[PAYMENTS|CANCEL_PAYMENTS|FEES|AUTO|ERIPT] - Operation TYPE
+    AUTO               - Add positive payment and get negative from list
+  IMPORT_RULE=         - for payments import type id
+$import_rules
+  EMAIL_CHECK=...      - Check E-mail for documents. E-mail box number. Default read all mailboxes with import rule.
+  FTP_CHECK=...        - Check files from ftp. FTP  servers. Default check all servers with import rule.
+  BACKUP_FILES=[DIR]   - Backup ftp files
+  SKIP_CROSSMODULES_CALLS - Skip cros modules calls
+  METHOD=[0..]         - Method for fees or payments
+  PAYSYS_EXT_ID=1      - Combine EXT_ID like PAYSYS_EXT_ID with wildcard (DATE*EXT_ID)
+  FILE=                - Import FILE
+  DATE=                - Import Date
+  DEBUG=1,2..5         - Debug Mode
+  DECODE=              - Decode from other charsets
+    win2koi
+    koi2win
+    win2iso
+    iso2win
+    win2dos
+    dos2win
+  PLUGIN=...           - Run plugin
+  MAIL=...             - Send a mail with all users info
+  SKIP_ROWS=1          - Skip first row
+  help                 - this help
+
+[END]
+}
+
+#***********************************************************
+=head2 eript_202() - upload users list
+
+=cut
+#***********************************************************
+sub eript_202 {
+  my $message = '';
+  #my $msgs_header = '';
+  my $msg_num = substr(time(), 2, 10);
+  my $msg_file = $msg_num.'.202';
+  my $ftp_dir = $argv->{FTP_ERIPT_DIR} || 'in/';
+  my $msg_version = $argv->{ERIPT_VERSION} || 5;
+
+  "$DATE$TIME" =~ /(\d{4})\-(\d{2})\-(\d{2})(\d{2}):(\d{2}):(\d{2})/;
+  my $msg_date = "$1$2$3$4$5$6";
+  "$DATE$TIME" =~ /(\d{4})\-(\d{2})\-(\d{2})(\d{2}):(\d{2}):(\d{2})/;
+  my $payment_period = "$2.$1";    #"$3$2.$1";
+
+  my $record_total_count = 0;
+
+  #
+  my $msg_provider_id           = $conf{PAYSYS_ERIPT_PROVIDER_ID} || 123456;    # Êîä îòïðàâèòåëÿ ñîîáùåíèÿ  M, N8
+  #my $msg_provider_num          = $conf{PAYSYS_ERIPT_PROVIDER_NUM} || 123456;  # Ó÷åòíûé íîìåð ïëàòåëüùèêà ïðîèçâîäèòåëÿ óñëóã  M, N9, äîëæíî ñîäåðæàòü òðè ïîñëåäíèå öèôðû êîäà ÌÔÎ áàíêà, â êîòîðîì îòêðûò ðàñ÷åòíûé ñ÷åò ïðîèçâîäèòåëÿ óñëóãè;
+  my $msg_provider_bank_id      = $conf{PAYSYS_ERIPT_PROVIDER_BANK_ID} || 123456;    # Êîä áàíêà ïðîèçâîäèòåëÿ óñëóã  M, N3
+  my $msg_provider_bank_account = $conf{PAYSYS_ERIPT_PROVIDER_BANK_ACCOUNT} || 123456;    # Íîìåð óñëóãè ó ïðîèçâîäèòåëÿ óñëóã  O, N8
+  my $msg_provider_service_id   = $conf{PAYSYS_ERIPT_PROVIDER_SERVICE_ID} || 1;
+  my $msg_valuta                = $conf{SYSTEM_CURRENCY} || 933;
+  my $msg_total_sum = 0;
+
+  my $num = 0;
+  my $payment_date = '';                                                                  #"$DATE$TIME";
+  $payment_date =~ s/:|\-//g;
+
+  my $WHERE = '';
+
+  if ($argv->{LOGIN}) {
+    $WHERE = "AND u.id='$argv->{LOGIN}'";
+  }
+
+  my $account_key = ($conf{PAYSYS_ERIP_ACCOUNT_KEY} && $conf{PAYSYS_ERIP_ACCOUNT_KEY} eq 'LOGIN') ? 'u.id' : 'u.uid';
+  my $build_delimiter = $conf{BUILD_DELIMITER} || ', ';
+
+  $Paysys->query("SELECT $account_key AS account_key, u.reduction, pi.fio,
+      CONCAT(streets.name, '$build_delimiter', builds.number, '$build_delimiter', pi.address_flat) AS address_full,
+      u.credit,
+      internet.tp_id AS internet_tp_id,
+      tp.month_fee,
+      IF(company.id IS NULL, b.deposit, cb.deposit) AS deposit
+    FROM users u
+       INNER JOIN users_pi pi ON (u.uid=pi.uid)
+       LEFT JOIN internet_main internet ON (u.uid=internet.uid)
+       LEFT JOIN tarif_plans tp ON (internet.tp_id=tp.tp_id)
+       LEFT JOIN builds ON (builds.id=pi.location_id)
+       LEFT JOIN streets ON (streets.id=builds.street_id)
+       LEFT JOIN districts ON (districts.id=streets.district_id)
+
+       LEFT JOIN companies company FORCE INDEX FOR JOIN (`PRIMARY`) ON (u.company_id=company.id)
+       LEFT JOIN bills b ON (u.bill_id = b.id)
+       LEFT JOIN bills cb ON (company.bill_id=cb.id)
+
+    WHERE u.deleted=0
+    $WHERE
+    ",
+      undef,
+      { COLS_NAME => 1 }
+    );
+
+  my $list = $Paysys->{list};
+  my $current_date = localtime();
+  my $days_in_month = $current_date->month_last_day;
+  my $erip_add_day = $conf{PAYSYS_ERIPT_ADD_DAY} || 1;
+  
+  foreach my $line (@{$list}) {
+    $num++;
+
+    my $uid      = $line->{account_key};
+	my $credit   = q{};
+    my $fio      = convert($line->{fio} || q{}, { utf82win => 1 });
+	my @words = split(' ', $fio);
+		foreach my $word (@words) {
+		my $first_letter = substr($word, 0, 1);
+		my $rest_of_word = '*' x (length($word) - 1);
+			$word = $first_letter . $rest_of_word; }
+	$fio = join(' ', @words);
+    my $address  = convert($line->{address_full} || q{}, { utf82win => 1 });
+    #  $credit   = ($line->{deposit} && $line->{deposit} < 0) ? sprintf("%.2f", $line->{deposit}) : 0;            #$line->[3];
+    if ($line->{internet_tp_id} && $line->{deposit} < 0) {
+      my $month_fee = $line->{month_fee};
+      if ($line->{reduction} && $line->{reduction} != 0) {
+        $month_fee -= $line->{month_fee} * ($line->{reduction} / 100);
+      }
+      my $additional_amount = ($month_fee / $days_in_month)*$erip_add_day;
+      $credit   = ($line->{deposit} && $line->{deposit} < 0) ? sprintf("%.2f", substr($line->{deposit},1) + $additional_amount) : 0;
+    } else {
+      $credit   = ($line->{deposit} && $line->{deposit} < 0) ? sprintf("%.2f", substr($line->{deposit},1)) : 0;
+    }
+	
+    my $comments = convert($conf{PAYSYS_ERIPT_PROVIDER_COM} || q{}, { utf82win => 1 });
+    my $ext_info = convert($conf{PAYSYS_ERIPT_PROVIDER_EXT} || q{}, { utf82win => 1 });
+
+    # TP
+    #my $tp_id   = $line->{tp_id};
+    my $tarif_1 = '';            #$line->[5];
+    #my $tarif_2 = '';
+
+    $record_total_count++;
+    $msg_total_sum += $tarif_1 || 0;
+    my $tariffs_fields = '';     #"1~$tp_id~5~$tarif_1~$tarif_2~0~0~0";
+
+    # V2
+    if ($msg_version && $msg_version == 2) {
+      $message .= "$num^$uid^$fio^$address^$payment_period^$credit^$tariffs_fields^$payment_date^$comments^$ext_info^^^^^^\r\n";
+    }
+    else {
+      # V5
+      $message .= "2^$uid^$fio^$address^$payment_period^$credit^$tariffs_fields^$payment_date^$comments^$ext_info^^^^^\r\n";
+    }
+  }
+
+  $conf{PAYSYS_ERIPT_PROVIDER_NUM} //= q{};
+
+  $message = "$msg_version^$msg_provider_id^$msg_num^$msg_date^$record_total_count^$conf{PAYSYS_ERIPT_PROVIDER_NUM}^$msg_provider_bank_id^$msg_provider_bank_account^$msg_provider_service_id^$msg_valuta^\r\n"
+    .$message;
+
+  if ($debug > 4) {
+    print $message;
+  }
+  else {
+    my $upload_file = '/tmp/'.$msg_file;
+
+    open(my $fh, '>', $upload_file) or die "Can't create file '$upload_file' $!\n";
+    print $fh $message;
+    close($fh);
+
+    paysys_import_ftp({
+      UPLOAD  => $upload_file,
+      FTP_DIR => '/'.$ftp_dir
+    });
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 tyme_import() -
+
+  Arguments:
+    $attr -
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub tyme_import {
+  #my ($attr) = @_;
+
+  load_pmodule('Net::FTPSSL');
+
+  my $host  = $conf{PAYSYS_TYME_HOST};
+  my $login = $conf{PAYSYS_TYME_LOGIN};
+  my $pass  = $conf{PAYSYS_TYME_PASSWORD};
+
+  my $ftp = Net::FTPSSL->new("$host", useSSL => 0, Debug => 0, Port => 21, SSL_Client_Certificate => {
+      SSL_version   => 'TLSv1',
+    },       )
+  or die "Cannot connect to '$host': $@";
+  $ftp->login("$login", "$pass");
+  my $report_date = '';
+
+  if($argv->{DATE}){
+    $report_date = $argv->{DATE};
+    $report_date =~ s/-//g;
+  }
+  else{
+    $report_date = $DATE;
+    my ($y, $m, $d) = split('-', $report_date);
+
+    $d = $d - 1;
+
+    if ($d < 10){
+      $d = '0' . $d;
+    }
+
+    if($d < 1){
+      $m = $m - 1;
+      if($m < 1){
+        $m = 12;
+        $y = $y - 1;
+      }
+      if($m < 10){
+        $m = '0' . $m;
+      }
+      $d = days_in_month({DATE => "$y-$m"});
+    }
+    $report_date = "$y$m$d";
+
+    print $report_date;
+  }
+
+  my @files = $ftp->nlst("$conf{PAYSYS_TYME_FILE}$report_date.csv");
+  # my $report_data = "|Транзакция\t|$lang{DATE}\t|$lang{USER}\t|$lang{SUM}\t|Терминал\t|\n";
+  my $report_data = "|Транзакция\t\t|$lang{DATE}\t\t\t|$lang{USER}\t|$lang{SUM}\t\t|Терминал\t|\n";
+  if( scalar @files != 0){
+    foreach my $filename (@files){
+
+      $ftp->get("$filename")
+      or die "Ftp get failed '$filename' ", $ftp->message;
+
+      open(my $fh, '<', "$filename") || die "Can't open file '$filename' $!\n";
+      my @lanes = <$fh>;
+      close($fh);
+
+      foreach my $lane (@lanes){
+        my ($txn_id, $date_time, $user, $sum, $terminal) = $lane =~ /(\d+)\s(\d+\-\d+\-\d+ \d+\:\d+\:\d+)\s(\d+)\s(\d+.\d+)\s(\d+)/;
+        print "|$txn_id, $date_time, $user, $sum, $terminal|\n";
+
+        $Paysys->add_tyme_report({
+          TXN_ID   => $txn_id,
+          DATE     => $date_time,
+          USER     => $user,
+          SUM      => $sum,
+          TERMINAL => $terminal
+        });
+
+        if(!$Paysys->{errno}){
+          $report_data .= "|$txn_id\t| $date_time\t| $user\t\t|";
+          if($sum < 100){
+            $report_data .= " $sum\t\t";
+          }else{
+            $report_data .= " $sum\t";
+          };
+          $report_data .= "| $terminal\t|\n";
+        }
+      }
+    }
+  }
+  $report_date =~ s/(\d{4})(\d{2})(\d{2})/$3\-$2\-$1/;
+  sendmail("$conf{ADMIN_MAIL}", "$conf{ADMIN_MAIL}", "Tyme Отчет за $report_date", "$report_data  ", "$conf{MAIL_CHARSET}", "2 (High)");
+
+  return 1;
+}
+#**********************************************************
+=head2 ipay_report() - read file and push data to DB
+
+  Arguments:
+    $attr -
+      DATE - file date
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub ipay_report {
+  my $report_date = q{};
+  my $file_name = q{};
+
+  if ($argv->{DATE}) {
+    if ($argv->{DATE} =~ /(\d{4}\-?()\d{2}\-?()\d{2})/) {
+      $report_date = $argv->{DATE};
+      $report_date =~ s/-//g;
+      $report_date = "ipay$report_date";
+    }
+    else {
+      print "Entered DATE:$argv->{DATE} is wrong!\n\n";
+      return 0;
+    }
+  }
+  else {
+    $report_date = $DATE;
+    my ($y, $m, $d) = split('-', $report_date);
+    $d = $d - 1;
+    if ($d < 10) {
+      $d = '0' . $d;
+    }
+
+    if ($d < 1) {
+      $m = $m - 1;
+      if ($m < 1) {
+        $m = 12;
+        $y = $y - 1;
+      }
+      if ($m < 10) {
+        $m = '0' . $m;
+      }
+      $d = days_in_month({ DATE => "$y-$m" });
+    }
+    $report_date = "ipay$y$m$d";
+    print "$report_date.csv\n";
+  }
+
+  if ($conf{PAYSYS_IPAY_FILE}) {
+    $file_name = "$conf{PAYSYS_IPAY_FILE}$report_date.csv";
+  }
+  else {
+    print "Wrong configuration! \$conf{PAYSYS_IPAY_FILE} is empty!\n\n";
+    return 0;
+  }
+
+  if (-e $file_name) {
+    open(my $fh, '<', "$file_name") || die "Can't open file '$file_name' $!\n";
+    my @file_data = <$fh>;
+    close($fh);
+
+    if (scalar @file_data != 0) {
+      shift @file_data;
+      foreach my $line (@file_data) {
+        my ($date, $transaction_id, $sum, $user_id) = split(';', $line);
+        if ($transaction_id && $transaction_id =~ /\d+/) {
+          print "|$date, $transaction_id, $sum, $user_id|";
+          $sum =~ s/,/./g;
+          $Paysys->paysys_report_add({
+            SUM            => $sum,
+            DATE           => $date,
+            TRANSACTION_ID => $transaction_id,
+            USER_KEY       => $user_id,
+            TABLE          => 'paysys_ipay_report',
+          });
+          if (!$Paysys->{errno}) {
+            print "TRANSACTION: $transaction_id is added.\n";
+          }
+        }
+      }
+    }
+  }
+  else {
+    print "File doesn't exists!\n\n";
+    return 0;
+  }
+
+  return 1;
+}
+#**********************************************************
+=head2 easypay_report() - read file and push data to DB
+
+  Arguments:
+    $attr -
+      DATE - file date
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub easypay_report {
+  my $report_date = q{};
+  my $file_name = q{};
+  my @columns = ('UID', 'SUM', 'PROV_BILL', 'MFO', 'BANK_NAME', 'CLIENT_CMSN', 'COMMISSION', 'CURRENCY', 'DATE',
+    'DESCRIPTION', 'PROV_NAME', 'OKPO', 'COMPANY_NAME', 'TERMINAL_ID', 'TRANSACTION_ID');
+  my %hash_data = ();
+
+  if ($argv->{DATE}) {
+    if ($argv->{DATE} =~ /(\d{4}\-\d{2}\-\d{2})/) {
+      $report_date = $argv->{DATE};
+      $report_date = "ONet_$report_date";
+    }
+    else {
+      print "Entered DATE:$argv->{DATE} is wrong!\n\n";
+      return 0;
+    }
+  }
+  else {
+    $report_date = $DATE;
+    my ($y, $m, $d) = split('-', $report_date);
+    $d = $d - 1;
+    if ($d < 10) {
+      $d = '0' . $d;
+    }
+
+    if ($d < 1) {
+      $m = $m - 1;
+      if ($m < 1) {
+        $m = 12;
+        $y = $y - 1;
+      }
+      if ($m < 10) {
+        $m = '0' . $m;
+      }
+      $d = days_in_month({ DATE => "$y-$m" });
+    }
+    $report_date = "ONet_$y-$m-$d";
+    print "$report_date.csv\n";
+  }
+
+  if ($conf{PAYSYS_EASYPAY_FILE}) {
+    $file_name = "$conf{PAYSYS_EASYPAY_FILE}$report_date.csv";
+  }
+  else {
+    print "Wrong configuration! \$conf{PAYSYS_EASYPAY_FILE} is empty!\n\n";
+    return 0;
+  }
+
+  if (-e $file_name) {
+    open(my $fh, '<:encoding(Windows-1251)', "$file_name") || die "Can't open file '$file_name' $!\n";
+    my @file_data = <$fh>;
+    close($fh);
+
+    if (scalar @file_data != 0) {
+      foreach my $line (@file_data) {
+        $line = Encode::encode("utf8", $line);
+        @hash_data{@columns} = split(';', $line);
+        if ($hash_data{DATE}) {
+          $hash_data{DATE} =~ s/T/ /;
+        }
+        $Paysys->paysys_report_add({ %hash_data,
+          TABLE => 'paysys_easypay_report',
+        });
+        if (!$Paysys->{errno}) {
+          print "TRANSACTION: $line is added.\n";
+        }
+      }
+    }
+  }
+  else {
+    print "File doesn't exists!\n\n";
+    return 0;
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 ibox_report() - read file and push data to DB
+
+  Arguments:
+    $attr -
+      DATE - file date
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub ibox_report {
+  my $report_date = q{};
+  my $file_name = q{};
+
+  if ($argv->{DATE}) {
+    if ($argv->{DATE} =~ /(\d{4}\-?()\d{2}\-?()\d{2})/) {
+      $report_date = $argv->{DATE};
+      $report_date =~ s/-//g;
+      $report_date = "TovOnetp_$report_date" . "v1";
+      print "$report_date.csv\n";
+    }
+    else {
+      print "Entered DATE:$argv->{DATE} is wrong!\n\n";
+      return 0;
+    }
+  }
+  else {
+    $report_date = $DATE;
+    my ($y, $m, $d) = split('-', $report_date);
+    $d = $d - 1;
+    if ($d < 10) {
+      $d = '0' . $d;
+    }
+
+    if ($d < 1) {
+      $m = $m - 1;
+      if ($m < 1) {
+        $m = 12;
+        $y = $y - 1;
+      }
+      if ($m < 10) {
+        $m = '0' . $m;
+      }
+      $d = days_in_month({ DATE => "$y-$m" });
+    }
+    $report_date = "TovOnetp_$y$m$d" . "v1";
+    print "$report_date.csv\n";
+  }
+
+  if ($conf{PAYSYS_IBOX_FILE}) {
+    $file_name = "$conf{PAYSYS_IBOX_FILE}$report_date.csv";
+  }
+  else {
+    print "Wrong configuration! \$conf{PAYSYS_IBOX_FILE} is empty!\n\n";
+    return 0;
+  }
+
+  if (-e $file_name) {
+    open(my $fh, '<', "$file_name") || die "Can't open file '$file_name' $!\n";
+    my @file_data = <$fh>;
+    close($fh);
+
+    if (scalar @file_data != 0) {
+      shift @file_data;
+      pop @file_data;
+      foreach my $line (@file_data) {
+        my ($date, $time, $transaction_id, $user_id, $sum) = split(';', $line);
+        if ($transaction_id && $transaction_id =~ /\d+/) {
+          my ($d, $m, $y) = split('\.', $date);
+          $date = $y.'-'.$m.'-'.$d;
+          my $date_time = ($date || '') . ' ' . ($time || '');
+          print "|$date_time, $transaction_id, $sum, $user_id|";
+          $sum =~ s/,/./g;
+          $Paysys->paysys_report_add({
+            SUM            => $sum,
+            DATE           => $date_time,
+            TRANSACTION_ID => $transaction_id,
+            USER_KEY       => $user_id,
+            TABLE          => 'paysys_ibox_report',
+          });
+          if (!$Paysys->{errno}) {
+            print "TRANSACTION: $transaction_id is added.\n";
+          }
+        }
+      }
+    }
+  }
+  else {
+    print "File doesn't exists!\n\n";
+    return 0;
+  }
+
+  return 1;
+}
+
+1

@@ -1,0 +1,2788 @@
+EPON-UNI-CONFIG-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    IpAddress, Unsigned32, Integer32, Counter32, TimeTicks, Gauge32, Counter64,
+    MODULE-IDENTITY, OBJECT-IDENTITY, OBJECT-TYPE, enterprises     
+      FROM SNMPv2-SMI     
+    DateAndTime, MacAddress, TimeStamp, RowStatus, TruthValue, DisplayString, TEXTUAL-CONVENTION
+      FROM SNMPv2-TC
+    eponUniCfg  FROM  EPON-CONFIG-MIB  ;
+    
+--------ONU UNI TABLE---------------------------------------------------------- 
+    
+eponUniAttributeTable OBJECT-TYPE
+   SYNTAX       SEQUENCE OF EponUniAttributeEntry    
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+    "onu uni attribute table"
+   ::= {eponUniCfg 1}  
+    
+eponUniAttributeEntry OBJECT-TYPE
+   SYNTAX       EponUniAttributeEntry    
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+    "onu uni attribute table"
+   INDEX{ eponUniAttributeCardIndex, eponUniAttributePonIndex, eponUniAttributeOnuIndex, eponUniAttributeUniIndex}
+   ::= {eponUniAttributeTable 1}  
+    
+EponUniAttributeEntry ::= SEQUENCE{
+     eponUniAttributeCardIndex     INTEGER,
+     eponUniAttributePonIndex      INTEGER,
+     eponUniAttributeOnuIndex      INTEGER,
+     eponUniAttributeUniIndex      INTEGER,
+     eponUniAdminStatus            INTEGER,
+     eponUniOperationStatus        INTEGER,
+     eponUniPauseStatus            INTEGER
+     }    
+
+eponUniAttributeCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponUniAttributeEntry  1}
+
+eponUniAttributePonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponUniAttributeEntry  2}
+
+eponUniAttributeOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu index"
+   ::= {eponUniAttributeEntry  3}
+   
+eponUniAttributeUniIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu uni index"
+   ::= {eponUniAttributeEntry  4}      
+
+eponUniAdminStatus   OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       disable(1),
+       enable(2)
+   }
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu port admin status"
+   ::= {eponUniAttributeEntry  5}    
+
+eponUniOperationStatus  OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       linkUp(1),
+       linkDown(0)
+   }
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu port link status"
+   ::= {eponUniAttributeEntry  6}    
+
+eponUniPauseStatus  OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       disable(1),
+       enable(2)
+   }
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu port pause status"
+   ::= {eponUniAttributeEntry  7}   
+         
+------ONU VLAN MODE TABLE------------------------------------------------------------
+eponOnuPortVlanModeGroup   OBJECT-IDENTITY
+   STATUS      current
+   DESCRIPTION
+   "onu port vlan table"
+   ::= {eponUniCfg 2}
+
+eponOnuPortVlanTable  OBJECT-TYPE
+   SYNTAX        SEQUENCE OF EponOnuPortVlanEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "port vlan mode table"
+   ::= {eponOnuPortVlanModeGroup 1}
+   
+eponOnuPortVlanEntry  OBJECT-TYPE
+   SYNTAX        EponOnuPortVlanEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "port vlan mode table"
+   INDEX { eponOnuPortVlanCardIndex, eponOnuPortVlanPonIndex, eponOnuPortVlanOnuIndex, eponOnuPortVlanUniIndex }
+   ::= {eponOnuPortVlanTable 1}
+   
+EponOnuPortVlanEntry ::=
+    SEQUENCE{
+       eponOnuPortVlanCardIndex     INTEGER,
+       eponOnuPortVlanPonIndex      INTEGER,
+       eponOnuPortVlanOnuIndex      INTEGER,
+       eponOnuPortVlanUniIndex      INTEGER,
+       eponOnuPortVlanTagTpid       OCTET STRING,
+       eponOnuPortVlanTagCfi        TruthValue,
+       eponOnuPortVlanTagPriority   INTEGER,
+       eponOnuPortVlanPVid          INTEGER,
+       eponOnuPortVlanMode          INTEGER
+       }
+   
+eponOnuPortVlanCardIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuPortVlanEntry 1}
+   
+eponOnuPortVlanPonIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "pon port index"
+   ::= {eponOnuPortVlanEntry 2}  
+   
+eponOnuPortVlanOnuIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+    "onu index"
+   ::= {eponOnuPortVlanEntry 3}  
+   
+eponOnuPortVlanUniIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "uni index"
+   ::= {eponOnuPortVlanEntry 4}  
+   
+eponOnuPortVlanTagTpid  OBJECT-TYPE
+   SYNTAX        OCTET STRING
+   MAX-ACCESS    read-write
+   STATUS        current
+   DESCRIPTION
+       "tpid       
+        It shall be presented in hexadecimal format. For example, 81 00
+        to indicate 0x8100"
+   ::= {eponOnuPortVlanEntry 5} 
+   
+eponOnuPortVlanTagCfi  OBJECT-TYPE
+   SYNTAX        TruthValue
+   MAX-ACCESS    read-write
+   STATUS        current
+   DESCRIPTION
+    "cfi"
+   ::= {eponOnuPortVlanEntry 6} 
+
+eponOnuPortVlanTagPriority  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-write
+   STATUS        current
+   DESCRIPTION
+   "vlan pri"
+   ::= {eponOnuPortVlanEntry 7}          
+
+eponOnuPortVlanPVid  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-write
+   STATUS        current
+   DESCRIPTION
+    " uni default vlan"
+   ::= {eponOnuPortVlanEntry 8}       
+   
+eponOnuPortVlanMode  OBJECT-TYPE
+   SYNTAX        INTEGER
+       {
+        transparent(0),
+        tag(1),
+        translation(2),
+        aggregation(3),
+        trunk(4)
+       }
+   MAX-ACCESS    read-write
+   STATUS        current
+   DESCRIPTION
+    " vlan mode"
+   ::= {eponOnuPortVlanEntry 9}    
+   
+         
+------ONU VLAN TRANSLATION TABLE-------------------------------------------------
+
+eponOnuPortVlanTranslationTable  OBJECT-TYPE
+   SYNTAX        SEQUENCE OF EponOnuPortVlanTranslationEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "onu vlan translation table"
+   ::= {eponOnuPortVlanModeGroup 2}  
+
+eponOnuPortVlanTranslationEntry  OBJECT-TYPE
+   SYNTAX        EponOnuPortVlanTranslationEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "onu vlan translation table"
+   INDEX {eponOnuPvtCardIndex, eponOnuPvtPonIndex, eponOnuPvtOnuIndex, eponOnuPvtUniIndex, eponOnuPvtListIndex}
+   ::= {eponOnuPortVlanTranslationTable 1}
+
+EponOnuPortVlanTranslationEntry ::= SEQUENCE{
+       eponOnuPvtCardIndex     INTEGER,
+       eponOnuPvtPonIndex      INTEGER,
+       eponOnuPvtOnuIndex      INTEGER,
+       eponOnuPvtUniIndex      INTEGER,
+       eponOnuPvtListIndex     INTEGER,
+       eponOnuPvtOldVid        INTEGER,
+       eponOnuPvtNewVid        INTEGER,
+       eponOnuPvtRowStatus     RowStatus
+       }
+
+eponOnuPvtCardIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuPortVlanTranslationEntry 1}
+   
+eponOnuPvtPonIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuPortVlanTranslationEntry 2}
+   
+eponOnuPvtOnuIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "onu index"
+   ::= {eponOnuPortVlanTranslationEntry 3}
+   
+eponOnuPvtUniIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "uni index"
+   ::= {eponOnuPortVlanTranslationEntry 4}
+   
+eponOnuPvtListIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "translation list index"
+   ::= {eponOnuPortVlanTranslationEntry 5}
+
+eponOnuPvtOldVid  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+   "translation old vlan"
+   ::= {eponOnuPortVlanTranslationEntry 6}
+   
+eponOnuPvtNewVid  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+   "translation new vlan"
+   ::= {eponOnuPortVlanTranslationEntry 7}   
+                  
+eponOnuPvtRowStatus  OBJECT-TYPE
+   SYNTAX        RowStatus
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+   "rowStatus"
+   ::= {eponOnuPortVlanTranslationEntry 8}   
+         
+------ONU VLAN TRUNK TABLE--------------------------------------------------------
+ 
+eponOnuPortVlanTrunkTable  OBJECT-TYPE
+   SYNTAX        SEQUENCE OF EponOnuPortVlanTrunkEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "onu vlan trunk table"
+   ::= {eponOnuPortVlanModeGroup 3}  
+
+eponOnuPortVlanTrunkEntry  OBJECT-TYPE
+   SYNTAX        EponOnuPortVlanTrunkEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "onu vlan trunk table"
+   INDEX { eponOnuVlanTrunkCardIndex, eponOnuVlanTrunkPonIndex, eponOnuVlanTrunkOnuIndex, eponOnuVlanTrunkUniIndex }
+   ::= {eponOnuPortVlanTrunkTable 1}
+
+EponOnuPortVlanTrunkEntry ::= SEQUENCE{
+       eponOnuVlanTrunkCardIndex     INTEGER,
+       eponOnuVlanTrunkPonIndex      INTEGER,
+       eponOnuVlanTrunkOnuIndex      INTEGER,
+       eponOnuVlanTrunkUniIndex      INTEGER,
+       eponOnuVlanTrunkList          OCTET STRING,
+       eponOnuVlanTrunkRowStatus     RowStatus
+       }
+       
+eponOnuVlanTrunkCardIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuPortVlanTrunkEntry 1}
+   
+eponOnuVlanTrunkPonIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuPortVlanTrunkEntry 2}
+   
+eponOnuVlanTrunkOnuIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "onu index"
+   ::= {eponOnuPortVlanTrunkEntry 3}
+   
+eponOnuVlanTrunkUniIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "uni index"
+   ::= {eponOnuPortVlanTrunkEntry 4}
+
+eponOnuVlanTrunkList  OBJECT-TYPE
+   SYNTAX        OCTET STRING(SIZE(0..255))
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+   "trunk list"
+   ::= {eponOnuPortVlanTrunkEntry 5}
+   
+eponOnuVlanTrunkRowStatus  OBJECT-TYPE
+   SYNTAX        RowStatus
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+   "rowStatus"
+   ::= {eponOnuPortVlanTrunkEntry 6}       
+
+----------------------------ONU BANDWIDTH MGMT--------------------------------------------
+eponOnuPortBandwidthMgmt  OBJECT-IDENTITY
+   STATUS        current
+   DESCRIPTION
+   "onu port bandwidth"
+   ::= {eponUniCfg 3}
+   
+eponOnuPortIngressTable   OBJECT-TYPE
+   SYNTAX        SEQUENCE OF EponOnuPortIngressEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "onu port ingress table"
+   ::= {eponOnuPortBandwidthMgmt 1}
+   
+eponOnuPortIngressEntry  OBJECT-TYPE
+   SYNTAX      EponOnuPortIngressEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   " onu port ingress entry"
+   INDEX{eponOnuPortIngressCardIndex, eponOnuPortIngressPonIndex, eponOnuPortIngressOnuIndex, eponOnuPortIngressUniIndex}
+   ::= {eponOnuPortIngressTable 1}
+   
+EponOnuPortIngressEntry ::= SEQUENCE{
+    eponOnuPortIngressCardIndex             INTEGER,
+    eponOnuPortIngressPonIndex              INTEGER,
+    eponOnuPortIngressOnuIndex              INTEGER,
+    eponOnuPortIngressUniIndex              INTEGER,
+    eponOnuPortIngressPolicingOper          INTEGER,
+    eponOnuPortIngressPolicingCIR           INTEGER,
+    eponOnuPortIngressPolicingCBS           INTEGER,
+    eponOnuPortIngressPolicingEBS           INTEGER
+    }  
+    
+eponOnuPortIngressCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuPortIngressEntry 1}  
+   
+eponOnuPortIngressPonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuPortIngressEntry 2}     
+
+eponOnuPortIngressOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu id"
+   ::= {eponOnuPortIngressEntry 3}  
+   
+eponOnuPortIngressUniIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu port "
+   ::= {eponOnuPortIngressEntry 4}  
+   
+eponOnuPortIngressPolicingOper  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "rate limiting operation"
+   ::= {eponOnuPortIngressEntry 5}     
+
+eponOnuPortIngressPolicingCIR  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "upstream policing CIR"
+   ::= {eponOnuPortIngressEntry 6}  
+   
+eponOnuPortIngressPolicingCBS  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "upstream policing CBS"
+   ::= {eponOnuPortIngressEntry 7} 
+
+eponOnuPortIngressPolicingEBS  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "upstream policing EBS"
+   ::= {eponOnuPortIngressEntry 8} 
+      
+--------------------DS RATE LIMITING-------------------------------------------------   
+       
+eponOnuPortEgressTable   OBJECT-TYPE
+   SYNTAX        SEQUENCE OF EponOnuPortEgressEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "onu port egress table"
+   ::= {eponOnuPortBandwidthMgmt 2}
+
+eponOnuPortEgressEntry  OBJECT-TYPE
+   SYNTAX      EponOnuPortEgressEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   " onu port egress entry"
+   INDEX{eponOnuPortEgressCardIndex, eponOnuPortEgressPonIndex, eponOnuPortEgressOnuIndex, eponOnuPortEgressUniIndex}
+   ::= {eponOnuPortEgressTable 1}
+   
+EponOnuPortEgressEntry ::= SEQUENCE{
+    eponOnuPortEgressCardIndex             INTEGER,
+    eponOnuPortEgressPonIndex              INTEGER,
+    eponOnuPortEgressOnuIndex              INTEGER,
+    eponOnuPortEgressUniIndex              INTEGER,
+    eponOnuPortEgressRateLimitingOper      INTEGER,
+    eponOnuPortEgressRateLimitingCIR       INTEGER,
+    eponOnuPortEgressRateLimitingPIR       INTEGER
+    }  
+    
+eponOnuPortEgressCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuPortEgressEntry 1}  
+   
+eponOnuPortEgressPonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuPortEgressEntry 2}     
+
+eponOnuPortEgressOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu id"
+   ::= {eponOnuPortEgressEntry 3}  
+   
+eponOnuPortEgressUniIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu port "
+   ::= {eponOnuPortEgressEntry 4}  
+   
+eponOnuPortEgressRateLimitingOper  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "downstream rate limiting operation"
+   ::= {eponOnuPortEgressEntry 5}     
+
+eponOnuPortEgressRateLimitingCIR  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "downstream CIR"
+   ::= {eponOnuPortEgressEntry 6}  
+   
+eponOnuPortEgressRateLimitingPIR  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "downstream PIR"
+   ::= {eponOnuPortEgressEntry 7} 
+      
+----------------------------ONU PORT STATISTICS MGMT--------------------------------------
+eponOnuPortStatisticsMgmt  OBJECT-IDENTITY
+   STATUS        current
+   DESCRIPTION
+   "onu port statistics"
+   ::= {eponUniCfg 4}
+    eponOnuPortStatisticsStatusTable   OBJECT-TYPE
+   SYNTAX        SEQUENCE OF EponOnuPortStatisticsStatusEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "onu  port statistics status"
+   ::= {eponOnuPortStatisticsMgmt 1}
+
+eponOnuPortStatisticsStatusEntry  OBJECT-TYPE
+   SYNTAX      EponOnuPortStatisticsStatusEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   " onu  port statistics status"
+   INDEX{eponOnuPortStatisticsStatusCardIndex, eponOnuPortStatisticsStatusPonIndex, eponOnuPortStatisticsStatusOnuIndex}
+   ::= {eponOnuPortStatisticsStatusTable 1}
+
+EponOnuPortStatisticsStatusEntry ::= SEQUENCE{
+    eponOnuPortStatisticsStatusCardIndex          INTEGER,
+    eponOnuPortStatisticsStatusPonIndex           INTEGER,
+    eponOnuPortStatisticsStatusOnuIndex           INTEGER,
+    eponOnuPortStatisticsStatus                   INTEGER,
+    eponOnuPortStatisticsPeriod                   INTEGER
+    }
+
+eponOnuPortStatisticsStatusCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuPortStatisticsStatusEntry 1}  
+   
+eponOnuPortStatisticsStatusPonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuPortStatisticsStatusEntry 2}     
+
+eponOnuPortStatisticsStatusOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu id"
+   ::= {eponOnuPortStatisticsStatusEntry 3}  
+   
+eponOnuPortStatisticsStatus   OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       AllPortStatisticDisable(1),
+       ALLportStatisticEnable(2),
+       OTHERS(3)
+   }
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu port statistics status"
+   ::= {eponOnuPortStatisticsStatusEntry 4}
+   
+eponOnuPortStatisticsPeriod   OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu port "
+   ::= {eponOnuPortStatisticsStatusEntry 5}
+   
+   
+eponOnuEthPortStatisticsStatusTable   OBJECT-TYPE
+   SYNTAX        SEQUENCE OF EponOnuEthPortStatisticsStatusEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "onu eth port statistics status"
+   ::= {eponOnuPortStatisticsMgmt 2}
+
+eponOnuEthPortStatisticsStatusEntry  OBJECT-TYPE
+   SYNTAX      EponOnuEthPortStatisticsStatusEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   " onu eth port statistics status"
+   INDEX{eponOnuEthPortStatisticsStatusCardIndex, eponOnuEthPortStatisticsStatusPonIndex, eponOnuEthPortStatisticsStatusOnuIndex, eponOnuEthPortStatisticsStatusOnuEthPortIndex}
+   ::= {eponOnuEthPortStatisticsStatusTable 1}
+   
+EponOnuEthPortStatisticsStatusEntry ::= SEQUENCE{
+    eponOnuEthPortStatisticsStatusCardIndex          INTEGER,
+    eponOnuEthPortStatisticsStatusPonIndex           INTEGER,
+    eponOnuEthPortStatisticsStatusOnuIndex           INTEGER,
+    eponOnuEthPortStatisticsStatusOnuEthPortIndex    INTEGER,
+    eponOnuEthPortStatisticsStatus                   INTEGER,
+    eponOnuEthPortStatisticsPeriod                   INTEGER
+    }
+
+eponOnuEthPortStatisticsStatusCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuEthPortStatisticsStatusEntry 1}  
+   
+eponOnuEthPortStatisticsStatusPonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuEthPortStatisticsStatusEntry 2}     
+
+eponOnuEthPortStatisticsStatusOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu id"
+   ::= {eponOnuEthPortStatisticsStatusEntry 3}  
+   
+eponOnuEthPortStatisticsStatusOnuEthPortIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu port "
+   ::= {eponOnuEthPortStatisticsStatusEntry 4}  
+      
+eponOnuEthPortStatisticsStatus   OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       disable(1),
+       enable(2)
+   }
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu port statistics status"
+   ::= {eponOnuEthPortStatisticsStatusEntry 5}
+   
+eponOnuEthPortStatisticsPeriod   OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu port "
+   ::= {eponOnuEthPortStatisticsStatusEntry 6}
+   
+eponOnuEthPortCurrentStatisticsTable OBJECT-TYPE   
+   SYNTAX       SEQUENCE OF EponOnuEthPortCurrentStatisticsEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION 
+     "onu eth pon port Current statistics  table"
+   ::= {eponOnuPortStatisticsMgmt 3}
+
+eponOnuEthPortCurrentStatisticsEntry  OBJECT-TYPE
+   SYNTAX      EponOnuEthPortCurrentStatisticsEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   " onu eth port Current statistics entry"
+   INDEX{eponOnuEthPortCurrentStatisticsCardIndex, eponOnuEthPortCurrentStatisticsPonIndex, eponOnuEthPortCurrentStatisticsOnuIndex,eponOnuEthPortCurrentStatisticsStatusOnuEthPortIndex}
+   ::= {eponOnuEthPortCurrentStatisticsTable 1}
+   
+EponOnuEthPortCurrentStatisticsEntry ::= SEQUENCE{
+    eponOnuEthPortCurrentStatisticsCardIndex              INTEGER,
+    eponOnuEthPortCurrentStatisticsPonIndex               INTEGER,
+    eponOnuEthPortCurrentStatisticsOnuIndex               INTEGER,
+    eponOnuEthPortCurrentStatisticsStatusOnuEthPortIndex  INTEGER,	 
+    eponOnuEthPortCurrentStatistics_dn_drop_events               Counter64,
+    eponOnuEthPortCurrentStatistics_up_drop_events               Counter64,
+    eponOnuEthPortCurrentStatistics_dn_octets                    Counter64,
+    eponOnuEthPortCurrentStatistics_up_octets                    Counter64,
+    eponOnuEthPortCurrentStatistics_dn_frames                    Counter64,
+    eponOnuEthPortCurrentStatistics_up_frames   		         Counter64,
+    eponOnuEthPortCurrentStatistics_dn_bc_frames                 Counter64,
+    eponOnuEthPortCurrentStatistics_up_bc_frames                 Counter64,
+    eponOnuEthPortCurrentStatistics_dn_mc_frames                 Counter64,
+    eponOnuEthPortCurrentStatistics_up_mc_frames                 Counter64,
+    eponOnuEthPortCurrentStatistics_dn_crc_error_frames          Counter64,
+    eponOnuEthPortCurrentStatistics_up_crc_error_frames          Counter64,
+    eponOnuEthPortCurrentStatistics_dn_undersize_frames          Counter64,
+    eponOnuEthPortCurrentStatistics_up_undersize_frames          Counter64,
+	eponOnuEthPortCurrentStatistics_dn_oversize_frames           Counter64,
+	eponOnuEthPortCurrentStatistics_up_oversize_frames           Counter64, 
+	eponOnuEthPortCurrentStatistics_dn_fragments                 Counter64,
+	eponOnuEthPortCurrentStatistics_up_fragments                 Counter64,
+	eponOnuEthPortCurrentStatistics_dn_jabbers                   Counter64,
+	eponOnuEthPortCurrentStatistics_up_jabbers                   Counter64,
+	eponOnuEthPortCurrentStatistics_dn_frames_0_64               Counter64,
+	eponOnuEthPortCurrentStatistics_dn_frames_65_127             Counter64,
+	eponOnuEthPortCurrentStatistics_dn_frames_128_255            Counter64,
+	eponOnuEthPortCurrentStatistics_dn_frames_256_511            Counter64,
+	eponOnuEthPortCurrentStatistics_dn_frames_512_1023           Counter64,
+	eponOnuEthPortCurrentStatistics_dn_frames_1024_1518          Counter64,
+	eponOnuEthPortCurrentStatistics_up_frames_0_64               Counter64,
+	eponOnuEthPortCurrentStatistics_up_frames_65_127             Counter64,
+	eponOnuEthPortCurrentStatistics_up_frames_128_255            Counter64,
+	eponOnuEthPortCurrentStatistics_up_frames_256_511            Counter64,
+	eponOnuEthPortCurrentStatistics_up_frames_512_1023           Counter64,
+	eponOnuEthPortCurrentStatistics_up_frames_1024_1518          Counter64,
+	eponOnuEthPortCurrentStatistics_dn_discards                  Counter64,
+	eponOnuEthPortCurrentStatistics_up_discards                  Counter64,
+	eponOnuEthPortCurrentStatistics_dn_errors                    Counter64,
+	eponOnuEthPortCurrentStatistics_up_errors                    Counter64,
+	eponOnuEthPortCurrentStatistics_status_change_times          Counter64
+    }  
+    
+eponOnuEthPortCurrentStatisticsCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuEthPortCurrentStatisticsEntry 1}  
+   
+eponOnuEthPortCurrentStatisticsPonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuEthPortCurrentStatisticsEntry 2}     
+
+eponOnuEthPortCurrentStatisticsOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu id"
+   ::= {eponOnuEthPortCurrentStatisticsEntry 3} 
+   
+eponOnuEthPortCurrentStatisticsStatusOnuEthPortIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu eth port id"
+   ::= {eponOnuEthPortCurrentStatisticsEntry 4} 
+   
+       
+eponOnuEthPortCurrentStatistics_dn_drop_events  OBJECT-TYPE
+    SYNTAX Counter64
+    MAX-ACCESS read-only
+    STATUS current
+    DESCRIPTION
+    "dn_drop_events"
+    ::= {eponOnuEthPortCurrentStatisticsEntry 5} 
+      
+eponOnuEthPortCurrentStatistics_up_drop_events  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_drop_events"
+	::= { eponOnuEthPortCurrentStatisticsEntry 6 }
+      
+eponOnuEthPortCurrentStatistics_dn_octets  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_octets"
+	::= { eponOnuEthPortCurrentStatisticsEntry 7 }
+      
+eponOnuEthPortCurrentStatistics_up_octets OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_octets"
+	::= { eponOnuEthPortCurrentStatisticsEntry 8 }
+	
+eponOnuEthPortCurrentStatistics_dn_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames"
+	::= { eponOnuEthPortCurrentStatisticsEntry 9 }
+	
+eponOnuEthPortCurrentStatistics_up_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames"
+	::= { eponOnuEthPortCurrentStatisticsEntry 10}
+	
+eponOnuEthPortCurrentStatistics_dn_bc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_bc_frames"
+	::= { eponOnuEthPortCurrentStatisticsEntry 11 }
+	
+eponOnuEthPortCurrentStatistics_up_bc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_bc_frames"
+	::= { eponOnuEthPortCurrentStatisticsEntry 12 }
+	
+eponOnuEthPortCurrentStatistics_dn_mc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_mc_frames"
+	::= { eponOnuEthPortCurrentStatisticsEntry 13 }
+	
+eponOnuEthPortCurrentStatistics_up_mc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_mc_frames"
+	::= { eponOnuEthPortCurrentStatisticsEntry 14 }
+	
+eponOnuEthPortCurrentStatistics_dn_crc_error_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_crc_error_frames"
+	::= { eponOnuEthPortCurrentStatisticsEntry 15 }
+	
+eponOnuEthPortCurrentStatistics_up_crc_error_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_crc_error_frames"
+	::= { eponOnuEthPortCurrentStatisticsEntry 16 }
+	
+eponOnuEthPortCurrentStatistics_dn_undersize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_undersize_frames"
+	::= { eponOnuEthPortCurrentStatisticsEntry 17 }
+	
+eponOnuEthPortCurrentStatistics_up_undersize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_undersize_frames"
+	::= { eponOnuEthPortCurrentStatisticsEntry 18 }
+	
+eponOnuEthPortCurrentStatistics_dn_oversize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_oversize"
+	::= { eponOnuEthPortCurrentStatisticsEntry 19 }
+	
+eponOnuEthPortCurrentStatistics_up_oversize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_oversize"
+	::= { eponOnuEthPortCurrentStatisticsEntry 20 }
+	
+eponOnuEthPortCurrentStatistics_dn_fragments  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_fragments"
+	::= { eponOnuEthPortCurrentStatisticsEntry 21 }
+	
+eponOnuEthPortCurrentStatistics_up_fragments  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_fragments"
+	::= { eponOnuEthPortCurrentStatisticsEntry 22 }
+	
+eponOnuEthPortCurrentStatistics_dn_jabbers  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_jabbers"
+	::= { eponOnuEthPortCurrentStatisticsEntry 23 }
+	
+eponOnuEthPortCurrentStatistics_up_jabbers  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_jabbers"
+	::= { eponOnuEthPortCurrentStatisticsEntry 24 }
+
+eponOnuEthPortCurrentStatistics_dn_frames_0_64  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_0_64"
+	::= { eponOnuEthPortCurrentStatisticsEntry 25 }
+	
+	
+eponOnuEthPortCurrentStatistics_dn_frames_65_127 OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_65_127"
+	::= { eponOnuEthPortCurrentStatisticsEntry 26 }
+	
+eponOnuEthPortCurrentStatistics_dn_frames_128_255  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_128_255"
+	::= { eponOnuEthPortCurrentStatisticsEntry 27 }
+	
+eponOnuEthPortCurrentStatistics_dn_frames_256_511  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_256_511"
+	::= { eponOnuEthPortCurrentStatisticsEntry 28 }
+	
+eponOnuEthPortCurrentStatistics_dn_frames_512_1023  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_512_1023"
+	::= { eponOnuEthPortCurrentStatisticsEntry 29 }
+	
+eponOnuEthPortCurrentStatistics_dn_frames_1024_1518  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_1024_1518"
+	::= { eponOnuEthPortCurrentStatisticsEntry 30 }
+	
+eponOnuEthPortCurrentStatistics_up_frames_0_64  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_0_64"
+	::= { eponOnuEthPortCurrentStatisticsEntry 31 }
+	
+eponOnuEthPortCurrentStatistics_up_frames_65_127  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_65_127"
+	::= { eponOnuEthPortCurrentStatisticsEntry 32 }
+	
+eponOnuEthPortCurrentStatistics_up_frames_128_255  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_128_255"
+	::= { eponOnuEthPortCurrentStatisticsEntry 33 }
+	
+eponOnuEthPortCurrentStatistics_up_frames_256_511  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_256_511"
+	::= { eponOnuEthPortCurrentStatisticsEntry 34 }
+	
+eponOnuEthPortCurrentStatistics_up_frames_512_1023  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_512_1023"
+	::= { eponOnuEthPortCurrentStatisticsEntry 35 }
+	
+eponOnuEthPortCurrentStatistics_up_frames_1024_1518  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_1024_1518"
+	::= { eponOnuEthPortCurrentStatisticsEntry 36 }
+	
+eponOnuEthPortCurrentStatistics_dn_discards  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_discards"
+	::= { eponOnuEthPortCurrentStatisticsEntry 37 }
+	
+eponOnuEthPortCurrentStatistics_up_discards  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_discards"
+	::= { eponOnuEthPortCurrentStatisticsEntry 38 }
+	
+eponOnuEthPortCurrentStatistics_dn_errors  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_errors"
+	::= { eponOnuEthPortCurrentStatisticsEntry 39 }
+	
+eponOnuEthPortCurrentStatistics_up_errors  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_errors"
+	::= { eponOnuEthPortCurrentStatisticsEntry 40 }
+
+eponOnuEthPortCurrentStatistics_status_change_times  OBJECT-TYPE
+	SYNTAX INTEGER
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "status_change_times"
+	::= { eponOnuEthPortCurrentStatisticsEntry 41 }
+	        
+	        
+eponOnuEthPortHistoryStatisticsTable OBJECT-TYPE   
+	SYNTAX       SEQUENCE OF EponOnuEthPortHistoryStatisticsEntry
+	MAX-ACCESS   not-accessible
+	STATUS       current
+	DESCRIPTION 
+	"onu eth port History statistics table"
+	::= {eponOnuPortStatisticsMgmt 4}    
+	
+eponOnuEthPortHistoryStatisticsEntry  OBJECT-TYPE
+   SYNTAX      EponOnuEthPortHistoryStatisticsEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   " onu eth port History statistics entry"
+   INDEX{eponOnuEthPortHistoryStatisticsCardIndex, eponOnuEthPortHistoryStatisticsPonIndex, eponOnuEthPortHistoryStatisticsOnuIndex, eponOnuEthPortHistoryStatisticsStatusOnuEthPortIndex}
+   ::= {eponOnuEthPortHistoryStatisticsTable 1}
+   
+EponOnuEthPortHistoryStatisticsEntry ::= SEQUENCE{
+	eponOnuEthPortHistoryStatisticsCardIndex             INTEGER,
+	eponOnuEthPortHistoryStatisticsPonIndex              INTEGER,
+	eponOnuEthPortHistoryStatisticsOnuIndex              INTEGER,
+	eponOnuEthPortHistoryStatisticsStatusOnuEthPortIndex         INTEGER,
+	eponOnuEthPortHistoryStatistics_dn_drop_events               Counter64,
+	eponOnuEthPortHistoryStatistics_up_drop_events               Counter64,
+	eponOnuEthPortHistoryStatistics_dn_octets                    Counter64,
+	eponOnuEthPortHistoryStatistics_up_octets                    Counter64,
+	eponOnuEthPortHistoryStatistics_dn_frames                    Counter64,
+	eponOnuEthPortHistoryStatistics_up_frames   				 Counter64,
+	eponOnuEthPortHistoryStatistics_dn_bc_frames                 Counter64,
+	eponOnuEthPortHistoryStatistics_up_bc_frames                 Counter64,
+	eponOnuEthPortHistoryStatistics_dn_mc_frames                 Counter64,
+	eponOnuEthPortHistoryStatistics_up_mc_frames                 Counter64,
+	eponOnuEthPortHistoryStatistics_dn_crc_error_frames          Counter64,
+	eponOnuEthPortHistoryStatistics_up_crc_error_frames          Counter64,
+	eponOnuEthPortHistoryStatistics_dn_undersize_frames          Counter64,
+	eponOnuEthPortHistoryStatistics_up_undersize_frames          Counter64,
+	eponOnuEthPortHistoryStatistics_dn_oversize_frames           Counter64,
+	eponOnuEthPortHistoryStatistics_up_oversize_frames           Counter64, 
+	eponOnuEthPortHistoryStatistics_dn_fragments                 Counter64,
+	eponOnuEthPortHistoryStatistics_up_fragments                 Counter64,
+	eponOnuEthPortHistoryStatistics_dn_jabbers                   Counter64,
+	eponOnuEthPortHistoryStatistics_up_jabbers                   Counter64,
+	eponOnuEthPortHistoryStatistics_dn_frames_0_64               Counter64,
+	eponOnuEthPortHistoryStatistics_dn_frames_65_127             Counter64,
+	eponOnuEthPortHistoryStatistics_dn_frames_128_255            Counter64,
+	eponOnuEthPortHistoryStatistics_dn_frames_256_511            Counter64,
+	eponOnuEthPortHistoryStatistics_dn_frames_512_1023           Counter64,
+	eponOnuEthPortHistoryStatistics_dn_frames_1024_1518          Counter64,
+	eponOnuEthPortHistoryStatistics_up_frames_0_64               Counter64,
+	eponOnuEthPortHistoryStatistics_up_frames_65_127             Counter64,
+	eponOnuEthPortHistoryStatistics_up_frames_128_255            Counter64,
+	eponOnuEthPortHistoryStatistics_up_frames_256_511            Counter64,
+	eponOnuEthPortHistoryStatistics_up_frames_512_1023           Counter64,
+	eponOnuEthPortHistoryStatistics_up_frames_1024_1518          Counter64,
+	eponOnuEthPortHistoryStatistics_dn_discards                  Counter64,
+	eponOnuEthPortHistoryStatistics_up_discards                  Counter64,
+	eponOnuEthPortHistoryStatistics_dn_errors                    Counter64,
+	eponOnuEthPortHistoryStatistics_up_errors                    Counter64,
+	eponOnuEthPortHistoryStatistics_status_change_times          Counter64
+    }  
+    
+eponOnuEthPortHistoryStatisticsCardIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"olt slot index"
+	::= {eponOnuEthPortHistoryStatisticsEntry 1}  
+	
+eponOnuEthPortHistoryStatisticsPonIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"pon index"
+	::= {eponOnuEthPortHistoryStatisticsEntry 2}     
+	
+eponOnuEthPortHistoryStatisticsOnuIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"onu index"
+	::= {eponOnuEthPortHistoryStatisticsEntry 3} 
+	
+eponOnuEthPortHistoryStatisticsStatusOnuEthPortIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"onu eth port index"
+	::= {eponOnuEthPortHistoryStatisticsEntry 4} 
+	
+eponOnuEthPortHistoryStatistics_dn_drop_events  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"dn_drop_events"
+	::= {eponOnuEthPortHistoryStatisticsEntry 5} 
+	   
+eponOnuEthPortHistoryStatistics_up_drop_events  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_drop_events"
+	::= { eponOnuEthPortHistoryStatisticsEntry 6 }   
+	
+eponOnuEthPortHistoryStatistics_dn_octets  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_octets"
+	::= { eponOnuEthPortHistoryStatisticsEntry 7 }
+	
+eponOnuEthPortHistoryStatistics_up_octets OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_octets"
+	::= { eponOnuEthPortHistoryStatisticsEntry 8 }
+
+eponOnuEthPortHistoryStatistics_dn_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames"
+	::= { eponOnuEthPortHistoryStatisticsEntry 9 }
+	
+eponOnuEthPortHistoryStatistics_up_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames"
+	::= { eponOnuEthPortHistoryStatisticsEntry 10}
+	
+eponOnuEthPortHistoryStatistics_dn_bc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_bc_frames"
+	::= { eponOnuEthPortHistoryStatisticsEntry 11 }
+
+eponOnuEthPortHistoryStatistics_up_bc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_bc_frames"
+	::= { eponOnuEthPortHistoryStatisticsEntry 12 }
+	
+eponOnuEthPortHistoryStatistics_dn_mc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_mc_frames"
+	::= { eponOnuEthPortHistoryStatisticsEntry 13 }
+	
+eponOnuEthPortHistoryStatistics_up_mc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_mc_frames"
+	::= { eponOnuEthPortHistoryStatisticsEntry 14 }
+      
+eponOnuEthPortHistoryStatistics_dn_crc_error_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_crc_error_frames"
+	::= { eponOnuEthPortHistoryStatisticsEntry 15 }
+	
+eponOnuEthPortHistoryStatistics_up_crc_error_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_crc_error_frames"
+	::= { eponOnuEthPortHistoryStatisticsEntry 16 }
+	
+eponOnuEthPortHistoryStatistics_dn_undersize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_undersize_frames"
+	::= { eponOnuEthPortHistoryStatisticsEntry 17 }
+
+eponOnuEthPortHistoryStatistics_up_undersize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_undersize_frames"
+	::= { eponOnuEthPortHistoryStatisticsEntry 18 }
+	
+eponOnuEthPortHistoryStatistics_dn_oversize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_oversize"
+	::= { eponOnuEthPortHistoryStatisticsEntry 19 }
+	
+eponOnuEthPortHistoryStatistics_up_oversize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_oversize"
+	::= { eponOnuEthPortHistoryStatisticsEntry 20 }
+
+eponOnuEthPortHistoryStatistics_dn_fragments  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_fragments"
+	::= { eponOnuEthPortHistoryStatisticsEntry 21 }
+	
+eponOnuEthPortHistoryStatistics_up_fragments  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_fragments"
+	::= { eponOnuEthPortHistoryStatisticsEntry 22 }
+	
+eponOnuEthPortHistoryStatistics_dn_jabbers  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_jabbers"
+	::= { eponOnuEthPortHistoryStatisticsEntry 23 }
+		
+eponOnuEthPortHistoryStatistics_up_jabbers  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_jabbers"
+	::= { eponOnuEthPortHistoryStatisticsEntry 24 }    
+	
+eponOnuEthPortHistoryStatistics_dn_frames_0_64  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_0_64"
+	::= { eponOnuEthPortHistoryStatisticsEntry 25 }	 
+	
+eponOnuEthPortHistoryStatistics_dn_frames_65_127 OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_65_127"
+	::= { eponOnuEthPortHistoryStatisticsEntry 26 }
+
+eponOnuEthPortHistoryStatistics_dn_frames_128_255  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_128_255"
+	::= { eponOnuEthPortHistoryStatisticsEntry 27 }
+	
+eponOnuEthPortHistoryStatistics_dn_frames_256_511  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_256_511"
+	::= { eponOnuEthPortHistoryStatisticsEntry 28 }
+	
+eponOnuEthPortHistoryStatistics_dn_frames_512_1023  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_512_1023"
+	::= { eponOnuEthPortHistoryStatisticsEntry 29 }
+      
+eponOnuEthPortHistoryStatistics_dn_frames_1024_1518  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_1024_1518"
+	::= { eponOnuEthPortHistoryStatisticsEntry 30 }
+	
+eponOnuEthPortHistoryStatistics_up_frames_0_64  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_0_64"
+	::= { eponOnuEthPortHistoryStatisticsEntry 31 }
+	
+eponOnuEthPortHistoryStatistics_up_frames_65_127  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_65_127"
+	::= { eponOnuEthPortHistoryStatisticsEntry 32 }
+
+eponOnuEthPortHistoryStatistics_up_frames_128_255  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_128_255"
+	::= { eponOnuEthPortHistoryStatisticsEntry 33 }
+	
+eponOnuEthPortHistoryStatistics_up_frames_256_511  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_256_511"
+	::= { eponOnuEthPortHistoryStatisticsEntry 34 }
+	
+eponOnuEthPortHistoryStatistics_up_frames_512_1023  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_512_1023"
+	::= { eponOnuEthPortHistoryStatisticsEntry 35 }
+      
+eponOnuEthPortHistoryStatistics_up_frames_1024_1518  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_1024_1518"
+	::= { eponOnuEthPortHistoryStatisticsEntry 36 }
+	
+eponOnuEthPortHistoryStatistics_dn_discards  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_discards"
+	::= { eponOnuEthPortHistoryStatisticsEntry 37 }
+	
+eponOnuEthPortHistoryStatistics_up_discards  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_discards"
+	::= { eponOnuEthPortHistoryStatisticsEntry 38 }
+
+eponOnuEthPortHistoryStatistics_dn_errors  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_errors"
+	::= { eponOnuEthPortHistoryStatisticsEntry 39 }
+	
+eponOnuEthPortHistoryStatistics_up_errors  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_errors"
+	::= { eponOnuEthPortHistoryStatisticsEntry 40 }
+	
+eponOnuEthPortHistoryStatistics_status_change_times  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "status_change_times"
+	::= { eponOnuEthPortHistoryStatisticsEntry 41 }
+
+eponOnuPonPortStatisticsStatusTable   OBJECT-TYPE
+	SYNTAX        SEQUENCE OF EponOnuPonPortStatisticsStatusEntry
+	MAX-ACCESS    not-accessible
+	STATUS        current
+	DESCRIPTION
+	"onu pon port statistics status"
+	::= {eponOnuPortStatisticsMgmt 5}
+	
+eponOnuPonPortStatisticsStatusEntry  OBJECT-TYPE
+	SYNTAX      EponOnuPonPortStatisticsStatusEntry
+	MAX-ACCESS  not-accessible
+	STATUS      current
+	DESCRIPTION
+	" onu pon port statistics status"
+	INDEX{eponOnuPonPortStatisticsStatusCardIndex, eponOnuPonPortStatisticsStatusPonIndex, eponOnuPonPortStatisticsStatusOnuIndex,  eponOnuPonPortStatisticsStatusOnuPonPortIndex}
+	::= {eponOnuPonPortStatisticsStatusTable 1}
+   
+EponOnuPonPortStatisticsStatusEntry ::= SEQUENCE{
+    eponOnuPonPortStatisticsStatusCardIndex          INTEGER,
+    eponOnuPonPortStatisticsStatusPonIndex           INTEGER,
+    eponOnuPonPortStatisticsStatusOnuIndex           INTEGER,
+    eponOnuPonPortStatisticsStatusOnuPonPortIndex    INTEGER,
+    eponOnuPonPortStatisticsStatus                   INTEGER,
+    eponOnuPonPortStatisticsPeriod                   INTEGER
+    }
+
+eponOnuPonPortStatisticsStatusCardIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"olt slot index"
+	::= {eponOnuPonPortStatisticsStatusEntry 1}  
+	
+eponOnuPonPortStatisticsStatusPonIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"pon index"
+	::= {eponOnuPonPortStatisticsStatusEntry 2}     
+	
+eponOnuPonPortStatisticsStatusOnuIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"onu id"
+	::= {eponOnuPonPortStatisticsStatusEntry 3}  
+
+eponOnuPonPortStatisticsStatusOnuPonPortIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"onu port "
+	::= {eponOnuPonPortStatisticsStatusEntry 4}  
+	   
+eponOnuPonPortStatisticsStatus   OBJECT-TYPE
+	SYNTAX          INTEGER
+	{
+	    disable(1),
+	    enable(2)
+	}
+	MAX-ACCESS      read-write
+	STATUS          current
+	DESCRIPTION
+	"onu port statistics status"
+	::= {eponOnuPonPortStatisticsStatusEntry 5}
+	
+eponOnuPonPortStatisticsPeriod   OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-write
+	STATUS          current
+	DESCRIPTION
+	"OnuPonPortStatisticsPeriod "
+	::= {eponOnuPonPortStatisticsStatusEntry 6}
+   
+eponOnuPonPortCurrentStatisticsTable OBJECT-TYPE   
+	SYNTAX       SEQUENCE OF EponOnuPonPortCurrentStatisticsEntry
+	MAX-ACCESS   not-accessible
+	STATUS       current
+	DESCRIPTION 
+	  "onu  pon port Current statistics  table"
+	::= {eponOnuPortStatisticsMgmt 6}
+	
+eponOnuPonPortCurrentStatisticsEntry  OBJECT-TYPE
+	SYNTAX      EponOnuPonPortCurrentStatisticsEntry
+	MAX-ACCESS  not-accessible
+	STATUS      current
+	DESCRIPTION
+	" onu pon port Current statistics entry"
+	INDEX{eponOnuPonPortCurrentStatisticsCardIndex, eponOnuPonPortCurrentStatisticsPonIndex, eponOnuPonPortCurrentStatisticsOnuIndex,eponOnuPonPortCurrrentStatisticsStatusOnuPonPortIndex}
+	::= {eponOnuPonPortCurrentStatisticsTable 1}
+   
+EponOnuPonPortCurrentStatisticsEntry ::= SEQUENCE{
+     eponOnuPonPortCurrentStatisticsCardIndex             		  INTEGER,
+     eponOnuPonPortCurrentStatisticsPonIndex              	      INTEGER,
+     eponOnuPonPortCurrentStatisticsOnuIndex              		  INTEGER,
+     eponOnuPonPortCurrrentStatisticsStatusOnuPonPortIndex		  INTEGER,
+ 	 eponOnuPonPortCurrentStatistics_dn_drop_events               Counter64,
+     eponOnuPonPortCurrentStatistics_up_drop_events               Counter64,
+     eponOnuPonPortCurrentStatistics_dn_octets                    Counter64,
+     eponOnuPonPortCurrentStatistics_up_octets                    Counter64,
+     eponOnuPonPortCurrentStatistics_dn_frames                    Counter64,
+     eponOnuPonPortCurrentStatistics_up_frames   				  Counter64,
+     eponOnuPonPortCurrentStatistics_dn_bc_frames                 Counter64,
+     eponOnuPonPortCurrentStatistics_up_bc_frames                 Counter64,
+     eponOnuPonPortCurrentStatistics_dn_mc_frames                 Counter64,
+     eponOnuPonPortCurrentStatistics_up_mc_frames                 Counter64,
+     eponOnuPonPortCurrentStatistics_dn_crc_error_frames          Counter64,
+     eponOnuPonPortCurrentStatistics_up_crc_error_frames          Counter64,
+     eponOnuPonPortCurrentStatistics_dn_undersize_frames          Counter64,
+     eponOnuPonPortCurrentStatistics_up_undersize_frames          Counter64,
+     eponOnuPonPortCurrentStatistics_dn_oversize_frames           Counter64,
+     eponOnuPonPortCurrentStatistics_up_oversize_frames           Counter64, 
+	 eponOnuPonPortCurrentStatistics_dn_fragments                 Counter64,
+     eponOnuPonPortCurrentStatistics_up_fragments                 Counter64,
+     eponOnuPonPortCurrentStatistics_dn_jabbers                   Counter64,
+     eponOnuPonPortCurrentStatistics_up_jabbers                   Counter64,
+     eponOnuPonPortCurrentStatistics_dn_frames_0_64               Counter64,
+     eponOnuPonPortCurrentStatistics_dn_frames_65_127             Counter64,
+     eponOnuPonPortCurrentStatistics_dn_frames_128_255            Counter64,
+     eponOnuPonPortCurrentStatistics_dn_frames_256_511            Counter64,
+     eponOnuPonPortCurrentStatistics_dn_frames_512_1023           Counter64,
+     eponOnuPonPortCurrentStatistics_dn_frames_1024_1518          Counter64,
+     eponOnuPonPortCurrentStatistics_up_frames_0_64               Counter64,
+     eponOnuPonPortCurrentStatistics_up_frames_65_127             Counter64,
+     eponOnuPonPortCurrentStatistics_up_frames_128_255            Counter64,
+     eponOnuPonPortCurrentStatistics_up_frames_256_511            Counter64,
+     eponOnuPonPortCurrentStatistics_up_frames_512_1023           Counter64,
+     eponOnuPonPortCurrentStatistics_up_frames_1024_1518          Counter64,
+	 eponOnuPonPortCurrentStatistics_dn_discards                  Counter64,
+     eponOnuPonPortCurrentStatistics_up_discards                  Counter64,
+     eponOnuPonPortCurrentStatistics_dn_errors                    Counter64,
+     eponOnuPonPortCurrentStatistics_up_errors                    Counter64,
+     eponOnuPonPortCurrentStatistics_status_change_times          Counter64
+    }  
+    
+eponOnuPonPortCurrentStatisticsCardIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"olt slot index"
+	::= {eponOnuPonPortCurrentStatisticsEntry 1}  
+	
+eponOnuPonPortCurrentStatisticsPonIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"pon index"
+	::= {eponOnuPonPortCurrentStatisticsEntry 2}     
+	
+eponOnuPonPortCurrentStatisticsOnuIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"onu id"
+	::= {eponOnuPonPortCurrentStatisticsEntry 3} 
+   		
+eponOnuPonPortCurrrentStatisticsStatusOnuPonPortIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"onu id"
+	::= {eponOnuPonPortCurrentStatisticsEntry 4}    
+	
+eponOnuPonPortCurrentStatistics_dn_drop_events  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"dn_drop_events"
+	::= {eponOnuPonPortCurrentStatisticsEntry 5} 
+      
+eponOnuPonPortCurrentStatistics_up_drop_events  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_drop_events"
+	::= { eponOnuPonPortCurrentStatisticsEntry 6 }
+
+eponOnuPonPortCurrentStatistics_dn_octets  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_octets"
+	::= { eponOnuPonPortCurrentStatisticsEntry 7 }
+	
+eponOnuPonPortCurrentStatistics_up_octets OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_octets"
+	::= { eponOnuPonPortCurrentStatisticsEntry 8 }
+	
+eponOnuPonPortCurrentStatistics_dn_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames"
+	::= { eponOnuPonPortCurrentStatisticsEntry 9 }
+      
+eponOnuPonPortCurrentStatistics_up_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames"
+	::= { eponOnuPonPortCurrentStatisticsEntry 10}
+	
+eponOnuPonPortCurrentStatistics_dn_bc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_bc_frames"
+	::= { eponOnuPonPortCurrentStatisticsEntry 11 }
+	
+eponOnuPonPortCurrentStatistics_up_bc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_bc_frames"
+	::= { eponOnuPonPortCurrentStatisticsEntry 12 }
+	
+eponOnuPonPortCurrentStatistics_dn_mc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_mc_frames"
+	::= { eponOnuPonPortCurrentStatisticsEntry 13 }
+	
+eponOnuPonPortCurrentStatistics_up_mc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_mc_frames"
+	::= { eponOnuPonPortCurrentStatisticsEntry 14 }
+	
+eponOnuPonPortCurrentStatistics_dn_crc_error_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_crc_error_frames"
+	::= { eponOnuPonPortCurrentStatisticsEntry 15 }
+	
+eponOnuPonPortCurrentStatistics_up_crc_error_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_crc_error_frames"
+	::= { eponOnuPonPortCurrentStatisticsEntry 16 }
+      
+eponOnuPonPortCurrentStatistics_dn_undersize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_undersize_frames"
+	::= { eponOnuPonPortCurrentStatisticsEntry 17 }
+	
+eponOnuPonPortCurrentStatistics_up_undersize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_undersize_frames"
+	::= { eponOnuPonPortCurrentStatisticsEntry 18 }
+	
+eponOnuPonPortCurrentStatistics_dn_oversize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_oversize"
+	::= { eponOnuPonPortCurrentStatisticsEntry 19 }
+	
+eponOnuPonPortCurrentStatistics_up_oversize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_oversize"
+	::= { eponOnuPonPortCurrentStatisticsEntry 20 }
+
+eponOnuPonPortCurrentStatistics_dn_fragments  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_fragments"
+	::= { eponOnuPonPortCurrentStatisticsEntry 21 }
+	
+eponOnuPonPortCurrentStatistics_up_fragments  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_fragments"
+	::= { eponOnuPonPortCurrentStatisticsEntry 22 }
+	
+eponOnuPonPortCurrentStatistics_dn_jabbers  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_jabbers"
+	::= { eponOnuPonPortCurrentStatisticsEntry 23 }
+
+eponOnuPonPortCurrentStatistics_up_jabbers  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_jabbers"
+	::= { eponOnuPonPortCurrentStatisticsEntry 24 }
+	
+eponOnuPonPortCurrentStatistics_dn_frames_0_64  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_0_64"
+	::= { eponOnuPonPortCurrentStatisticsEntry 25 }
+	
+eponOnuPonPortCurrentStatistics_dn_frames_65_127 OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_65_127"
+	::= { eponOnuPonPortCurrentStatisticsEntry 26 }
+
+eponOnuPonPortCurrentStatistics_dn_frames_128_255  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_128_255"
+	::= { eponOnuPonPortCurrentStatisticsEntry 27 }
+	
+eponOnuPonPortCurrentStatistics_dn_frames_256_511  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_256_511"
+	::= { eponOnuPonPortCurrentStatisticsEntry 28 }
+	
+eponOnuPonPortCurrentStatistics_dn_frames_512_1023  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_512_1023"
+	::= { eponOnuPonPortCurrentStatisticsEntry 29 }
+      
+eponOnuPonPortCurrentStatistics_dn_frames_1024_1518  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_1024_1518"
+	::= { eponOnuPonPortCurrentStatisticsEntry 30 }
+	
+eponOnuPonPortCurrentStatistics_up_frames_0_64  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_0_64"
+	::= { eponOnuPonPortCurrentStatisticsEntry 31 }
+	
+eponOnuPonPortCurrentStatistics_up_frames_65_127  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_65_127"
+	::= { eponOnuPonPortCurrentStatisticsEntry 32 }
+
+eponOnuPonPortCurrentStatistics_up_frames_128_255  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_128_255"
+	::= { eponOnuPonPortCurrentStatisticsEntry 33 }
+	
+eponOnuPonPortCurrentStatistics_up_frames_256_511  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_256_511"
+	::= { eponOnuPonPortCurrentStatisticsEntry 34 }
+	
+eponOnuPonPortCurrentStatistics_up_frames_512_1023  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_512_1023"
+	::= { eponOnuPonPortCurrentStatisticsEntry 35 }
+	
+eponOnuPonPortCurrentStatistics_up_frames_1024_1518  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_1024_1518"
+	::= { eponOnuPonPortCurrentStatisticsEntry 36 }
+
+eponOnuPonPortCurrentStatistics_dn_discards  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_discards"
+	::= { eponOnuPonPortCurrentStatisticsEntry 37 }
+	
+eponOnuPonPortCurrentStatistics_up_discards  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_discards"
+	::= { eponOnuPonPortCurrentStatisticsEntry 38 }
+	
+eponOnuPonPortCurrentStatistics_dn_errors  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_errors"
+	::= { eponOnuPonPortCurrentStatisticsEntry 39 }
+
+eponOnuPonPortCurrentStatistics_up_errors  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"up_errors"
+	::= { eponOnuPonPortCurrentStatisticsEntry 40 }
+		
+eponOnuPonPortCurrentStatistics_status_change_times  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	 "status_change_times"
+	::= { eponOnuPonPortCurrentStatisticsEntry 41 }
+                                                        
+eponOnuPonPortHistoryStatisticsTable OBJECT-TYPE   
+	SYNTAX       SEQUENCE OF EponOnuPonPortHistoryStatisticsEntry
+	MAX-ACCESS   not-accessible
+	STATUS       current
+	DESCRIPTION 
+	  "onu pon port History statistics table"
+	::= {eponOnuPortStatisticsMgmt 7}
+
+eponOnuPonPortHistoryStatisticsEntry  OBJECT-TYPE
+	SYNTAX      EponOnuPonPortHistoryStatisticsEntry
+	MAX-ACCESS  not-accessible
+	STATUS      current
+	DESCRIPTION
+	" onu pon port History statistics entry"
+	INDEX{eponOnuPonPortHistoryStatisticsCardIndex, eponOnuPonPortHistoryStatisticsPonIndex, eponOnuPonPortHistoryStatisticsOnuIndex,eponOnuPonPortHistoryStatisticsStatusOnuPonPortIndex}
+	::= {eponOnuPonPortHistoryStatisticsTable 1}
+   
+EponOnuPonPortHistoryStatisticsEntry ::= SEQUENCE{
+	eponOnuPonPortHistoryStatisticsCardIndex             		 INTEGER,
+	eponOnuPonPortHistoryStatisticsPonIndex              		 INTEGER,
+	eponOnuPonPortHistoryStatisticsOnuIndex              		 INTEGER,
+	eponOnuPonPortHistoryStatisticsStatusOnuPonPortIndex         INTEGER,
+	eponOnuPonPortHistoryStatistics_dn_drop_events               Counter64,
+	eponOnuPonPortHistoryStatistics_up_drop_events               Counter64,
+	eponOnuPonPortHistoryStatistics_dn_octets                    Counter64,
+	eponOnuPonPortHistoryStatistics_up_octets                    Counter64,
+	eponOnuPonPortHistoryStatistics_dn_frames                    Counter64,
+	eponOnuPonPortHistoryStatistics_up_frames   				 Counter64,
+	eponOnuPonPortHistoryStatistics_dn_bc_frames                 Counter64,
+	eponOnuPonPortHistoryStatistics_up_bc_frames                 Counter64,
+	eponOnuPonPortHistoryStatistics_dn_mc_frames                 Counter64,
+	eponOnuPonPortHistoryStatistics_up_mc_frames                 Counter64,
+	eponOnuPonPortHistoryStatistics_dn_crc_error_frames          Counter64,
+	eponOnuPonPortHistoryStatistics_up_crc_error_frames          Counter64,
+	eponOnuPonPortHistoryStatistics_dn_undersize_frames          Counter64,
+	eponOnuPonPortHistoryStatistics_up_undersize_frames          Counter64,
+	eponOnuPonPortHistoryStatistics_dn_oversize_frames           Counter64,
+	eponOnuPonPortHistoryStatistics_up_oversize_frames           Counter64, 
+	eponOnuPonPortHistoryStatistics_dn_fragments                 Counter64,
+	eponOnuPonPortHistoryStatistics_up_fragments                 Counter64,
+	eponOnuPonPortHistoryStatistics_dn_jabbers                   Counter64,
+	eponOnuPonPortHistoryStatistics_up_jabbers                   Counter64,
+	eponOnuPonPortHistoryStatistics_dn_frames_0_64               Counter64,
+	eponOnuPonPortHistoryStatistics_dn_frames_65_127             Counter64,
+	eponOnuPonPortHistoryStatistics_dn_frames_128_255            Counter64,
+	eponOnuPonPortHistoryStatistics_dn_frames_256_511            Counter64,
+	eponOnuPonPortHistoryStatistics_dn_frames_512_1023           Counter64,
+	eponOnuPonPortHistoryStatistics_dn_frames_1024_1518          Counter64,
+	eponOnuPonPortHistoryStatistics_up_frames_0_64               Counter64,
+	eponOnuPonPortHistoryStatistics_up_frames_65_127             Counter64,
+	eponOnuPonPortHistoryStatistics_up_frames_128_255            Counter64,
+	eponOnuPonPortHistoryStatistics_up_frames_256_511            Counter64,
+	eponOnuPonPortHistoryStatistics_up_frames_512_1023           Counter64,
+	eponOnuPonPortHistoryStatistics_up_frames_1024_1518          Counter64,
+	eponOnuPonPortHistoryStatistics_dn_discards                  Counter64,
+	eponOnuPonPortHistoryStatistics_up_discards                  Counter64,
+	eponOnuPonPortHistoryStatistics_dn_errors                    Counter64,
+	eponOnuPonPortHistoryStatistics_up_errors                    Counter64,
+	eponOnuPonPortHistoryStatistics_status_change_times          Counter64
+    }  
+    
+eponOnuPonPortHistoryStatisticsCardIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"olt slot index"
+	::= {eponOnuPonPortHistoryStatisticsEntry 1}  
+	
+eponOnuPonPortHistoryStatisticsPonIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"pon index"
+	::= {eponOnuPonPortHistoryStatisticsEntry 2}     
+	
+eponOnuPonPortHistoryStatisticsOnuIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"onu index"
+	::= {eponOnuPonPortHistoryStatisticsEntry 3}    
+
+eponOnuPonPortHistoryStatisticsStatusOnuPonPortIndex  OBJECT-TYPE
+	SYNTAX          INTEGER
+	MAX-ACCESS      read-only
+	STATUS          current
+	DESCRIPTION
+	"onu pon port index"
+	::= {eponOnuPonPortHistoryStatisticsEntry 4}   
+	
+eponOnuPonPortHistoryStatistics_dn_drop_events  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	"dn_drop_events"
+	::= {eponOnuPonPortHistoryStatisticsEntry 5} 
+	
+eponOnuPonPortHistoryStatistics_up_drop_events  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_drop_events"
+	::= { eponOnuPonPortHistoryStatisticsEntry 6 }
+
+eponOnuPonPortHistoryStatistics_dn_octets  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_octets"
+	::= { eponOnuPonPortHistoryStatisticsEntry 7 }
+      
+eponOnuPonPortHistoryStatistics_up_octets OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_octets"
+	::= { eponOnuPonPortHistoryStatisticsEntry 8 }
+	
+eponOnuPonPortHistoryStatistics_dn_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames"
+	::= { eponOnuPonPortHistoryStatisticsEntry 9 }
+	
+eponOnuPonPortHistoryStatistics_up_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames"
+	::= { eponOnuPonPortHistoryStatisticsEntry 10}
+      
+eponOnuPonPortHistoryStatistics_dn_bc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_bc_frames"
+	::= { eponOnuPonPortHistoryStatisticsEntry 11 }
+	
+eponOnuPonPortHistoryStatistics_up_bc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_bc_frames"
+	::= { eponOnuPonPortHistoryStatisticsEntry 12 }
+	
+eponOnuPonPortHistoryStatistics_dn_mc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_mc_frames"
+	::= { eponOnuPonPortHistoryStatisticsEntry 13 }
+	
+eponOnuPonPortHistoryStatistics_up_mc_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_mc_frames"
+	::= { eponOnuPonPortHistoryStatisticsEntry 14 }
+      
+eponOnuPonPortHistoryStatistics_dn_crc_error_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_crc_error_frames"
+	::= { eponOnuPonPortHistoryStatisticsEntry 15 }
+	
+eponOnuPonPortHistoryStatistics_up_crc_error_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_crc_error_frames"
+	::= { eponOnuPonPortHistoryStatisticsEntry 16 }
+	
+eponOnuPonPortHistoryStatistics_dn_undersize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_undersize_frames"
+	::= { eponOnuPonPortHistoryStatisticsEntry 17 }
+
+eponOnuPonPortHistoryStatistics_up_undersize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	 "up_undersize_frames"
+	::= { eponOnuPonPortHistoryStatisticsEntry 18 }
+	
+eponOnuPonPortHistoryStatistics_dn_oversize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	 "dn_oversize"
+	::= { eponOnuPonPortHistoryStatisticsEntry 19 }
+
+eponOnuPonPortHistoryStatistics_up_oversize_frames  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	 "up_oversize"
+	::= { eponOnuPonPortHistoryStatisticsEntry 20 }
+	
+eponOnuPonPortHistoryStatistics_dn_fragments  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	 "dn_fragments"
+	::= { eponOnuPonPortHistoryStatisticsEntry 21 }
+	
+eponOnuPonPortHistoryStatistics_up_fragments  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	 "up_fragments"
+	::= { eponOnuPonPortHistoryStatisticsEntry 22 }
+
+eponOnuPonPortHistoryStatistics_dn_jabbers  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_jabbers"
+	::= { eponOnuPonPortHistoryStatisticsEntry 23 }
+		
+eponOnuPonPortHistoryStatistics_up_jabbers  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_jabbers"
+	::= { eponOnuPonPortHistoryStatisticsEntry 24 }
+
+eponOnuPonPortHistoryStatistics_dn_frames_0_64  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_0_64"
+	::= { eponOnuPonPortHistoryStatisticsEntry 25 }
+
+eponOnuPonPortHistoryStatistics_dn_frames_65_127 OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_65_127"
+	::= { eponOnuPonPortHistoryStatisticsEntry 26 }
+	
+eponOnuPonPortHistoryStatistics_dn_frames_128_255  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_128_255"
+	::= { eponOnuPonPortHistoryStatisticsEntry 27 }
+	
+eponOnuPonPortHistoryStatistics_dn_frames_256_511  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_256_511"
+	::= { eponOnuPonPortHistoryStatisticsEntry 28 }
+
+eponOnuPonPortHistoryStatistics_dn_frames_512_1023  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_512_1023"
+	::= { eponOnuPonPortHistoryStatisticsEntry 29 }
+	
+eponOnuPonPortHistoryStatistics_dn_frames_1024_1518  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_frames_1024_1518"
+	::= { eponOnuPonPortHistoryStatisticsEntry 30 }
+	
+eponOnuPonPortHistoryStatistics_up_frames_0_64  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_0_64"
+	::= { eponOnuPonPortHistoryStatisticsEntry 31 }
+
+eponOnuPonPortHistoryStatistics_up_frames_65_127  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_65_127"
+	::= { eponOnuPonPortHistoryStatisticsEntry 32 }
+	
+eponOnuPonPortHistoryStatistics_up_frames_128_255  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_128_255"
+	::= { eponOnuPonPortHistoryStatisticsEntry 33 }
+	
+eponOnuPonPortHistoryStatistics_up_frames_256_511  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_256_511"
+	::= { eponOnuPonPortHistoryStatisticsEntry 34 }
+
+eponOnuPonPortHistoryStatistics_up_frames_512_1023  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_512_1023"
+	::= { eponOnuPonPortHistoryStatisticsEntry 35 }
+	
+eponOnuPonPortHistoryStatistics_up_frames_1024_1518  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_frames_1024_1518"
+	::= { eponOnuPonPortHistoryStatisticsEntry 36 }
+	
+eponOnuPonPortHistoryStatistics_dn_discards  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_discards"
+	::= { eponOnuPonPortHistoryStatisticsEntry 37 }
+
+eponOnuPonPortHistoryStatistics_up_discards  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_discards"
+	::= { eponOnuPonPortHistoryStatisticsEntry 38 }
+	
+eponOnuPonPortHistoryStatistics_dn_errors  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "dn_errors"
+	::= { eponOnuPonPortHistoryStatisticsEntry 39 }
+	
+eponOnuPonPortHistoryStatistics_up_errors  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	  "up_errors"
+	::= { eponOnuPonPortHistoryStatisticsEntry 40 }
+
+eponOnuPonPortHistoryStatistics_status_change_times  OBJECT-TYPE
+	SYNTAX Counter64
+	MAX-ACCESS read-only
+	STATUS current
+	DESCRIPTION
+	 "status_change_times"
+	::= { eponOnuPonPortHistoryStatisticsEntry 41 }
+
+---------------------------onu-port ctc multicast--------------------------------------
+eponOnuPortMulticastMgmt  OBJECT-IDENTITY
+   STATUS        current
+   DESCRIPTION
+   "onu port ctc multicas"
+   ::= {eponUniCfg 5}
+
+eponOnuPortMulticastTable   OBJECT-TYPE
+   SYNTAX        SEQUENCE OF EponOnuPortMulticastEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "onu port ctc multicast"
+   ::= {eponOnuPortMulticastMgmt 1}
+
+eponOnuPortMulticastEntry  OBJECT-TYPE
+   SYNTAX      EponOnuPortMulticastEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   " onu port statistics status"
+   INDEX{eponOnuPortMulticasCardIndex, eponOnuPortMulticasPonIndex, eponOnuPortMulticasOnuIndex, eponOnuMulticasUniIndex}
+   ::= {eponOnuPortMulticastTable 1}
+
+EponOnuPortMulticastEntry ::= SEQUENCE{
+    eponOnuPortMulticastCardIndex                  INTEGER,
+    eponOnuPortMulticastPonIndex                   INTEGER,
+    eponOnuPortMulticastOnuIndex                   INTEGER,
+    eponOnuPortMulticastUniIndex                   INTEGER,
+    eponOnuPortMulticastTag                        INTEGER (0..1),
+    eponOnuPortMulticastIgmpMaxNum                 INTEGER (1..255),
+    eponOnuPortMulticastIgmpVlanList               OCTET STRING (SIZE(0..255)),
+    eponOnuPortMulticastIgmpVlanListRowStatus      RowStatus
+    }
+
+eponOnuPortMulticastCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuPortMulticastEntry 1}  
+   
+eponOnuPortMulticastPonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuPortMulticastEntry 2}     
+
+eponOnuPortMulticastOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu id"
+   ::= {eponOnuPortMulticastEntry 3}  
+
+eponOnuPortMulticastUniIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu uni"
+   ::= {eponOnuPortMulticastEntry 4}  
+    
+eponOnuPortMulticastTag   OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       TagNotStrip(0),
+       TagStrip(1)
+   }
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu port multicast tag status: 0-don't strip tag  1-strip tag"
+   ::= {eponOnuPortMulticastEntry 5}
+   
+eponOnuPortMulticastIgmpMaxNum   OBJECT-TYPE
+   SYNTAX          INTEGER (1..255)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "igmp-snooping mode max vlan group"
+   ::= {eponOnuPortMulticastEntry 6}
+   
+eponOnuPortMulticastIgmpVlanList  OBJECT-TYPE
+   SYNTAX          OCTET STRING (SIZE(0..255))
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "igmp-snooping mode vlan list"
+   ::= {eponOnuPortMulticastEntry 7}
+
+eponOnuPortMulticastIgmpVlanListRowStatus  OBJECT-TYPE
+   SYNTAX          RowStatus
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "igmp-snooping mode vlan list RowStatus"
+   ::= {eponOnuPortMulticastEntry 8}
+   
+-----onu-port ctc classif table---------------------------------------------------------
+
+eponOnuPortClassifTable   OBJECT-TYPE
+   SYNTAX         SEQUENCE OF EponOnuPortClassifEntry
+   MAX-ACCESS     not-accessible
+   STATUS         current
+   DESCRIPTION
+   "onu classification table"
+   ::= {eponUniCfg 6}      
+   
+eponOnuPortClassifEntry  OBJECT-TYPE
+   SYNTAX         EponOnuPortClassifEntry
+   MAX-ACCESS     not-accessible
+   STATUS         current
+   DESCRIPTION
+   "classification entry"
+   INDEX{eponOnuPortClassfCardIndex, eponOnuPortClassfPonIndex, eponOnuPortClassfOnuIndex, eponOnuPortClassfPortIndex, eponOnuPortClassfPrecedenceIndex}
+   ::= {eponOnuPortClassifTable 1}   
+
+EponOnuPortClassifEntry ::= SEQUENCE{
+		eponOnuPortClassfCardIndex            INTEGER,
+		eponOnuPortClassfPonIndex             INTEGER,
+		eponOnuPortClassfOnuIndex             INTEGER,
+		eponOnuPortClassfPortIndex            INTEGER,
+		eponOnuPortClassfPrecedenceIndex      INTEGER (1..8),
+		eponOnuPortClassfQuemapped		        INTEGER (0..7),
+		eponOnuPortClassfEthPriority	        INTEGER (0..7),
+		eponOnuPortClassfDestIp		            IpAddress,
+		eponOnuPortClassfDestMac		          MacAddress,
+		eponOnuPortClassfDestPort		          INTEGER,
+		eponOnuPortClassfDot1qPriority	      INTEGER (0..63),
+		eponOnuPortClassfDscp		              INTEGER (0..63),
+		eponOnuPortClassfEthType		          INTEGER,
+		eponOnuPortClassfIpProtocol		        INTEGER (0..255),
+		eponOnuPortClassfIpv6Precedence	      INTEGER (0..63),
+		eponOnuPortClassfSrcIp		            IpAddress,
+		eponOnuPortClassfSrcMac		            MacAddress,
+		eponOnuPortClassfSrcPort		          INTEGER,
+		eponOnuPortClassfVlan		              INTEGER,
+		eponOnuPortClassfRowStatus		        RowStatus
+    }   
+
+eponOnuPortClassfCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuPortClassifEntry 1}      
+      
+eponOnuPortClassfPonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuPortClassifEntry 2}         
+
+eponOnuPortClassfOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu index"
+   ::= {eponOnuPortClassifEntry 3} 
+
+eponOnuPortClassfPortIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "uni index"
+   ::= {eponOnuPortClassifEntry 4} 
+   
+eponOnuPortClassfPrecedenceIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "Number of rule precedence"
+   ::= {eponOnuPortClassifEntry 5} 
+   		
+eponOnuPortClassfQuemapped  OBJECT-TYPE
+   SYNTAX          INTEGER (0..7)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Map the stream to specify queue"
+   ::= {eponOnuPortClassifEntry 6} 		   
+
+eponOnuPortClassfEthPriority  OBJECT-TYPE
+   SYNTAX          INTEGER (0..7)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Ethernet Priority"
+   ::= {eponOnuPortClassifEntry 8} 	
+   
+eponOnuPortClassfDestIp  OBJECT-TYPE
+   SYNTAX          IpAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:destination ip"
+   ::= {eponOnuPortClassifEntry 9}  
+   
+eponOnuPortClassfDestMac  OBJECT-TYPE
+   SYNTAX          MacAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:Destination mac"
+   ::= {eponOnuPortClassifEntry 10}   
+   
+eponOnuPortClassfDestPort  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:Destination port"
+   ::= {eponOnuPortClassifEntry 11}  
+   
+eponOnuPortClassfDot1qPriority  OBJECT-TYPE
+   SYNTAX          INTEGER (0..63)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:dot1p priority"
+   ::= {eponOnuPortClassifEntry 12}   
+   
+eponOnuPortClassfDscp  OBJECT-TYPE
+   SYNTAX          INTEGER (0..63)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:IP V4 dscp"
+   ::= {eponOnuPortClassifEntry 13}  
+   
+eponOnuPortClassfEthType  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:ethernet type"
+   ::= {eponOnuPortClassifEntry 14}  
+   
+eponOnuPortClassfIpProtocol  OBJECT-TYPE
+   SYNTAX          INTEGER (0..255)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:ip protocol"
+   ::= {eponOnuPortClassifEntry 15}      
+   
+eponOnuPortClassfIpv6Precedence  OBJECT-TYPE
+   SYNTAX          INTEGER (0..63)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:IP V6 precedence"
+   ::= {eponOnuPortClassifEntry 16}  
+   
+eponOnuPortClassfSrcIp  OBJECT-TYPE
+   SYNTAX          IpAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:source ip"
+   ::= {eponOnuPortClassifEntry 17}   
+   
+eponOnuPortClassfSrcMac  OBJECT-TYPE
+   SYNTAX          MacAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:source mac"
+   ::= {eponOnuPortClassifEntry 18}
+
+eponOnuPortClassfSrcPort  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:Source port"
+   ::= {eponOnuPortClassifEntry 19}         
+   
+eponOnuPortClassfVlan  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:vlan"
+   ::= {eponOnuPortClassifEntry 20}
+   
+eponOnuPortClassfRowStatus  OBJECT-TYPE
+   SYNTAX          RowStatus
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "RowStatus"
+   ::= {eponOnuPortClassifEntry 21}                         
+-------------------------onu-port ctc multicast control---------------------------------  
+      
+eponOnuPortMulticastCtrlTable   OBJECT-TYPE
+   SYNTAX        SEQUENCE OF EponOnuPortMulticastCtrlEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "onu port ctc multicast control"
+   ::= {eponOnuPortMulticastMgmt 2}
+
+eponOnuPortMulticastCtrlEntry  OBJECT-TYPE
+   SYNTAX      EponOnuPortMulticastCtrlEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   " onu port multicast control info"
+   INDEX{eponOnuPortMulticastCtrlCardIndex, eponOnuPortMulticastCtrlPonIndex, eponOnuPortMulticastCtrlOnuIndex, eponOnuPortMulticastCtrlUniIndex, eponOnuPortMulticastCtrlIndex}
+   ::= {eponOnuPortMulticastCtrlTable 2}
+   
+EponOnuPortMulticastCtrlEntry ::= SEQUENCE{
+    eponOnuPortMulticastCtrlCardIndex          INTEGER,
+    eponOnuPortMulticastCtrlPonIndex           INTEGER,
+    eponOnuPortMulticastCtrlOnuIndex           INTEGER,
+    eponOnuPortMulticastCtrlUniIndex           INTEGER,
+    eponOnuPortMulticastCtrlIndex              INTEGER (0..15),
+    eponOnuPortMulticastCtrlType               INTEGER (0..2),
+    eponOnuPortMulticastCtrlMac                MacAddress,
+    eponOnuPortMulticastCtrlVlan               INTEGER (1..4094),
+    eponOnuPortMulticastCtrlRowStatus          RowStatus
+    }
+
+eponOnuPortMulticastCtrlCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuPortMulticastCtrlEntry 1}  
+   
+eponOnuPortMulticastCtrlPonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuPortMulticastCtrlEntry 2}     
+
+eponOnuPortMulticastCtrlOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu id"
+   ::= {eponOnuPortMulticastCtrlEntry 3}  
+   
+eponOnuPortMulticastCtrlUniIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu port"
+   ::= {eponOnuPortMulticastCtrlEntry 4}  
+
+eponOnuPortMulticastCtrlIndex  OBJECT-TYPE
+   SYNTAX          INTEGER (0..15)
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu port"
+   ::= {eponOnuPortMulticastCtrlEntry 5}  
+         
+eponOnuPortMulticastCtrlType   OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       permit(0),
+       preview(1),
+       deny(2)
+   }
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Multicast-control type:
+	 0:permit 1:preview 2:deny"
+   ::= {eponOnuPortMulticastCtrlEntry 6}         
+   
+eponOnuPortMulticastCtrlMac   OBJECT-TYPE
+   SYNTAX          MacAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Multicast-control mac"
+   ::= {eponOnuPortMulticastCtrlEntry 7}       
+
+eponOnuPortMulticastCtrlVlan   OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Multicast-control vlan"
+   ::= {eponOnuPortMulticastCtrlEntry 8}  
+   
+eponOnuPortMulticastCtrlRowStatus   OBJECT-TYPE
+   SYNTAX          RowStatus
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Multicast-control RowStatus"
+   ::= {eponOnuPortMulticastCtrlEntry 9}               
+--
+-- END of EPON-UNI-CONFIG-MIB
+--  
+END    

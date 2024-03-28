@@ -1,0 +1,6 @@
+{
+  "name": "STREET_LIST",
+  "method": "GET",
+  "path": "streets/",
+  "params": {}
+}

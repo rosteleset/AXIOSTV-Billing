@@ -1,0 +1,34 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+  "required": [
+    "id",
+    "message",
+    "title",
+    "typeId",
+    "uid"
+  ],
+  "properties": {
+    "id": {
+      "$id": "#/properties/id",
+      "type": "number"
+    },
+    "message": {
+      "$id": "#/properties/message",
+      "type": "string"
+    },
+    "title": {
+      "$id": "#/properties/title",
+      "type": "string"
+    },
+    "typeId": {
+      "$id": "#/properties/typeId",
+      "type": "number"
+    },
+    "uid": {
+      "$id": "#/properties/uid",
+      "type": "number"
+    }
+  }
+}

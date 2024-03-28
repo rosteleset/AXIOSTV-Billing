@@ -1,0 +1,15 @@
+%FUNCTIONS_LIST = (
+  "01:0:$lang{ECONOMIZER}:null:"      => 5,
+  "02:1:$lang{TARIF_PLAN}:e_tariffs:" => 5,
+);
+
+%USER_FUNCTION_LIST = (
+  "01:0:$lang{ECONOMIZER}:null:"                  => 0,
+  "02:1:$lang{ECONOMIZER}:e_user:"                => 0,
+  "03:1:$lang{STATISTICS}:e_statistics:"          => 0,
+  "04:1:$lang{DATA_FROM104}:site104:"             => 0,
+  "05:1:$lang{DATA_FROM_ELECTRIC}:site_electric:" => 0,
+  "06:1:$lang{SETTINGS_FORM}:add_main:"           => 0,
+);
+
+1;

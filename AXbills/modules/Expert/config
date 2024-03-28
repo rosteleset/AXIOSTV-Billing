@@ -1,0 +1,6 @@
+%FUNCTIONS_LIST = (
+  "1:0:$lang{EXPERT_SYSTEM}:null"        => 8,
+  "2:1:$lang{NORMAL_MODE}:expert_system" => 8,
+  "3:1:$lang{EDIT_MODE}:expert_edit"     => 8,
+  "4:1:$lang{FAQ}:expert_faq"            => 8,
+);

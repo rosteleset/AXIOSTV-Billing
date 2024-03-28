@@ -1,0 +1,240 @@
+--  *****************************************************************
+--  DLINKPV2-LBD-MIB.mib : Loopback Detection MIB
+-- 
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+
+    DLINKPV2-LBD-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE,NOTIFICATION-TYPE     
+                                        FROM SNMPv2-SMI
+        DisplayString,TruthValue        FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP FROM SNMPv2-CONF
+        InterfaceIndex                  FROM IF-MIB
+        VlanId                          FROM Q-BRIDGE-MIB
+        dlinkDGS1100CommonV2            FROM DGS1100SERMGMT-MIB;
+
+
+    primeV2LoopbackDetectMIB MODULE-IDENTITY
+        LAST-UPDATED "201404260000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for loopback detection."            
+            
+        REVISION "201404260000Z"
+        DESCRIPTION 
+            "This is the first version of the MIB file for 'loopback
+            detection' functionality."    
+        ::= { dlinkDGS1100CommonV2 7 }
+
+-- -----------------------------------------------------------------------------
+    v2LbdNotifications    OBJECT IDENTIFIER ::= { primeV2LoopbackDetectMIB 0 }
+    v2LbdObjects          OBJECT IDENTIFIER ::= { primeV2LoopbackDetectMIB 1 }
+    v2LbdConformance      OBJECT IDENTIFIER ::= { primeV2LoopbackDetectMIB 2 }
+	
+    v2LbdCtrlGlobalEnabled    OBJECT-TYPE
+        SYNTAX             TruthValue
+        MAX-ACCESS         read-write
+        STATUS             current
+        DESCRIPTION
+            "This object indicates whether the loopback detection is enabled
+            globally.    
+            "             
+        ::= { v2LbdObjects 1 }
+		
+    v2LbdCtrlInterval    OBJECT-TYPE
+        SYNTAX          INTEGER (5..300)
+        UNITS           "seconds"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the interval in seconds at which LBD
+            packets are transmitted."
+        ::= { v2LbdObjects 2 }	
+	
+    v2LbdCtrlRecover    OBJECT-TYPE
+        SYNTAX          INTEGER (0|10..600)
+        UNITS           "seconds"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the recover in seconds after which LBD
+            interface shutdown."
+        ::= { v2LbdObjects 3 }	
+	
+    v2LbdNotifyEnabled    OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION   
+            "Set to 'true' to enable global SNMP notification for loopback detection feature.  
+            Setting the object to 'false' will disable SNMP notifications."            
+        ::= { v2LbdObjects 4}
+                                     
+    v2LbdIfCfgTable    OBJECT-TYPE
+        SYNTAX        SEQUENCE OF V2LbdIfCfgEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION            
+            "A list of loopback detection information entries."            
+        ::= { v2LbdObjects 5 }
+
+    v2LbdIfCfgEntry    OBJECT-TYPE
+        SYNTAX        V2LbdIfCfgEntry
+        MAX-ACCESS    not-accessible       
+        STATUS        current
+        DESCRIPTION            
+            "An entry indicates the setting of loopback detection on an
+            interface."
+        INDEX  { v2LbdIfCfgIndex }
+        ::= { v2LbdIfCfgTable 1 }
+
+    V2LbdIfCfgEntry ::= SEQUENCE {
+        v2LbdIfCfgIndex      InterfaceIndex,            
+        v2LbdIfCfgEnabled    TruthValue,
+        v2LbdIfLoopStatus    INTEGER
+    }
+
+    v2LbdIfCfgIndex OBJECT-TYPE
+        SYNTAX          InterfaceIndex
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the ifIndex of the physical port or port
+            channel."
+        ::= { v2LbdIfCfgEntry 1 }
+
+    v2LbdIfCfgEnabled OBJECT-TYPE
+        SYNTAX      TruthValue        
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "This object indicates whether the loopback detection is enabled on 
+            the interface.    
+            "             
+        ::= { v2LbdIfCfgEntry 2 }
+
+    v2LbdIfLoopStatus    OBJECT-TYPE
+        SYNTAX        INTEGER {
+            normal(1),
+            loop(2)
+        }
+        MAX-ACCESS    read-only
+        STATUS        current
+        DESCRIPTION
+            "This object indicates whether the interface loopback status."
+        ::= { v2LbdIfCfgEntry 3 }
+
+-- -----------------------------------------------------------------------------
+    v2LbdNotifyInfo    OBJECT-IDENTITY 
+        STATUS        current
+        DESCRIPTION
+            "This identifier is a group for variable bindings for traps."
+        ::= { v2LbdObjects 8 }
+
+    v2LbdNotifyInfoIfIndex    OBJECT-TYPE
+        SYNTAX        InterfaceIndex
+        MAX-ACCESS    accessible-for-notify
+        STATUS        current
+        DESCRIPTION
+            "This object indicates the interface id that has detected a loopback."
+        ::= { v2LbdNotifyInfo 1 }
+
+
+-- -----------------------------------------------------------------------------
+-- MIB Notifications statements
+-- -----------------------------------------------------------------------------
+    v2LbdLoopOccurred    NOTIFICATION-TYPE
+        OBJECTS    {
+            v2LbdNotifyInfoIfIndex
+        }
+        STATUS        current
+        DESCRIPTION
+            "This trap is sent when an interface loop occurs."
+        ::= { v2LbdNotifications 1 }
+
+    v2LbdLoopRecovery    NOTIFICATION-TYPE
+        OBJECTS    {
+            v2LbdNotifyInfoIfIndex
+        }
+        STATUS        current
+        DESCRIPTION
+            "This trap is sent when an interface loop recovery."
+        ::= { v2LbdNotifications 2 }
+
+-- -----------------------------------------------------------------------------
+-- MIB Conformance statements
+-- -----------------------------------------------------------------------------
+    v2LbdMIBCompliances  OBJECT IDENTIFIER
+        ::= { v2LbdConformance 1 }
+
+    v2LbdMIBGroups  OBJECT IDENTIFIER
+        ::= { v2LbdConformance 2 } 
+    
+    v2LbdMIBCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION
+            "The compliance statement for entities which implement the 
+            DLINKPV2-LBD-MIB."
+        MODULE          -- this module
+        MANDATORY-GROUPS    {   
+            v2LbdCfgGroup,
+            v2LbdIfCfgGroup
+        }
+
+        GROUP v2LbdCtrlModeGroup
+        DESCRIPTION
+            "This group is mandatory if vlan-based mode is supported."  
+                                 
+        GROUP v2LbdVlanCtrlGroup
+        DESCRIPTION
+            "This group is mandatory if vlan-based mode is supported."                   
+                        
+        ::= { v2LbdMIBCompliances 1 }
+-- -----------------------------------------------------------------------------        
+    v2LbdCfgGroup OBJECT-GROUP
+        OBJECTS { 
+            v2LbdCtrlInterval,  
+            v2LbdCtrlGlobalEnabled,
+            v2LbdNotifyEnabled,
+            v2LbdNotifyInfoIfIndex
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing management of the loopback 
+            detection feature."
+        ::= { v2LbdMIBGroups 1 }
+
+    v2LbdIfCfgGroup 	OBJECT-GROUP
+        OBJECTS { 
+            v2LbdIfCfgEnabled,
+            v2LbdIfLoopStatus
+        }
+        STATUS current
+        DESCRIPTION
+            "A collection of objects providing the per-interface control of
+            loopback detection."
+        ::= { v2LbdMIBGroups 2 }	
+
+    v2LbdNotificationGroup    NOTIFICATION-GROUP
+        NOTIFICATIONS    {
+            v2LbdLoopOccurred,
+            v2LbdLoopRecovery
+        }
+        STATUS current
+        DESCRIPTION
+            "A collection of notifications used for monitoring the hosts under the 
+            control of loopback detection."
+        ::= { v2LbdMIBGroups 3 }
+   
+END

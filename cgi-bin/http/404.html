@@ -1,0 +1,241 @@
+<!DOCTYPE html>
+<html lang='uk'>
+<head>
+  <meta charset="UTF-8">
+  <title>404</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1, shrink-to-fit=no">
+  <link rel='shortcut icon' href='/favicon.ico' type='image/x-icon'>
+  <style>
+    * {
+      margin: 0;
+      padding: 0;
+      border: 0;
+    }
+    html, body {
+      font-family: "Source Sans Pro",-apple-system,BlinkMacSystemFont,"Segoe UI",Roboto,"Helvetica Neue",Arial,sans-serif,"Apple Color Emoji","Segoe UI Emoji","Segoe UI Symbol";
+      height: 100%;
+      background-color: #f4f6f9;
+      font-size: 1rem;
+      font-weight: 400;
+      line-height: 1.5;
+      color: #212529;
+      -webkit-text-size-adjust: 100%;
+    }
+    .label-404 {
+      font-size: 8rem;
+      font-weight: 700;
+      line-height: 1.2;
+    }
+    .label-top {
+      font-size: 2rem;
+      font-weight: 700;
+    }
+
+    .btn {
+      display: inline-block;
+      font-weight: 400;
+      color: #212529;
+      text-align: center;
+      vertical-align: middle;
+      -webkit-user-select: none;
+      -moz-user-select: none;
+      -ms-user-select: none;
+      user-select: none;
+      background-color: transparent;
+      border: 1px solid transparent;
+      border-top-color: transparent;
+      border-right-color: transparent;
+      border-bottom-color: transparent;
+      border-left-color: transparent;
+      padding: .375rem .75rem;
+      font-size: 1rem;
+      line-height: 1.5;
+      border-radius: .25rem;
+      transition: color .15s ease-in-out,background-color .15s ease-in-out,border-color .15s ease-in-out,box-shadow .15s ease-in-out;
+      text-decoration: none;
+    }
+
+    .btn-primary {
+      color: #fff;
+      background-color: #007bff;
+      border-color: #007bff;
+      box-shadow: none;
+    }
+
+    .btn-lg {
+      padding: .5rem 1rem;
+      font-size: 1.25rem;
+      line-height: 1.5;
+      border-radius: .3rem;
+    }
+
+    .btn:hover {
+      color: #212529;
+      text-decoration: none;
+    }
+
+    .btn-primary:hover {
+      color: #fff;
+      background-color: #0069d9;
+      border-color: #0062cc;
+    }
+
+    .btn:focus, .btn:active {
+      outline: 0;
+      box-shadow: none;
+    }
+
+    .btn-primary:focus, .btn-primary:active {
+      color: #fff;
+      background-color: #0062cc;
+      border-color: #0062cc;
+      box-shadow: 0 0 0 0 rgba(38,143,255,.5);
+    }
+
+    h1, h2, h3, h4, h5, h6 {
+      margin-bottom: .5rem;
+      line-height: 1.2;
+    }
+    p {
+      margin-bottom: 1.2rem;
+    }
+
+    .wrapper-404 {
+      text-align: center;
+      height: 100%;
+      white-space: nowrap;
+      word-break: normal;
+    }
+
+    .content-404 {
+      vertical-align: middle;
+      display: inline-block;
+    }
+
+    .vertical-align-404 {
+      height: 100%;
+      display: inline-block;
+      vertical-align: middle;
+    }
+    .error-image {
+      width: 100%;
+      max-width: 452px;
+      height: auto;
+      max-height: 300px;
+      margin-left: 8rem;
+    }
+
+    .flex {
+      display: flex;
+    }
+
+    .p-2 {
+      padding: 2rem;
+    }
+
+    .container {
+      max-width: 1200px;
+    }
+
+    .justify-content-between {
+      justify-content: space-between;
+    }
+
+    @media (max-width: 1024px) {
+      .error-image {
+        display: none;
+      }
+    }
+  </style>
+</head>
+<body>
+  <div class='wrapper-404'>
+    <div class='content-404'>
+      <div class='container flex p-2 justify-content-between'>
+        <div>
+          <h1 class='label-404'>404</h1>
+          <h2 id='label-top' class='label-top text-bold'>Сторінка не знайдена</h2>
+          <p id='description'>Неправильна адреса, або такої більше не існує.</p>
+          <a id='link-button' class='btn btn-lg btn-primary' href='/'>Перейти на головну</a>
+        </div>
+        <div>
+          <img id='error-image' class='error-image' src='/styles/default/img/logo/logo-big.png'>
+        </div>
+      </div>
+    </div>
+    <span class='vertical-align-404'></span>
+    <script>
+    var DEFAULT_LANGUAGE = 'en';
+
+    var languages = {
+       "uk": {
+        "label-top": "Сторінка не знайдена",
+        "description": "Неправильна адреса, або такої більше не існує.",
+        "link-button": "На головну"
+      },
+      "ru": {
+        "label-top": "Страница не найдена",
+        "description": "Неправильный адрес или её не существует.",
+        "link-button": "На главную"
+      },
+      "en": {
+        "label-top": "Page Not Found",
+        "description": "This address is incorrect or no longer exists.",
+        "link-button": "Home",
+      },
+    };
+
+
+    var image = document.querySelector('#error-image') || document.createElement('image');
+    var label = document.querySelector('#label-top');
+    var description = document.querySelector('#description');
+    var button = document.querySelector('#link-button');
+
+    var langFromCookie = getCookie('language') || '';
+    var userLang = langFromCookie.substring(0, 2) || navigator.language || navigator.userLanguage || '';
+
+    var languageKeysLinker = {
+      "label-top": label,
+      "description": description,
+      "link-button": button
+    };
+
+    var changedLang = false;
+    Object.keys(languages).forEach(function(lang) {
+      if (userLang.toLowerCase().includes(lang)) {
+        changedLang = true;
+        changeLang(languages[lang]);
+      }
+    });
+
+    if (!changedLang) {
+      changeLang(languages[DEFAULT_LANGUAGE]);
+    }
+
+    image.addEventListener('error', function () {
+      this.style.display = 'none';
+    });
+
+    var pathname = window.location.pathname;
+    if (pathname.includes('admin')) {
+      button.href = '/admin';
+    }
+
+    function changeLang(item) {
+      if (item) {
+        Object.keys(item).forEach(function(langKey) {
+          languageKeysLinker[langKey].innerHTML = item[langKey];
+        });
+        document.title = '404 | ' + item["label-top"];
+      }
+    }
+
+    function getCookie(cookiename) {
+      try { document.cookie } catch (e) { return; }
+      var cookiestring = RegExp(cookiename+"=[^;]+").exec(document.cookie);
+      return decodeURIComponent(!!cookiestring ? cookiestring.toString().replace(/^[^=]+./,"") : "");
+    }
+  </script>
+</div>
+</body>
+</html>

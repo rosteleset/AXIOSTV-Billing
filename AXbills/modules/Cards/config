@@ -1,0 +1,32 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+  "01:0:$lang{ICARDS}:cards_main:"                           => 5,
+  # "05:1:$lang{ICARDS}:cards_main:"              => 5,
+  "04:1:$lang{ADD}:cards_add:"                               => 5,
+  "05:1:$lang{GROUPS}:cards_groups:"                         => 5,
+  "06:1:$lang{BRUTE_ATACK}:cards_bruteforce:"                => 5,
+  "07:1:$lang{DILLERS} $lang{TARIF_PLANS}:cards_dillers_tp:" => 5,
+  "08:0:$lang{ICARDS}:cards_user_payment:UID"                => 2,
+  "09:0:$lang{ICARDS}:cards_report:"                         => 4,
+  #"11:9:$lang{DILLERS}:cards_report_dillers:"  => 4,
+  "12:9:$lang{PAYMENTS}:cards_report_payments:"              => 4,
+  "13:9:$lang{DILLERS}:cards_report_dillers:"                => 4,
+  "15:0:$lang{DILLERS}:dillers_list:"                        => 1,
+  "16:0:$lang{DILLERS}:cards_diller:UID"                     => 15,
+);
+
+%USER_FUNCTION_LIST = (
+  "01:0:$lang{ICARDS}:cards_user_payment:" => 0,
+);
+
+%RESELLER_FUNCTION_LIST = (
+  "01:0:$lang{ICARDS}:cards_reseller_face:defaultindex" => 0,
+  "02:1:$lang{REPORTS}:cards_diller_stats:"             => 1
+);
+
+%PERIODIC = (
+  daily => [ 'cards_bruteforce_clean', 'cards_periodic' ]
+);
+
+1
+

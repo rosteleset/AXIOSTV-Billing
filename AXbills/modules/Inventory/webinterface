@@ -1,0 +1,925 @@
+#!/usr/bin/perl
+=head1 NAME
+
+  Inventory
+
+=cut
+
+use strict;
+use warnings;
+use Inventory::db::Inventory;
+
+our ($db,
+  $admin,
+  %conf,
+  %lang,
+  @WEEKDAYS,
+  @MONTHES,
+  %permissions
+);
+
+my $Inventory = Inventory->new($db, $admin, \%conf);
+our AXbills::HTML $html;
+
+#***********************************************************
+=head2 inventory_main($attr) - Inventory
+
+=cut
+#***********************************************************
+sub inventory_main {
+  my ($attr) = @_;
+
+  if ($FORM{message}) {
+    $html->message('info', $lang{INFO}, "$FORM{message}");
+  }
+
+  $Inventory->{ACTION} = 'add_main';
+  $Inventory->{ACTION_LNG} = $lang{ADD};
+  if ($FORM{chg}) {
+    $Inventory->{ACTION} = 'change';
+    $Inventory->{ACTION_LNG} = $lang{CHANGE};
+    $Inventory->inventory_main_info({ ID => $FORM{chg} });
+
+    if (!$Inventory->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGING}");
+      $FORM{add_form} = 1;
+    }
+  }
+
+  if ($FORM{add_main}) {
+    if ($FORM{HOSTNAME}) {
+      $Inventory->inventory_main_add({ %FORM });
+      if (!$Inventory->{errno}) {
+        $html->message('info', $lang{ADD}, "$lang{ADDED}");
+      }
+    }
+    else {
+      $html->message('err', $lang{ERROR}, $lang{FIELDS_FOR_HOSTNAME_ARE_REQUIRED});
+      $FORM{add_form} = 1;
+    }
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Inventory->inventory_unit_del({ ID => $FORM{ID} || $FORM{del} });
+
+    if (!$Inventory->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED} [" . ($FORM{ID} || q{}) . "]");
+    }
+  }
+  elsif ($FORM{change}) {
+    $Inventory->inventory_main_change({ %FORM });
+
+    if (!$Inventory->{errno}) {
+      $html->message('info', $lang{CHANGED}, "$lang{CHANGED} [$FORM{ID}]");
+    }
+  }
+
+  _error_show($Inventory);
+
+  my $list;
+  if ($FORM{add_form}) {
+    if ($FORM{chg}) {
+      $list = $Inventory->inventory_units_list({ ID => $FORM{chg} });
+    }
+    else {
+      $list = $Inventory->inventory_types_list({});
+    }
+
+    $Inventory->{ADMINS_SEL} = sel_admins({
+      NAME     => 'RESPONSIBLE',
+      SELECTED => $Inventory->{RESPONSIBLE}
+    });
+
+    $Inventory->{STATUS_SEL} = $html->form_select('STATUS', {
+      SELECTED => $Inventory->{STATUS},
+      SEL_HASH => { 0 => $lang{ACTIVE}, 1 => $lang{DISABLE}, 2 => 'Fade out' },
+      NO_ID    => 1
+    });
+
+    my @hardwares = ();
+    my @softwares = ();
+    foreach my $line (@{$list}) {
+      if ($line->[2] == 0) {
+        push @hardwares, $html->tpl_show(templates('form_row'), {
+          ID    => $line->[0],
+          NAME  => $line->[1],
+          VALUE => $html->form_input($line->[0], $line->[4])
+        }, { OUTPUT2RETURN => 1, ID => $line->[1] });
+      }
+      else {
+        push @softwares, $html->tpl_show(templates('form_row'), {
+          ID    => $line->[0],
+          NAME  => $line->[1],
+          VALUE => $html->form_input($line->[0], $line->[4])
+        }, { OUTPUT2RETURN => 1, ID => $line->[1] });
+      }
+    }
+
+    $html->tpl_show(
+      _include('inventory_main_form', 'Inventory'),
+      {
+        %{$Inventory},
+        %FORM,
+        ALIGN    => 'right',
+        HARDWARE => join(($FORM{json}) ? ',' : '', @hardwares),
+        SOFTWARE => join(($FORM{json}) ? ',' : '', @softwares),
+        #INTEGRATION_DATE => $date_integration
+      },
+      { ID => 'inventory_main_form' }
+    );
+  }
+  elsif ($FORM{search_form}) {
+    form_search({
+      SIMPLE => {
+        "$lang{LOGIN}"     => 'LOGIN',
+        "$lang{HOSTNAME}"  => 'HOSTNAME',
+        'IP'               => 'IP',
+        'INVENTORY_STATUS' => 'INVENTORY_STATUS',
+        'SIGN'             => 'SIGN',
+        'SYS_ID'           => 'SYS_ID',
+        'LOG_COMMENTS'     => 'LOG_COMMENTS',
+      }
+    });
+  } elsif ($FORM{reports}) {
+    my ($table) = result_former({
+      INPUT_DATA      => $Inventory,
+      FUNCTION        => 'inventory_log_info',
+      DEFAULT_FIELDS  => 'IP,DATETIME,USERS,ADMINS,TPS,NAS,UID,SYS_ID',
+      SKIP_USER_TITLE => 1,
+      EXT_TITLES      => {
+        ip       => 'IP',
+        users    => $lang{USERS},
+        admins   => $lang{ADMINS},
+        nas      => $lang{NAS},
+        tps      => $lang{TARIF_PLANS},
+        datetime => $lang{REACTION_TIME},
+        uid      => 'UID',
+        sys_id   => 'SYS_ID'
+      },
+      TABLE           => {
+        width   => '100%',
+        caption => "$lang{HOSTS} - $lang{REPORTS}",
+        border  => 1,
+        qs      => $pages_qs,
+        ID      => 'INVENTORY_LOG_INFO',
+        EXPORT  => 1,
+      },
+      MAKE_ROWS       => 1,
+      MODULE          => 'Inventory',
+    });
+    print $table->show();
+  }
+
+  my $type_list = $Inventory->inventory_types_list({ COLS_NAME => 1 });
+  my %types = ();
+  foreach my $line (@{$type_list}) {
+    $types{'type_' . $line->{id}} = "> $line->{name}";
+  }
+
+  if ($FORM{UID}) {
+    delete $LIST_PARAMS{COMMENTS};
+    delete $LIST_PARAMS{LOGIN};
+  }
+
+  my AXbills::HTML $table;
+  ($table) = result_former({
+    INPUT_DATA      => $Inventory,
+    FUNCTION        => 'inventory_main_list',
+    DEFAULT_FIELDS  => 'WEB_ACCESS_INFO,IP,ACCESS_INFO,SUPERPASSWORD,RESPONSIBLE,INVENTORY_COMMENTS',
+    FUNCTION_FIELDS => 'inventory_log:log:ip:&search=1,change,del',
+    SKIP_USER_TITLE => 1,
+    EXT_TITLES      => {
+      hostname           => $lang{HOSTNAME},
+      ip                 => 'IP',
+      benchmark_info     => 'BENCHMARK_INFO',
+      integration_date   => $lang{DATE},
+      login              => $lang{LOGIN},
+      password           => $lang{PASSWD},
+      web_access_info    => $lang{WEB_ACCESS},
+      access_info        => $lang{ACCESS_INFO},
+      responsible        => $lang{ADMIN},
+      registration       => $lang{REGISTRATION},
+      inventory_comments => $lang{COMMENTS},
+      date               => $lang{DATE},
+      superpassword      => "root $lang{PASSWD}",
+      uid                => 'UID',
+      status             => $lang{STATUS},
+      %types
+    },
+    FILTER_COLS     => {
+      web_access_info => 'inventory_former',
+      access_info     => 'inventory_former',
+      superpassword   => 'inventory_former_passwd',
+      password        => 'inventory_former_passwd:user_password'
+    },
+    TABLE           => {
+      width   => '100%',
+      caption => $lang{HOSTS},
+      border  => 1,
+      qs      => $pages_qs,
+      ID      => 'INVENTORY_LIST',
+      EXPORT  => 1,
+      MENU    => ($FORM{UID})
+        ? "$lang{ADD}:index=$index&UID=$FORM{UID}&add_form=1:add;$lang{REPORTS}:index=$index&UID=$FORM{UID}&reports=1:btn btn-success btn-xs ml-1 rounded"
+        : '',
+    },
+    MAKE_ROWS       => 1,
+    MODULE          => 'Inventory',
+    TOTAL           => ($attr->{PROFILE_MODE}) ? 0 : 1,
+  });
+
+  return '', '', '', $table->show();
+}
+
+#**********************************************************
+=head2 inventory_type_add()
+
+=cut
+#**********************************************************
+sub inventory_type_add {
+
+  if ($FORM{message}) {
+    $html->message('info', $lang{INFO}, $FORM{message});
+  }
+  $Inventory->{ACTION} = 'add_type';
+  $Inventory->{ACTION_LNG} = $lang{ADD};
+
+  if (!$FORM{add_type}) {
+    $html->tpl_show(_include('inventory_types_form', 'Inventory'), { %{$Inventory} }, { ID => 'inventory_types_form' });
+  }
+
+  if ($FORM{add_type} and !$FORM{change}) {
+    if ($FORM{NAME} and $FORM{TYPE}) {
+      $Inventory->inventory_types_add({ %FORM });
+      if (!$Inventory->{errno}) {
+        $html->tpl_show(
+          _include('inventory_redirect', 'Inventory'),
+          {
+            SECTION => '',
+            MESSAGE => "$lang{ADDED}",
+          }
+        );
+      }
+    }
+    else {
+      $html->message('err', $lang{ERROR}, $lang{FIELDS_FOR_NAME_ARE_REQUIRED});
+      $html->tpl_show(_include('inventory_types_form', 'Inventory'), { %{$Inventory}, %FORM }, { ID => 'inventory_types_form' });
+    }
+  }
+
+  my $list = $Inventory->inventory_types_list({});
+  my $align = 'right';
+  my ($hardware, $software);
+
+  foreach my $line (@{$list}) {
+    if ($line->[2] == 0) {
+      $hardware .= $html->tpl_show(
+        _include('inventory_manage_input', 'Inventory'),
+        {
+          NAME   => $line->[1],
+          DELETE => (defined($permissions{0}{5})) ? $html->button($lang{DEL}, "index=$index&del_input=$line->[0]",
+            { MESSAGE => "$lang{DEL} $line->[1]?", class => "del" }) : '',
+          ALIGN  => $align,
+        },
+        { OUTPUT2RETURN => 1 }
+      );
+    }
+    else {
+      $software .= $html->tpl_show(
+        _include('inventory_manage_input', 'Inventory'),
+        {
+          NAME   => $line->[1],
+          DELETE => (defined($permissions{0}{5})) ? $html->button($lang{DEL}, "index=$index&del_input=$line->[0]",
+            { MESSAGE => "$lang{DEL} $line->[1]?", class => "del" }) : '',
+          ALIGN  => $align,
+        },
+        { OUTPUT2RETURN => 1 }
+      );
+    }
+  }
+
+  $html->tpl_show(_include('inventory_manage_inputs_main', 'Inventory'),
+    {
+      %{$Inventory},
+      ALIGN    => 'right',
+      HARDWARE => $hardware,
+      SOFTWARE => $software
+    });
+
+  if ($FORM{del_input}) {
+    my $list2 = $Inventory->inventory_units_list({ TYPE => $FORM{del_input} });
+    if ($list2->[0]->[0]) {
+      $html->tpl_show(
+        _include('inventory_redirect', 'Inventory'),
+        {
+          SECTION => '',
+          MESSAGE => "$lang{CANT_DELETE_THIS_INPUT}",
+        }
+      );
+    }
+    else {
+      $Inventory->del_input({ ID => $FORM{del_input} });
+      if (!$Inventory->{errno}) {
+        $html->tpl_show(
+          _include('inventory_redirect', 'Inventory'),
+          {
+            SECTION => '',
+            MESSAGE => "$lang{DELETED}",
+          }
+        );
+      }
+    }
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 inventory_log()
+
+=cut
+#**********************************************************
+sub inventory_log {
+
+  if (!$FORM{SORT}) {
+    $LIST_PARAMS{SORT} = '1';
+    $LIST_PARAMS{DESC} = 'DESC';
+  }
+
+  my @status_arr = (
+    'ok',
+    'Registration complete',
+    'Unauthorize client',
+    'Auth failed',
+    'Wrong password',
+    'Wrong checksum. Please re-register ip or call support service',
+    'Wrong IP. Please register new IP',
+    'License expire',
+    'Wrong authkey',
+    "Account Disabled",
+    'Unknown request',
+    'Sign not defined',
+    'Wrong sign format',
+    'Bench sign not defined',
+    'Wrong Bench sign format',
+    'update',
+    'get_module',
+    'Wrong module request',
+    'Not allow operation'
+  );
+
+  my $i = -1;
+  my %status_hash = map {$i++;
+    $i => $_;} @status_arr;
+
+  form_search({
+    SIMPLE       => {
+      $lang{LOGIN}          => 'LOGIN',
+      $lang{HOSTS_HOSTNAME} => 'HOSTNAME',
+      'IP'                  => 'IP',
+      $lang{STATUS}         => { '' => $lang{ALL}, %status_hash },
+      'SIGN'                => 'SIGN',
+      'SYS_ID'              => 'SYS_ID',
+      'LOG_COMMENTS'        => 'LOG_COMMENTS',
+    },
+    CONTROL_FORM => 1
+  });
+
+  result_former({
+    INPUT_DATA      => $Inventory,
+    FUNCTION        => 'inventory_log',
+    DEFAULT_FIELDS  => 'DATETIME,LOGIN,IP,HOSTNAME,STATUS',
+    BASE_FIELDS     => 2,
+    FUNCTION_FIELDS => '',
+    EXT_TITLES      => {
+      'ip'           => 'IP',
+      'hostname',    => $lang{HOSTNAME},
+      'status',      => $lang{INVENTORY_STATUS},
+      'sign',        => 'SIGN',
+      'agent'        => 'AGENT',
+      'sys_id'       => 'SYS_ID',
+      'log_comments' => 'LOG_COMMENTS'
+    },
+    TABLE           => {
+      width   => '100%',
+      caption => "Inventory - $lang{USERS}",
+      border  => 1,
+      qs      => $pages_qs,
+      ID      => 'INVENTORY_DOWNLOADS',
+      EXPORT  => 1,
+      MENU    => "$lang{SEARCH}:search_form=1&index=$index:search",
+    },
+    STATUS_VALS     => \@status_arr,
+    MAKE_ROWS       => 1,
+    MODULE          => 'Inventory',
+    TOTAL           => 1
+  });
+
+  return 1;
+}
+
+
+#**********************************************************
+=head2 inventory_log()
+
+=cut
+#**********************************************************
+sub inventory_bugs {
+  #my ($attr) = @_;
+
+  my %status = (
+    0 => $lang{NEW},
+    1 => $lang{TASK_IN_WORK},
+    3 => $lang{CLOSED_UNSUCCESSFUL},
+    4 => $lang{CLOSED_SUCCESSFUL},
+  );
+
+  if ($FORM{change}) {
+    $Inventory->bug_change(\%FORM);
+    if (!$Inventory->{error}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+  elsif ($FORM{chg}) {
+    $Inventory->bug_info({ ID => $FORM{chg} });
+    if (!$Inventory->{error}) {
+      $Inventory->{STATUS_SEL} = $html->form_select(
+        'STATUS',
+        {
+          SELECTED => $Inventory->{STATUS} || 4,
+          SEL_HASH => \%status,
+        }
+      );
+
+      $Inventory->{RESPONSIBLE_SEL} = sel_admins({
+        NAME     => 'RESPONSIBLE',
+        SELECTED => $Inventory->{RESPONSIBLE} || $admin->{AID}
+      });
+
+      ($Inventory->{FIX_VERSION}, undef)=split(/ /, get_version());
+      $html->tpl_show(_include('inventory_bug', 'Inventory'), $Inventory);
+    }
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Inventory->bug_del({ ID => $FORM{del} });
+    if (!$Inventory->{error}) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED}");
+    }
+  }
+
+  if (!$FORM{sort}) {
+    $LIST_PARAMS{SORT} = '1';
+    $LIST_PARAMS{DESC} = 'DESC';
+  }
+
+  if (defined($FORM{STATE})) {
+    $LIST_PARAMS{STATUS} = $FORM{STATE};
+  }
+  else {
+    $FORM{STATE} = 0;
+    $LIST_PARAMS{STATUS} = 0;
+  }
+
+  my @header_arr = ("$lang{ALL}:index=$index&STATE=$pages_qs");
+  foreach my $id (sort keys %status) {
+    if (defined($FORM{STATE}) && $FORM{STATE} =~ /^\d+$/ && $FORM{STATE} == $id) {
+      $LIST_PARAMS{STATE} = $FORM{STATE};
+      $pages_qs .= "&STATE=$FORM{STATE}";
+    }
+    my $name = $status{$id};
+    push @header_arr, "$name:index=$index&STATE=$id$pages_qs";
+  }
+
+  #  my $status_bar = $html->table_header(\@header_arr, {
+  #    TABS      => 1,
+  #    SHOW_ONLY => 7
+  #  });
+  #  print $status_bar;
+
+  if ($FORM{search_form}) {
+    form_search({
+      SIMPLE => {
+        $lang{ERROR}    => 'ERROR',
+        $lang{COMMENTS} => 'COMMENTS',
+        $lang{VERSION}  => 'VERSION',
+        $lang{STATUS}   => { '' => $lang{ALL}, %status }
+      }
+    })
+  }
+
+  my $admins_list = sel_admins({ HASH => 1 });
+
+  result_former({
+    FUNCTION        => 'bugs_list',
+    DEFAULT_FIELDS  => 'ID,DATETIME,ERROR,STATUS,CUR_VERSION,FIX_VERSION,COMMENTS',
+    INPUT_DATA      => $Inventory,
+    FUNCTION_FIELDS => 'change,del',
+    EXT_TITLES      => {
+      'id'          => 'ID',
+      'datetime'    => $lang{DATE},
+      'error'       => $lang{ERROR},
+      'ip'          => 'IP',
+      'hostname',   => $lang{HOSTNAME},
+      'status',     => $lang{STATUS},
+      'sys_id',     => 'SYS_ID',
+      'agent'       => 'AGENT',
+      'comments'    => $lang{COMMENTS},
+      'cur_version' => $lang{CUR_VERSION},
+      'fix_version' => 'FIX_VERSION',
+      'responsible' => $lang{RESPONSIBLE},
+      'inventory_uid' => 'Inventory UID'
+    },
+    TABLE           => {
+      width   => '100%',
+      caption => "Inventory - Bugs",
+      border  => 1,
+      header  => $html->table_header(\@header_arr),
+      qs      => $pages_qs,
+      ID      => 'INVENTORY_BUGS',
+      EXPORT  => 1,
+      MENU    => "$lang{SEARCH}:search_form=1&index=$index:search",
+    },
+    SELECT_VALUE    => {
+      responsible => $admins_list
+    },
+    STATUS_VALS     => [ $status{0}, $status{1}, $status{2}, $status{3}, $status{4} ],
+    MAKE_ROWS       => 1,
+    MODULE          => 'Inventory',
+    TOTAL           => 1
+  });
+
+  return 1;
+}
+
+
+#**********************************************************
+=head2 inventory_log()
+
+=cut
+#**********************************************************
+sub inventory_hosts {
+  #my ($attr) = @_;
+
+  my %status = (
+    0 => 'New',
+    1 => 'In work',
+    3 => 'Closed undone',
+    4 => 'Closed done',
+  );
+
+  if ($FORM{change}) {
+    $Inventory->bug_change(\%FORM);
+    if (!$Inventory->{error}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+  elsif ($FORM{chg}) {
+    $Inventory->bug_info({ ID => $FORM{chg} });
+    if (!$Inventory->{error}) {
+      $Inventory->{STATUS_SEL} = $html->form_select(
+        'STATUS',
+        {
+          SELECTED => $Inventory->{STATUS},
+          SEL_HASH => \%status,
+        }
+      );
+
+      $html->tpl_show(_include('inventory_bug', 'Inventory'), $Inventory);
+    }
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Inventory->bug_del({ ID => $FORM{del} });
+    if (!$Inventory->{error}) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED}");
+    }
+  }
+
+  if (!$FORM{SORT}) {
+    $LIST_PARAMS{SORT} = '1';
+    $LIST_PARAMS{DESC} = 'DESC';
+  }
+
+  if ($FORM{search_form}) {
+    form_search({
+      SIMPLE => {
+        "$lang{LOGIN}"     => 'LOGIN',
+        "$lang{HOSTNAME}"  => 'HOSTNAME',
+        'IP'               => 'IP',
+        'INVENTORY_STATUS' => 'INVENTORY_STATUS',
+        'SIGN'             => 'SIGN',
+        'SYS_ID'           => 'SYS_ID',
+        'LOG_COMMENTS'     => 'LOG_COMMENTS',
+      }
+    });
+  }
+
+  #
+  #  my @header_arr = ("$lang{ALL}:index=$index&STATE=$pages_qs");
+  #  foreach my $id (sort keys %status) {
+  #    if ( defined( $FORM{STATE} ) && $FORM{STATE} =~ /^\d+$/ && $FORM{STATE} == $id ){
+  #      $LIST_PARAMS{STATE} = $FORM{STATE};
+  #      #if (defined($FORM{STATE}) && $FORM{STATE} == 0) {
+  #      #  $LIST_PARAMS{FIX_VERSION} = '';
+  #      #}
+  #    }
+  #    my $name = $status{$id};
+  #    push @header_arr, "$name:index=$index&STATE=$id$pages_qs";
+  #  }
+  #
+  #  my $status_bar = $html->table_header(\@header_arr, {
+  #      TABS      => 1,
+  #      SHOW_ONLY => 7
+  #    });
+  #  print $status_bar;
+  result_former({
+    FUNCTION        => 'hosts_list',
+    DEFAULT_FIELDS  => 'ID,VERSION_MAJ,VERSION_MIN,DATETIME,USERS,IP',
+    INPUT_DATA      => $Inventory,
+    FUNCTION_FIELDS => 'change,del',
+    EXT_TITLES      => {
+      'id'            => 'ID',
+      'datetime'      => $lang{DATE},
+      'ip'            => 'IP',
+      'hostname',     => $lang{HOSTNAME},
+      'status',       => $lang{STATUS},
+      'sign',         => 'SYS_ID',
+      'users',        => $lang{USERS},
+      'admins',       => $lang{ADMIN},
+      'tps',          => 'TPS',
+      'version_maj'   => 'V1',
+      'version_min'   => 'V2',
+    },
+    TABLE           => {
+      width   => '100%',
+      caption => "Inventory - Hosts",
+      border  => 1,
+      qs      => $pages_qs,
+      ID      => 'INVENTORY_HOSTS',
+      EXPORT  => 1,
+      MENU    => "$lang{SEARCH}:search_form=1&index=$index:search",
+    },
+    MAKE_ROWS       => 1,
+    MODULE          => 'Inventory',
+    TOTAL           => 1
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 inventory_former($value)
+
+=cut
+#**********************************************************
+sub inventory_former {
+  my ($value) = @_;
+  my $result = '';
+
+  if ($value =~ /\@/) {
+    $result = $html->button($value, '#', {
+      GLOBAL_URL => '#',
+      COPY       => $value
+    });
+  }
+  elsif ($value) {
+    my ($url, $login, $pass) = split(/ /, $value);
+
+    $login //= q{};
+    $pass //= q{};
+
+    $result = $html->button('WWW', '', {
+      GLOBAL_URL => $url,
+      TITLE      => $url,
+      target     => $url,
+      class      => 'btn btn-success',
+    }) .
+      "$login $pass";
+  }
+
+  return $result;
+}
+
+#**********************************************************
+=head2 inventory_former($value, $attr)
+
+=cut
+#**********************************************************
+sub inventory_former_passwd {
+  my ($value, $attr) = @_;
+  my $result = '';
+
+  my $color = $attr->{color};
+  if ($attr->{PARAMS}->[0] && $attr->{PARAMS}->[0] eq 'user_password') {
+    $color = 'text-success';
+  }
+  else {
+    $color = 'text-warning';
+  }
+
+  $result = $html->button($value, '#', {
+    GLOBAL_URL => '#',
+    COPY       => $value,
+    ICON       => 'fa fa-lg fa-lock ' . $color,
+    'data-tooltip'          => "$lang{COPIED}!",
+    'data-tooltip-position' => 'top',
+    'data-tooltip-onclick'  => '1',
+  });
+
+  return $result;
+}
+
+
+#**********************************************************
+=head2 inventory_search($attr) - Global search submodule
+
+  Arguments:
+    $attr
+      SEARCH_TEXT
+      DEBUG
+
+  Returs:
+     TRUE/FALSE
+
+=cut
+#**********************************************************
+sub inventory_search {
+  my ($attr) = @_;
+
+  my @default_search = ('IP', 'COMMENTS', 'ACCESS_INFO', 'WEB_ACCESS_INFO', '_MULTI_HIT');
+
+  my @qs = ();
+  foreach my $field (@default_search) {
+    $LIST_PARAMS{$field} = "*$attr->{SEARCH_TEXT}*";
+    push @qs, "$field=*$attr->{SEARCH_TEXT}*";
+  }
+
+  $LIST_PARAMS{SKIP_RESPOSIBLE}=1;
+
+  if ($attr->{DEBUG}) {
+    $Inventory->{debug} = 1;
+  }
+
+ $Inventory->inventory_main_list({
+    %LIST_PARAMS,
+    SEARCH_ALL => $attr->{SEARCH_TEXT}
+  });
+
+  my @info = ();
+
+  if ($Inventory->{TOTAL}) {
+    push @info, {
+      'TOTAL'        => $Inventory->{TOTAL},
+      'MODULE'       => 'Inventory',
+      'MODULE_NAME'  => 'Inventory',
+      'SEARCH_INDEX' => get_function_index('inventory_hosts')
+        . '&' . join('&', @qs) . "&search=1"
+    };
+  }
+  # elsif ($attr->{SEARCH_TEXT} =~ /\@/ || $attr->{SEARCH_TEXT} =~ /^\d+$/) {
+  #   my $search_type = 'EMAIL';
+  #
+  #   if ($attr->{SEARCH_TEXT} =~ /^\d+$/) {
+  #     $search_type = 'PHONE';
+  #   }
+  #
+  #   push @info, {
+  #     'TOTAL'        => 0,
+  #     'MODULE'       => 'Inventory',
+  #     'MODULE_NAME'  => 'Inventory',
+  #     'SEARCH_INDEX' => get_function_index('inventory_hosts')
+  #       . '&' . join('&', @qs) . "&search=1",
+  #     EXTRA_LINK     => "$lang{ADD}|index=" . get_function_index('inventory_hosts') . "&add_form=1&"
+  #       . "$search_type=$attr->{SEARCH_TEXT}"
+  #   };
+  # }
+
+  return \@info;
+}
+
+#**********************************************************
+=head2 inventory_stats() - web reports about inventory data
+
+=cut
+#**********************************************************
+sub inventory_stats {
+  my @DELIMITERS = (1000, 2000, 5000, 10000, 20000, 50000);
+  my %PER_DELIMITER_DATA = map { $_ => [] } @DELIMITERS;
+
+  my $list = $Inventory->inventory_log_info({
+    ADMINS => '_SHOW',
+    USERS  => '>=1000',
+    NAS    => '_SHOW',
+    TPS    => '_SHOW',
+    COLS_NAME => 1,
+    PAGE_ROWS => 999999
+  });
+
+  my @clients = @$list;
+  @clients = sort { $a->{users} <=> $b->{users} } @clients;
+
+  my @reversed = reverse @DELIMITERS;
+
+  for my $client (@clients) {
+    for (my $i = 0; $i < scalar(@reversed); $i++) {
+      my $delimiter = $reversed[$i];
+      if ($client->{users} >= $delimiter) {
+        push @{$PER_DELIMITER_DATA{$delimiter}}, $client;
+        last;
+      }
+    }
+  }
+
+  my @ADMIN_LIST = ();
+  my @USERS_LIST = ();
+  my @NAS_LIST = ();
+  my @TPS_LIST = ();
+
+  my $definition = {
+    users  => \@USERS_LIST,
+    admins => \@ADMIN_LIST,
+    nas    => \@NAS_LIST,
+    tps    => \@TPS_LIST,
+  };
+
+  for my $delimited (sort {$a <=> $b } keys %PER_DELIMITER_DATA) {
+    for my $def_key (keys %$definition) {
+      my $average = 0;
+      my @delimited_array = @{$PER_DELIMITER_DATA{$delimited}};
+      for my $client (@delimited_array) {
+        $average += $client->{$def_key};
+      }
+      $average = $average != 0
+        ? $average / scalar(@delimited_array)
+        : 0;
+      push @{$definition->{$def_key}}, int($average);
+    }
+  }
+
+  my $chart = $html->chart({
+    TYPE       => 'line',
+    DATA_CHART => {
+      datasets => [
+        {
+          data            => \@ADMIN_LIST,
+          label           => $lang{ADMINS},
+          borderColor     => '#3af',
+          fill            => 'false',
+          backgroundColor => '#3af',
+          tension         => 0.3
+        },
+        {
+          data            => \@NAS_LIST,
+          label           => $lang{NASS},
+          borderColor     => '#0f8',
+          fill            => 'false',
+          backgroundColor => '#0f8',
+          tension         => 0.3
+        },
+        {
+          data            => \@TPS_LIST,
+          label           => $lang{TARIF_PLANS},
+          borderColor     => '#fa1',
+          fill            => 'false',
+          backgroundColor => '#fa1',
+          tension         => 0.3
+        },
+      ],
+      labels   => \@DELIMITERS
+    },
+    OPTIONS    => {}
+  });
+
+  my $users_chart = $html->chart({
+    type       => 'line',
+    DATA_CHART => {
+      datasets => [
+        {
+          data            => \@USERS_LIST,
+          label           => $lang{USERS},
+          borderColor     => '#f68',
+          fill            => 'false',
+          backgroundColor => '#f68',
+          tension         => 0.3
+        },
+      ],
+      labels   => \@DELIMITERS
+    },
+    OPTIONS    => {},
+  });
+
+  $html->tpl_show(templates('form_show_not_hide'), {
+    NAME        => "$lang{REPORTS} - $lang{EQUIPMENT}, $lang{NAS}, $lang{TARIF_PLANS}",
+    CONTENT     => $chart,
+    BUTTON_ICON => 'minus',
+    PARAMS      => 'card-primary card-outline'
+  });
+
+  $html->tpl_show(templates('form_show_not_hide'), {
+    NAME    => "$lang{REPORTS} - $lang{USERS}",
+    CONTENT => $users_chart,
+    BUTTON_ICON => 'minus',
+    PARAMS      => 'card-primary card-outline'
+  });
+}
+
+1;
+

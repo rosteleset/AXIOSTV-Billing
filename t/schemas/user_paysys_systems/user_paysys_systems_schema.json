@@ -1,0 +1,30 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+
+  "required": [
+    "name",
+    "module",
+    "status",
+    "id"
+  ],
+  "properties": {
+    "name": {
+      "$id": "#/properties/name",
+      "type": "string"
+    },
+    "module": {
+      "$id": "#/properties/module",
+      "type": "string"
+    },
+    "status": {
+      "$id": "#/properties/status",
+      "type": "number"
+    },
+    "id": {
+      "$id": "#/properties/id",
+      "type": "number"
+    }
+  }
+}

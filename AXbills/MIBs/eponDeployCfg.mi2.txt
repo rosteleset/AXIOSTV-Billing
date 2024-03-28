@@ -1,0 +1,1552 @@
+EPON-DEPLOY-CONFIG-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    IpAddress, Unsigned32, Integer32, Counter32, TimeTicks, Gauge32, Counter64,
+    MODULE-IDENTITY, OBJECT-IDENTITY, OBJECT-TYPE, enterprises     
+      FROM SNMPv2-SMI     
+    DateAndTime, MacAddress, TimeStamp, RowStatus, TruthValue, DisplayString, TEXTUAL-CONVENTION
+      FROM SNMPv2-TC
+    eponDeployCfg  FROM  EPON-CONFIG-MIB  ;
+
+--------------------------------------------------------------------------------
+--  DeployCfg[Deploy≈‰÷√π‹¿ÌœÓ](1.3.6.1.4.1.27514.1.13.5)
+--------------------------------------------------------------------------------
+
+-------------------------------
+-- Deploy Control Attribute
+-------------------------------
+
+eponDeployCtrlAttribute  OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION
+    "Deploy control attribute"
+    ::= {eponDeployCfg 1}
+
+deployCtrlPermissionOwner  OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+        console(0),
+        telnet1(1),
+        telnet2(2),
+        telnet3(3),
+        telnet4(4),
+        telnet5(5),
+        startup(6),
+        snmp(20),
+        null(50)
+    }
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+    "
+        Owner of Permission
+    "
+    ::= {eponDeployCtrlAttribute 1}
+
+deployCtrlPermissionOwnerName  OBJECT-TYPE
+    SYNTAX      OCTET STRING (SIZE(1..64))
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+    "
+        Owner Name
+    "
+    ::= {eponDeployCtrlAttribute 2}
+
+deployCtrlPermissionOwnerIP  OBJECT-TYPE
+    SYNTAX      IpAddress
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+    "
+        Owner IP Address
+    "
+    ::= {eponDeployCtrlAttribute 3}
+
+deployCtrlPermissionOper  OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+        request(1),
+        release(2)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        Deploy control permission operation:
+        request permission(1)
+        release permission(2)
+    "
+    ::= {eponDeployCtrlAttribute 4}
+
+deployCtrlPermissionForceRelease  OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+        force(1)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        Deploy control permission operation:
+        force release permission(1)
+    "
+    ::= {eponDeployCtrlAttribute 5}
+
+deployCtrlWorkspaceOper  OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+        clear(1),
+        rebuild(2),
+        activate(3)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        Deploy control workspace operation:
+        clear workspace(1)
+        rebuild workspace(2)
+        activate workspace(3)
+    "
+    ::= {eponDeployCtrlAttribute 6}
+
+deployCtrlWorkspaceChoice  OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+        active(1),
+        inactive(2)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        Deploy control workspace choice:
+        active workspace(1)
+        inactive workspace(2)
+    "
+    ::= {eponDeployCtrlAttribute 7}
+    
+deployErrorCode  OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+    "
+    EPON_E_NONE = 0,
+    EPON_E_BEGIN = 6000,
+    EPON_E_INTERNAL,
+    EPON_E_MEMORY,
+    EPON_E_PARAM,
+    EPON_E_EMPTY,
+    EPON_E_FULL,
+    EPON_E_INDEX,
+    EPON_E_NOT_FOUND,
+    EPON_E_EXISTS,
+    EPON_E_TIMEOUT,
+    EPON_E_BUSY,            /* 10 */
+    EPON_E_FAIL,
+    EPON_E_INVALID_SLOT,
+    EPON_E_INVALID_PON,
+    EPON_E_INVALID_ONT,
+    EPON_E_INVALID_POINTER,
+    EPON_E_INVALID_BOOL_VALUE,
+    EPON_E_INVALID_ICP_PARAM_LEN,
+    EPON_E_INVALID_ESTA_ID,
+    EPON_E_INVALID_RPC_PARAM_LEN,
+    EPON_E_INVALID_ICP_PARAM_PTR,       /* 20 */
+    EPON_E_INVALID_ICP_FUNC_ID,
+    EPON_E_SLOT_STARTUP_STATUS_ERROR,
+    EPON_E_SLOT_STARTUP_STATUS_EXCEPTION,
+    EPON_E_SLOT_STARTUP_STATUS_NOT_READY,
+    EPON_E_SW_TABLE_MISMATCH,
+    EPON_E_SW_TABLE_CONTECT_MISMATCH,
+    EPON_E_SHADOW_RECV_NOT_IN_READY,
+    EPON_E_SHADOW_RECV_BUF_MSG_SEND_FAIL,
+    EPON_E_SHADOW_WORKSPACE_PERMISSION_IN_USE,
+    EPON_E_SHADOW_WORKSPACE_PERMISSION_NOT_IN_USE,        /* 30 */
+    EPON_E_SHADOW_WORKSPACE_PERMISSION_NOT_ME,
+    EPON_E_ONT_RULE_MATCH_NOT_FOUND,
+    EPON_E_ONT_LINE_NONE_IN_RULE,
+    EPON_E_ONT_LINE_MATCH_AUTO_NOT_FOUND,
+    EPON_E_ONT_UNIQUE_MATCH_NOT_FOUND,
+    EPON_E_AUTH_HAS_BOUND_BY_RULE,
+    EPON_E_AUTH_MODE_IS_NOT_MATCH,
+    EPON_E_DBA_HAS_BOUND_BY_LINE,
+    EPON_E_DBA_TYPE_IS_NOT_MATCH,
+    EPON_E_LINE_HAS_BOUND_BY_RULE,         /* 40 */
+    EPON_E_LINE_MODE_IS_NOT_MATCH,
+    EPON_E_ONT_RULE_ACTION_DENY,
+    EPON_E_ONT_FIND_LIST_IS_FULL,
+    EPON_E_ONT_SN_GET_FAIL,
+    EPON_E_ONT_CAP1_GET_FAIL,
+    EPON_E_ONT_CAP2_GET_FAIL,
+    EPON_E_END
+    "
+    ::= {eponDeployCtrlAttribute 8}
+
+-------------------------------
+-- Deploy Auth Table
+-------------------------------
+eponDeployAuthTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponDeployAuthEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        Deploy profile auth table
+    "
+    ::= {eponDeployCfg 2}
+
+eponDeployAuthEntry  OBJECT-TYPE
+    SYNTAX       EponDeployAuthEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        Auth entry info
+    "
+    INDEX
+    {
+        deployAuthIndex
+    }
+    ::= {eponDeployAuthTable 1}
+
+EponDeployAuthEntry  ::=  SEQUENCE
+    {
+        deployAuthIndex                INTEGER,
+        deployAuthAction               INTEGER,
+        deployAuthName                 OCTET STRING,
+        deployAuthMode                 INTEGER,
+        deployAuthMacAddress           OCTET STRING,
+        deployAuthLoid                 OCTET STRING,
+        deployAuthLopw                 OCTET STRING,
+        deployAuthMatchSlot            INTEGER,
+        deployAuthMatchPon             INTEGER,
+        deployAuthMatchOnt             INTEGER
+    }
+
+deployAuthIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Auth index
+    "
+    ::= {eponDeployAuthEntry 1}
+
+deployAuthAction  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        delete(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        auth action:
+        delete(1)
+    "
+    ::= {eponDeployAuthEntry 2}
+
+deployAuthName  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..32))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        auth deploy name
+    "
+    ::= {eponDeployAuthEntry 3}
+
+deployAuthMode  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        null(0),
+        mac(1),
+        loid(2),
+        lopw(3),
+        loid_pwd(4)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        Auth mode:
+        Null(0)
+        Mac(1)
+        Loid(2)
+        Pwd of Loid(3)
+        Loid and Pwd(4)
+    "
+    ::= {eponDeployAuthEntry 4}
+
+deployAuthMacAddress  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(11..17))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        mac address, you can use '*' represents any one character
+    "
+    ::= {eponDeployAuthEntry 5}
+
+deployAuthLoid  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..24))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        loid, you can use '*' represents any one character
+    "
+    ::= {eponDeployAuthEntry 6}
+
+deployAuthLopw  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..12))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        logical password, you can use '*' represents any one character
+    "
+    ::= {eponDeployAuthEntry 7}
+
+deployAuthMatchSlot  OBJECT-TYPE
+    SYNTAX          INTEGER(1..16)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        slot index
+    "
+    ::= {eponDeployAuthEntry 8}
+
+deployAuthMatchPon  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        pon port index
+    "
+    ::= {eponDeployAuthEntry 9}
+
+deployAuthMatchOnt  OBJECT-TYPE
+    SYNTAX          INTEGER(1..64)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        ont index
+    "
+    ::= {eponDeployAuthEntry 10}
+
+
+-------------------------------
+-- Deploy DBA Table
+-------------------------------
+eponDeployDBATable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponDeployDBAEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        Deploy profile DBA table
+    "
+    ::= {eponDeployCfg 3}
+
+eponDeployDBAEntry  OBJECT-TYPE
+    SYNTAX       EponDeployDBAEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        DBA entry info
+    "
+    INDEX
+    {
+        deployDBAIndex
+    }
+    ::= {eponDeployDBATable 1}
+
+EponDeployDBAEntry  ::=  SEQUENCE
+    {
+        deployDBAIndex                INTEGER,
+        deployDBAAction               INTEGER,
+        deployDBAName                 OCTET STRING,
+        deployDBAType                 INTEGER,
+        deployDBAFixed                INTEGER,
+        deployDBAAssured              INTEGER,
+        deployDBAMax                  INTEGER
+    }
+
+deployDBAIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        DBA index
+    "
+    ::= {eponDeployDBAEntry 1}
+
+deployDBAAction  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        delete(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        DBA action:
+        delete(1)
+    "
+    ::= {eponDeployDBAEntry 2}
+
+deployDBAName  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..32))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        dba deploy name
+    "
+    ::= {eponDeployDBAEntry 3}
+
+deployDBAType  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        fixed(1),
+        assured(2),
+        max(3),
+        assured_max(4),
+        hybrid(5)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        DBA type:
+        fixed bandwidth(1)
+        assured bandwidth(2)
+        max bandwidth(3)
+        assured and max bandwidth(4)
+        hybrid(fixed and assured and fixed)(5)
+    "
+    ::= {eponDeployDBAEntry 4}
+
+deployDBAFixed  OBJECT-TYPE
+    SYNTAX          INTEGER(128..950000)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        fixed bandwidth value
+    "
+    ::= {eponDeployDBAEntry 5}
+
+deployDBAAssured  OBJECT-TYPE
+    SYNTAX          INTEGER(256..960000)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        assured bandwidth value
+    "
+    ::= {eponDeployDBAEntry 6}
+
+deployDBAMax  OBJECT-TYPE
+    SYNTAX          INTEGER(512..1000000)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        max bandwidth value
+    "
+    ::= {eponDeployDBAEntry 7}
+
+
+-------------------------------
+-- Deploy Line Table
+-------------------------------
+eponDeployLineInfoTable  OBJECT IDENTIFIER  ::=  { eponDeployCfg 4 }
+
+---------base table-----------
+eponDeployLineTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponDeployLineEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        Line base table
+    "
+    ::= {eponDeployLineInfoTable 1}
+
+eponDeployLineEntry  OBJECT-TYPE
+    SYNTAX       EponDeployLineEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        Line base entry info
+    "
+    INDEX
+    {
+        deployLineBaseIndex
+    }
+    ::= {eponDeployLineTable 1}
+
+EponDeployLineEntry  ::=  SEQUENCE
+    {
+        deployLineBaseIndex            INTEGER,
+        deployLineAction               INTEGER,
+        deployLineName                 OCTET STRING,
+        deployLineDeviceType           OCTET STRING,
+        deployLineDevicePortNum        INTEGER,
+        deployLineBindDBA              INTEGER,
+        deployLineDSTraffic            INTEGER,
+        deployLineBusEnable            INTEGER
+    }
+
+deployLineBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Line index
+    "
+    ::= {eponDeployLineEntry 1}
+
+deployLineAction  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        delete(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        Line action:
+        delete(1)
+    "
+    ::= {eponDeployLineEntry 2}
+
+deployLineName  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..32))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        line deploy name
+    "
+    ::= {eponDeployLineEntry 3}
+
+deployLineDeviceType  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(3..10))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        Ont device type:
+        null,
+        216h,
+        224h,
+        2040,
+        2080,
+        2160,
+        i04g,
+        i04f,
+        2404,
+        204s,
+        204m,
+        204g,
+        204v,
+        04v2,
+        2400,
+        2401,
+        2403,
+        2130,
+        other,
+    "
+    ::= {eponDeployLineEntry 4}
+
+deployLineDevicePortNum  OBJECT-TYPE
+    SYNTAX          INTEGER(1..25)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        ont port number
+    "
+    ::= {eponDeployLineEntry 5}
+
+deployLineBindDBA  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        bind DBA index
+    "
+    ::= {eponDeployLineEntry 6}
+
+deployLineDSTraffic  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        DownStream Traffic
+    "
+    ::= {eponDeployLineEntry 7}
+
+deployLineBusEnable  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        disable(0),
+        enable(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        Bus status
+    "
+    ::= {eponDeployLineEntry 8}
+    
+
+---------uni ctc base-----------
+
+eponDeployLineUniCTCTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponDeployLineUniCTCEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni ctc table
+    "
+    ::= {eponDeployLineInfoTable 2}
+
+eponDeployLineUniCTCEntry  OBJECT-TYPE
+    SYNTAX       EponDeployLineUniCTCEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni base entry info
+    "
+    INDEX
+    {
+        deployLineCTCPortBaseIndex,
+        deployLineCTCPortUniIndex
+    }
+    ::= {eponDeployLineUniCTCTable 1}
+
+EponDeployLineUniCTCEntry  ::=  SEQUENCE
+    {
+        deployLineCTCPortBaseIndex     INTEGER,
+        deployLineCTCPortUniIndex      INTEGER,
+        deployLineUniAdmin             INTEGER,
+        deployLineUniFlowCtrl          INTEGER,
+        deployLineUniLoopDetect        INTEGER
+    }
+
+deployLineCTCPortBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Line index
+    "
+    ::= {eponDeployLineUniCTCEntry 1}
+
+deployLineCTCPortUniIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port index
+    "
+    ::= {eponDeployLineUniCTCEntry 2}
+
+deployLineUniAdmin  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        disable(0),
+        enable(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port admin
+    "
+    ::= {eponDeployLineUniCTCEntry 3}
+
+deployLineUniFlowCtrl  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        disable(0),
+        enable(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port flow control
+    "
+    ::= {eponDeployLineUniCTCEntry 4}
+
+deployLineUniLoopDetect  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        disable(0),
+        enable(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port loop detect
+    "
+    ::= {eponDeployLineUniCTCEntry 5}
+
+---------uni ctc speed limit-----------
+
+eponDeployLineUniCTCLimitTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponDeployLineUniCTCLimitEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port speed limit table
+    "
+    ::= {eponDeployLineInfoTable 3}
+
+eponDeployLineUniCTCLimitEntry  OBJECT-TYPE
+    SYNTAX       EponDeployLineUniCTCLimitEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port speed limit info
+    "
+    INDEX
+    {
+        deployLineLimitBaseIndex,
+        deployLineLimitUniIndex
+    }
+    ::= {eponDeployLineUniCTCLimitTable 1}
+
+EponDeployLineUniCTCLimitEntry  ::=  SEQUENCE
+    {
+        deployLineLimitBaseIndex       INTEGER,
+        deployLineLimitUniIndex        INTEGER,
+        deployLineUniIngressEnable     INTEGER,
+        deployLineUniIngressCir        INTEGER,
+        deployLineUniIngressCbs        INTEGER,
+        deployLineUniIngressEbs        INTEGER,
+        deployLineUniEgressEnable      INTEGER,
+        deployLineUniEgressCir         INTEGER,
+        deployLineUniEgressPir         INTEGER
+    }
+
+deployLineLimitBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Line index
+    "
+    ::= {eponDeployLineUniCTCLimitEntry 1}
+
+deployLineLimitUniIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port index
+    "
+    ::= {eponDeployLineUniCTCLimitEntry 2}
+
+deployLineUniIngressEnable  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        disable(0),
+        enable(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port ingress enable
+    "
+    ::= {eponDeployLineUniCTCLimitEntry 3}
+
+deployLineUniIngressCir  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port ingress cir
+    "
+    ::= {eponDeployLineUniCTCLimitEntry 4}
+
+deployLineUniIngressCbs  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port ingress cbs
+    "
+    ::= {eponDeployLineUniCTCLimitEntry 5}
+
+deployLineUniIngressEbs  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port ingress ebs
+    "
+    ::= {eponDeployLineUniCTCLimitEntry 6}
+
+deployLineUniEgressEnable  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        disable(0),
+        enable(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port egress enable
+    "
+    ::= {eponDeployLineUniCTCLimitEntry 7}
+
+deployLineUniEgressCir  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port egress cir
+    "
+    ::= {eponDeployLineUniCTCLimitEntry 8}
+
+deployLineUniEgressPir  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port egress pir
+    "
+    ::= {eponDeployLineUniCTCLimitEntry 9}
+
+-----------port vlan---------------
+eponDeployLineUniCTCPortVlanTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponDeployLineUniCTCPortVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port vlan table
+    "
+    ::= {eponDeployLineInfoTable 4}
+
+eponDeployLineUniCTCPortVlanEntry  OBJECT-TYPE
+    SYNTAX       EponDeployLineUniCTCPortVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port vlan info
+    "
+    INDEX
+    {
+        deployLineCTCVlanBaseIndex,
+        deployLineCTCVlanUniIndex
+    }
+    ::= {eponDeployLineUniCTCPortVlanTable 1}
+
+EponDeployLineUniCTCPortVlanEntry  ::=  SEQUENCE
+    {
+        deployLineCTCVlanBaseIndex     INTEGER,
+        deployLineCTCVlanUniIndex      INTEGER,
+        deployLineOnuVlanStepMode      INTEGER,
+        deployLineUniVlanMode          INTEGER,
+        deployLineUniVlanTpid          INTEGER,
+        deployLineUniVlanPir           INTEGER,
+        deployLineUniVlanCfi           INTEGER,
+        deployLineUniVlanPvid          INTEGER,
+        deployLineUniStepVlan          INTEGER
+    }
+
+deployLineCTCVlanBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Line index
+    "
+    ::= {eponDeployLineUniCTCPortVlanEntry 1}
+
+deployLineCTCVlanUniIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port index
+    "
+    ::= {eponDeployLineUniCTCPortVlanEntry 2}
+
+deployLineOnuVlanStepMode  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        null(0),
+        onu-step(1),
+        port-step(2)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port vlan mode
+    "
+    ::= {eponDeployLineUniCTCPortVlanEntry 3}
+
+deployLineUniVlanMode  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        transparent(0),
+        tag(1),
+        translation(2),
+        aggregation(3),
+        trunk(4)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port vlan mode
+    "
+    ::= {eponDeployLineUniCTCPortVlanEntry 4}
+
+deployLineUniVlanTpid  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port TPID
+    "
+    ::= {eponDeployLineUniCTCPortVlanEntry 5}
+
+deployLineUniVlanPir  OBJECT-TYPE
+    SYNTAX          INTEGER(0..7)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port TPID
+    "
+    ::= {eponDeployLineUniCTCPortVlanEntry 6}
+
+deployLineUniVlanCfi  OBJECT-TYPE
+    SYNTAX          INTEGER(0..1)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port CFI
+    "
+    ::= {eponDeployLineUniCTCPortVlanEntry 7}
+
+deployLineUniVlanPvid  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4094)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port vlan ID
+    "
+    ::= {eponDeployLineUniCTCPortVlanEntry 8}
+
+deployLineUniStepVlan  OBJECT-TYPE
+    SYNTAX          INTEGER(1..10)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni step vlan ID
+    "
+    ::= {eponDeployLineUniCTCPortVlanEntry 9}
+
+------------vlan translation-----------------
+eponDeployLineUniCTCTranslationVlanTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponDeployLineUniCTCTranslationVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port translation vlan table
+    "
+    ::= {eponDeployLineInfoTable 5}
+
+eponDeployLineUniCTCTranslationVlanEntry  OBJECT-TYPE
+    SYNTAX       EponDeployLineUniCTCTranslationVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port translation vlan info
+    "
+    INDEX
+    {
+        deployLineVlanEntryBaseIndex,
+        deployLineVlanEntryUniIndex,
+        deployLineUniTranslationIndex
+    }
+    ::= {eponDeployLineUniCTCTranslationVlanTable 1}
+
+EponDeployLineUniCTCTranslationVlanEntry  ::=  SEQUENCE
+    {
+        deployLineVlanEntryBaseIndex   INTEGER,
+        deployLineVlanEntryUniIndex    INTEGER,
+        deployLineUniTranslationIndex  INTEGER,
+        deployLineUniTranslationDel    INTEGER,
+        deployLineUniOldVlan           INTEGER,
+        deployLineUniOldVlanTpid       INTEGER,
+        deployLineUniNewVlan           INTEGER,
+        deployLineUniNewVlanTpid       INTEGER
+    }
+
+deployLineVlanEntryBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Line index
+    "
+    ::= {eponDeployLineUniCTCTranslationVlanEntry 1}
+
+deployLineVlanEntryUniIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port index
+    "
+    ::= {eponDeployLineUniCTCTranslationVlanEntry 2}
+
+deployLineUniTranslationIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni translation index
+    "
+    ::= {eponDeployLineUniCTCTranslationVlanEntry 3}
+
+deployLineUniTranslationDel  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        delete(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        delete vlan entry
+    "
+    ::= {eponDeployLineUniCTCTranslationVlanEntry 4}
+
+deployLineUniOldVlan  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4094)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni translation old vlan
+    "
+    ::= {eponDeployLineUniCTCTranslationVlanEntry 5}
+
+deployLineUniOldVlanTpid  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni translation old vlan tpid
+    "
+    ::= {eponDeployLineUniCTCTranslationVlanEntry 6}
+
+deployLineUniNewVlan  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4094)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni translation new vlan
+    "
+    ::= {eponDeployLineUniCTCTranslationVlanEntry 7}
+
+deployLineUniNewVlanTpid  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni translation new vlan tpid
+    "
+    ::= {eponDeployLineUniCTCTranslationVlanEntry 8}
+
+------------vlan trunk-----------------
+eponDeployLineUniCTCTrunkVlanTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponDeployLineUniCTCTrunkVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port vlan table
+    "
+    ::= {eponDeployLineInfoTable 6}
+
+eponDeployLineUniCTCTrunkVlanEntry  OBJECT-TYPE
+    SYNTAX       EponDeployLineUniCTCTrunkVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port vlan info
+    "
+    INDEX
+    {
+        deployLineVlanTrunkBaseIndex,
+        deployLineVlanTrunkUniIndex
+    }
+    ::= {eponDeployLineUniCTCTrunkVlanTable 1}
+
+EponDeployLineUniCTCTrunkVlanEntry  ::=  SEQUENCE
+    {
+        deployLineVlanTrunkBaseIndex   INTEGER,
+        deployLineVlanTrunkUniIndex    INTEGER,
+        deployLineUniTrunkVlanTpid     INTEGER,
+        deployLineUniVlanList          OCTET STRING
+    }
+
+deployLineVlanTrunkBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Line index
+    "
+    ::= {eponDeployLineUniCTCTrunkVlanEntry 1}
+
+deployLineVlanTrunkUniIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port index
+    "
+    ::= {eponDeployLineUniCTCTrunkVlanEntry 2}
+
+deployLineUniTrunkVlanTpid  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port trunk vlan tpid
+    "
+    ::= {eponDeployLineUniCTCTrunkVlanEntry 3}
+
+deployLineUniVlanList  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..64))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port trunk vlan tpid
+    "
+    ::= {eponDeployLineUniCTCTrunkVlanEntry 4}
+
+-------------------------------
+-- Deploy Unique Table
+-------------------------------
+eponDeployUniqueTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponDeployUniqueEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        Deploy profile Unique table
+    "
+    ::= {eponDeployCfg 5}
+
+eponDeployUniqueEntry  OBJECT-TYPE
+    SYNTAX       EponDeployUniqueEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        Unique entry info
+    "
+    INDEX
+    {
+        deployUniqueIndex
+    }
+    ::= {eponDeployUniqueTable 1}
+
+EponDeployUniqueEntry  ::=  SEQUENCE
+    {
+        deployUniqueIndex                INTEGER,
+        deployUniqueAction               INTEGER,
+        deployUniqueName                 OCTET STRING,
+        deployUniqueDevMac               MacAddress,
+        deployUniqueDescription          OCTET STRING,
+        deployUniqueIpAddress            IpAddress,
+        deployUniqueNetMask              IpAddress,
+        deployUniqueGateWay              IpAddress,
+        deployUniqueCvlan                INTEGER,
+        deployUniqueSvlan                INTEGER,
+        deployUniquePriority             INTEGER
+    }
+
+deployUniqueIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Unique index
+    "
+    ::= {eponDeployUniqueEntry 1}
+
+deployUniqueAction  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        delete(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        unique action:
+        delete(1)
+    "
+    ::= {eponDeployUniqueEntry 2}
+
+deployUniqueName  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..32))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        unique deploy name
+    "
+    ::= {eponDeployUniqueEntry 3}
+    
+deployUniqueDevMac  OBJECT-TYPE
+    SYNTAX          MacAddress
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        Ont device mac
+    "
+    ::= {eponDeployUniqueEntry 4}
+    
+deployUniqueDescription  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..32))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        Ont device description
+    "
+    ::= {eponDeployUniqueEntry 5}
+    
+deployUniqueIpAddress  OBJECT-TYPE
+    SYNTAX          IpAddress
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        Ont device IPAddress
+    "
+    ::= {eponDeployUniqueEntry 6}
+    
+deployUniqueNetMask  OBJECT-TYPE
+    SYNTAX          IpAddress
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        Ont device netmask
+    "
+    ::= {eponDeployUniqueEntry 7}
+    
+deployUniqueGateWay  OBJECT-TYPE
+    SYNTAX          IpAddress
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        Ont device gateway
+    "
+    ::= {eponDeployUniqueEntry 8}
+    
+deployUniqueCvlan  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4094)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        Ont device cvlan
+    "
+    ::= {eponDeployUniqueEntry 9}
+    
+deployUniqueSvlan  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4094)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        Ont device svlan
+    "
+    ::= {eponDeployUniqueEntry 10}
+    
+deployUniquePriority  OBJECT-TYPE
+    SYNTAX          INTEGER(0..7)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        Ont device vlan priority
+    "
+    ::= {eponDeployUniqueEntry 11}
+
+
+-------------------------------
+-- Deploy Rule Table
+-------------------------------
+eponDeployRuleTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponDeployRuleEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        Deploy profile Rule table
+    "
+    ::= {eponDeployCfg 6}
+
+eponDeployRuleEntry  OBJECT-TYPE
+    SYNTAX       EponDeployRuleEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        Rule entry info
+    "
+    INDEX
+    {
+        deployRuleIndex
+    }
+    ::= {eponDeployRuleTable 1}
+
+EponDeployRuleEntry  ::=  SEQUENCE
+    {
+        deployRuleIndex                INTEGER,
+        deployRuleAction               INTEGER,
+        deployRuleName                 OCTET STRING,
+        deployRuleImplementAuthIndex   INTEGER,
+        deployRuleImplementLineList    OCTET STRING
+    }
+
+deployRuleIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Rule index
+    "
+    ::= {eponDeployRuleEntry 1}
+    
+deployRuleAction  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        delete(1),
+        permit(2),
+        deny(3)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        Rule active
+    "
+    ::= {eponDeployRuleEntry 2}
+
+deployRuleName  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..32))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        rule deploy name
+    "
+    ::= {eponDeployRuleEntry 3}
+
+
+deployRuleImplementAuthIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        implement auth index
+    "
+    ::= {eponDeployRuleEntry 4}
+
+deployRuleImplementLineList  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..64))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        implement line list
+    "
+    ::= {eponDeployRuleEntry 5}
+
+
+-------------------------------
+-- Deploy Force Table
+-------------------------------
+eponDeployForceTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponDeployForceEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        Deploy profile Force table
+    "
+    ::= {eponDeployCfg 7}
+
+eponDeployForceEntry  OBJECT-TYPE
+    SYNTAX       EponDeployForceEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        Force entry info
+    "
+    INDEX
+    {
+        deployForceSlotIndex,
+        deployForcePonIndex,
+        deployForceMemberIndex
+    }
+    ::= {eponDeployForceTable 1}
+
+EponDeployForceEntry  ::=  SEQUENCE
+    {
+        deployForceSlotIndex           INTEGER,
+        deployForcePonIndex            INTEGER,
+        deployForceMemberIndex         INTEGER,
+        deployForceOntList             OCTET STRING,
+        deployForceLineList            OCTET STRING,
+        deployForceRowStatus           RowStatus
+    }
+
+deployForceSlotIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Force slot index
+    "
+    ::= {eponDeployForceEntry 1}
+
+deployForcePonIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Force pon index
+    "
+    ::= {eponDeployForceEntry 2}
+
+deployForceMemberIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Force entry index
+    "
+    ::= {eponDeployForceEntry 3}
+
+deployForceOntList  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..64))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        Force ont list
+        such as:
+        1,3,5-10
+        0 - delete entry
+    "
+    ::= {eponDeployForceEntry 4}
+
+deployForceLineList  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..64))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        Force Line list
+        such as:
+        1,3,5-10
+    "
+    ::= {eponDeployForceEntry 5}
+
+deployForceRowStatus  OBJECT-TYPE
+    SYNTAX   RowStatus
+    MAX-ACCESS   read-write
+    STATUS   current
+    DESCRIPTION
+    "
+        row status.
+    "
+    ::= {eponDeployForceEntry 6}
+
+
+--
+-- END of EPON-DEPLOY-CONFIG-MIB
+--    
+END

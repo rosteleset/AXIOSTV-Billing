@@ -1,0 +1,7 @@
+%DESCRIBE%
+
+_{DEAR}_, %FIO%
+
+%SUBJECT%
+%MESSAGE%
+

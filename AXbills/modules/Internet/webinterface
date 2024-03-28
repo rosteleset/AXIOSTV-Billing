@@ -1,0 +1,1683 @@
+#!perl
+=head1 NAME
+
+  Internet module
+
+  Internet PPPoE/VPN/IPoE web control functions
+
+  Error ID: 9xx
+
+=cut
+
+
+use strict;
+use warnings FATAL => 'all';
+use AXbills::Defs;
+use AXbills::Base qw(date_diff in_array sendmail sec2time show_log time2sec
+  mk_unique_value int2byte _bp int2ip ip2int days_in_month clearquotes next_month);
+use AXbills::Filters qw(_mac_former human_exp);
+use Internet;
+use Internet::Sessions;
+use Finance;
+use Fees;
+use Shedule;
+use Tariffs;
+use Nas;
+use Log;
+use AXbills::Experimental::Language;
+
+our ($db,
+  %conf,
+  $admin,
+  %permissions,
+  $ui,
+  @WEEKDAYS,
+  @MONTHES,
+  %err_strs,
+  %lang,
+  $PG,
+  $users,
+  @PERIODS, # ???
+  %ADMIN_REPORT,
+  $base_dir
+);
+
+our AXbills::HTML $html;
+
+my $Internet = Internet->new($db, $admin, \%conf);
+my $Shedule  = Shedule->new($db, $admin, \%conf);
+my $Payments = Finance->payments($db, $admin, \%conf);
+my $Tariffs  = Tariffs->new($db, \%conf, $admin);
+my $Nas      = Nas->new($db, \%conf, $admin);
+my $Log      = Log->new($db, \%conf);
+#my $Language = AXbills::Experimental::Language->new($base_dir || '/usr/axbills/', $conf{default_language});
+
+require Control::Services;
+if (($functions{$index} && $functions{$index} eq 'form_intervals')
+  || ($FORM{subf} && $functions{$FORM{subf}} && $functions{$FORM{subf}} eq 'form_intervals')) {
+  require Control::System;
+}
+require Internet::User_portal;
+require Internet::Quick_reports;
+
+if($permissions{3}) {
+  require Internet::Reports;
+}
+
+if($permissions{4}) {
+  require Internet::Configure;
+}
+
+if($permissions{5}) {
+  require Internet::Monitoring;
+}
+
+#if($FORM{UID}) {
+require Internet::Users;
+#}
+
+if(%ADMIN_REPORT) {
+  require Internet::Periodic;
+  require Internet::Ipoe_periodic;
+}
+
+if ($conf{INTERNET_TURBO_MODE}) {
+  eval { require Internet::Turbo_mode };
+  if ($@) {
+    print "Content-Type: text/html\n\n";
+    print "Turbo.pm not loaded";
+    print $@;
+  }
+}
+
+if ($conf{INTERNET_DAY_QUOTA}) {
+  eval { require Internet::Quota };
+  if ($@) {
+    print "Content-Type: text/html\n\n";
+    print $@;
+  }
+}
+
+#**********************************************************
+=head2 internet_users_search($Internet_)
+
+=cut
+#**********************************************************
+sub internet_users_search {
+  my ($Internet_) = @_;
+
+  $index=get_function_index('internet_users_list') if ( $functions{$index} && $functions{$index} ne 'internet_users_list' );
+  $Internet->{GROUP_SEL}  = sel_groups();
+  $Internet->{STATUS_SEL} = sel_status({
+    STATUS      => $FORM{INTERNET_STATUS} || '',
+    NAME        => 'INTERNET_STATUS',
+    EX_PARAMS   => 'multiple="multiple"',
+    SKIP_COLORS => 1
+  });
+
+  if ($conf{INTERNET_LOGIN}) {
+    $Internet_->{INTERNET_LOGIN_FORM} .= $html->tpl_show(templates('form_row'), { ID => 'INTERNET_LOGIN',
+      NAME  => "Internet $lang{LOGIN}",
+      VALUE => $html->form_input('INTERNET_LOGIN', $FORM{INTERNET_LOGIN} || '%INTERNET_LOGIN%', { ID => 'INTERNET_LOGIN' })
+    }, { OUTPUT2RETURN => 1 });
+  }
+
+  $Internet_->{TP_SEL} = sel_tp({
+    MODULE => 'Dv;Internet',
+    SELECT    => 'TP_ID',
+    EX_PARAMS => 'multiple="multiple"'
+  });
+
+  $Internet_->{NAS_SEL}=$html->form_select(
+    'NAS_ID',
+    {
+      SELECTED          => $Internet->{NAS_ID} || $FORM{NAS_ID},
+      SEL_LIST          => '',
+      SEL_KEY           => 'nas_id',
+      SEL_VALUE         => 'nas_name',
+      SEL_OPTIONS       => { '' => '' },
+      MAIN_MENU         => get_function_index( 'form_nas' ),
+      MAIN_MENU_ARGV    => ($Internet->{NAS_ID}) ? "NAS_ID=$Internet->{NAS_ID}" : '',
+      EXT_BUTTON        => $Internet->{SWITCH_STATUS},
+      # Popup window
+      POPUP_WINDOW      => 'form_search_nas',
+      POPUP_WINDOW_TYPE => 'search',
+      SEARCH_STRING     => 'POPUP=1&NAS_SEARCH=0'. (($FORM{UID}) ? "&UID=$FORM{UID}" : ''),
+      HAS_NAME          => 1,
+      TOOLTIP           => 'nas_name'
+    }
+  );
+
+  my $ip_pool_list = $Nas->ip_pools_list({ STATIC => 1, COLS_NAME => 1 });
+
+  if($FORM{IP_POOL}) {
+    foreach my $line (@$ip_pool_list) {
+      if($FORM{IP_POOL} == $line->{id}) {
+        $FORM{IP}='>=' . int2ip($line->{ip}) . ';<=' . int2ip($line->{last_ip_num});
+      }
+    }
+  }
+
+  $Internet_->{IP_POOL_SEL} = $html->form_select(
+    'IP_POOL',
+    {
+      SELECTED    => $FORM{IP_POOL},
+      SEL_LIST    => $ip_pool_list,
+      NO_ID       => 1,
+      SEL_OPTIONS => { '' => '' },
+    }
+  );
+
+  $Internet_->{REGISTRATION_RANGE} = $html->form_daterangepicker({
+    NAME         => 'REGISTRATION_FROM/REGISTRATION_TO',
+    VALUE        => $FORM{'REGISTRATION_FROM_REGISTRATION_TO'},
+    RETURN_INPUT => 1
+  });
+
+  $Internet_->{DISABLE_SELECT} = $html->form_select(
+    'DISABLE',
+    {
+      SELECTED => $FORM{DISABLE},
+      SEL_HASH => {
+        ('' => ''),
+        (0 => $lang{ACTIV}),
+        (1 => $lang{DISABLE}),
+      },
+      NO_ID    => 1
+    });
+
+
+  $Internet_->{DELETE_SELECT} = $html->form_select(
+    'DELETED',
+    {
+      SELECTED => $FORM{DELETED},
+      SEL_HASH => {
+        ('' => ''),
+        (0 => $lang{NO}),
+        (1 => $lang{YES})
+      },
+      NO_ID    => 1
+    });
+
+  $Internet_->{INFO_FIELDS} = form_info_field_tpl({ SKIP_DATA_RETURN => 1, SKIP_REQUIRED => 1 });
+  my $search_form = $html->tpl_show(_include('internet_users_search', 'Internet'), { %$Internet_, %FORM }, { OUTPUT2RETURN => 1 });
+  $search_form .= $html->tpl_show(templates('form_search_personal_info'), { %$Internet_, %FORM }, { OUTPUT2RETURN => 1 });
+  $search_form .= $html->tpl_show(templates('form_search_users'), { %$Internet_, %FORM }, { OUTPUT2RETURN => 1 });
+
+  form_search({
+    SEARCH_FORM  => $search_form,
+    ADDRESS_FORM  => 1,
+    CONTROL_FORM  => 1
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 internet_multiuser($ids) - Make multiuser panel
+
+  Arguments:
+        $ids = string of ids
+
+=cut
+#**********************************************************
+sub internet_multiuser {
+  my ($ids) = @_;
+
+  my @multiuser_arr = split(/, /, $ids || q{});
+  my @multiuser_no_error;
+  my %params;
+  $Internet->user_list({
+    GROUP_BY  => 'internet.id',
+    ID        => join(';', @multiuser_arr),
+    LIST2HASH => 'id,uid',
+    PAGE_ROWS => 99999,
+  });
+  my $uid_hash = $Internet->{list_hash};
+
+  if ($FORM{MU_TP} && $FORM{TP_SHEDULE} eq '0000-00-00') {
+    $params{TP_ID} = $FORM{INTERNET_MU_TP};
+  }
+  if ($FORM{MU_DATE}) {
+    $params{SERVICE_EXPIRE} = $FORM{INTERNET_MU_DATEPICKER};
+  }
+  if ($FORM{MU_STATUS}) {
+    $params{STATUS} = $FORM{INTERNET_MU_STATUS};
+  }
+  if ($FORM{MU_REDUCTION}) {
+    $params{REDUCTION} = $FORM{MU_REDUCTION_SUM} || 0;
+    $params{REDUCTION_DATE} = $FORM{MU_REDUCTION_DATE} || '0000-00-00';
+  }
+  if ($FORM{MU_ACTIVATE}) {
+    $params{ACTIVATE} = $FORM{MU_ACTIVATE_DATE};
+  }
+  if ($FORM{MU_SERVICE_ACTIVATE}) {
+    $params{SERVICE_ACTIVATE} = $FORM{MU_SERVICE_ACTIVATE_DATE};
+  }
+  if ($FORM{MU_SERVICE_EXPIRE}) {
+    $params{SERVICE_EXPIRE} = $FORM{MU_SERVICE_EXPIRE_DATE};
+  }
+
+
+  if ($#multiuser_arr < 0) {
+    $html->message('err', $lang{MULTIUSER_OP}, $lang{SELECT_USER});
+    return 1;
+  }
+  elsif ($FORM{MU_TP} && $FORM{TP_SHEDULE} ne '0000-00-00') {
+    my ($year, $month, $day) = split(/-/, $FORM{TP_SHEDULE}, 3);
+    foreach my $id (@multiuser_arr) {
+      $Internet->user_info($uid_hash->{$id}, { ID => $id });
+      $Shedule->add({
+        UID          => $uid_hash->{$id},
+        TYPE         => 'tp',
+        ACTION       => "$id:$FORM{INTERNET_MU_TP}",
+        D            => $day,
+        M            => $month,
+        Y            => $year,
+        MODULE       => 'Internet',
+        COMMENTS     => "$lang{FROM}: $Internet->{TP_ID}:" . ($Internet->{TP_NAME} || ""),
+        ADMIN_ACTION => 1
+      });
+
+      last if _error_show($Shedule);
+
+      push @multiuser_no_error, $id;
+    }
+    $html->message('info', $lang{MULTIUSER_OP}, "$lang{TO_PLAN}\n$lang{SERVICE}: " . join(', ', @multiuser_no_error) );
+  }
+  elsif ($FORM{MU_CREDIT} || $FORM{MU_REDUCTION} || $FORM{MU_ACTIVATE}) {
+    $params{CREDIT} = $FORM{MU_CREDIT_SUM} || 0;
+    $params{CREDIT_DATE} = $FORM{MU_CREDIT_DATE} || '0000-00-00';
+
+    my %uids_hash = reverse %$uid_hash;
+    foreach my $uid (keys %uids_hash) {
+      $users->change($uid, { UID => $uid, %params });
+    }
+  }
+  elsif ($FORM{MU_SET_IPV6}) {
+    my $Ip_pool  = $Nas->ip_pools_info($FORM{INTERNET_MU_IPV6_POLL});
+    foreach my $id (@multiuser_arr) {
+      my $uid_hex = sprintf("%x", $uid_hash->{$id});
+      my $id_hex  = sprintf("%x", $id);
+      my $ipv6    = $Ip_pool->{IPV6_TEMPLATE} || '';
+      $ipv6       =~ s/\{UID\}/$uid_hex/g;
+      $ipv6       =~ s/\{ID\}/$id_hex/g;
+      my $ipv6_pd = $Ip_pool->{IPV6_PD_TEMPLATE} || '';
+      $ipv6_pd    =~ s/\{UID\}/$uid_hex/g;
+      $ipv6_pd    =~ s/\{ID\}/$id_hex/g;
+
+      $Internet->user_change({
+        ID               => $id,
+        UID              => $uid_hash->{$id},
+        IPV6             => $ipv6,
+        IPV6_PREFIX      => $ipv6_pd,
+        IPV6_MASK        => $Ip_pool->{IPV6_MASK},
+        IPV6_PREFIX_MASK => $Ip_pool->{IPV6_PD_MASK},
+      });
+    }
+  }
+  elsif ($FORM{MU_SET_IPV4}) {
+    require Internet::User_ips;
+    my $Ip_pool  = $Nas->ip_pools_info($FORM{INTERNET_MU_IPV4_POLL});
+
+    foreach my $id (@multiuser_arr) {
+      $Internet->user_change({
+        ID  => $id,
+        UID => $uid_hash->{$id},
+        IP  => get_static_ip($FORM{INTERNET_MU_IPV4_POLL}),
+      });
+    }
+  }
+  elsif (defined($FORM{MU_TAGS_USER} && in_array('Tags', \@MODULES))) {
+    require Tags;
+
+    my $Tags = Tags->new($db, $admin, \%conf);
+
+    foreach my $id (@multiuser_arr) {
+      $Tags->tags_user_change({
+        IDS => $FORM{TAGS},
+        UID => $uid_hash->{$id},
+      });
+      $html->message('err', $lang{INFO}, "$lang{TAGS} $lang{NOT} $lang{ADDED} UID:$id") if ($Tags->{errno});
+    }
+  }
+  elsif ($FORM{MU_DELIVERY} && in_array('Msgs', \@MODULES)) {
+    load_module('Msgs', $html);
+    $FORM{IDS} = join(', ', values %{$uid_hash});
+    msgs_mu_delivery_add(\%FORM)
+  }
+  elsif (!%params) {
+    $html->message('warn', $lang{MULTIUSER_OP}, $lang{THERE_ARE_NO_SETTINGS_TO_CHANGE});
+    return 1;
+  }
+  else {
+    foreach my $id (@multiuser_arr) {
+      $Internet->user_change({
+        ID  => $id,
+        UID => $uid_hash->{$id},
+        %params
+      });
+
+      if (_error_show($Internet, { MODULE_NAME => $lang{INTERNET} })) {
+        last;
+      }
+      push @multiuser_no_error, $id;
+    }
+
+    $html->message('info', $lang{MULTIUSER_OP}, "$lang{CHANGED}\n$lang{SERVICE}: " . join(', ', @multiuser_no_error) );
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 internet_users_import($attr)
+
+=cut
+#**********************************************************
+sub internet_users_import {
+  my ($attr)=@_;
+
+  if (!$permissions{0}{17}) {
+    $html->message('err', $lang{ERROR}, "$lang{IMPORT} $lang{ERR_ACCESS_DENY}");
+    return 0;
+  }
+
+  if ($attr->{add}) {
+    my $import_accounts = import_former($attr);
+    my $total = $#{$import_accounts} + 1;
+    my $main_id = 'UID';
+
+    if (!$import_accounts->[0]->{UID}) {
+      if ($import_accounts->[0]->{INTERNET_LOGIN}) {
+        $main_id = 'INTERNET_LOGIN';
+      }
+      elsif ($import_accounts->[0]->{MAIN_ID}) {
+        $main_id = $import_accounts->[0]->{MAIN_ID};
+      }
+    }
+
+    foreach my $_user (@$import_accounts) {
+      my $list = $Internet->user_list({
+        LOGIN     => '_SHOW',
+        $main_id  => $_user->{$main_id},
+        COLS_NAME => 1
+      });
+
+      if ($Internet->{TOTAL} > 0) {
+        my $uid = $list->[0]->{uid};
+        $Internet->user_change({ %$_user, UID => $uid });
+        print $html->button($list->[0]->{login}, "index=15&UID=$uid") . " ($uid)' Ok" . $html->br();
+
+      }
+      else {
+        $Internet->user_add({ %$_user });
+        if ($Internet->{errno}) {
+          _error_show($users);
+        }
+      }
+    }
+
+    $html->message('info', $lang{INFO}, "$lang{ADDED}\n $lang{FILE}: $attr->{UPLOAD_FILE}{filename}\n Size: $attr->{UPLOAD_FILE}{Size}\n Count: $total");
+
+    return 1;
+  }
+
+  my $import_fields = $html->form_select('IMPORT_FIELDS',
+    {
+      SELECTED  => $attr->{IMPORT_FIELDS},
+      SEL_ARRAY => [
+        'UID',
+        'TP_ID',
+        'STATUS'
+      ],
+      EX_PARAMS => 'multiple="multiple"'
+    });
+
+  my $encode = $html->form_select(
+    'ENCODE',
+    {
+      SELECTED  => $attr->{ENCODE},
+      SEL_ARRAY => [ '', 'win2utf8', 'utf82win', 'win2koi', 'koi2win', 'win2iso', 'iso2win', 'win2dos', 'dos2win' ],
+    }
+  );
+
+  my $extra_row = $html->tpl_show(templates('form_row'), {
+    ID    => 'ENCODE',
+    NAME  => $lang{ENCODE},
+    VALUE => $encode },
+    { OUTPUT2RETURN => 1 });
+
+  $html->tpl_show(templates('form_import'), {
+    IMPORT_FIELDS     => $conf{INTERNET_USERS_IMPORT_FIELDS} || 'UID,TP_ID,STATUS',
+    CALLBACK_FUNC     => 'internet_users_list',
+    IMPORT_FIELDS_SEL => $import_fields,
+    EXTRA_ROWS        => $extra_row
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 internet_users_list($attr)
+
+=cut
+#**********************************************************
+sub internet_users_list {
+  my ($attr) = @_;
+
+  if (!$permissions{0}{2}) {
+    return 0;
+  }
+
+  if($FORM{import}){
+    internet_users_import(\%FORM);
+    return 1;
+  }
+
+  if ($FORM{GLOBAL}) {
+    $FORM{UNIVERSAL_SEARCH} = 1;
+  }
+
+  if($FORM{INTERNET_MULTIUSER} && $FORM{IDS}) {
+    internet_multiuser($FORM{IDS});
+  }
+
+  if (defined($FORM{TP_NUM}) && $FORM{TP_NUM} eq '0') {
+    $FORM{TP_ID} = '0';
+  }
+  else {
+    if ($attr->{TP}) {
+      if ($FORM{TP_NUM}) {
+        $FORM{TP_ID} = $FORM{TP_NUM};
+        $FORM{TP_ID} =~ s/,/;/g;
+      }
+
+      $LIST_PARAMS{TP_ID} = $FORM{TP_NUM} || $FORM{TP_ID};
+      if ($FORM{subf} && $pages_qs !~ /subf/) {
+        $pages_qs .= "&subf=$FORM{subf}";
+      }
+    }
+    elsif ($FORM{TP_ID} || $FORM{TP_NUM}) {
+      if(defined(&internet_tp)) {
+        $FORM{TP_ID} = $FORM{TP_NUM} if ($FORM{TP_NUM});
+        $FORM{subf} = $index;
+        internet_tp();
+        return 0;
+      }
+    }
+  }
+
+  if ($FORM{NAS_ID}) {
+    $LIST_PARAMS{NAS_ID} = $FORM{NAS_ID};
+  }
+
+  if ($FORM{IP_POOL_ID}) {
+    my $ip_pool_list = $Nas->ippools_ips_list({ COLS_NAME => 1, IP_POOL_ID => $FORM{IP_POOL_ID} });
+    my $ips = '';
+    foreach my $ip (@$ip_pool_list) {
+      $ips .= "$ip->{ip};";
+    }
+
+    $LIST_PARAMS{IP} = $ips;
+  }
+
+  internet_users_search($Internet);
+  if ($LIST_PARAMS{TP_ID} && $LIST_PARAMS{TP_ID} =~ /,/) {
+    $LIST_PARAMS{TP_ID} =~ s/,\s?/;/g;
+  }
+  if ($LIST_PARAMS{INTERNET_STATUS} && $LIST_PARAMS{INTERNET_STATUS} =~ /,/) {
+    $LIST_PARAMS{INTERNET_STATUS} =~ s/,\s?/;/g;
+  }
+
+  # To prevent duplicating INTERNET_STATUS field in URL, should cut it from original $qs
+  my $clear_qs = $pages_qs || q{};
+  $clear_qs =~ s/\&INTERNET_STATUS=\d+//;
+
+  my $current_status = (defined $FORM{INTERNET_STATUS} && $FORM{INTERNET_STATUS} =~ /^\d+$/)
+    ? $FORM{INTERNET_STATUS}
+    : undef;
+  my @status_bar     = "$lang{ALL}:index=$index$clear_qs";
+
+  my $service_status = sel_status({ HASH_RESULT => 1 });
+  foreach my $i (sort keys %$service_status) {
+    my $active         = '';
+    my ($name) = split(/:/, $service_status->{$i}, 2);
+
+    if (defined $current_status && $current_status == $i) {
+      $LIST_PARAMS{INTERNET_STATUS} = $FORM{INTERNET_STATUS};
+      $pages_qs .= "&INTERNET_STATUS=$i";
+      $active    = 'active';
+    }
+
+    push @status_bar, "$name:index=$index&INTERNET_STATUS=$i$clear_qs";
+  }
+
+  if ($FORM{SERVICES} && $FORM{SERVICES} =~ m/^[<>]?\d+$/) {
+    my $search = $FORM{SERVICES};
+    if ($search !~ m/^[<>]/) {
+      $search = "=$search";
+    }
+    $LIST_PARAMS{SERVICE_COUNT}=$FORM{SERVICES};
+    $LIST_PARAMS{GROUP_BY}="u.uid HAVING service_count $search";
+  }
+  else {
+    $LIST_PARAMS{GROUP_BY}=' internet.id';
+  }
+
+  my $reg_index = get_function_index('form_wizard');
+  my AXbills::HTML $table;
+  my $list;
+
+  my %EXT_PARAM_FORMER = ();
+  if (in_array('Maps', \@MODULES)) {
+    $EXT_PARAM_FORMER{MAP} = 1;
+    $EXT_PARAM_FORMER{MAP_FIELDS} = 'ADDRESS_FLAT,LOGIN,DEPOSIT,FIO,TP_NAME,ONLINE';
+  }
+
+  $LIST_PARAMS{GID} = $FORM{GID} if $FORM{GID};
+
+  my %internet_extra_fields = (
+    'ip_num'                => 'IP',
+    'netmask'               => 'NETMASK',
+    'speed'                 => $lang{SPEED},
+    'port'                  => $lang{PORT},
+    'cid'                   => 'CID',
+    'filter_id'             => 'Filter ID',
+    'tp_name'               => $lang{TARIF_PLAN},
+    'tp_id'                 => "$lang{TARIF_PLAN} ID",
+    'internet_status'       => "Internet $lang{STATUS}",
+    'internet_status_date'  => "$lang{STATUS} $lang{DATE}",
+    'internet_comments'     => "Internet $lang{COMMENTS}",
+    'online'                => 'Online',
+    'online_ip'             => 'Online IP',
+    'online_cid'            => 'Online CID',
+    'online_duration'       => 'Online ' . $lang{DURATION},
+    'month_fee'             => $lang{MONTH_FEE},
+    'day_fee'               => $lang{DAY_FEE},
+    'internet_activate'     => "Internet $lang{ACTIVATE}",
+    'internet_expire'       => "Internet $lang{EXPIRE}",
+    'internet_login'        => "Internet $lang{LOGIN}",
+    'internet_password'     => "Internet $lang{PASSWD}",
+    'month_traffic_in'      => "$lang{MONTH} $lang{RECV}",
+    'month_traffic_out'     => "$lang{MONTH} $lang{SENT}",
+    'month_ipn_traffic_in'  => "$lang{MONTH} IPN $lang{RECV}",
+    'month_ipn_traffic_out' => "$lang{MONTH} IPN $lang{SENT}",
+    'personal_tp'           => "$lang{PERSONAL} $lang{TARIF_PLAN}",
+    'shedule'               => $lang{SHEDULE},
+    'cpe_mac'               => 'CPE MAC',
+    'nas_id'                => 'NAS_ID',
+    'id'                    => $lang{ID_TP_SEARCH},
+    'ipv6'                  => 'IPv6 Address',
+    'ipv6_prefix'           => 'IPv6 Prefix',
+    'vlan'                  => 'VLAN',
+    'server_vlan'           => 'SERVER VLAN',
+    'describe_aid'          => "$lang{DESCRIBE_FOR_ADMIN}"
+  );
+
+  ($table, $list) = result_former({
+    INPUT_DATA      => $Internet,
+    FUNCTION        => 'user_list',
+    BASE_FIELDS     => 0,
+    DEFAULT_FIELDS  => 'LOGIN,FIO,DEPOSIT,CREDIT,TP_NAME,INTERNET_STATUS,ID,TP_ID',
+    HIDDEN_FIELDS   => 'PRIORITY',
+    APPEND_FIELDS   =>  'UID',
+    FUNCTION_FIELDS => 'form_payments,internet_stats',
+    %EXT_PARAM_FORMER,
+    MAP_FILTERS     => { id => 'search_link:form_users:UID'
+      #online => ''
+    },
+    MULTISELECT     => ($permissions{0}{7}) ? 'IDS:id:internet_users_list' : '',
+    EXT_TITLES      => \%internet_extra_fields,
+    SELECT_VALUE => {
+      internet_status => $service_status,
+      login_status    => $service_status
+    },
+    FILTER_COLS => {
+      ip_num                => 'int2ip',
+      month_traffic_in      => 'int2byte',
+      month_traffic_out     => 'int2byte',
+      month_ipn_traffic_in  => 'int2byte',
+      month_ipn_traffic_out => 'int2byte',
+    },
+    TABLE => {
+      width      => '100%',
+      caption    => "$lang{INTERNET} - $lang{USERS}",
+      qs         => $pages_qs,
+      ID         => 'INTERNET_USERS_LIST',
+      header     => \@status_bar,
+      EXPORT     => 1,
+      MENU       => "$lang{ADD}:index=" . $reg_index . ':add' . ";$lang{SEARCH}:index=$index&search_form=1:search",
+      IMPORT           => "$SELF_URL?get_index=internet_users_list&header=2&import=1",
+    },
+    MAKE_ROWS     => 1,
+    SEARCH_FORMER => 1,
+    MODULE        => 'Internet',
+    TOTAL         => 1,
+    SHOW_MORE_THEN=> 1,
+    OUTPUT2RETURN => 1
+  });
+
+  if ( _error_show($Internet, { MODULE_NAME => $lang{INTERNET} }) ) {
+    return 0;
+  }
+  elsif($Internet->{TOTAL} == 1 && $FORM{SKIP_FULL_INFO}){
+    print $table->show();
+    return 1;
+  }
+  elsif ($Internet->{TOTAL} == 1) {
+    delete $FORM{LOGIN};
+    $ui = user_info($list->[0]->{uid});
+
+    if ($ui) {
+      print $ui->{TABLE_SHOW} if ($ui->{TABLE_SHOW});
+      form_users({ USER_INFO => $ui });
+      return 1;
+    }
+  }
+  elsif (! $Internet->{TOTAL}) {
+    $html->message('err', $lang{ERROR}, "$lang{USER} $lang{NOT_EXIST}");
+    return 0;
+  }
+
+  if( $FORM{EXPORT_CONTENT} ) {
+    print $table;
+  }
+  elsif ( $Internet->{TOTAL} > 1) {
+    if ($permissions{0}{7}) {
+      $html->{FORM_ID} = 'internet_users_list';
+      $Internet->{MU_TP_SELECT} = $html->tpl_show(_include('internet_tp_shedule', 'Internet'), {
+        TP_SEL   => sel_tp({ MODULE => 'Internet;Dv', SELECT => 'INTERNET_MU_TP' }),
+        DATE_SEL => $html->form_datepicker('TP_SHEDULE', '0000-00-00')
+      }, { OUTPUT2RETURN => 1 });
+      $Internet->{MU_CREDIT_DATEPICKER} = $html->form_datepicker('MU_CREDIT_DATE', '0000-00-00');
+      $Internet->{MU_TP_CHECKBOX} = $html->form_input('MU_TP', 1, { TYPE => 'checkbox', });
+      $Internet->{MU_STATUS_CHECKBOX} = $html->form_input('MU_STATUS', 1, { TYPE => 'checkbox', });
+      $Internet->{MU_STATUS_SELECT} = sel_status({ NAME => 'INTERNET_MU_STATUS' });
+      $Internet->{MU_DATE} = $html->form_datepicker('INTERNET_MU_DATEPICKER', '0000-00-00');
+      $Internet->{MU_DATE_CHECKBOX} = $html->form_input('MU_DATE', 1, { TYPE => 'checkbox', });
+      $Internet->{IPV6_HIDE} = "style='display: none;'" unless ($conf{IPV6});
+
+      if (in_array('Tags', \@MODULES)) {
+        load_module('Tags', $html);
+        $Internet->{MU_USER_TAGS} = tags_sel({ ID => 'MU_USER_TAGS' });
+        $Internet->{MU_USER_TAGS_VISIBLE} = 'd-block';
+      }
+
+      if (in_array('Msgs', \@MODULES)) {
+        load_module('Msgs', $html);
+        my $delivery_form = msgs_mu_delivery_form();
+        if ($delivery_form) {
+          $Internet->{MU_DELIVERY} = $delivery_form;
+          $Internet->{MU_DELIVERY_VISIBLE} = 'd-block';
+        }
+      }
+
+      my $pool_ipv6_list = $Nas->ip_pools_list({
+        IPV6      => 1,
+        STATIC    => 1,
+        NETMASK   => '_SHOW',
+        COLS_NAME => 1
+      });
+      $Internet->{MU_IPV6_POLL_SEL} = $html->form_select('INTERNET_MU_IPV6_POLL', {
+        SEL_LIST    => $pool_ipv6_list,
+        NO_ID    => 1
+      });
+      my $pool_ipv4_list = $Nas->ip_pools_list({
+        STATIC    => 1,
+        NETMASK   => '_SHOW',
+        COLS_NAME => 1
+      });
+      $Internet->{MU_IPV4_POLL_SEL} = $html->form_select('INTERNET_MU_IPV4_POLL', {
+        SEL_LIST    => $pool_ipv4_list,
+        NO_ID    => 1
+      });
+      print $html->form_main({
+        CONTENT => $table . $html->tpl_show(_include('internet_user_multiselect', 'Internet'), $Internet, { OUTPUT2RETURN => 1 }),
+        HIDDEN  => {
+          index              => get_function_index('internet_users_list'),
+          INTERNET_MULTIUSER => 1
+        },
+        NAME    => $html->{FORM_ID},
+        class   => 'hidden-print',
+        ID      => $html->{FORM_ID},
+      });
+    }
+    else {
+      print $html->form_main(
+        {
+          CONTENT => $table,
+          HIDDEN  => {
+            index => get_function_index('internet_users_list'),
+          },
+          NAME    => 'internet_users_list',
+          class   => 'hidden-print',
+          ID      => 'internet_users_list',
+        }
+      );
+    }
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 internet_error_user($attr)
+
+=cut
+#**********************************************************
+sub internet_error_user {
+  my ($attr) = @_;
+
+  $attr->{USER_FORM}=1;
+
+  if (!$permissions{0}{33}) {
+    $html->message('warn', $lang{WARNING}, $lang{ERR_ACCESS_DENY});
+    return 1;
+  }
+
+  return internet_error($attr);
+}
+
+#**********************************************************
+=head2 internet_error($attr)
+
+  Arguments:
+    $attr
+      USER_FORM
+
+=cut
+#**********************************************************
+sub internet_error {
+  my ($attr)    = @_;
+
+  if (!$attr->{USER_FORM} && !$permissions{3}{6}) {
+    $html->message('warn', $lang{WARNING}, $lang{ERR_ACCESS_DENY});
+    return 1;
+  }
+
+  if($FORM{ID}) {
+    print user_service_menu({
+      SERVICE_FUNC_INDEX => get_function_index('internet_user'),
+      PAGES_QS           => "&ID=$FORM{ID}",
+      UID                => $FORM{UID},
+      MK_MAIN            => 1
+    });
+  }
+
+  my %log_levels_rev = reverse %Log::log_levels;
+  my @ACTIONS = ('', 'AUTH', 'ACCT', 'HANGUP', 'CALCULATION', 'CMD', 'LOST_ALIVE', 'GUEST_MODE', 'DUB_IP');
+
+  if ($attr->{USER_INFO}) {
+    my $user = $attr->{USER_INFO};
+    $LIST_PARAMS{LOGIN} = $user->{LOGIN};
+
+    if ($conf{INTERNET_LOGIN}) {
+      $Internet->user_info($user->{UID});
+      if ($Internet->{INTERNET_LOGIN}) {
+        $LIST_PARAMS{LOGIN}.=";$Internet->{INTERNET_LOGIN}";
+      }
+    }
+  }
+  elsif ($FORM{LOGIN}) {
+    $LIST_PARAMS{LOGIN} = $FORM{LOGIN};
+    $pages_qs .= "&LOGIN=$FORM{LOGIN}";
+  }
+  elsif ($FORM{UID}) {
+    internet_user();
+    return 1;
+  }
+
+  #Sql Part
+  my %nas_ids = (
+    '' => '',
+    0  => 'UNKNOWN',
+  );
+
+  my $list = $Nas->list({
+    PAGE_ROWS => 60000,
+    NAS_ID    => '_SHOW',
+    NAS_NAME  => '_SHOW',
+    DESCR     => '_SHOW',
+    MAC       => '_SHOW',
+    COLS_NAME => 1,
+  });
+
+  my %nas_ids_sel = ();
+  foreach my $line (@$list) {
+    $line->{nas_name} //= q{};
+    $nas_ids_sel{ $line->{id} }  = $line->{nas_name} ."/". ($line->{descr} || q{});
+    $nas_ids{ $line->{id} }  = "$line->{nas_name}/". ($line->{descr} || q{});
+    $nas_ids{ $line->{mac} } = "$line->{nas_name}/". ($line->{descr} || q{});
+  }
+
+  if($FORM{search_form}) {
+    $Internet->{LOG_TYPE_SEL} = $html->form_select(
+      'LOG_TYPE',
+      {
+        SELECTED => $FORM{LOG_TYPE},
+        SEL_HASH => { '' => '', %log_levels_rev },
+        NO_ID    => 1
+      }
+    );
+
+    $Internet->{NAS_ID_SEL} = $html->form_select('NAS_ID', {
+      SELECTED    => $FORM{NAS_ID} || q{},
+      SEL_HASH    => \%nas_ids_sel,
+      SEL_OPTIONS => { '' => $lang{ALL} },
+    });
+
+    $Internet->{ACTIONS_SEL} = $html->form_select(
+      'ACTION',
+      {
+        SELECTED  => $FORM{ACTION},
+        SEL_ARRAY => \@ACTIONS,
+      }
+    );
+
+    form_search({ SEARCH_FORM => $html->tpl_show(_include('internet_errors_search', 'Internet'), { %FORM, %$Internet }, { OUTPUT2RETURN => 1 }) });
+  }
+  if (!$FORM{sort}) {
+    $LIST_PARAMS{SORT} = 1;
+    $LIST_PARAMS{DESC} = 'DESC';
+  }
+
+  if ($conf{CONNECT_LOG}) {
+    $LIST_PARAMS{REQUEST_COUNT}='_SHOW';
+  }
+
+  $list = $Log->log_list({
+    %LIST_PARAMS,
+    ACTION    => $FORM{ACTION} || '_SHOW',
+    TEXT      => $FORM{TEXT} || '',
+    COLS_NAME => 1
+  });
+
+  my $table = $html->table({
+    caption    => $lang{TOTAL},
+    width      => '100%',
+  });
+
+  my $total = 0;
+  foreach my $line (@{ $Log->{list} }) {
+    $table->addrow($log_levels_rev{ $line->{log_type} },
+      $html->button($line->{count}, "index=". get_function_index('internet_error') . "&LOG_TYPE=$line->{log_type}"));
+    $total += $line->{count};
+  }
+
+  $table->addrow($lang{TOTAL}, $total);
+
+  print $table->show();
+
+  if(defined $FORM{LOG_TYPE}){
+    $list = $Log->log_list({
+      %LIST_PARAMS,
+      COLS_NAME => 1,
+      LOG_TYPE  => $FORM{LOG_TYPE},
+      FROM_DATE => $FORM{DATE} || $FORM{FROM_DATE} || '',
+      TO_DATE   => $FORM{DATE} || $FORM{TO_DATE} || ''
+    });
+  }
+
+
+  my @header_arr = (
+    "$lang{ALL}:index=$index",
+    "AUTH:index=$index&ACTION=AUTH",
+    "GUEST_MODE:index=$index&ACTION=GUEST_MODE",
+    "HANGUP:index=$index&ACTION=HANGUP",
+    "IPOE_LOGIN_NOT_EXIST:index=$index&TEXT=IPOE_LOGIN_NOT_EXIST",
+    "USER_NOT_EXIST:index=$index&TEXT=USER_NOT_EXIST",
+  );
+
+  my $header = $html->table_header(\@header_arr, {
+    SHOW_ONLY => 3
+  });
+
+  $table = $html->table({
+    caption => "Internet $lang{ERROR}",
+    width   => '100%',
+    title   => [ $lang{DATE}, $lang{TYPE}, $lang{ACTION}, $lang{USER}, $lang{TEXT}, '', "NAS" ],
+    pages   => $total,
+    qs      => $pages_qs,
+    header  => $header,
+    ID      => 'INTERNET_ERRORS',
+    EXPORT  => 1,
+    MENU    => "$lang{SEARCH}:index=$index&search_form=1:search",
+  });
+
+  foreach my $line (@$list) {
+
+    if ($conf{ERRORS_LOG_TRANSLATE}){
+      while ( $line->{message} =~ /([A-Z\_]+)/g) {
+        my $res = $1;
+        my $lang_res = $lang{$res};
+        next if !$lang_res;
+        $line->{message} =~ s/$1/$lang_res/g;
+      }
+    }
+    my $message = $line->{message};
+
+    if($line->{log_type} < 5) {
+      $message = $html->color_mark($line->{message}, $_COLORS[6]);
+    }
+    elsif($line->{action} eq 'GUEST_MODE') {
+      $message = $html->color_mark($line->{message}, $_COLORS[8]);
+      $line->{action} = $html->color_mark($line->{action}, $_COLORS[8]);
+    }
+
+    my $auth_switch = q{};
+
+    #xx:xx:xx:xx:xx:xx xxxx.xxxx.xxxx
+    if($message =~ /NAS_MAC: ([a-f\:0-9\.]{14,17})/i) {
+      $auth_switch = $1;
+      if($nas_ids{$auth_switch}) {
+        $auth_switch = $nas_ids{$auth_switch};
+      }
+    }
+
+    my $main_nas = ($line->{nas_id} && $nas_ids{ $line->{nas_id} }) ? $nas_ids{ $line->{nas_id} } : 'Unknown '. ($line->{nas_id} || q{});
+    $table->addrow($line->{date},
+      $log_levels_rev{ $line->{log_type} },
+      $line->{action},
+	  ### START KTK-39 ###
+      ($conf{INTERNET_LOGIN}) && $FORM{INTERNET_LOGIN} ? $html->button($line->{user}, "index=". get_function_index('internet_users_list'). "&INTERNET_LOGIN=$line->{user}&search=1")  : $html->button($line->{user}, "index=11&LOGIN=$line->{user}"),
+      ### END KTK-39 ###
+	  $message,
+      $line->{request_count} || 0,
+      (! $auth_switch || $auth_switch eq $main_nas) ? $main_nas : $auth_switch . $html->br() . $main_nas
+    );
+  }
+
+  print $table->show();
+
+  #File part
+  if (! $conf{LOGFILE} || !-f $conf{LOGFILE}) {
+    $html->message('info', $lang{INFO}, "'". ($conf{LOGFILE} || q{}) . "' $lang{NOT_EXIST} (\$conf{LOGFILE})");
+    return 0;
+  }
+
+  if (defined($FORM{LOG_TYPE})) {
+    $pages_qs .= "&LOG_TYPE=$FORM{LOG_TYPE}";
+  }
+
+  my ($log_list, $types, $totals) = show_log(
+    ($LIST_PARAMS{LOGIN} || ''),
+    $conf{LOGFILE},
+    {
+      DATE      => $FORM{DATE},
+      LOG_TYPE  => ($FORM{LOG_TYPE}) ? $log_levels_rev{ $FORM{LOG_TYPE} } : undef,
+      PG        => $PG || 25,
+      PAGE_ROWS => 25
+    }
+  );
+
+  $table = $html->table({
+    caption => "System $lang{ERROR}",
+    width   => '100%',
+    pages   => $totals,
+    qs      => $pages_qs,
+    ID      => 'INTERNET_ERRORS2',
+  });
+
+  foreach my $line (@$log_list) {
+    if ($line =~ m/LOG_WARNING/i) {
+      $line = $html->color_mark($line, $_COLORS[6]);
+    }
+
+    $table->addrow($line);
+  }
+  print $table->show();
+
+  $table = $html->table(
+    {
+      width      => '100%',
+    }
+  );
+
+  $table->addrow($html->button("$lang{TOTAL}", "index=$index&$pages_qs"), $totals);
+  while (my ($k, $v) = each %$types) {
+    $table->addrow($html->button($k, "index=$index&LOG_TYPE=$k$pages_qs"), $v);
+  }
+
+  $table->addrow($lang{SIZE}, int2byte((-s $conf{LOGFILE}))) if (! $LIST_PARAMS{LOGIN} || $LIST_PARAMS{LOGIN} eq '');
+
+  print $table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 internet_period_select($attr) - period select
+
+  Arguments:
+    $attr
+      ID
+      UID
+
+=cut
+#**********************************************************
+sub internet_period_select {
+  my ($attr) = @_;
+
+  my $date_picker = $html->form_daterangepicker({
+    NAME      => 'FROM_DATE/TO_DATE',
+    FORM_NAME => 'report_panel',
+    VALUE     => $attr->{DATE} || $FORM{'FROM_DATE_TO_DATE'},
+    OUTPUT2RETURN => 1
+  });
+
+  my $dimension = $html->form_select('DIMENSION', {
+    SELECTED => $FORM{DIMENSION},
+    SEL_HASH => {
+      ''   => 'Auto',
+      'Kb' => 'Kb',
+      'Mb' => 'Mb',
+      'Gb' => 'Gb'
+    },
+    NO_ID => 1
+  });
+
+  return $html->tpl_show(_include('internet_user_portal_stats', 'Internet'), {
+    DATE_PICKER => $date_picker,
+    DIMENSION   => $dimension,
+    ONLINE      => (! $FORM{rows} && ! $FORM{ONLINE}) ? '' : 'checked',
+    ROWS        => ($conf{list_max_recs} && $conf{list_max_recs} =~ /^\d+$/) ? ($FORM{ROWS} || $conf{list_max_recs}) : 25,
+    SID         => $sid,
+    INDEX       => $index,
+    ID          => $attr->{ID},
+    UID         => $attr->{UID}
+  }, { OUTPUT2RETURN => 1 });
+}
+
+#**********************************************************
+=head2 internet_registration($attr)
+
+  Arguments:
+    $attr
+      CAPTCHA
+      CAPTCHA_OBJ
+      SHOW_SMS
+      QUITE
+
+
+=cut
+#**********************************************************
+sub internet_registration {
+  my ($attr) = @_;
+
+  my $referral_login;
+
+  if($FORM{REFERRER}) {
+    $attr->{HIDE_TP} = 'hidden';
+    $Internet->{TP_SEL} = "";
+
+    my ($y, $m, $d) = split '-', $DATE, 3;
+
+    my $patern = "10001$y$m$d-";
+
+    my $num = 1;
+    my $list = $users->list({
+      UID        => '_SHOW',
+      LOGIN      => "10001*",
+      SORT       => 'UID',
+      DESC       => 'DESC',
+      COLS_NAME => 1
+    });
+
+    $num =  (scalar @$list)+1 if($list->[0]);
+
+    $attr->{LOGIN} = $referral_login =  "$patern$num";
+    $attr->{LOGIN_READONLY} = 'readonly';
+  }
+
+  if ($FORM{reg}) {
+    if ($attr->{SKIP_EMAIL_CHECK} && $FORM{EMAIL} !~ /^(([^<>()[\]\\.,;:\s\@\"]+(\.[^<>()[\]\\.,;:\s\@\"]+)*)|(\".+\"))\@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/) {
+      $Internet->{MESSAGE} = $html->message('err', $lang{ERROR}, "$lang{ERR_WRONG_EMAIL}");
+    }
+    elsif (!$FORM{PHONE} || ($conf{PHONE_FORMAT} && $FORM{PHONE} !~ m/$conf{PHONE_FORMAT}/ ))  {
+      $Internet->{MESSAGE} = $html->message('err', $lang{ERROR}, "// $FORM{PHONE} / $conf{PHONE_FORMAT} /". $lang{ERR_WRONG_PHONE}. (($conf{PHONE_FORMAT}) ? ' '.human_exp($conf{PHONE_FORMAT}) : q{}));
+    }
+    elsif (! $FORM{ACCEPT_RULES}) {
+      $html->message('err', $lang{ERROR}, $lang{ERR_ACCEPT_RULES});
+    }
+    else {
+      my $password = q{};
+
+      if ($conf{REGISTRATION_PASSWORD}) {
+        if ($FORM{newpassword} ne $FORM{confirm}) {
+          $html->message('err', $lang{ERROR}, $lang{ERR_WRONG_DATA}, { ID => 100101 });
+          _internet_registration_form($attr);
+          return 1;
+        }
+        if ($conf{PASSWD_LENGTH} && $conf{PASSWD_LENGTH} > length($FORM{newpassword})) {
+          $html->message('err', $lang{ERROR}, $lang{ERR_WRONG_DATA}, { ID => 100102 });
+          _internet_registration_form($attr);
+          return 1;
+        }
+        if ($conf{PASSWD_SYMBOLS} && $FORM{newpassword} !~ /[$conf{PASSWD_SYMBOLS}]/) {
+          $html->message('err', $lang{ERROR}, $lang{ERR_WRONG_DATA}, { ID => 100103 });
+          _internet_registration_form($attr);
+          return 1;
+        }
+
+        $password = $FORM{newpassword};
+      }
+
+      if (!$password) {
+        $password = mk_unique_value($conf{PASSWD_LENGTH} || 8, { SYMBOLS => $conf{PASSWD_SYMBOLS} || undef });
+      }
+
+      my $cid = q{};
+      if ($conf{INTERNET_REGISTRATION_IP}) {
+        if ($FORM{USER_IP} && $FORM{USER_IP} ne '0.0.0.0') {
+          # $html->message('err', $lang{ERROR}, $lang{ERR_IP_NOT_DEFINED});
+          # _internet_registration_form($attr);
+          # return 1;
+
+          require Internet::Sessions;
+          Internet::Sessions->import();
+          my $Sessions = Internet::Sessions->new($db, $admin, \%conf);
+          $Sessions->online({
+            CLIENT_IP => ($FORM{USER_IP}) ? $FORM{USER_IP} : $ENV{REMOTE_ADDR},
+            CID       => '_SHOW',
+            GUEST     => 1,
+            COLS_NAME => 1
+          });
+
+          if ($Sessions->{TOTAL}) {
+            $cid = $Sessions->{list}->[0]->{cid};
+          }
+
+          if (!$cid) {
+            $html->message('err', $lang{ERROR}, $lang{IP_MAC_NOT_FOUND});
+            _internet_registration_form($attr);
+            return 1;
+          }
+          else {
+            my $list = $Internet->user_list({
+              LOGIN     => '_SHOW',
+              CID       => $cid,
+              COLS_NAME => 1
+            });
+
+            if ($Internet->{TOTAL} > 0) {
+              $html->message('err', $lang{ERROR},
+                "CID/MAC: $cid $lang{EXIST}. $list->[0]->{login}", { ID => 1934 });
+              return 1;
+            }
+
+          }
+        }
+      }
+
+      $users->add({
+        LOGIN       => $referral_login ? $referral_login : $FORM{LOGIN},
+        CREATE_BILL => 1,
+        PASSWORD    => $password,
+        GID         => $conf{REGISTRATION_GID},
+        PREFIX      => $conf{REGISTRATION_PREFIX},
+      });
+
+      if (!$users->{errno}) {
+        my $uid = $users->{UID};
+        $users->info($uid);
+        if($FORM{AUTO_ADDRESS}){
+          my $Address = Address->new($db, $admin, \%conf);
+          my $district_id;
+          my $street_id;
+          my $location_id;
+
+          my $districts = $Address->district_list({
+            NAME         => "*$FORM{AUTO_DISTRICT}*",
+            COLS_NAME    => 1
+          });
+
+          if($Address->{TOTAL} <= 0){
+            $Address->district_add({
+              NAME => $FORM{AUTO_DISTRICT},
+              ZIP  => $FORM{AUTO_POST_CODE}
+            });
+            $district_id = $Address->{INSERT_ID};
+          } else {
+            $district_id = $districts->[0]->{id};
+          }
+
+          my $streets = $Address->street_list({
+            STREET_NAME  => "*$FORM{AUTO_STREET}*",
+            DISTRICT_ID  => $district_id,
+            COLS_NAME    => 1
+          });
+
+          if($Address->{TOTAL} <= 0){
+            $Address->street_add({
+              NAME => $FORM{AUTO_STREET},
+              DISTRICT_ID  => $district_id,
+            });
+            $street_id = $Address->{INSERT_ID};
+          }
+          else {
+            $street_id = $streets->[0]->{id};
+          }
+
+          my $builds = $Address->build_list({
+            STREET_ID   => $street_id,
+            NUMBER      => "*$FORM{AUTO_BUILD}*",
+            COLS_NAME    => 1
+          });
+
+          if($Address->{TOTAL} <= 0){
+            $Address->build_add({
+              NUMBER => $FORM{AUTO_BUILD},
+              STREET_ID  => $street_id,
+            });
+            $location_id = $Address->{INSERT_ID};
+          }
+          else {
+            $location_id = $builds->[0]->{id};
+          }
+
+          $FORM{LOCATION_ID} = $location_id;
+        }
+
+        #3 personal info
+        $users->pi_add({
+          %FORM,
+          UID   => $uid,
+          FIO   => $FORM{FIO},
+          EMAIL => $FORM{EMAIL}
+        });
+
+        if ($users->{errno}) {
+          $Internet->{MESSAGE} = $html->message('err', $lang{ERROR}, "[$users->{errno}] $err_strs{$users->{errno}}");
+          _internet_registration_form($attr);
+          return 1;
+        }
+
+        #4 Internet
+        $conf{REGISTRATION_DEFAULT_TP} = 0 if (!$conf{REGISTRATION_DEFAULT_TP});
+
+        $Internet->user_add({
+          UID    => $uid,
+          TP_ID  => $FORM{TP_ID} || $conf{REGISTRATION_DEFAULT_TP},
+          STATUS => $FORM{STATUS},
+          CID    => $cid
+        });
+
+        if (defined($FORM{REGISTRATION_TAG} && $conf{AUTH_ROUTE_TAG} && in_array('Tags', \@MODULES))) {
+          require Tags;
+
+          my $Tags = Tags->new($db, $admin, \%conf);
+
+          $Tags->tags_user_change({
+            IDS => $conf{AUTH_ROUTE_TAG},
+            UID => $uid,
+          });
+          $html->message('err', $lang{INFO}, "$lang{TAGS} $lang{NOT} $lang{ADDED} UID:$uid") if ($Tags->{errno});
+        }
+
+        if (!$Internet->{errno}) {
+          if ($conf{REGISTRATION_SHOW_PASSWD}) {
+            $Internet->{PASSWD} = $password;
+          }
+          else {
+            $Internet->{PASSWD} = "$lang{SEND_REG} E-mail";
+          }
+
+          $Internet->user_info($uid);
+          if ($attr->{ACTIVATE_PAYMENT}) {
+            $Payments->add($users, {
+              METHOD => $attr->{PAYMENT_METHOD} || '2',
+              SUM    => $Internet->{TP_ACTIVATE_PRICE},
+            });
+
+            if ($FORM{STATUS}) {
+              $Internet->user_change({
+                UID    => $uid,
+                STATUS => 0
+              });
+
+              service_get_month_fee($Internet, { QUITE => 1 });
+            }
+          }
+
+          my $prot = (defined($ENV{HTTPS}) && $ENV{HTTPS} =~ /on/i) ? 'https' : 'http';
+          my $addr = (defined($ENV{HTTP_HOST})) ? "$prot://$ENV{HTTP_HOST}$ENV{SCRIPT_NAME}" : '';
+
+          #show complete when user added
+          if ($attr->{SHOW_SMS}) {
+            $html->tpl_show(_include('internet_reg_complete_sms', 'Internet'), {
+              %$Internet, %FORM, %{($users) ? $users : {}},
+              PASSWORD => "$password",
+              BILL_URL => $addr
+            });
+          }
+          elsif (! $attr->{QUITE}) {
+            $html->tpl_show(_include('internet_reg_complete', 'Internet'), { %$Internet, %FORM, %{ ($users) ? $users : {} } });
+          }
+
+          #Sendsms
+          if ($FORM{PHONE} && in_array('Sms', \@MODULES) && $conf{INTERNET_REGISTRATION_SEND_SMS} && ! $FORM{REGISTRATION_SKIP_SEND_SMS}) {
+            load_module('Sms', $html);
+
+            my $message = $html->tpl_show(_include('internet_reg_complete_sms', 'Internet'), {
+              %$Internet, %FORM,
+              PASSWORD => "$password",
+              BILL_URL => $addr
+            }, { OUTPUT2RETURN => 1 });
+
+            sms_send({
+              NUMBER  => $FORM{PHONE},
+              MESSAGE => $message,
+              UID     => $uid,
+            });
+          }
+          #Send mail
+          if ($FORM{EMAIL}) {
+            my $message = $html->tpl_show(_include('internet_reg_complete_mail', 'Internet'), {
+              %$Internet, %FORM,
+              PASSWORD => "$password",
+              BILL_URL => $addr
+            }, { OUTPUT2RETURN => 1 });
+
+            sendmail($conf{ADMIN_MAIL}, $FORM{EMAIL}, $lang{REGISTRATION}, $message, $conf{MAIL_CHARSET}, '', {
+              CONTENT_TYPE => $conf{REGISTRATION_MAIL_CONTENT_TYPE} ? $conf{REGISTRATION_MAIL_CONTENT_TYPE} : '',
+            });
+          }
+
+          #Referral
+          if ($FORM{REFERRER}) {
+            load_module('Referral', $html);
+            referral_link_registered({ REFERRED => $FORM{REFERRER}, UID => $uid });
+          }
+
+          return $uid;
+        }
+        else {
+          _error_show($Internet, { ID => 999 });
+        }
+      }
+      else {
+        _error_show($users);
+        _internet_registration_form($attr);
+        return 1;
+      }
+    }
+  }
+
+  _internet_registration_form($attr);
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _internet_registration_form($attr)
+
+  Arguments:
+    $attr
+      CAPTCHA
+      CAPTCHA_OBJ
+      SHOW_SMS
+      QUITE
+
+
+=cut
+#**********************************************************
+sub _internet_registration_form {
+  my ($attr) = @_;
+
+  if ($conf{INTERNET_REGISTRATION_TP_GIDS}) {
+    $LIST_PARAMS{TP_GID} = $conf{INTERNET_REGISTRATION_TP_GIDS};
+  }
+  else {
+    $LIST_PARAMS{TP_GID} = '>0';
+  }
+
+  $Internet->{TP_SEL} = $html->form_select('TP_ID', {
+    SELECTED => $FORM{TP_ID},
+    SEL_LIST => $Tariffs->list({ %LIST_PARAMS,
+      MODULE       => 'Dv;Internet',
+      STATUS       => '<1',
+      NEW_MODEL_TP => 1,
+      COLS_NAME    => 1,
+    }),
+    SEL_KEY  => 'tp_id'
+  });
+
+  if ($conf{INTERNET_REGISTRATION_IP}) {
+    $Internet->{USER_IP_FORM} = $html->tpl_show(templates('form_row'), {
+      ID    => 'USER_IP',
+      NAME  => "$lang{USER} IP",
+      VALUE => $html->form_input( 'USER_IP', $FORM{USER_IP} || $ENV{REMOTE_ADDR} || '0.0.0.0', { OUTPUT2RETURN => 1 } ),
+    }, { OUTPUT2RETURN => 1 });
+  }
+
+  if ($conf{REGISTRATION_PASSWORD}){
+    $Internet->{USER_PASSWORD_FIELD} = $html->tpl_show(templates('form_password'), {
+      G2FA_HIDDEN => 'hidden',
+      LNG_ACTION  => $lang{CHANGE},
+      PW_CHARS    => $conf{PASSWD_SYMBOLS} || 'abcdefghijklmnopqrstuvwxyz0123456789ABCDEFGHIJKLMNOPQRSTUVWYXZ',
+      PW_LENGTH   => $conf{PASSWD_LENGTH} || 6,
+      BTN_HIDDEN  => 'hidden',
+    }, { OUTPUT2RETURN => 1 });
+  }
+
+  if ($conf{INTERNET_AUTO_REGISTRATION_ADDRESS}) {
+    $attr->{API_KEY} = $conf{INTERNET_AUTO_REGISTRATION_ADDRESS};
+    $attr->{REGION} = $conf{INTERNET_AUTO_REGISTRATION_ADDRESS_REGIONS};
+    $attr->{LANG} = $conf{INTERNET_AUTO_REGISTRATION_ADDRESS_LANG};
+
+    $Internet->{ADDRESS_TPL} = $html->tpl_show(_include('form_internet_auto_address', 'Internet'),
+      { %$Internet, %$attr, %FORM }, { ID => 'INTERNET_AUTO_ADDRESS', OUTPUT2RETURN => 1 });
+  }
+  elsif ($conf{INTERNET_REGISTRATION_ADDRESS}) {
+    require Control::Address_mng;
+    $Internet->{ADDRESS_TPL} = form_address_select2();
+  }
+
+  $html->tpl_show(_include('internet_registration', 'Internet'), { %$Internet, %$attr, %FORM,
+    PHONE_NUMBER_PATTERN => $conf{PHONE_NUMBER_PATTERN}
+  }, { ID => 'INTERNET_REGISTRATION' });
+
+  return 0;
+}
+
+#**********************************************************
+=head2 _sec2time_str($sec);
+
+=cut
+#**********************************************************
+sub _sec2time_str {
+  my($value) = @_;
+
+  return sec2time($value, { str => 1 });
+}
+
+#**********************************************************
+=head internet_traffic_names($tp_id)
+
+=cut
+#**********************************************************
+sub internet_traffic_names {
+  my ($tp_id) = @_;
+
+  my %TRAFFIC_NAMES = ();
+  $Tariffs->ti_list({ TP_ID => $tp_id });
+  if ($Tariffs->{TOTAL} > 0) {
+    my $list = $Tariffs->tt_list({ TI_ID => $Tariffs->{list}->[0]->[0], COLS_NAME => 1 });
+    foreach my $line (@$list) {
+      $TRAFFIC_NAMES{ $line->{id} } = $line->{descr};
+    }
+  }
+
+  return \%TRAFFIC_NAMES;
+}
+
+
+#**********************************************************
+=head set_tags_users($ids, {$attr})
+
+  Arguments:
+    $ids    - Select users array sevice id
+    $attr
+      TAGS  - Tags array id
+
+  Returns:
+    -
+
+=cut
+#**********************************************************
+sub set_tags_users {
+  my ($ids, $attr) = @_;
+
+  if (!$attr->{TAGS}) {
+    $html->message('err', $lang{MULTIUSER_OP}, "$lang{SELECT_TAG}");
+
+    return 1;
+  }
+  my $tags_users = $Internet->user_list({
+    COLS_NAME => 1,
+  });
+
+  my %hash = map { $_ => $_ } split(', ', $ids);
+
+  foreach my $user_ids (@$tags_users) {
+    if ($hash{ $user_ids->{id} }) {
+      tags_user_add({
+        UID => $user_ids->{uid},
+        IDS => $attr->{TAGS}
+      });
+    }
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 internet_service_activate($attr)
+
+  Arguments:
+    $attr
+      TP_INFO
+      USER_INFO
+        UID
+        ID
+      DEBUG
+
+=cut
+#**********************************************************
+sub internet_service_activate {
+  my ($attr)=@_;
+
+  my $internet_list = $Internet->user_list({
+    UID => $attr->{USER_INFO}->{UID},
+    ID  => $attr->{USER_INFO}->{ID},
+    GROUP_BY  => 'internet.id',
+    COLS_NAME => 1
+  });
+
+  foreach my $user_info_ (@$internet_list) {
+    $Internet->user_change({
+      ID     => $user_info_->{id},
+      UID    => $attr->{USER_INFO}->{UID},
+      STATUS => 0
+    });
+
+    $Internet->user_info($attr->{USER_INFO}->{UID}, { ID => $user_info_->{id} || undef });
+
+    $attr->{USER_INFO}->{INTERNET_STATUS} = 0;
+
+    if ($attr->{GET_ABON}) {
+      $attr->{DO_NOT_USE_GLOBAL_USER_PLS}=1;
+      service_get_month_fee($Internet, $attr);
+    }
+
+    _external('', { EXTERNAL_CMD => 'Internet', %{$attr->{USER_INFO}}, %{$Internet}, QUITE => 1 });
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 internet_service_deactivate($attr)
+
+  Arguments:
+    $attr
+      TP_INFO
+      USER_INFO
+      DEBUG
+      STATUS - Disable status
+      RECALCULATE -
+
+=cut
+#**********************************************************
+sub internet_service_deactivate {
+  my ($attr)=@_;
+
+  my $debug_output = q{};
+  my $TP_INFO = $attr->{TP_INFO};
+  my $user_info = $attr->{USER_INFO};
+  my $debug = $attr->{DEBUG} || 0;
+  my $action = 0;
+
+  if ($TP_INFO && $TP_INFO->{SMALL_DEPOSIT_ACTION} && $TP_INFO->{SMALL_DEPOSIT_ACTION} == -1) {
+    if ($debug < 8) {
+      if (! $user_info->{INTERNET_STATUS} || $user_info->{INTERNET_STATUS} != 5) {
+        $Internet->user_change({
+          ID     => $user_info->{ID},
+          UID    => $user_info->{UID},
+          STATUS => 5
+        });
+
+        $user_info->{INTERNET_STATUS} = 5;
+      }
+    }
+    $action++;
+    $debug_output .= " SMALL_DEPOSIT_BLOCK." if ($debug > 3);
+  }
+  elsif($TP_INFO->{SMALL_DEPOSIT_ACTION}) {
+    if ($debug < 8) {
+      $Internet->user_change({
+        UID   => $user_info->{UID},
+        TP_ID => $TP_INFO->{SMALL_DEPOSIT_ACTION}
+      });
+    }
+
+    $action++;
+    $debug_output .= " SMALL_DEPOSIT_CHG_TP." if ($debug > 3);
+  }
+  elsif($attr->{STATUS}) {
+    my $internet_list = $Internet->user_list({
+      UID       => $user_info->{UID},
+      GROUP_BY  => 'internet.id',
+      COLS_NAME => 1
+    });
+
+    foreach my $user_info_ (@$internet_list) {
+      if ($debug < 8) {
+        $Internet->user_change({
+          UID    => $user_info->{UID},
+          ID     => $user_info_->{id},
+          STATUS => $attr->{STATUS},
+        });
+
+        if ($attr->{RECALCULATE} && $Internet->{MONTH_ABON}) {
+          $Internet->{TP_INFO_OLD}->{MONTH_FEE} = $Internet->{MONTH_ABON};
+          $Internet->{TP_INFO_OLD}->{NAME} = $Internet->{TP_NAME};
+          $Internet->{TP_INFO_OLD}->{ID} = $Internet->{TP_NUM};
+          service_recalculate($Internet, $attr);
+        }
+      }
+
+      $action++;
+      $debug_output .= " SMALL_DEPOSIT_CHG_TP." if ($debug > 3);
+    }
+  }
+
+  if ($action) {
+    _external('', { EXTERNAL_CMD => 'Internet', %{$attr->{USER_INFO}}, %{$Internet}, QUITE => 1 });
+  }
+
+  return $debug_output;
+}
+
+1

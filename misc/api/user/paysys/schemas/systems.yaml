@@ -1,0 +1,19 @@
+type: array
+items:
+  type: object
+  properties:
+    id:
+      type: integer
+      example: 1
+    name:
+      type: string
+      example: LiqPay
+    module:
+      type: string
+      example: Liqpay.pm
+    request:
+      type: object
+      properties:
+        method:
+          type: string
+          example: GET

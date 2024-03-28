@@ -1,0 +1,23 @@
+type: object
+properties:
+  subject:
+    type: string
+    example: Message user api subject
+  message:
+    type: string
+    example: Test message from user api
+  chapterName:
+    type: string
+    example: Второй раздел
+  chapter:
+    type: integer
+    example: 3
+  priority:
+    type: integer
+    example: 2
+  state:
+    type: integer
+    example: 0
+  date:
+    type: string
+    example: "2021-09-02 13:20:37"

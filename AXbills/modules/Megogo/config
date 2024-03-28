@@ -1,0 +1,18 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+      "01:0:$lang{MEGOGO}:null:"                      => 5,
+			"02:1:$lang{TPS}:megogo_main:"         	       => 5,
+      "03:1:$lang{USER_LIST}:megogo_show_users:"            => 5,
+			"08:0:$lang{MEGOGO}:megogo_report:"             => 4,
+			"11:0:$lang{MEGOGO}:megogo_start_page:"         => 15,
+			"13:0:$lang{MEGOGO}:megogo_user_service:UID"    => 20,
+);
+
+%USER_FUNCTION_LIST = (
+			"01:0:$lang{MEGOGO}:megogo_user_interface:"          => 0
+);
+
+%PERIODIC = (
+			monthly => ['megogo_monthly_pay']
+);
+1

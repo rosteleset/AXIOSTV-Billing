@@ -1,0 +1,32 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+  "01:0:$lang{CALL_CENTER}:null:"                      => 5,
+  "06:1:IVR $lang{MENU}:callcenter_ivr_menu:"                => 5,
+  "02:1:IVR $lang{MENU} $lang{CHAPTERS}:callcenter_ivr_menu_chapters:" => 5,
+  "07:1:CDR:callcenter_cdr:"                           => 5,
+  "03:0:$lang{CALL_CENTER}:null"                       => 4,
+  "04:3:$lang{CALLS_HANDLER_CHART}:callcenter_admins_report" => 4,
+  "05:3:IVR:callcenter_ivr_log:"                             => 4,
+  "08:3:$lang{CALLS_REPORT}:callcenter_report:"        => 4,
+  "09:3:$lang{CALLS_SOUNDS}:callcenter_sound:"         => 4,
+  "11:3:$lang{CALLS_HANDLER}:callcenter_calls_handler" => 4,
+  "10:0:IVR:callcenter_ivr_log:UID"                          => 20,
+
+  #"02:1:$_IVR:callcenter_ivr"                         => 5,
+  #"03:1:$_MESSAGES:callcenter_messages"               => 5,
+  #"04:1:$_GREETINGS:callcenter_welcome"               => 5,
+  #"05:1:$_TERMS_TIME:callcenter_intervals"            => 5,
+  #"06:1:$_INTERNAL_NUMBERS:callcenter_sip"            => 5,
+  #"07:1:$_OUT_NUMBERS:callcenter_out_num"             => 5,
+  #"08:1:$_SYSTEM_FUNC:callcenter_sys_func"            => 5,
+  #"09:1:$_TRUNKS:callcenter_trunks"                   => 5,
+  #"10:1:$_OUTBOUND_ROUTES:callcenter_outbound_routes" => 5,
+  #"11:1:$_INCOMING_ROUTES:callcenter_incoming_routes" => 5,
+  #"12:1:ecxensions.conf:callcenter_extensions"        => 5,
+  #"13:0::callcenter_users_phone"                      => '',
+  #"14:1:$_QUEUES:callcenter_queues"                   => '5'
+);
+
+1
+
+

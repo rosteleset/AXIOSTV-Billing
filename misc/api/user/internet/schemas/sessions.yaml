@@ -1,0 +1,22 @@
+type: array
+items:
+  type: object
+  properties:
+    duration:
+      type: number
+      example: 1738
+    input:
+      type: number
+      example: 21423525
+    ip:
+      type: string
+      example: 192.190.50.1
+    output:
+      type: number
+      example: 177703957
+    tpId:
+      type: number
+      example: 1
+    tpName:
+      type: string
+      example: test_tariff

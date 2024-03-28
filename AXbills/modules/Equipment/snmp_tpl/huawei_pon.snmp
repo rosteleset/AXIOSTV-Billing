@@ -1,0 +1,354 @@
+{
+  "DEVICE":"Huawei",
+  "FDB":"1",
+  "FDB_OID" : "",
+  "VLANS" : "1.3.6.1.4.1.2011.5.6.1.1.1.2",
+  "info" : {
+    "FIRMWARE" : {
+      "OIDS" : ".1.3.6.1.4.1.2011.6.3.1.3.0",
+      "PARSER" : ""
+    },
+    "PATCH" : {
+      "OIDS" : ".1.3.6.1.4.1.2011.6.3.1.14.0",
+      "PARSER" : ""
+    }
+  },
+  "status": {
+    "CPU_LOAD" : {
+      "OIDS" : ".1.3.6.1.4.1.2011.2.6.7.1.1.2.1.5",
+      "PARSER" : "_huawei_convert_cpu_usage",
+      "WALK" : "1"
+    },
+    "RAM_USAGE" : {
+      "OIDS" : ".1.3.6.1.4.1.2011.2.6.7.1.1.2.1.6",
+      "PARSER" : "_huawei_convert_cpu_usage",
+      "WALK" : "1"
+    },
+    "SLOT_DESC" : {
+      "OIDS" : ".1.3.6.1.4.1.2011.2.6.7.1.1.2.1.7",
+      "PARSER" : "_huawei_convert_info",
+      "WALK" : "1"
+    },
+    "SLOT_TEMP" : {
+      "OIDS" : ".1.3.6.1.4.1.2011.2.6.7.1.1.2.1.10",
+      "PARSER" : "_huawei_convert_info_temperature",
+      "WALK" : "1"
+    }
+  },
+
+  "epon": {
+    "ONU_MAC_SERIAL": {
+      "NAME"   : "Mac/Serial",
+      "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.53.1.3",
+      "PARSER" : "bin2mac"
+    },
+    "ONU_STATUS": {
+      "NAME"   : "STATUS",
+      "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.57.1.15",
+      "PARSER" : ""
+    },
+    "ONU_TX_POWER": {
+      "NAME"   : "ONU_TX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.104.1.4",
+      "PARSER" : "_huawei_convert_power"
+    }, //tx_power = tx_power * 0.01;
+    "ONU_RX_POWER": {
+      "NAME"   : "ONU_RX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.104.1.5",
+      "PARSER" : "_huawei_convert_power"
+    }, //tx_power = tx_power * 0.01;
+    "OLT_RX_POWER": {
+      "NAME"   : "OLT_RX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.104.1.1",
+      "PARSER" : "_huawei_convert_olt_power"
+    }, //olt_rx_power = olt_rx_power * 0.01 - 100;
+    "ONU_DESC": {
+      "NAME"   : "DESCRIBE",
+      "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.2.53.1.9",
+      "PARSER" : "_huawei_convert_desc"
+    },
+    "ONU_IN_BYTE": {
+      "NAME"   : "ONU_IN_BYTE",
+      "OIDS"   : "",
+      "PARSER" : ""
+    },
+    "ONU_OUT_BYTE": {
+      "NAME"   : "ONU_OUT_BYTE",
+      "OIDS"   : "",
+      "PARSER" : ""
+    },
+    "TEMPERATURE": {
+      "NAME"   : "TEMPERATURE",
+      "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.104.1.2",
+      "PARSER" : "_huawei_convert_temperature"
+    },
+    "SRV_PROFILE": {
+      "NAME"   : "ont-srvprofile",
+      "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.53.1.6"
+    },
+    "LINE_PROFILE": {
+      "NAME"   : "ont-lineprofile",
+      "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.53.1.7"
+    },
+    "reset": {
+      "NAME"   : "",
+      "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.57.1.2",
+      "PARSER" : ""
+    },
+    "main_onu_info": {
+      "HARD_VERSION": {
+        "NAME"   : "Hhard_Version",
+        "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.55.1.4",
+        "PARSER" : ""
+      },
+      "SOFT_VERSION": {
+        "NAME"   : "Soft_Version",
+        "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.55.1.5",
+        "PARSER" : ""
+      },
+      "VOLTAGE": {
+        "NAME"   : "VOLTAGE",
+        "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.104.1.6",
+        "PARSER" : "_huawei_convert_voltage"
+      },
+      "DISTANCE": {
+        "NAME"   : "DISTANCE",
+        "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.57.1.19",
+        "PARSER" : "_huawei_convert_distance"
+      },
+      "ONU_LAST_DOWN_CAUSE": {
+        "NAME"   : "ONU last down cause",
+        "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.57.1.25",
+        "PARSER" : "_huawei_convert_onu_last_down_cause"
+      }
+    },
+    "unregister": {
+      "MAC/SERIAL" : {
+        "NAME"   : "MAC/SERIAL",
+        "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.2.58.1.2",
+        "PARSER" : "bin2mac",
+        "WALK"   : "1"
+      },
+      "UNREGISTER": {
+        "NAME"   : "UNREGISTER",
+        "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.2.58.1",
+        "TYPE"   : "epon",
+        "WALK"   : "1"
+      }
+    },
+    "profiles": {
+      "LINE_PROFILES": {
+        "NAME"   : "LINE_PROFILES",
+        "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.3.41.1.2",
+        "PARSER" : "",
+        "WALK"   : "1"
+      },
+      "SRV_PROFILES": {
+        "NAME"   : "SRV_PROFILES",
+        "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.3.43.1.2",
+        "PARSER" : "",
+        "WALK"   : "1"
+      },
+      "LINE_PROFILE_VLANS": {
+        "NAME"   : "LINE_PROFILE_VLANS",
+        "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.3.64.1.8",
+        "PARSER" : "",
+        "WALK"   : "1"
+      }
+    }
+  },
+    "gpon": {
+      "ONU_MAC_SERIAL": {
+        "NAME"   : "Mac/Serial",
+        "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.43.1.3",
+        "PARSER" : "bin2hex"
+      },
+      "ONU_STATUS": {
+        "NAME"   : "STATUS",
+        "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.46.1.15"
+      },
+      //     "ONU_TX_POWER" : {
+      //       "NAME"   : "ONU_TX_POWER",
+      //       "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.51.1.3",
+      //       "PARSER" : "_huawei_convert_power"
+      //     }, // tx_power = tx_power * 0.01
+      "ONU_RX_POWER": {
+        "NAME"   : "ONU_RX_POWER",
+        "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.51.1.4",
+        "PARSER" : "_huawei_convert_power"
+      }, // rx_power = rx_power * 0.01;
+      "OLT_RX_POWER": {
+        "NAME"   : "OLT_RX_POWER",
+        "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.51.1.6",
+        "PARSER" : "_huawei_convert_olt_power"
+      }, // olt_rx_power = olt_rx_power * 0.01 - 100;
+      "ONU_DESC": {
+        "NAME"   : "DESCRIBE",
+        "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.43.1.9",
+        "PARSER" : "_huawei_convert_desc"
+      },
+      "ONU_IN_BYTE": {
+        "NAME"   : "ONU_IN_BYTE",
+        "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.4.23.1.4",
+        "PARSER" : ""
+      },
+      "ONU_OUT_BYTE": {
+        "NAME"   : "ONU_OUT_BYTE",
+        "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.4.23.1.3"
+      },
+      "LINE_PROFILE": {
+        "NAME"   : "ont-lineprofile",
+        "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.43.1.7"
+      },
+      "SRV_PROFILE": {
+        "NAME"   : "ont-srvprofile",
+        "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.43.1.8"
+      },
+      "reset": {
+        "NAME"   : "",
+        "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.46.1.2"
+      },
+      "catv_port_manage": {
+        "NAME"               : "",
+        "OIDS"               : "1.3.6.1.4.1.2011.6.128.1.1.2.63.1.2",
+        "ENABLE_VALUE"       : 1,
+        "DISABLE_VALUE"      : 2,
+        "USING_CATV_PORT_ID" : 1,
+        "PARSER"             : ""
+      },
+      "eth_port_manage": {
+        "NAME"               : "",
+        "OIDS"               : "1.3.6.1.4.1.2011.6.128.1.1.2.62.1.5",
+        "ENABLE_VALUE"       : 1,
+        "DISABLE_VALUE"      : 2,
+        "PARSER"             : ""
+      },
+      "main_onu_info": {
+        "VERSION_ID": {
+          "NAME"   : "Version_ID",
+          "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.45.1.1"
+        },
+        "VENDOR_ID": {
+          "NAME"   : "Vendor_ID",
+          "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.45.1.5",
+          "PARSER" : ""
+        },
+        "EQUIPMENT_ID": {
+          "NAME"   : "Equipment_ID",
+          "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.45.1.4",
+          "PARSER" : ""
+        },
+        "VOLTAGE": {
+          "NAME"   : "VOLTAGE",
+          "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.51.1.5",
+          "PARSER" : "_huawei_convert_voltage"
+        },
+        "DISTANCE": {
+          "NAME"   : "DISTANCE",
+          "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.46.1.20",
+          "PARSER" : "_huawei_convert_distance"
+        },
+        "ETH_DUPLEX": {
+          "NAME"   : "ETH_DUPLEX",
+          "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.62.1.3",
+          "PARSER" : "_huawei_convert_duplex",
+          "WALK"   : "1"
+        },
+        "ETH_SPEED": {
+          "NAME"   : "ETH_SPEED",
+          "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.62.1.4",
+          "PARSER" : "_huawei_convert_speed",
+          "WALK"   : "1"
+        },
+        "ETH_ADMIN_STATE": {
+          "NAME"   : "ETH_ADMIN_STATE",
+          "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.62.1.5",
+          "PARSER" : "_huawei_convert_admin_state",
+          "WALK"   : "1"
+        },
+        "ONU_PORTS_STATUS": {
+          "NAME"   : "ONU_PORTS_STATUS",
+          "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.62.1.22",
+          "PARSER" : "_huawei_convert_state",
+          "WALK"   : "1"
+        },
+        "CATV_PORTS_STATUS": {
+          "NAME"   : "CATV_PORTS_STATUS",
+          "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.2.63.1.3",
+          "WALK"   : "1"
+        },
+        "CATV_PORTS_ADMIN_STATUS": {
+          "NAME"   : "CATV_PORTS_ADMIN_STATUS",
+          "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.2.63.1.2",
+          "PARSER" : "_huawei_convert_admin_state",
+          "WALK"   : "1"
+        },
+        "VIDEO_RX_POWER": {
+          "NAME"   : "VIDEO_RX_POWER",
+          "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.2.51.1.7",
+          "PARSER" : "_huawei_convert_power"
+        },
+        "VLAN": { //VLAN of eth port on ONU
+          "NAME"   : "VLAN",
+          "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.62.1.7",
+          "PARSER" : "_huawei_convert_eth_vlan",
+          "WALK"   : "1"
+        },
+        "TEMPERATURE": { //is in "main_onu_info", because this OID is slow, so PON grabber will not query it
+          "NAME"   : "TEMPERATURE",
+          "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.51.1.1",
+          "PARSER" : "_huawei_convert_temperature"
+        },
+        "ONU_TX_POWER": { //is in "main_onu_info", because this OID is slow, so PON grabber will not query it
+          "NAME"   : "ONU_TX_POWER",
+          "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.51.1.3",
+          "PARSER" : "_huawei_convert_power"
+        }, // tx_power = tx_power * 0.01;
+        "ONU_LAST_DOWN_CAUSE": {
+          "NAME"   : "ONU last down cause",
+          "OIDS"   : ".1.3.6.1.4.1.2011.6.128.1.1.2.46.1.24",
+          "PARSER" : "_huawei_convert_onu_last_down_cause"
+        },
+        "MAC_BEHIND_ONU": {
+          "NAME"        : "MAC_BEHIND_ONU",
+          "USE_MAC_LOG" : 1
+        }
+      },
+      "unregister": {
+        "MAC/SERIAL"   : {
+          "NAME"   : "MAC/SERIAL",
+          // GPON
+          "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.2.48.1.2",
+          //"OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.2.52.1.2",
+          "WALK"   : "1"
+        },
+        "EQUIPMENT_ID": {
+          "NAME"   : "EQUIPMENT_ID",
+          "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.2.48.1.7",
+          "PARSER" : "",
+          "WALK"   : "1"
+        }
+      },
+      "profiles": {
+        "LINE_PROFILES": {
+          "NAME"   : "LINE_PROFILES",
+          "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.3.61.1.2",
+          "PARSER" : "",
+          "WALK"   : "1"
+        },
+        "SRV_PROFILES": {
+          "NAME"   : "SRV_PROFILES",
+          "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.3.65.1.2",
+          "PARSER" : "",
+          "WALK"   : "1"
+        },
+        "LINE_PROFILE_VLANS": {
+          "NAME"   : "LINE_PROFILE_VLANS",
+          "OIDS"   : "1.3.6.1.4.1.2011.6.128.1.1.3.64.1.8",
+          "PARSER" : "",
+          "WALK"   : "1"
+        }
+      }
+    }
+}
+

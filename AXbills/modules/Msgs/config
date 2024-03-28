@@ -1,0 +1,81 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+our %FUNCTIONS_LIST = (
+  "01:-1:$lang{MESSAGES}:msgs_admin:UID"                             => 15,
+  "02:0:$lang{HELPDESK}:null:"                                       => 5,
+  "03:2:$lang{CHAPTERS}:msgs_chapters:"                              => 5,
+  "04:2:$lang{ADMINS}:msgs_admins:"                                  => 5,
+  "05:2:$lang{TEMPLATES}:msgs_survey:"                               => 5,
+  "06:2:$lang{STATUS}:msgs_status:"                                  => 5,
+  "07:2:$lang{SUBJECTS}:msgs_subjects:"                              => 5,
+  "08:0:$lang{MESSAGES}:msgs_reports:"                               => 4,
+  "09:8:$lang{EVALUATION_OF_PERFORMANCE}:msgs_reports_tasks_rating:" => 4,
+  "11:8:$lang{REQUESTS}:msgs_reports_requests:"                      => 4,
+  "12:2:$lang{DISPACTH_CATEGORY}:msgs_dispatch_category:"            => 5,
+  "13:2:$lang{MSGS_TAGS}:msgs_quick_replys:"                         => 5,
+  "14:13:$lang{MSGS_TAGS_TYPES}:msgs_quick_replys_types:"            => 5,
+  "15:8:$lang{REPLYS}:msgs_reports_replys:"                          => 4,
+  "16:8:$lang{MSGS_TAGS}:msgs_report_tags:"                          => 4,
+  "17:8:$lang{TIME_IN_WORK}:msgs_admin_time_spend_report:"           => 4,
+  "18:8:$lang{MESSAGES_COEFFICIENT}:msgs_messages_coefficients:"     => 4,
+  "19:0:$lang{OPERATOR_STATISTICS}:msgs_operator_statistics:"        => 9,
+  "20:8:$lang{TEMPLATES}:msgs_templates_report:"                     => 4,
+  "21:8:$lang{ADMIN_STATISTICS}:msgs_admin_statistics:"              => 4,
+  "22:8:$lang{REPLYS_AND_TIME}:report_replys_and_time:"              => 4,
+  "23:8:$lang{TICKET_REPORT_BY_ADMINS}:msgs_admin_report:"           => 4,
+  "24:8:$lang{TICKET_REPORT}:msgs_works_report:"                     => 4,
+  "25:8:$lang{SUPPORT_SYSTEM_STATS}:msgs_support_stats:"             => 4,
+
+  "70:2:$lang{PLUGINS}:msgs_plugins_list:"                           => 5,
+  "71:70:Msgs:msgs_plugin_priority:AJAX"                             => 5,
+
+  "73:4:$lang{PERMISSION}:msgs_admin_permissions:"                   => 5,
+  "74:2:$lang{WORKFLOWS}:msgs_workflow:"                             => 5,
+);
+
+if ($conf{MSGS_SCRUB_BOX}) {
+  $FUNCTIONS_LIST{"23:10:$lang{SCRUB_BOX}:msgs_scrub_box:"} = 8;
+}
+
+%USER_FUNCTION_LIST = ();
+if ($conf{MSGS_CHAT}) {
+  $USER_FUNCTION_LIST{"01:1:Msgs:show_user_chat:AJAX"} = 0;
+}
+
+require Msgs::New;
+if (defined($user->{UID})) {
+  my $count = msgs_new({ UID => $user->{UID} });
+  if ( $count ne '' ) {
+    $USER_FUNCTION_LIST{"01:0:$lang{MESSAGES} $count:msgs_user:defaultindex"}     = 0;
+  }
+  else {
+    $USER_FUNCTION_LIST{"01:0:$lang{MESSAGES}:msgs_user:"}                        = 0;
+  }
+}
+elsif (defined($admin->{AID})) {
+  my ($count, $unreg_count) = msgs_new({ AID => $admin->{AID} });
+  $FUNCTIONS_LIST{"10:0:$lang{MESSAGES} $count:msgs_admin:"}                      = 8;
+  $FUNCTIONS_LIST{"37:10:$lang{SCHEDULE_BOARD}:msgs_task_board:"}                 = 8;
+  $FUNCTIONS_LIST{"36:10:$lang{SCHEDULE_BOARD}:msgs_task_info:MSGS_ID"}           = 8;
+  $FUNCTIONS_LIST{"49:10:$lang{DISPATCH}:msgs_dispatches:"}                       = 8;
+  $FUNCTIONS_LIST{"34:0:$lang{REQUESTS} $unreg_count:msgs_unreg_requests_list:"}  = 8;
+  $FUNCTIONS_LIST{"35:34:$lang{ADD}:msgs_unreg_requests:"}                        = 8;
+  $FUNCTIONS_LIST{"39:10:$lang{DELIVERY}:msgs_delivery_main:"}                    = 8;
+  $FUNCTIONS_LIST{"40:01::msgs_admin_quick_message:IN_MODAL"}                     = 8;
+  $FUNCTIONS_LIST{"45:01::msgs_repeat_ticket:AJAX"}                               = 8;
+  $FUNCTIONS_LIST{"46:10:$lang{TICKET_BRIGADE}:msgs_team_set_ticket:"}            = 8;
+  $FUNCTIONS_LIST{"47:46:$lang{LOCATION_BRIGADE}:msgs_team_location:"}            = 8;
+
+  if ($conf{MSGS_CHAT}) {
+    $FUNCTIONS_LIST{"21:1:Msgs:show_admin_chat:AJAX"} = 5;
+    $FUNCTIONS_LIST{"44:01::header_online_chat:AJAX"} = 8;
+  }
+
+  my $tags_root_index = ($conf{MSGS_TAGS_NON_PRIVILEGED}) ? 8 : 5;
+  $FUNCTIONS_LIST{"41:10:$lang{TAGS}:msgs_quick_replys_tags:MSGS_TAGS_ID:IN_MODAL"} = $tags_root_index;
+  $FUNCTIONS_LIST{"42:10:$lang{TAGS}:_msgs_show_change_subject_template:MSGS_TAGS_ID:IN_MODAL"} = 8;
+  $FUNCTIONS_LIST{"43:10:$lang{EDIT}:_msgs_edit_reply:IN_MODAL"} = 8;
+}
+
+%PERIODIC = (daily => []);
+
+1;

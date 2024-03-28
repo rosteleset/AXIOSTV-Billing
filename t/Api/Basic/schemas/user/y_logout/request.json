@@ -1,0 +1,6 @@
+{
+  "name": "USER_LOGOUT",
+  "method": "DELETE",
+  "path": "user/:uid/logout/",
+  "params": {}
+}

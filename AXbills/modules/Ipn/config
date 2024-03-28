@@ -1,0 +1,43 @@
+# Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = ("10:0:IP Net:ipn_user_activate:UID" => 20,
+  #"11:10:$lang{ACTIVATE}:ipn_user_activate:UID" => 20,
+  "12:10:$lang{STATS}:ipn_sessions2:UID"                    => 20,
+  "13:10:$lang{TRAFIC_TARIFS}:ipn_getnet:UID"               => 20,
+  "22:0:IPN:null:"                                     => 4,
+  "25:22:$lang{USED}:ipn_use:"                              => 4,
+  "26:22:FT queus:ipn_ft_queue:"                       => 4,
+  #"27:26:$lang{MONTH}:ipn_use_users_allmonthes:"=> 4,
+  "28:25:$lang{MONTH}:ipn_use_allmonthes:"                  => 4,
+  "29:22:$lang{UNKNOWN} IPs:ipn_unknow_ips:"                => 4,
+  #"30:0:IP Net:null:"                                  => 5,
+  #"31:30:IP Net comps:ipn_comps:"                      => 5,
+  #"32:30:IPFW:ipn_ipfw:"                   => 5
+);
+
+if ( $conf{IPN_DETAIL} ){
+  $FUNCTIONS_LIST{"14:10:$lang{DETAIL}:ipn_detail:UID"} = 20;
+  $FUNCTIONS_LIST{"24:22:$lang{DETAIL}:ipn_detail:"} = 4;
+  $FUNCTIONS_LIST{"32:22:$lang{DETAIL} $lang{PORT}:ipn_detail_port:"} = 4;
+}
+
+%USER_FUNCTION_LIST = (
+);
+
+if ( $conf{IPN_USERMENU} ){
+  my $main_index = 0; #get_get_function_index('dv_user_info');
+  $USER_FUNCTION_LIST{"01:0:IP Net:ipn_user_activate:defaultindex"} = $main_index;
+  #$USER_FUNCTION_LIST{"01:0:IP Net:ipn_user_activate:"} = $main_index;
+  $USER_FUNCTION_LIST{"02:1:$lang{STATS}:ipn_sessions2:"} = $main_index;
+  $USER_FUNCTION_LIST{"03:1:$lang{TRAFIC_TARIFS}:ipn_getnet:"} = $main_index;
+}
+
+#if ( $conf{IPN_CLUBMONITOR} ){
+#  $FUNCTIONS_LIST{"50:0:Club monitor:ipn_club_monitor:"} = 6;
+#  $FUNCTIONS_LIST{"51:50:$lang{ADD}:ipn_user_add:"} = 6;
+#}
+
+%PERIODIC = (
+  monthly => [ 'ipn_detail_rotate', 'ipn_periodic_session_restart', 'ipn_start_active' ]
+);
+
+1

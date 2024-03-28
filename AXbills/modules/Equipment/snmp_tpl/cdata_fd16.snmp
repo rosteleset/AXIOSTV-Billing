@@ -1,0 +1,97 @@
+{
+  "DEVICE":"Cdata",
+  "FDB":"1",
+  "FDB_OID": "1.3.6.1.4.1.34592.1.3.100.5.4.1.4",
+  "FDB_EXPR": "(%%d+%%.%%d+%%.%%d+%%.%%d+%%.%%d+%%.%%d+)%%.(%%d+):(.+)|MAC,VLAN,PORT",
+//  "PORT_INDEX": "",
+  "info" : {
+
+  },
+
+  "epon" : {
+  },
+  "gpon" : {
+    "ONU_MAC_SERIAL" : {
+      "NAME"   : "Mac/Serial",
+      "OIDS"   : "1.3.6.1.4.1.17409.2.8.4.1.1.3",
+      "PARSER" : "serial2mac"
+    },
+    "ONU_STATUS"     : {
+      "NAME"      : "STATUS",
+      "OIDS"      : "1.3.6.1.4.1.17409.2.8.4.1.1.7",
+      "ADD_2_OID" : ""
+    },
+    "ONU_TX_POWER"   : {
+      "NAME"      : "ONU_TX_POWER",
+      "OIDS"      : "1.3.6.1.4.1.17409.2.8.4.4.1.5",
+      "PARSER"    : "_cdata_fd12_convert_power",
+      "ADD_2_OID" : ".0.0"
+    },
+    "ONU_RX_POWER"   : {
+      "NAME"      : "ONU_RX_POWER",
+      "OIDS"      : "1.3.6.1.4.1.17409.2.8.4.4.1.4",
+      "PARSER"    : "_cdata_fd12_convert_power",
+      "ADD_2_OID" : ".0.0"
+    },
+    "ONU_DESC"       : {
+      "NAME"      : "ONU_DESC",
+      "OIDS"      : "1.3.6.1.4.1.17409.2.8.4.1.1.2",
+      "ADD_2_OID" : ""
+    },
+    "ONU_IN_BYTE"    : {
+      "NAME"   : "ONU_IN_BYTE",
+      "OIDS"   : "1.3.6.1.4.1.17409.2.3.10.1.1.4",
+      "PARSER" : ""
+    },
+    "ONU_OUT_BYTE"   : {
+      "NAME"   : "ONU_OUT_BYTE",
+      "OIDS"   : "1.3.6.1.4.1.17409.2.3.10.1.1.26",
+      "PARSER" : ""
+    },
+    "reset"          : {
+      "NAME"        : "",
+      "OIDS"        : "1.3.6.1.4.1.17409.2.3.4.1.1.17",
+      "RESET_VALUE" : 0,
+      "PARSER"      : ""
+    },
+    "main_onu_info"    : {
+      "DISTANCE"         : {
+        "NAME"   : "DISTANCE",
+        "OIDS"   : "1.3.6.1.4.1.17409.2.8.4.1.1.9",
+        "PARSER" : "_cdata_convert_distance"
+      },
+      "PORT_UPTIME" : {
+        "NAME" : "PORT_UPTIME",
+        "OIDS" : "1.3.6.1.4.1.17409.2.8.4.1.1.13",
+        "PARSER" : "_cdata_sec2time"
+      },
+      "HARD_VERSION"     : {
+        "NAME"   : "VERSION",
+        "OIDS"   : "1.3.6.1.4.1.17409.2.8.4.1.1.14",
+        "PARSER" : ""
+      },
+      "FIRMWARE"         : {
+        "NAME"   : "FIRMWARE",
+        "OIDS"   : "1.3.6.1.4.1.17409.2.8.4.2.1.2",
+        "PARSER" : ""
+      },
+      "VOLTAGE"          : {
+        "NAME"      : "VOLTAGE",
+        "OIDS"      : "1.3.6.1.4.1.17409.2.8.4.4.1.7",
+        "PARSER"    : "_cdata_fd12_convert_voltage",
+        "ADD_2_OID" : ".0.0"
+      }, //voltage = voltage * 0.0001;
+      "ONU_PORTS_STATUS" : {
+        "NAME"    : "ONU_PORTS_STATUS",
+        "OIDS"    : " 1.3.6.1.4.1.17409.2.8.5.1.1.5",
+        "PARSER"  : "",
+        "WALK"    : 1,
+        "TIMEOUT" : 10
+      },
+      "MAC_BEHIND_ONU"   : {
+        "NAME"        : "MAC_BEHIND_ONU",
+        "USE_MAC_LOG" : 1
+      }
+    }
+  }
+}

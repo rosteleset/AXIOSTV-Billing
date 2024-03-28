@@ -1,0 +1,19 @@
+{
+  "definitions": {},
+  "type": "object",
+  "title": "The Root Schema",
+  "required": [
+    "insertId",
+    "msgId"
+  ],
+  "properties": {
+    "insertId": {
+      "$id": "#/properties/insertId",
+      "type": "number"
+    },
+    "msgId": {
+      "$id": "#/properties/msgId",
+      "type": "number"
+    }
+  }
+}

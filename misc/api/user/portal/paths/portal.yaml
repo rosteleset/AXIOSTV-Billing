@@ -1,0 +1,13 @@
+get:
+  tags:
+    - portal
+  summary: Меню новостей
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/portal.yaml"
+  security:
+    - USERSID: [ ]

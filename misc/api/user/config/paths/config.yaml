@@ -1,0 +1,13 @@
+get:
+  tags:
+    - config
+  summary: Список доступных конфигураций пользователя
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/config.yaml"
+  security:
+    - USERSID: [ ]

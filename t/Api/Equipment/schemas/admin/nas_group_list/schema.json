@@ -1,0 +1,34 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+  "required": [
+    "comments",
+    "disable",
+    "gid",
+    "id",
+    "name"
+  ],
+  "properties": {
+    "comments": {
+      "$id": "#/properties/comments",
+      "type": "string"
+    },
+    "disable": {
+      "$id": "#/properties/disable",
+      "type": "number"
+    },
+    "gid": {
+      "$id": "#/properties/gid",
+      "type": "number"
+    },
+    "id": {
+      "$id": "#/properties/id",
+      "type": "number"
+    },
+    "name": {
+      "$id": "#/properties/name",
+      "type": "string"
+    }
+  }
+}

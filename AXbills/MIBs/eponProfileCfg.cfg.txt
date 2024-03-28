@@ -1,0 +1,8 @@
+#include "ccdgenKeywords.h"
+
+Begin: eponProfileCfg.mi2 eponProfileCfg
+       IncludeFile: $GBN_DIR/tools/mibs
+       GroupList: eponProfileCfg
+    /* HideFromSNMP: true */
+
+End:

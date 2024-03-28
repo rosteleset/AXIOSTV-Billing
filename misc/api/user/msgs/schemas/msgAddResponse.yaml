@@ -1,0 +1,11 @@
+type: object
+properties:
+  insertId:
+    type: integer
+    example: 43
+  msgId:
+    type: integer
+    example: 43
+  affected:
+    type: integer
+    example: 1

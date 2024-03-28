@@ -1,0 +1,35 @@
+type: object
+properties:
+  displayName:
+    type: string
+    example: ABillS Lite
+  domainName:
+    type: string
+    example: demo.axbills.net.ua
+  epochTimestamp:
+    type: number
+    example: 1675887175073
+  expiresAt:
+    type: number
+    example: 1675890775073
+  merchantIdentifier:
+    type: string
+    example: BC3E7F7A5139613761C820AAEF5D248710B447168841225
+  merchantSessionIdentifier:
+    type: string
+    example: SSH70B5F2E07D9D4DB3AF0A90B8E57333C0_5169
+  nonce:
+    type: string
+    example: 668ca377
+  operationalAnalyticsIdentifier:
+    type: string
+    example: ABillS Lite:BC3E7F7A5139613761C820AAEF5D248710B4471688412251192CAF5862400E65
+  pspId:
+    type: string
+    example: BC3E7F7A5139613761C820AAEF5D248710B4471688412251192CAF5862400E65
+  retries:
+    type: number
+    example: 0
+  signature:
+    type: string
+    example: 308006092a864886f70d010702a0803080020101310d300b060960864801650304020

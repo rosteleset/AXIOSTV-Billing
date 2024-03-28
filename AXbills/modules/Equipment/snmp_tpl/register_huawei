@@ -1,0 +1,737 @@
+#!/usr/bin/perl -w
+=head1 NAME
+
+ HUAWEI Configuration utility
+
+=head2 VERSION
+
+  VERSION: 1.03
+  DATE: 20230509
+
+=head2 REGISTRATION
+
+interface gpon 0/0
+ont confirm 0 sn-auth 485754438082017B omci ont-lineprofile-id 100 ont-srvprofile-id 100 desc "TEST"
+ont port native-vlan 1 0 eth 1 vlan 101 priority 0
+quit
+service-port vlan 13 gpon 0/1/1 ont 0 gemport 1 multi-service user-vlan 101  tag-transform translate
+
+=head2 DELETE
+
+undo service-port 1
+interface gpon 0/0
+ont delete 0 1
+quit
+
+=cut
+
+use strict;
+BEGIN {
+  use FindBin '$Bin';
+  our $libpath = $Bin . '/../../../../';
+  unshift(@INC,
+    $libpath . 'lib/',
+    $libpath,
+    $libpath . 'AXbills/',
+    $libpath . 'AXbills/mysql/',
+    $libpath . 'AXbills/modules',
+  );
+
+}
+use AXbills::Base qw(parse_arguments load_pmodule show_hash);
+use AXbills::Misc;
+use SNMP_Session;
+use SNMP_util;
+
+our (
+  %conf,
+  $DATE,
+  $TIME
+);
+
+do 'libexec/config.pl';
+require Equipment::Snmp_cmd;
+
+my $debug = 0;
+
+if ($#ARGV == -1) {
+  print "Huawei registration program\n$0 No arguments\n";
+  exit 0;
+}
+
+my $argv = parse_arguments(\@ARGV);
+my $Telnet;
+
+my $onu_type = $argv->{PON_TYPE} || $argv->{TYPE};
+if ($argv->{DEBUG}) {
+  $debug = $argv->{DEBUG};
+}
+
+if ($debug) {
+  if ($argv->{del_onu}) {
+    print "HUAWEI Delete onu\n";
+  }
+  else {
+    print "HUAWEI Registration onu\n";
+  }
+}
+
+if ($debug > 3) {
+  my $argvs = join(" ", @ARGV);
+  `echo "$DATE $TIME $argvs" >> /tmp/register`;
+}
+
+my %service_ports = ();
+if ($argv->{del_onu}) {
+  my $del_fn = 'delete_' . $onu_type . '_huawei';
+  if (defined(&$del_fn)) {
+    exit &{\&$del_fn}($argv);
+  }
+}
+
+if ($argv->{onu_registration}) {
+  my $register_fn = 'register_' . $onu_type . '_huawei';
+  if (defined(&$register_fn)) {
+    exit &{\&$register_fn}($argv);
+  }
+  else {
+    print 'Not exist "' . $register_fn . '()"';
+  }
+}
+
+exit 1;
+
+#**********************************************************
+=head2 register_gpon_huawei($attr) - Registration Gpon onu
+
+=cut
+#**********************************************************
+sub register_gpon_huawei {
+
+  _get_service_port();
+  if (!%service_ports) {
+    print "system busy please try again later";
+    exit 0;
+  }
+
+  if ($argv->{VLAN_PER_USER}) {
+    return register_gpon_huawei_vlan_per_user();
+  }
+
+  my ($frame, $slot, $port) = split(/\//, $argv->{BRANCH}, 3);
+  my $line_profile = $argv->{LINE_PROFILE};
+  my $srv_profile = $argv->{SRV_PROFILE};
+  my $tr_069_profile = $argv->{TR_069_PROFILE} || 'ACS';
+  my $vlan = $argv->{VLAN_ID} || '';
+  my $tr_069_vlan = $argv->{TR_069_VLAN_ID} || '';
+  my $iptv_vlan = $argv->{IPTV_VLAN_ID} || '';
+  my $internet_user_vlan = $argv->{INTERNET_USER_VLAN} || 101;
+  my $tr_069_user_vlan = $argv->{TR_069_USER_VLAN} || 102;
+  my $iptv_user_vlan = $argv->{IPTV_USER_VLAN} || 103;
+  my $mac_serial = $argv->{MAC_SERIAL};
+  my $line_profile_vlans = $argv->{LINE_PROFILE_DATA};
+  my $onu_desc = ($argv->{ONU_DESC}) ? " desc \"$argv->{ONU_DESC}\"; enter;" : "; enter;";
+  my $onu_id = '';
+  my $err = 0;
+  my $vlan_count = 0;
+  my $line_profiles_data = ();
+
+  if (!$line_profile) {
+    print 'Not exist "Line-Profile"' . "\n";
+    $err = 1;
+  }
+
+  if (!$srv_profile) {
+    print 'Not exist "Srv-Profile"' . "\n";
+    $err = 1;
+  }
+
+  if (!$vlan && defined($argv->{VLAN_ID})) {
+    print 'Internet vlan is not selected' . "\n";
+    $err = 1;
+  }
+
+  if (!$tr_069_vlan && defined($argv->{TR_069_VLAN_ID})) {
+    print 'TR-069 vlan is not selected' . "\n";
+    $err = 1;
+  }
+
+  if (!$mac_serial) {
+    print 'Not exist "Mac or Serial"' . "\n";
+    $err = 1;
+  }
+
+  if (!$line_profile_vlans) {
+    print 'Not exist Vlan in Line-Profile ' . $line_profile . "\n";
+    $err = 1;
+  }
+
+  return 0 if ($err);
+
+  my @Line_profile_arr = split(';', $line_profile_vlans);
+
+  foreach my $line (@Line_profile_arr) {
+    my ($gem_port, $vlans) = split(':', $line);
+    my @vlans_arr = split(',', $vlans);
+    foreach my $vlan_id (@vlans_arr) {
+      push @{$line_profiles_data->{ $gem_port }}, $vlan_id;
+      $vlan_count++;
+    }
+  }
+
+  my @onu_service_ports = ();
+
+  if (telnet_open()) {
+    my $data = '';
+    $data = telnet_cmd("interface gpon $frame/$slot");
+    $data = telnet_cmd("ont confirm $port sn-auth $argv->{MAC_SERIAL} omci ont-lineprofile-name $line_profile ont-srvprofile-name $srv_profile $onu_desc");
+
+    if ($data =~ /.*(Failure:[a-zA-Z\s]+)\|/) {
+      print $1 . "\n";
+      $data = telnet_cmd("quit") if ($debug < 9);
+      $Telnet->close();
+      return 0 if ($debug < 9);
+    }
+    elsif ($data =~ /.*ONTID \:([0-9]+).*/) {
+      $onu_id = $1;
+      print "ONU: $frame/$slot/$port:$onu_id ADDED\n";
+    }
+    else {
+      print "FATAL ERROR: Unable to register ONT \n" if ($debug < 9);
+      $data = telnet_cmd("quit") if ($debug < 9);
+      $Telnet->close();
+      return 0 if ($debug < 9);
+    }
+
+    if ($tr_069_vlan) {
+      $data = telnet_cmd("ont ipconfig $port $onu_id dhcp vlan $tr_069_user_vlan; enter;");
+      print "Add ipconfig dhcp vlan $tr_069_user_vlan\n";
+      $data = telnet_cmd("ont tr069-server-config $port $onu_id profile-name $tr_069_profile;");
+      print "Add TR-069 server profile-name $tr_069_profile\n";
+    }
+
+    if ($vlan && $vlan_count eq 1) {
+      foreach my $gem_port (keys %$line_profiles_data) {
+        $data = telnet_cmd("ont port native-vlan $port $onu_id eth $gem_port vlan $line_profiles_data->{$gem_port}->[0] priority 0");
+      }
+    }
+
+    $data = telnet_cmd("quit");
+
+    foreach my $gem_port (keys %$line_profiles_data) {
+      foreach my $vlan_id (@{$line_profiles_data->{$gem_port}}) {
+        my $vlan_s_p = $vlan || $vlan_id;
+        if ($vlan && $tr_069_vlan) {
+          if ($vlan_id eq $internet_user_vlan) {
+            $vlan_s_p = $vlan || '';
+          }
+          elsif ($vlan_id eq $tr_069_user_vlan) {
+            $vlan_s_p = $tr_069_vlan || '';
+          }
+          elsif ($vlan_id eq $iptv_user_vlan) {
+            $vlan_s_p = $iptv_vlan || '';
+          }
+          else {
+            next;
+          }
+          next if (!$vlan_s_p);
+        }
+        my $service_port_num = _get_service_port();
+        push @onu_service_ports, $service_port_num;
+
+        $data = telnet_cmd("service-port $service_port_num vlan $vlan_s_p gpon $frame/$slot/$port ont $onu_id gemport $gem_port multi-service user-vlan $vlan_id; enter;");
+
+        if ($data =~ /.* existed .*/) {
+          print "Failure: Service virtual port $service_port_num has existed already\n";
+        }
+        else {
+          print "Service-port $service_port_num added vlan $vlan_s_p in user_vlan $vlan_id\n";
+
+          if ($argv->{ANTI_MACSPOOFING}) {
+            $data = telnet_cmd("security anti-macspoofing max-mac-count service-port $service_port_num 1");
+          }
+
+          if (!$vlan && $vlan_count > 1 && !$tr_069_vlan) {
+            $data = telnet_cmd("dhcp option82 service-port $service_port_num disable");
+            print "Оption 82 in the service port $service_port_num is disabled\n";
+          }
+        }
+      }
+    }
+
+    $Telnet->close();
+    return 1;
+  }
+
+  return 0;
+}
+
+#**********************************************************
+=head2 register_gpon_huawei_vlan_per_user($attr) - Registration Gpon onu (vlan per user)
+
+=cut
+#**********************************************************
+sub register_gpon_huawei_vlan_per_user {
+  my ($frame, $slot, $port) = split(/\//, $argv->{BRANCH}, 3);
+  my $line_profile = $argv->{LINE_PROFILE};
+  my $srv_profile = $argv->{SRV_PROFILE};
+  my $mac_serial = $argv->{MAC_SERIAL};
+  my $onu_desc = ($argv->{ONU_DESC}) ? " desc \"$argv->{ONU_DESC}\"; enter;" : "; enter;";
+  my $onu_id = '';
+  my $internet_user_vlan = $argv->{INTERNET_USER_VLAN} || 101;
+  my $vlan = $argv->{VLAN_ID} || '';
+  my $gemport = $argv->{GEMPORT} || 14;
+  my $err = 0;
+
+  if (!$line_profile) {
+    print 'Not exist "Line-Profile"' . "\n";
+    $err = 1;
+  }
+  if (!$srv_profile) {
+    print 'Not exist "Srv-Profile"' . "\n";
+    $err = 1;
+  }
+  if (!$vlan && defined($argv->{VLAN_ID})) {
+    print 'Internet vlan is not selected' . "\n";
+    $err = 1;
+  }
+  if (!$mac_serial) {
+    print 'Not exist "Mac or Serial"' . "\n";
+    $err = 1;
+  }
+
+  return 0 if ($err);
+
+  if (telnet_open()) {
+    my $data = '';
+
+    $data = telnet_cmd("interface gpon $frame/$slot");
+    $data = telnet_cmd("ont add $port sn-auth $mac_serial omci ont-lineprofile-name $line_profile ont-srvprofile-name $srv_profile $onu_desc");
+
+    if ($data =~ /.*(Failure:[a-zA-Z\s]+)\|/) {
+      print $1 . "\n";
+      $data = telnet_cmd("quit") if ($debug < 9);
+      $Telnet->close();
+      return 0 if ($debug < 9);
+    }
+    elsif ($data =~ /.*ONTID \:([0-9]+).*/) {
+      $onu_id = $1;
+      print "ONU: $frame/$slot/$port:$onu_id ADDED\n";
+    }
+    else {
+      print "FATAL ERROR: Unable to register ONT \n" if ($debug < 9);
+      $data = telnet_cmd("quit") if ($debug < 9);
+      $Telnet->close();
+      return 0 if ($debug < 9);
+    }
+
+    $data = telnet_cmd("ont port native-vlan $port $onu_id eth 1 vlan $internet_user_vlan; enter;");
+    $data = telnet_cmd("quit");
+
+    my $cvlan_offset = $argv->{CVLAN_OFFSET} || 3000;
+    my $cvlan = $onu_id + $cvlan_offset;
+    $data = telnet_cmd("service-port vlan $vlan gpon $frame/$slot/$port ont $onu_id gemport $gemport multi-service user-vlan $internet_user_vlan tag-transform translate-and-add inner-vlan $cvlan inbound traffic-table index 7 outbound traffic-table index 7");
+
+    $data = telnet_cmd("quit\n");
+
+    print "SVLAN:CVLAN $vlan:$cvlan\n";
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 delete_epon_huawei($attr) - Delete Epon onu
+
+=cut
+#**********************************************************
+sub delete_epon_huawei {
+  my ($attr) = @_;
+
+  $attr->{PON_TYPE} = 'epon';
+
+  return delete_gpon_huawei($attr);
+}
+
+#**********************************************************
+=head2 delete_gpon_huawei($attr) - Delete Gpon onu
+
+  Arguments:
+    $attr
+      BRANCH
+      PON_TYPE
+      ONU_ID
+
+
+=cut
+#**********************************************************
+sub delete_gpon_huawei {
+  my ($attr) = @_;
+
+  my ($frame, $slot, $port) = split(/\//, $attr->{BRANCH}, 3);
+  my $pon_type = $attr->{PON_TYPE} || 'gpon';
+  my $onu_id = $attr->{ONU_ID};
+  my $service_ports = _get_onu_service_ports($attr);
+
+  if ($debug > 3) {
+    print "BRanch: $attr->{BRANCH} Pontype: $attr->{PON_TYPE} ONU_ID: $attr->{ONU_ID} ";
+  }
+
+  if (telnet_open()) {
+    my $data = '';
+
+    if ($service_ports) {
+      foreach my $num (keys %{$service_ports}) {
+        $data = telnet_cmd("undo service-port $num");
+        print "Delete Service-port: " . $num . " (Vlan" . $service_ports->{$num}->[0] . " -> Vlan" . $service_ports->{$num}->[1] . ")\n";
+      }
+    }
+
+    $data = telnet_cmd("interface $pon_type $frame/$slot");
+    $data = telnet_cmd("ont delete $port $onu_id");
+
+    if ($data =~ /.*(Failure:[a-zA-Z\s]+)\|/) {
+      print $1 . "\n";
+      $Telnet->print("quit");
+      $Telnet->waitfor('/#/');
+      $Telnet->close();
+      return 0;
+    }
+    else {
+      print "ONU: $frame/$slot/$port:$onu_id DELETED\n";
+    }
+
+    $Telnet->print("quit");
+    $Telnet->waitfor('/#/');
+    $Telnet->close();
+
+    return 1;
+  }
+
+  return 0;
+}
+
+#**********************************************************
+=head2 telnet_open($attr);
+
+  Arguments:
+    $attr
+      NAS_INFO
+
+  Returns:
+    TRUE or FALSE
+
+=cut
+#**********************************************************
+sub telnet_open {
+
+  my $load_data = load_pmodule('Net::Telnet', { SHOW_RETURN => 1 });
+  if ($load_data) {
+    print $load_data . "\n";
+    return 0;
+  }
+
+  if (!$argv->{NAS_MNG_IP_PORT}) {
+    print "NAS_MNG_IP_PORT not defined \n";
+    return 0;
+  }
+
+  my $user_name = $argv->{NAS_MNG_USER} || q{};
+  my $password = $argv->{NAS_MNG_PASSWORD} || q{};
+
+  $Telnet = Net::Telnet->new(
+    Timeout => $conf{HUAWEI_TELNET_TIMEOUT} || 20,
+    Errmode => 'return',
+    #    Input_log =>"/tmp/input.log",
+    #    Dump_log  => "/tmp/dump.log",
+    #    Output_log =>"/tmp/output.log"
+  );
+
+  my ($ip) = split(/:/, $argv->{NAS_MNG_IP_PORT});
+  my $port = 23;
+
+  $Telnet->open(
+    Host => $ip,
+    Port => $port
+  );
+
+  if ($Telnet->errmsg) {
+    print "Problem connecting to $ip, port: $port\n";
+    return 0;
+  }
+
+  $Telnet->waitfor('/>>User name:/i');
+  if ($Telnet->errmsg) {
+    print ">Problem connecting to $ip, port: $port\n";
+    return 0;
+  }
+
+  if ($debug > 4) {
+    print "$ip : $port U: $user_name P: $password\n";
+  }
+
+  $Telnet->print($user_name);
+  $Telnet->waitfor('/>>User password:/i');
+  $Telnet->print($password);
+
+  if ($Telnet->errmsg) {
+    print "Telnet login or password incorrect\n";
+    return 0;
+  }
+
+  $Telnet->print(" ") or print "ERROR USER OR PASS";;
+  $Telnet->print(" ") or print "ERROR USER OR PASS";
+  $Telnet->waitfor('/>/i') || print "ERROR USER OR PASS";
+  $Telnet->print("enable");
+  $Telnet->waitfor('/#/i');
+  $Telnet->print("config");
+  $Telnet->waitfor('/\(config\)#/i');
+
+  if ($Telnet->errmsg) {
+    print "Telnet login or password incorrect";
+    return 0;
+  }
+  return 1;
+}
+
+#**********************************************************
+=head2 telnet_cmd($cmd);
+
+=cut
+#**********************************************************
+sub telnet_cmd {
+  my ($cmd) = @_;
+
+  my @cmd_arr = split(';', $cmd);
+
+  foreach my $cmd_ (@cmd_arr) {
+    if ($debug > 3) {
+      print "TELNET CMD: ". $cmd_ . "\n";
+    }
+
+    next if ($debug > 8);
+
+    if ($cmd_ =~ /enter/) {
+      $Telnet->print("");
+    }
+    else {
+      $Telnet->print("$cmd_ ");
+    }
+  }
+
+  my @data = $Telnet->waitfor('/#/i');
+
+  if ($debug > 3) {
+    print "TELNET RESULT:" . join("\n", @data);
+    print "\n--------\n";
+  }
+
+  if ($data[0]) {
+    $data[0] =~ s/\n/|/g;
+  }
+
+  if ($data[0] && $data[0] =~ /.*System is busy.*/) {
+    print "System is busy, please wait.";
+    $Telnet->print("quit");
+    $Telnet->waitfor('/#/');
+    $Telnet->close();
+    exit 0;
+  }
+
+  return $data[0] || q{};
+}
+
+#**********************************************************
+=head2 _get_onu_service_ports($attr);
+
+  Arguments:
+    $attr
+      BRANCH
+      ONU_ID
+
+=cut
+#**********************************************************
+sub _get_onu_service_ports {
+  my ($attr)=@_;
+
+  if (telnet_open()) {
+    my $data = telnet_cmd("display service-port port $attr->{BRANCH} ont $attr->{ONU_ID}; enter;");
+    my @list = split('\|', $data || q{});
+    my $service_ports = ();
+
+    foreach my $line (@list) {
+      if ($onu_type eq 'gpon') {
+        if ($line =~ /(\d+)\s+(\d+)\s+(common|stacking)\s+gpon\s+\d+\/\d+\s*\/\d+\s+\d+\s+\d+\s+vlan\s+(\d+)/) {
+          $service_ports->{$1} = [ $2, $3 ];
+        }
+      }
+      elsif ($onu_type eq 'epon') {
+        if ($line =~ /(\d+)\s+(\d+)\s+(common|stacking)\s+epon\s+\d+\/\d+\s+\/\d+\s+\d+\s+\-+\s+vlan\s+(\d+)/) { #/) {
+          $service_ports->{$1} = [ $2, $3 ];
+        }
+      }
+    }
+
+    $Telnet->close();
+    return $service_ports;
+  }
+
+  return 0;
+}
+
+#**********************************************************
+=head2 _get_service_port($cmd);
+
+=cut
+#**********************************************************
+sub _get_service_port {
+  my $free_service_port;
+
+  if ($argv->{TYPE} eq 'gpon') {
+
+    my $SNMP_COMMUNITY = ($argv->{NAS_MNG_PASSWORD} || '') . '@' . (($argv->{NAS_MNG_IP_PORT}) ? $argv->{NAS_MNG_IP_PORT} : $argv->{NAS_IP});
+    my $oid = '.1.3.6.1.4.1.2011.5.14.5.2.1.2';
+
+    if (!%service_ports) {
+      my $data = snmp_get({
+        %{$argv},
+        WALK           => 1,
+        OID            => $oid,
+        VERSION        => $argv->{SNMP_VERSION},
+        SNMP_COMMUNITY => $SNMP_COMMUNITY,
+        TIMEOUT        => 25,
+        SILENT         => 1
+      });
+      $service_ports{ 0 } = 1;
+      foreach my $line (@$data) {
+        my ($service_port, undef) = split(':', $line);
+        $service_ports{ $service_port - 1 } = 1;
+      }
+      return;
+    }
+
+    for (my $num = 2; $num <= 20000; $num++) {
+      if (!$service_ports{ $num }) {
+        $free_service_port = $num;
+        $service_ports{ $num } = 1;
+        last;
+      }
+    }
+  }
+
+  return $free_service_port;
+}
+
+
+#**********************************************************
+=head2 register_epon_huawei($attr) - Registration Gpon onu
+
+
+=cut
+#**********************************************************
+sub register_epon_huawei {
+  my ($attr) = @_;
+
+  my ($frame, $slot, $port) = split(/\//, $attr->{BRANCH}, 3);
+  my $line_profile = $attr->{LINE_PROFILE};
+  my $srv_profile = $attr->{SRV_PROFILE};
+  my $vlan = $attr->{VLAN_ID} || '';
+  my $tr_069_vlan = $attr->{TR_069_VLAN_ID} || '';
+  my $internet_user_vlan = $attr->{INTERNET_USER_VLAN} || 101;
+  my $mac_serial = $attr->{MAC_SERIAL};
+  my $line_profile_vlans = $attr->{LINE_PROFILE_DATA};
+  my $onu_desc = ($attr->{ONU_DESC}) ? "desc \"$attr->{ONU_DESC}\"; enter;" : "; enter;";
+  my $onu_id = 0;
+  my $err = 0;
+  my $vlan_count = 0;
+  my $line_profiles_data = ();
+  #my $iptv_vlan          = $attr->{IPTV_VLAN_ID} || '';
+  #my $tr_069_profile     = $attr->{TR_069_PROFILE} || 'ACS';
+  #my $tr_069_user_vlan   = $attr->{TR_069_USER_VLAN} || 102;
+  #my $iptv_user_vlan     = $attr->{IPTV_USER_VLAN} || 103;
+
+  if (!$line_profile) {
+    print 'NOT_EXIST "Line-Profile"' . "\n";
+    $err = 1;
+  }
+  if (!$srv_profile) {
+    print 'NOT_EXIST "Srv-Profile"' . "\n";
+    $err = 1;
+  }
+  if (!$vlan && defined($attr->{VLAN_ID})) {
+    print 'Internet vlan is not selected' . "\n";
+    $err = 1;
+  }
+  if (!$tr_069_vlan && defined($attr->{TR_069_VLAN_ID})) {
+    print 'TR-069 vlan is not selected' . "\n";
+    $err = 1;
+  }
+  if (!$mac_serial) {
+    print 'NOT_EXIST "Mac or Serial"' . "\n";
+    $err = 1;
+  }
+  if (!$line_profile_vlans) {
+    print 'NOT_EXIST_VLAN in Line-Profile ' . $line_profile . "\n";
+    $err = 1;
+  }
+
+  return 0 if ($err);
+
+  my @Line_profile_arr = split(';', $line_profile_vlans);
+
+  foreach my $line (@Line_profile_arr) {
+    my ($gem_port, $vlans) = split(':', $line);
+    my @vlans_arr = split(',', $vlans);
+    foreach my $vlan_id (@vlans_arr) {
+      push @{$line_profiles_data->{ $gem_port }}, $vlan_id;
+      $vlan_count++;
+    }
+  }
+
+  if (telnet_open()) {
+    my $data = telnet_cmd("interface epon $frame/$slot");
+
+    if ($mac_serial =~ /([0-9a-f]{2}):([0-9a-f]{2}):([0-9a-f]{2}):([0-9a-f]{2}):([0-9a-f]{2}):([0-9a-f]{2})/ig) {
+      $mac_serial = uc("$1$2-$3$4-$5$6");
+    }
+
+    $data = telnet_cmd("ont add $port mac-auth $mac_serial oam ont-lineprofile-name $line_profile ont-srvprofile-name $srv_profile $onu_desc");
+
+    if ($data =~ /.*(Failure:[a-fA-Z\s]+)\|/) {
+      print $1 . "\n";
+      $data = telnet_cmd("quit");
+      $Telnet->close();
+      return 0 if ($debug < 9);
+    }
+    elsif ($data =~ /.*ONTID \:([0-9]+).*/) {
+      $onu_id = $1;
+      $data = telnet_cmd("ont port native-vlan $port $onu_id eth 1 vlan $internet_user_vlan");
+      sleep 12;
+      $data = telnet_cmd("quit");
+      sleep 12;
+      print "ONU: $frame/$slot/$port:$onu_id ADDED\n";
+    }
+    else {
+      print "FATAL ERROR: Unable to register ONT \n" if ($debug < 9);
+      $data = telnet_cmd("quit\n");
+      $Telnet->close();
+      return 0 if ($debug < 9);
+    }
+
+    if ($argv->{VLAN_PER_USER}) {
+      my $cvlan_offset = $argv->{CVLAN_OFFSET} || 3000;
+      my $cvlan = $onu_id + $cvlan_offset;
+      $data = telnet_cmd("service-port vlan $vlan epon $attr->{BRANCH} ont $onu_id multi-service user-vlan $internet_user_vlan tag-transform translate-and-add inner-vlan $cvlan inbound traffic-table index 7 outbound traffic-table index 7\n");
+      print "SVLAN:CVLAN $vlan:$cvlan\n";
+    }
+    else {
+      $data = telnet_cmd("service-port vlan $vlan epon $attr->{BRANCH} ont $onu_id multi-service user-vlan $internet_user_vlan\n");
+    }
+
+    $data = telnet_cmd("quit");
+  }
+
+  return 1;
+}
+
+1

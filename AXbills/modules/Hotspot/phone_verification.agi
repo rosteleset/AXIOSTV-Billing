@@ -1,0 +1,59 @@
+#!/usr/bin/perl
+#
+# Asterisk AGI for AXbills hotspot module
+#
+
+use strict;
+use warnings;
+
+our (
+  %conf,
+);
+
+BEGIN {
+  use FindBin '$Bin';
+  require $Bin . '/../../../libexec/config.pl';
+  unshift(@INC,
+    $Bin . '/../../../',
+    $Bin . '/../../../lib/',
+    $Bin . "/../../../AXbills/$conf{dbtype}");
+}
+
+use AXbills::SQL;
+use Asterisk::AGI;
+use Hotspot;
+
+my $db = AXbills::SQL->connect(@conf{qw/dbtype dbhost dbname dbuser dbpasswd/},
+  { CHARSET => $conf{dbcharset} });
+
+my $Hotspot = Hotspot->new($db, undef, \%conf);
+my $agi = Asterisk::AGI->new();
+my %input = $agi->ReadParse();
+my $caller_id = $input{callerid};
+
+$agi->verbose("ANSWER_ON_CALL: $caller_id");
+$agi->answer();
+
+my $hot_log = $Hotspot->log_list({
+  ACTION    => 11,
+  PHONE     => $caller_id,
+  CID       => '_SHOW',
+  COLS_NAME => 1,
+});
+
+if ($Hotspot->{TOTAL} < 1) {
+  $agi->verbose("NUMBER_UNKNOWN: ". ($caller_id || q{}));
+  $agi->set_variable('status', '0');
+}
+else {
+  $Hotspot->log_add({
+    CID      => $hot_log->[0]->{CID},
+    ACTION   => 12,
+    PHONE    => $caller_id,
+    COMMENTS => 'PHONE_CONFIRMED'
+  });
+  $agi->verbose("NUMBER CONFIRMED");
+  $agi->set_variable('status', '1');
+}
+
+1

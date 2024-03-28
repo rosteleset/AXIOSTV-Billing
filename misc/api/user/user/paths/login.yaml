@@ -1,0 +1,30 @@
+post:
+  tags:
+    - user
+  summary: Авторизация пользователя
+  deprecated: true
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: "../schemas/loginRequestBody.yaml"
+        examples:
+          ClassicLogin:
+            summary:
+              Авторизация по полю логину и паролю
+            value:
+              login: testuser
+              password: testuser
+          LoginSocialNetwork:
+            summary:
+              Авторизация пользователя через социальную сеть
+            value:
+              google: google_token
+    required: true
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/loginResponse.yaml"

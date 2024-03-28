@@ -1,0 +1,15 @@
+{
+  "definitions": {},
+  "type": "object",
+  "title": "The Root Schema",
+  "required": [
+    "sid"
+  ],
+  "properties": {
+    "sid": {
+      "$id": "#/properties/TABLE_USER_ABON",
+      "type": "string",
+      "title": "Session id"
+    }
+  }
+}

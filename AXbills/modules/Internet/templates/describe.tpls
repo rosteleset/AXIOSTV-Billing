@@ -1,0 +1,31 @@
+internet_compensation.tpl:russian:Форма компенсации
+internet_errors_search.tpl:russian:Поиск по журналу ошибок входа клиентов
+internet_guest_mode.tpl:russian:Форма оповещения о гостевом входе клиента
+internet_hold_up.tpl:russian:Форма приотановки сервиса из личного кабинета клиента
+internet_reg_complete.tpl:russian:Форма оповещения о успешной регистрации
+internet_registration.tpl:russian:Форма регистрации сервиса
+internet_session_detail.tpl:russian:Детализация сесси
+internet_sessions_search.tpl:russian:Форма поиска сессий
+internet_tp.tpl:russian:Форма заведения тарифного плана
+internet_traffic_class.tpl:russian:Форма заведения классов траффика
+internet_tt.tpl:russian:Форма заведения тарифов трафика
+internet_user.tpl:russian:Форма управления учётной записью пользователя для данног сервиса
+internet_user_info.dsc:russian:
+internet_user_info.pdf:russian:Форма информации о сервисе в формате pdf
+internet_user_info.tpl:russian:Форма информации о сервисе
+internet_user_join_service.tpl:russian:Форма совместного сервиса
+internet_user_speed.tpl:russian:Форма TURBO  режима
+internet_users_search.tpl:russian:Форма поиска пользоватлей сервиса
+internet_users_warning_messages.tpl:russian:Форма оповещения на E-mail о расходованом балансе
+
+internet_pay_to.tpl:russian:Оплата до определённой даты
+internet_rating_tp.tpl:russian:Тарифный план рейтинга
+internet_reg_complete_mail.tpl:russian:E-mail об успешной регистрации
+internet_stats.tpl:russian:Форма статистики
+internet_user_rating.tpl:russian:Форма велдения рейтинга пользователя
+internet_user_rating_pre.tpl:russian:Предварительный просмотр рейтинга
+
+internet_user_memo.tpl:russian:Памятка абонента в  HTML виде:
+internet_chg_tp_rule.tpl:russian:Условия изменения тарифного плана:
+
+internet_external_diagnostic_modal_ping.tpl:russian:Форма параметров для утилиты ping (для внешней диагностики соединения)

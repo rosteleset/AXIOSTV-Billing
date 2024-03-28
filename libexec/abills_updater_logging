@@ -1,0 +1,9 @@
+if [ "s"${ABILLSUPDLOG__} = "s" ] ; then
+    ABILLSUPDLOG__="/usr/axbills/var/log/update.log"
+fi
+
+if [ ! ${axbills_updater_logging__} ] ; then
+    axbills_updater_logging__=1
+    . $0 "$@" | tee -a ${ABILLSUPDLOG__}
+    exit $?
+fi

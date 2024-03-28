@@ -1,0 +1,14 @@
+type: object
+properties:
+  fio:
+    type: string
+    example: Test user
+  phone:
+    type: number
+    example: 38099999999
+  address:
+    type: string
+    example: City Kyiv, Franka Str, 5 apt
+  comments:
+    type: string
+    example: My good friend

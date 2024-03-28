@@ -1,0 +1,88 @@
+type: object
+properties:
+  allowAnswer:
+    type: number
+    example: 1
+  allowCalls:
+    type: number
+    example: 1
+  cid:
+    type: string
+    example: '10:fe:ed:43:8f:35'
+  dayAbon:
+    type: number
+    example: 10
+  disable:
+    type: number
+    example: 0
+  expire:
+    type: string
+    example: '0000-00-00'
+  extraNumbersDayFee:
+    type: number
+    example: 1
+  extraNumbersMonthFee:
+    type: number
+    example: 5
+  id:
+    type: number
+    example: 43
+  ip:
+    type: string
+    example: 0.0.0.0
+  logins:
+    type: number
+    example: 2
+  monthAbon:
+    type: number
+    example: 100
+  number:
+    type: string
+    example: 00509152720
+  phoneAliases:
+    type: array
+    items:
+      type: object
+      properties:
+        disable:
+          type: number
+          example: 0
+        id:
+          type: number
+          example: 1
+        number:
+          type: number
+          example: 380506712612
+  scheduleTpChange:
+    type: object
+    properties:
+      added:
+        type: string
+        example: '2022-12-20'
+      addedBy:
+        type: string
+        example: axbills
+      date:
+        type: string
+        example: '2022-12-21'
+      id:
+        type: number
+        example: 234
+      tpId:
+        type: number
+        example: 38
+  tpId:
+    type: number
+    example: 39
+  tpName:
+    type: string
+    example: test api change
+  tpNum:
+    type: number
+    example: 23131
+  uid:
+    type: number
+    example: 102167
+  voipExpire:
+    type: string
+    example: '0000-00-00'

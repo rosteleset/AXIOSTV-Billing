@@ -1,0 +1,121 @@
+-- *****************************************************************
+-- DLINKPV2-WEB-COMMON-MIB:  D-Link WEB Common MIB
+--
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--
+-- *****************************************************************
+
+DLINKPV2-WEB-COMMON-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+	    MODULE-IDENTITY, OBJECT-IDENTITY, OBJECT-TYPE,
+	    Unsigned32
+		    FROM SNMPv2-SMI
+		TEXTUAL-CONVENTION, TruthValue, DisplayString
+	        FROM SNMPv2-TC
+	    MODULE-COMPLIANCE,	OBJECT-GROUP
+		    FROM SNMPv2-CONF
+	    dlinkDGS1100CommonV2
+		    FROM DGS1100SERMGMT-MIB;
+
+
+    primeV2WebCommonMIB MODULE-IDENTITY
+	    LAST-UPDATED	"201404260000Z"
+	    ORGANIZATION	"D-Link Corp."
+	    CONTACT-INFO
+		    "        D-Link Corporation
+
+                Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                        Taipei City 114, Taiwan, R.O.C
+                Tel:     +886-2-66000123
+                E-mail: tsd@dlink.com.tw
+            "
+	DESCRIPTION
+		"The MIB module	for configuring Web common feature.
+		This MIB module contains HTTP and HTTPS configuration."
+	REVISION	 "201404260000Z"
+	DESCRIPTION
+		"This is the first version of the MIB file."  
+	::= { dlinkDGS1100CommonV2 28 }
+
+-- ******************************************************************
+-- Object Definition
+-- ******************************************************************
+    v2WebCommonMIBNotifications OBJECT IDENTIFIER ::= { primeV2WebCommonMIB 0 }        
+    v2WebMIBObjects    		   	OBJECT IDENTIFIER ::= { primeV2WebCommonMIB 1 }
+    v2WebCommonMIBConformance	OBJECT IDENTIFIER ::= { primeV2WebCommonMIB 2 }
+    
+-- ----------------------------------------------------------------------------- 
+    v2WebSessionObjects    		OBJECT IDENTIFIER ::= { v2WebMIBObjects 1 }
+    v2SslServerObjects    		OBJECT IDENTIFIER ::= { v2WebMIBObjects 2 }
+
+-- -----------------------------------------------------------------------------
+-- v2WebSessionObjects
+-- -----------------------------------------------------------------------------
+	v2WebSessionTimeout OBJECT-TYPE
+        SYNTAX      Unsigned32 (60..36000)
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "This object is used to configure the time in seconds of the web session timeout."
+		DEFVAL   { 180 }
+        ::= {  v2WebSessionObjects 1  }
+
+-- -----------------------------------------------------------------------------
+-- v2SslServerObjects
+-- -----------------------------------------------------------------------------
+	v2SslServerStatus OBJECT-TYPE
+        SYNTAX  TruthValue
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the SSL feature is support or not."
+		DEFVAL   { false }
+        ::= {  v2SslServerObjects 1  }
+
+-- ******************************************************************
+-- Conformance and Compliance
+-- ******************************************************************
+
+    v2WebCommonMIBCompliances  OBJECT IDENTIFIER ::= { v2WebCommonMIBConformance 1 }
+    
+    v2WebCommonGroups	       OBJECT IDENTIFIER ::= { v2WebCommonMIBConformance 2 }
+
+    v2WebMIBCompliance MODULE-COMPLIANCE
+	    STATUS	    current
+	    DESCRIPTION
+	        "The compliance statement for entities which implement the 
+	        DLINKPV2-WEB-COMMON-MIB.
+	        "
+	    MODULE	    -- this module
+	    MANDATORY-GROUPS
+	    {
+	      v2WebSessionGroups,
+	      v2SslServerGroups
+	    }
+   	    ::= { v2WebCommonMIBCompliances 1 }
+
+
+-- units of conformance
+
+    v2WebSessionGroups OBJECT-GROUP
+        OBJECTS {
+            v2WebSessionTimeout
+        }
+        STATUS      current
+        DESCRIPTION
+            "Objects for globally configuring Web session feature.
+	        "
+        ::= { v2WebCommonGroups 1 }
+
+    v2SslServerGroups OBJECT-GROUP
+        OBJECTS {
+            v2SslServerStatus
+        }
+        STATUS      current
+        DESCRIPTION
+            "Objects for globally configuring SSL server feature.
+	        "
+        ::= { v2WebCommonGroups 2 }
+END
+

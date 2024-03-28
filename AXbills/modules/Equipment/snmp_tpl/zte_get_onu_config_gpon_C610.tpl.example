@@ -1,0 +1,2 @@
+show gpon onu detail-info gpon_onu-%BRANCH%:%ONU_ID%
+show mac interface gpon_onu-%BRANCH%:%ONU_ID%

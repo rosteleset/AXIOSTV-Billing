@@ -1,0 +1,25 @@
+{
+  "definitions": {},
+  "type": "object",
+  "title": "The Root Schema",
+
+  "required": [
+    "operationId",
+    "transactionId",
+    "url"
+  ],
+  "properties": {
+    "url": {
+      "$id": "#/properties/url",
+      "type": "string"
+    },
+    "operationId": {
+      "$id": "#/properties/operationId",
+      "type": "number"
+    },
+    "transactionId": {
+      "$id": "#/properties/transactionId",
+      "type": "string"
+    }
+  }
+}

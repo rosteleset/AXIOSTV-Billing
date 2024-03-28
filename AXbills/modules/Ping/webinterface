@@ -1,0 +1,498 @@
+#!perl
+
+=head1 NAME
+
+  Ping plugins diagnostic user internet conection
+
+  ERROR_ID: 30xx
+
+=cut
+
+use strict;
+use AXbills::Defs;
+use AXbills::Base qw(cmd _bp days_in_month date_inc in_array);
+use Conf;
+use Ping;
+use POSIX qw(strftime mktime);
+use Tariffs;
+
+our (
+  $db,
+  %lang,
+  $html,
+  %permissions,
+  $ui,
+  @state_icon_colors,
+);
+
+our Admins $admin;
+our Conf $Conf;
+
+my $Tariffs = Tariffs->new($db, \%conf, $admin);
+my $Ping = Ping->new($db, $admin, \%conf);
+
+#**********************************************************
+=head2 ping_main() - Ping web interface setting
+
+=cut
+#**********************************************************
+sub ping_main {
+  my %info;
+
+  ping_menu();
+
+  if ($FORM{ACCEPT}) {
+
+    $Conf->config_add(
+      {
+        PARAM   => 'PACKET_NUM',
+        REPLACE => 1,
+        VALUE   => $FORM{PACKET_NUM} ? $FORM{PACKET_NUM} : '',
+      }
+    );
+
+    $Conf->config_add(
+      {
+        PARAM   => 'PACKET_SIZE',
+        REPLACE => 1,
+        VALUE   => $FORM{PACKET_SIZE} ? $FORM{PACKET_SIZE} : '',
+      }
+    );
+
+    $Conf->config_add(
+      {
+        PARAM   => 'PERIODIC',
+        REPLACE => 1,
+        VALUE   => $FORM{PERIODIC} ? $FORM{PERIODIC} : '',
+      }
+    );
+
+    $Conf->config_add(
+      {
+        PARAM   => 'PING_PERIODIC',
+        REPLACE => 1,
+        VALUE   => $FORM{PING_PERIODIC} ? $FORM{PING_PERIODIC} : '',
+      }
+    );
+
+    $Conf->config_add(
+      {
+        PARAM   => 'ACCEPTABLE_LOSS_RATE',
+        REPLACE => 1,
+        VALUE   => $FORM{ACCEPTABLE_LOSS_RATE} ? $FORM{ACCEPTABLE_LOSS_RATE} : '',
+      }
+    );
+
+    $Conf->config_add(
+      {
+        PARAM   => 'CRITICAL_RATE_LOSSES',
+        REPLACE => 1,
+        VALUE   => $FORM{CRITICAL_RATE_LOSSES} ? $FORM{CRITICAL_RATE_LOSSES} : '',
+      }
+    );
+
+    $Conf->config_add(
+      {
+        PARAM   => 'THREADS',
+        REPLACE => 1,
+        VALUE   => $FORM{THREADS} ? $FORM{THREADS} : '',
+      }
+    );
+
+    $Conf->config_add(
+      {
+        PARAM   => 'TIMEOUT',
+        REPLACE => 1,
+        VALUE   => $FORM{TIMEOUT} ? $FORM{TIMEOUT} : '',
+      }
+    );
+  }
+
+  my $list = $Conf->config_list({ COLS_NAME => 1 });
+
+  foreach my $conf_var (@$list) {
+    $info{ $conf_var->{param} } = $conf_var->{value};
+  }
+
+  $html->tpl_show(_include('ping_main', 'Ping'), \%info, { ID => 'ping_main' });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 ping_menu() - Ping header manu
+
+=cut
+#**********************************************************
+sub ping_menu {
+  my @ping_menu = ($lang{SETTINGS} . '::::' . get_function_index('ping_main'), $lang{REPORTS} . '::::' . get_function_index('ping_reports'), $lang{LIST} . '::::' . get_function_index('ping_users_reports_table'),);
+  func_menu({ $lang{NAME} => '' }, \@ping_menu);
+  return 1;
+}
+
+#**********************************************************
+=head2 ping_reports() - Ping reports
+
+=cut
+#**********************************************************
+sub ping_reports {
+  #my ($attr) = @_;
+  my %sql_params;
+  my @x_column_date;
+  my $i = 0;
+  my %COLUMN;
+  if ($FORM{"FROM_DATE_TO_DATE"}) {
+    ($FORM{FROM_DATE}, $FORM{TO_DATE}) = $FORM{"FROM_DATE_TO_DATE"} =~ /(.+)\/(.+)/;
+  }
+  if (!($FORM{FROM_DATE} && $FORM{TO_DATE})) {
+    $FORM{FROM_DATE} = $DATE;
+    $FORM{TO_DATE} = $DATE;
+    $FORM{"FROM_DATE_TO_DATE"} = "$DATE/$DATE";
+  }
+  my $from_date = $FORM{FROM_DATE};
+
+  if ($FORM{FROM_DATE} && $FORM{TO_DATE} && $FORM{FROM_DATE} ne $FORM{TO_DATE}) {
+    push @x_column_date, $FORM{FROM_DATE};
+    $COLUMN{ $lang{MAX_LOSS_RATE} . '(%)' }->[ $i++ ] = '0';
+
+    my $count = 0;
+    while ($from_date ne $FORM{TO_DATE}) {
+      $from_date = date_inc($from_date);
+      push @x_column_date, $from_date;
+      $COLUMN{ $lang{MAX_LOSS_RATE} . '(%)' }->[ $i++ ] = '0';
+      ++$count;
+      if ($count > 80000) {
+        $from_date = $FORM{TO_DATE};
+      }
+    }
+  }
+
+  my $old_from_date = $FORM{FROM_DATE};
+  my $old_to_date = $FORM{TO_DATE};
+  if (!$FORM{ID}) {
+    %sql_params = (
+      FROM_DATE => $FORM{FROM_DATE} . ' 00:00:01',
+      TO_DATE   => $FORM{TO_DATE} . ' 23:59:59',
+    );
+  }
+
+  delete $FORM{FROM_DATE};
+  delete $FORM{TO_DATE};
+
+  my $user_ping_list_witout_loss = $Ping->list(
+    {
+      %sql_params,
+      %FORM,
+      LOSS_RATE         => '>=' . ($FORM{PING_STATUS_NUM} ? $FORM{PING_STATUS_NUM} : ''),
+      UID               => $FORM{UID} ? $FORM{UID} : '_SHOW',
+      LOGIN             => $FORM{LOGIN} ? $FORM{LOGIN} : '_SHOW',
+      ADDRESS_FLAT      => $FORM{ADDRESS_FLAT} ? $FORM{ADDRESS_FLAT} : '_SHOW',
+      ADD_ADDRESS_BUILD => $FORM{ADD_ADDRESS_BUILD} ? $FORM{ADD_ADDRESS_BUILD} : '_SHOW',
+      ADDRESS_BUILD     => $FORM{ADDRESS_BUILD} ? $FORM{ADDRESS_BUILD} : '_SHOW',
+      ADDRESS_STREET    => $FORM{ADDRESS_STREET} ? $FORM{ADDRESS_STREET} : '_SHOW',
+      ADDRESS_DISTRICT  => $FORM{ADDRESS_DISTRICT} ? $FORM{ADDRESS_DISTRICT} : '_SHOW',
+      PAGE_ROWS         => 80000,
+      SHOW_ALL_COLUMNS  => "_SHOW",
+    }
+  );
+
+  my $user_ping_list_with_loss = $Ping->list(
+    {
+      %sql_params,
+      PAGE_ROWS         => 80000,
+      LOSS_RATE         => '>=' . ($FORM{PING_STATUS_NUM} ? $FORM{PING_STATUS_NUM} : '0'),
+      UID               => $FORM{UID} ? $FORM{UID} : '_SHOW',
+      LOGIN             => $FORM{LOGIN} ? $FORM{LOGIN} : '_SHOW',
+      ADDRESS_FLAT      => $FORM{ADDRESS_FLAT} ? $FORM{ADDRESS_FLAT} : '_SHOW',
+      ADD_ADDRESS_BUILD => $FORM{ADD_ADDRESS_BUILD} ? $FORM{ADD_ADDRESS_BUILD} : '_SHOW',
+      ADDRESS_BUILD     => $FORM{ADDRESS_BUILD} ? $FORM{ADDRESS_BUILD} : '_SHOW',
+      ADDRESS_STREET    => $FORM{ADDRESS_STREET} ? $FORM{ADDRESS_STREET} : '_SHOW',
+      ADDRESS_DISTRICT  => $FORM{ADDRESS_DISTRICT} ? $FORM{ADDRESS_DISTRICT} : '_SHOW',
+      %FORM,
+      SHOW_ALL_COLUMNS  => "_SHOW",
+    }
+  );
+
+  if (!$Ping->{TOTAL}) {
+    $html->message('warning', $lang{WARNING}, "$lang{NO_DATA} " .
+      $html->element('i', '', { CLASS => 'fa fa-fw fa-circle' }) . " $lang{DATE}  $FORM{'FROM_DATE/TO_DATE'}",
+      { ID => 3015 });
+  }
+
+  my %column_type = (
+    $lang{MAX_LOSS_RATE} . '(%)' => 'COLUMN',
+    $lang{AVG_LOSS_RATE} . '(%)' => 'COLUMN',
+  );
+
+  if ($old_from_date && $old_to_date && $old_from_date eq $old_to_date) {
+    my $column_num = 0;
+    $i = 0;
+    for ($i = 0; $i <= 23; $i++) {
+      $column_num++;
+      $from_date = ($i <= 9 ? 0 : '') . $i . ':00:00';
+      $COLUMN{ $lang{MAX_LOSS_RATE} . '(%)' }->[$column_num] = '0';
+      push @x_column_date, $from_date;
+      my $avg_loss = 0;
+      my $max_loss = 0;
+      my $pings_in_day = 0;
+      foreach my $ping_date (@{$user_ping_list_with_loss}) {
+        my ($time) = $ping_date->{datetime} =~ /.+\s(.+)\:.+\:/g;
+        if ($time eq ($i <= 9 ? 0 : '') . $i) {
+          $pings_in_day++;
+          $avg_loss += $ping_date->{loss_rate};
+          my ($user_time) = $ping_date->{datetime} =~ /.+\s(.+)/g;
+          if (!($FORM{LOGIN} || $FORM{UID} || $FORM{ID})) {
+            $COLUMN{ $lang{AVG_LOSS_RATE} . '(%)' }->[$i] = int($avg_loss / $pings_in_day);
+            $max_loss = $max_loss < $ping_date->{loss_rate} ? $ping_date->{loss_rate} : $max_loss;
+            $COLUMN{ $lang{MAX_LOSS_RATE} . '(%)' }->[$i] = $max_loss;
+          }
+          elsif ($user_time ne $from_date && $ping_date->{loss_rate} > 0) {
+            push @x_column_date, $user_time;
+            $COLUMN{ $lang{MAX_LOSS_RATE} . '(%)' }->[$column_num] = $ping_date->{loss_rate};
+            ++$column_num;
+          }
+          else {
+            $COLUMN{ $lang{MAX_LOSS_RATE} . '(%)' }->[$i] = $ping_date->{loss_rate};
+          }
+        }
+      }
+    }
+  }
+  else {
+    $i = -1;
+    foreach my $col_date (@x_column_date) {
+      $i++;
+      my $max_loss = 0;
+      my $avg_loss = 0;
+      my $pings_in_day = 0;
+      foreach my $ping (@{$user_ping_list_with_loss}) {
+        my ($date) = $ping->{datetime} =~ /(.+)\s/g;
+        if ($col_date eq $date) {
+          $pings_in_day++;
+          $avg_loss += $ping->{loss_rate};
+          $COLUMN{ $lang{AVG_LOSS_RATE} . '(%)' }->[$i] = int($avg_loss / $pings_in_day);
+          $max_loss = $max_loss < $ping->{loss_rate} ? $ping->{loss_rate} : $max_loss;
+          $COLUMN{ $lang{MAX_LOSS_RATE} . '(%)' }->[$i] = $max_loss;
+        }
+      }
+    }
+  }
+
+  ping_menu();
+
+  ping_users_reports_filter($Ping);
+
+  $html->make_charts(
+    {
+      TRANSITION => 1,
+      TYPES      => \%column_type,
+      X_TEXT     => \@x_column_date,
+      DATA       => \%COLUMN,
+    }
+  );
+
+  result_former(
+    {
+      INPUT_DATA      => $Ping,
+      LIST            => $user_ping_list_witout_loss,
+      BASE_FIELDS     => 0,
+      DEFAULT_FIELDS  => 'ID, LOGIN, LOSS_RATE, TRANSMITTED, RACAIVED, DATETIME',
+      FILTER_COLS     => {
+        login => "_ping_user_status::PARAM_NAME=uid,FUNCTION=ping_reports,UID,DATE=datetime,DATETIME",
+      },
+      EXT_TITLES      => {
+        id               => 'id',
+        login            => $lang{LOGIN},
+        loss_rate        => $lang{LOSS_RATE},
+        uid              => 'UID',
+        racaived         => $lang{ACCEPT_PACKETS},
+        transmitted      => $lang{SEND_PACKETS},
+        datetime         => $lang{DATE},
+        avg_time         => $lang{AVG_TIME_RATE},
+        tags             => $lang{TAGS},
+        gid              => 'gid',
+        address_street   => $lang{ADDRESS_STREET},
+        address_build    => $lang{ADDRESS_BUILD},
+        address_flat     => $lang{ADDRESS_FLAT},
+        address_district => $lang{DISTRICTS},
+      },
+      SKIP_USER_TITLE => 1,
+      TABLE           => {
+        width => '100%',
+        ID    => 'PING_LIST',
+        MENU  => "",
+        qs    => $pages_qs,
+      },
+      FUNCTION_INDEX  => $index,
+      MAKE_ROWS       => 1,
+      TOTAL           => 1
+    }
+  );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 dv_users_search($Dv)
+
+=cut
+#**********************************************************
+sub ping_users_reports_filter {
+  my ($Ping_) = @_;
+
+  $index = get_function_index('ping_reports');
+
+  my $crit_loss_conf = $Conf->info({ ID => 'CRITICAL_RATE_LOSSES' });
+
+  $crit_loss_conf = ($crit_loss_conf->{conf} && $crit_loss_conf->{conf}->{CRITICAL_RATE_LOSSES}) ? $crit_loss_conf->{conf}->{CRITICAL_RATE_LOSSES} : '';
+
+  $Ping_->{PING_STATUS} = $html->form_select(
+    'PING_STATUS_NUM',
+    {
+      SELECTED => $FORM{PING_STATUS_NUM} ? $FORM{PING_STATUS_NUM} : 0,
+      SEL_HASH => {
+        ''              => '--',
+        '1'             => $lang{HAVE_PACKET_LOSS},
+        $crit_loss_conf => $lang{HAVE_CRITICAL_RATE_LOSSES},
+      },
+    }
+  );
+
+  if (in_array('Tags', \@MODULES)) {
+    load_module('Tags', $html);
+    $Ping->{TAGS_SEL} = tags_sel();
+  }
+
+  $Ping->{GROUP_SEL} = sel_groups();
+  $Ping->{STATUS_SEL} = sel_status(
+    {
+      STATUS => $FORM{PING_STATUS} || '',
+      ALL    => 1,
+      NAME   => 'PING_STATUS'
+    }
+  );
+
+  $Ping_->{TP_SEL} = $html->form_select(
+    'TP_NUM',
+    {
+      SELECTED    => $FORM{TP_NUM},
+      SEL_LIST    => $Tariffs->list({ MODULE => 'Ping', NEW_MODEL_TP => 1, DOMAIN_ID => $users->{DOMAIN_ID}, COLS_NAME => 1 }),
+      SEL_OPTIONS => { '' => "$lang{ALL}" },
+      EX_PARAMS   => 'multiple="multiple"'
+    }
+  );
+
+  $Ping_->{USER_LOGIN} = $html->form_input('LOGIN', $FORM{LOGIN} ? $FORM{LOGIN} : '', { TYPE => 'text', });
+
+  $Ping_->{DATE_RANGE} = $html->form_daterangepicker(
+    {
+      NAME      => 'FROM_DATE/TO_DATE',
+      FORM_NAME => 'report_panel',
+      WITH_TIME => $FORM{TIME_FORM} || 0
+    }
+  );
+
+  $Ping_->{ADDRESS_FORM} = form_address();
+
+  $html->tpl_show(_include('ping_users_report_filter', 'Ping'), { %$Ping_, %FORM }, { ID => 'ping_users_report_filter' });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 dv_users_search($Dv)
+
+=cut
+#**********************************************************
+sub ping_users_reports_table {
+  ping_menu();
+
+  result_former(
+    {
+      INPUT_DATA      => $Ping,
+      FUNCTION        => 'list',
+      BASE_FIELDS     => 0,
+      DEFAULT_FIELDS  => 'ID, LOGIN, LOSS_RATE, TRANSMITTED, RACAIVED, DATETIME',
+      # FUNCTION_FIELDS => 'del',
+      # MULTISELECT     => ($permissions{0}{7}) ? 'IDS:id:list' : '',
+      EXT_TITLES      => {
+        id               => 'id',
+        login            => $lang{LOGIN},
+        loss_rate        => $lang{LOSS_RATE},
+        uid              => 'UID',
+        racaived         => $lang{ACCEPT_PACKETS},
+        transmitted      => $lang{SEND_PACKETS},
+        datetime         => $lang{DATE},
+        avg_time         => $lang{AVG_TIME_RATE},
+        tags             => $lang{TAGS},
+        gid              => 'gid',
+        address_street   => $lang{ADDRESS_STREET},
+        address_build    => $lang{ADDRESS_BUILD},
+        address_flat     => $lang{ADDRESS_FLAT},
+        address_district => $lang{DISTRICTS},
+      },
+      SKIP_USER_TITLE => 1,
+      FILTER_COLS     => {},
+      TABLE           => {
+        caption => "Ping $lang{USERS}",
+        width   => '100%',
+        ID      => 'PING_LIST',
+        MENU    => ""
+      },
+      MAKE_ROWS       => 1,
+      TOTAL           => 1
+    }
+  );
+
+  return 1;
+}
+
+
+#**********************************************************
+=head2 _ping_user_status($LOGIN, $attr) - User status button
+
+=cut
+#**********************************************************
+sub _ping_user_status {
+  my ($LOGIN, $attr) = @_;
+
+  if (!$attr->{VALUES}{UID}) {
+    return '[unknown user]'
+  }
+
+  my ($user_ping_date) = $attr->{VALUES}{DATETIME} =~ /(.+)\s/;
+
+  if ($FORM{xml} || $FORM{csv} || $FORM{json} || $FORM{EXPORT_CONTENT}) {
+    return $LOGIN;
+  }
+
+  my $ex_params = ($attr->{dv_status_color}) ? "style='color:#$attr->{dv_status_color}'" : '';
+  my $icon_class = (defined($attr->{login_status})) ? $state_icon_colors[ $attr->{login_status} ] : '';
+  my $ext_menu = $html->button
+    (
+      "",
+      "index=" . get_function_index($attr->{VALUES}{FUNCTION}) . "&UID=$attr->{VALUES}{UID}" . "&FROM_DATE_TO_DATE=$user_ping_date/$user_ping_date&FROM_DATE=$user_ping_date&TO_DATE=$user_ping_date",
+      { class => "btn btn-user btn-secondary $icon_class", ICON => 'fa fa-user', ex_params => $ex_params }
+    );
+
+  my $return = $ext_menu;
+
+  if ($attr->{SHOW_UID}) {
+    $return .= $html->button
+      (
+        $html->b(" $LOGIN"),
+        "index=" . get_function_index($attr->{VALUES}{FUNCTION}) . "&UID=$attr->{VALUES}{UID}" . "&FROM_DATE_TO_DATE=$user_ping_date/$user_ping_date&FROM_DATE=$user_ping_date&TO_DATE=$user_ping_date"
+      ) . " (UID: $attr->{VALUES}{UID}) ";
+  }
+  else {
+    $return .= $html->button
+      (
+        ($LOGIN ? "$LOGIN" : q{}),
+        "index=" . get_function_index($attr->{VALUES}{FUNCTION}) . "&UID=$attr->{VALUES}{UID}" . "&FROM_DATE_TO_DATE=$user_ping_date/$user_ping_date&FROM_DATE=$user_ping_date&TO_DATE=$user_ping_date" . (($attr->{EXT_PARAMS}) ? "&$attr->{EXT_PARAMS}" : ''),
+        { TITLE => $attr->{TITLE} });
+  }
+
+  return $return;
+}
+
+1

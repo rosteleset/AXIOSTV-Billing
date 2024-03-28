@@ -1,0 +1,67 @@
+=============== Prepare Payment =====================
+{
+  "octo_shop_id": 10000,
+  "octo_secret": "2d45df74-bb95-47cf-a616-8d6dcee2e10d",
+  "shop_transaction_id": "uniq shop transaction_id",
+  "auto_capture": true,
+  "test": false,
+  "init_time": "2018-03-30 11:22:33",
+  "user_data": {
+    "user_id": "уникальный ИД_пользователя в системе магазина",
+    "phone": "79001112233",
+    "email": "user@mail.com"
+  },
+  "total_sum": 103.33,
+  "currency": "USD",
+  "description": "Название платежа, например: Авиаперелет Москва-Сингапур",
+  "basket": [
+    {
+      "position_desc": "Йогурт MANON клубничный",
+      "count": 2,
+      "price": 33.99
+    },
+    {
+      "position_desc": "Йогурт MANON банановый",
+      "count": 1,
+      "price": 31.99
+    }
+  ],
+  "payment_methods": [
+    {
+      "method": "bank_card"
+    },
+    {
+      "method": "qiwi"
+    }
+  ],
+  "return_url": "http://merchant.site.uz/return_URL",
+  "notify_url": "http://merchant.site.uz/send_me_status_URL",
+  "language": "uz",
+  "ttl": 15
+}
+
+=============== Responce request Prepare =====================
+{
+  "shop_transaction_id": "uniq shop transaction_id",
+  "octo_payment_UUID": "1145df74-bb95-47cf-a616-8d6dcee2e222",
+  "status": "waiting_for_capture",
+  "signature": "DE3457A3456BB2563454FFF34643EAE3473657347CCBEFD234",
+  "hash_key": "453fg54j3f6g"
+}
+
+=============== Send Payment Request =====================
+{
+  "octo_shop_id": 10000,
+  "octo_secret": "2d45df74-bb95-47cf-a616-8d6dcee2e10d",
+  "octo_payment_UUID": "1145df74-bb95-47cf-a616-8d6dcee2e222",
+  "accept_status": "capture"
+}
+
+=============== Payment Request succeeded =====================
+{
+  "error": 0,
+  "status": "succeeded",
+  "shop_transaction_id": "uniq shop transaction_id",
+  "octo_payment_UUID": "1145df74-bb95-47cf-a616-8d6dcee2e222",
+  "octo_pay_url": "https://pay.octo.uz/1145df74-bb95-47cf-a616-8d6dcee2e222"
+}

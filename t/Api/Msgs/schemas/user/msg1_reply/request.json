@@ -1,0 +1,6 @@
+{
+  "name": "USER_MSGS_MSG_REPLY",
+  "method": "POST",
+  "path": "user/:uid/msgs/:id/reply/",
+  "params": {}
+}

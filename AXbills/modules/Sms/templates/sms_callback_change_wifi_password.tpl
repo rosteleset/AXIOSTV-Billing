@@ -1,0 +1,1 @@
+_{PASSWD}_: %PASSWORD%

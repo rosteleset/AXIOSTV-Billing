@@ -1,0 +1,14 @@
+{
+  "definitions": {},
+  "type": "object",
+  "title": "The Root Schema",
+  "required": [
+    "result"
+  ],
+  "properties": {
+    "result": {
+      "$id": "#/properties/result",
+      "type": "string"
+    }
+  }
+}

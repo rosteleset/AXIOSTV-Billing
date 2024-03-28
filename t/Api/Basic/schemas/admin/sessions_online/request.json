@@ -1,0 +1,6 @@
+{
+  "name": "ADMIN_SESSION_ONLINE",
+  "method": "GET",
+  "path": "online/",
+  "params": {}
+}

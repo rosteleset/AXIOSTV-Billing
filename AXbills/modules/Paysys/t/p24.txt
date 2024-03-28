@@ -1,0 +1,2 @@
+payment -> amt=1.00&ccy=UAH&details=slevin Balance recharge&ext_details=&pay_way=privat24&order=82388969&merchant=103604&state=ok&date=191214142009&ref=P24A133986209549865&payCountry=UA
+signature -> 86fc0ee7b0fba040f6f609bc40ea7b8926038e0d

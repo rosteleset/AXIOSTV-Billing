@@ -1,0 +1,17 @@
+type: object
+properties:
+  creditSum:
+    type: integer
+    example: 500
+  creditChangePrice:
+    type: integer
+    example: 100
+  uid:
+    type: integer
+    example: 11135
+  creditDays:
+    type: string
+    example: "3"
+  creditMonthChanges:
+    type: string
+    example: "1"

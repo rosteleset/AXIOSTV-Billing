@@ -1,0 +1,530 @@
+#!perl
+=head1 NAME
+  3play - module for connecting Internet, IPTV and VOIP tarifs in one
+  Error ID: 13xx
+=cut
+
+=head1 Synopsis
+  This module give you opportunity to connect Internet, IPTV and VOIP tarif plans in one package.
+
+	Capabilities:
+		- Grouping of services
+		- Maintaining packet service reports
+=cut
+
+=head1 Usage
+
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+
+use Triplay;
+use Triplay::Services;
+use Tariffs;
+
+our (
+  $db,
+  %lang,
+  $admin,
+  %permissions,
+  %ADMIN_REPORT
+);
+
+our AXbills::HTML $html;
+
+my $Tariffs = Tariffs->new($db, \%conf, $admin);
+my $Triplay = Triplay->new($db, $admin, \%conf);
+
+if(%ADMIN_REPORT) {
+  require Triplay::Periodic;
+}
+
+#**********************************************************
+=head2 triplay_tp($attr) - main module function
+
+  Arguments:
+
+
+  Returns:
+
+=cut
+#**********************************************************
+sub triplay_tp {
+
+  require Control::Services;
+
+  $Triplay->{ACTION} = 'add';
+  $Triplay->{ACTION_LNG} = $lang{ADD};
+  $FORM{SMALL_DEPOSIT_ACTION} = -1;
+
+  if ($FORM{add}) {
+    $Tariffs->add({ %FORM, MODULE => 'Triplay' });
+    if (!$Tariffs->{errno}) {
+      $Triplay->tp_add({ %FORM, TP_ID => $Tariffs->{TP_ID} });
+    }
+
+    if (!$Triplay->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{TARIF_PLAN} $lang{ADDED}");
+    }
+  }
+  elsif ($FORM{change}) {
+    $Triplay->tp_change({ %FORM, ID => $FORM{chg} });
+
+    $Tariffs->change($Triplay->{TP_ID}, { %FORM, TP_ID => $Triplay->{TP_ID} });
+
+    if (!$Triplay->{errno}) {
+      $html->message('info', $lang{SUCCESS}, "$lang{TARIF_PLAN} $lang{CHANGED}");
+    }
+  }
+  elsif ($FORM{chg}) {
+    $Triplay->{ACTION} = 'change';
+    $Triplay->{ACTION_LNG} = $lang{CHANGE};
+    $Triplay->tp_info({ ID => $FORM{chg} });
+
+    _error_show($Triplay);
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Triplay->tp_del({ ID => $FORM{del} });
+
+    if (!$Triplay->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED} $FORM{del}");
+    }
+  }
+
+  _error_show($Triplay);
+
+  my $iptv_select = sel_tp({
+    MODULE  => 'Iptv',
+    IPTV_TP => $Triplay->{IPTV_TP},
+    SELECT  => 'IPTV_TP',
+    USER_INFO => $users,
+    EX_PARAMS   => {
+      MAIN_MENU => get_function_index('iptv_tp'),
+      MAIN_MENU_ARGV => ($Triplay->{IPTV_TP}) ? "TP_ID=$Triplay->{IPTV_TP}" : ''
+    }
+  });
+
+  my $internet_select = sel_tp({
+    MODULE      => 'Internet',
+    USER_INFO   => $users,
+    INTERNET_TP => $Triplay->{INTERNET_TP},
+    SELECT      => 'INTERNET_TP',
+    EX_PARAMS   => {
+      MAIN_MENU => get_function_index('internet_tp'),
+      MAIN_MENU_ARGV => ($Triplay->{INTERNET_TP}) ? "TP_ID=$Triplay->{INTERNET_TP}" : ''
+    }
+  });
+
+  my $voip_select = sel_tp({
+    MODULE    => 'Voip',
+    USER_INFO => $users,
+    #TP_ID  => $Triplay->{VOIP_TP},
+    VOIP_TP   => $Triplay->{VOIP_TP},
+    SELECT    => 'VOIP_TP',
+    EX_PARAMS   => {
+      MAIN_MENU => get_function_index('internet_tp'),
+      MAIN_MENU_ARGV => ($Triplay->{INTERNET_TP}) ? "TP_ID=$Triplay->{INTERNET_TP}" : ''
+    }
+  });
+
+  $Triplay->{SEL_METHOD} = $html->form_select('FEES_METHOD', {
+    SELECTED       => $Triplay->{FEES_METHOD} || 1,
+    SEL_HASH       => get_fees_types(),
+    NO_ID          => 1,
+    SORT_KEY       => 1,
+    SEL_OPTIONS    => { 0 => '' },
+    MAIN_MENU      => get_function_index('form_fees_types'),
+    CHECKBOX       => 'create_fees_type',
+    CHECKBOX_TITLE => $lang{CREATE}
+  });
+
+  my %payment_types = (
+    0 => $lang{PREPAID},
+    1 => $lang{POSTPAID},
+    2 => $lang{GUEST}
+  );
+
+  $Triplay->{PAYMENT_TYPE_SEL} = $html->form_select('PAYMENT_TYPE', {
+    SELECTED => $Triplay->{PAYMENT_TYPE},
+    SEL_HASH => \%payment_types,
+    NO_ID    => 1
+  });
+
+
+  $Triplay->{PERIOD_ALIGNMENT} = ($Triplay->{PERIOD_ALIGNMENT} || $FORM{PERIOD_ALIGNMENT}) ? 'checked' : '';
+  $html->tpl_show(_include('triplay_tp', 'Triplay'), {
+    %$Triplay,
+    INTERNET => $internet_select,
+    IPTV     => $iptv_select,
+    VOIP     => $voip_select,
+    INDEX    => $index
+  });
+
+  result_former({
+    INPUT_DATA      => $Triplay,
+    FUNCTION        => 'tp_list',
+    BASE_FIELDS     => 6,
+    DEFAULT_FIELDS  => 'ID,NAME,MONTH_FEE,DAY_FEE,INTERNET_NAME,IPTV_NAME,VOIP_NAME,COMMENT',
+    FUNCTION_FIELDS => 'change, del',
+    EXT_TITLES      => {
+      id            => 'ID',
+      name          => $lang{NAME},
+      internet_name => $lang{INTERNET},
+      iptv_name     => $lang{TV},
+      voip_name     => $lang{VOIP},
+      month_fee     => $lang{MONTH_FEE},
+      day_fee       => $lang{DAY_FEE},
+      comment       => $lang{COMMENTS}
+    },
+    TABLE           => {
+      width   => '100%',
+      caption => $lang{TARIF_PLANS},
+      qs      => $pages_qs,
+      ID      => 'TRIPLAY_TP',
+      EXPORT  => 1,
+      MENU    => "$lang{ADD}:index=" . get_function_index('triplay_tp') . ':add' . ";",
+    },
+    MAKE_ROWS       => 1,
+    SEARCH_FORMER   => 1,
+    MODULE          => 'Triplay',
+    TOTAL           => 1
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 triplay_service_activate_web($attr) - Service activate
+
+  Arguments:
+    $attr
+
+  Returns:
+
+=cut
+#**********************************************************
+sub triplay_service_activate_web {
+  my ($attr)=@_;
+
+  my $uid = $attr->{UID} || 0;
+  my $triplay_tp_info = $Triplay->tp_info({ TP_ID => $attr->{TP_ID} });
+  my $internet_tp_id = $triplay_tp_info->{INTERNET_TP};
+  my $iptv_tp_id = $triplay_tp_info->{IPTV_TP};
+
+  if ($internet_tp_id) {
+    my $service_id = $attr->{INTERNET_SERVICE_ID} || 0;
+    # For multi import
+    # if ($attr->{ASSIGN_CUR} && ! $attr->{INTERNET_SERVICE_ID}) {
+    #   $service_id = triplay_get_services({
+    #     MODULE => 'Internet',
+    #     UID    => $uid,
+    #   });
+    # }
+    if (!$service_id) {
+      require Internet::Users;
+      $service_id = internet_user_add({
+        %$attr,
+        SERVICE_ADD => 1,
+        USER_INFO   => $users,
+        UID         => $uid,
+        TP_ID       => $internet_tp_id,
+      });
+    }
+    elsif ($service_id) {
+      require Internet::Users;
+      internet_user_change({
+        %$attr,
+        USER_INFO => $users,
+        UID       => $uid,
+        ID        => $service_id,
+        TP_ID     => $internet_tp_id,
+      });
+    }
+
+    if ($service_id) {
+      $Triplay->service_add({
+        UID        => $uid,
+        SERVICE_ID => $service_id,
+        MODULE     => 'Internet',
+      });
+    }
+  }
+
+  if ($iptv_tp_id) {
+    my $service_id = $attr->{IPTV_SERVICE_ID} || 0;
+    # For multi import
+    # if ($FORM{ASSIGN_CUR} && ! $FORM{IPTV_SERVICE_ID}) {
+    #   $service_id = triplay_get_services({
+    #     MODULE => 'Internet',
+    #     UID    => $uid,
+    #   });
+    # }
+    if (!$service_id) {
+      load_module('Iptv');
+      $service_id = iptv_user_add({
+        %$attr,
+        SERVICE_ADD => 1,
+        USER_INFO   => $users,
+        UID         => $uid,
+        TP_ID       => $iptv_tp_id,
+      });
+    }
+    elsif ($FORM{IPTV_SERVICE_ID}) {
+      load_module('Iptv');
+      iptv_user_change({
+        %$attr,
+        USER_INFO => $users,
+        UID       => $uid,
+        STATUS    => 0,
+        ID        => $service_id,
+        TP_ID     => $iptv_tp_id,
+      });
+    }
+
+    $Triplay->service_add({
+      UID        => $uid,
+      SERVICE_ID => $service_id,
+      MODULE     => 'Iptv',
+    });
+  }
+  #Make month fee
+  $Triplay->user_info({ UID => $uid });
+  if (!$attr->{DISABLE} && !$attr->{SKIP_MONTH_FEE}) {
+    service_get_month_fee($Triplay, {
+      REGISTRATION => 1,
+      SERVICE_NAME => 'Triplay',
+      MODULE       => 'Triplay'
+    });
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 triplay_user($attr) - in menu services
+
+  Arguments:
+
+
+  Returns:
+
+=cut
+#**********************************************************
+sub triplay_user {
+  my ($attr) = @_;
+
+  my $services_info = '';
+  $Triplay->{ACTION}='add';
+  $Triplay->{ACTION_LNG}=$lang{ADD};
+  my $uid = $FORM{UID} || 0;
+
+  if ($FORM{add}) {
+    $Triplay->user_add(\%FORM);
+
+    if (!$Triplay->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{ADDED});
+      triplay_service_activate_web(\%FORM);
+    }
+    else {
+      if ($Triplay->{errno} && $Triplay->{errno} == 3) {
+        $html->message('err', "$lang{WRONG} $lang{TARIF_PLAN}", "$lang{CHOOSE} $lang{TARIF_PLAN}", { ID => 1301 });
+      }
+    }
+  }
+  elsif ($FORM{change}) {
+    $Triplay->user_change(\%FORM);
+
+    if (!$Triplay->{errno}) {
+      $Triplay->user_info({ UID => $uid });
+      if (! $Triplay->{DISABLE}) {
+        my $service_list = $Triplay->service_list({
+          UID        => $uid,
+          MODULE     => '_SHOW',
+          SERVICE_ID => '_SHOW',
+          COLS_NAME  => 1
+        });
+
+        foreach my $service (@$service_list) {
+          $FORM{uc($service->{module}).'_SERVICE_ID'} = $service->{service_id} if ($service->{service_id});
+        }
+
+        triplay_service_activate_web(\%FORM);
+      }
+      $html->message('info', $lang{SUCCESS}, $lang{CHANGED});
+      #service_get_month_fee($Triplay, { SERVICE_NAME => 'Triplay', MODULE => 'Triplay' });
+    }
+  }
+  elsif($FORM{del} && $FORM{COMMENTS} && $permissions{0}{18}) {
+    $Triplay->user_del({ UID => $uid });
+    if (!$Triplay->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{USER} $lang{DELETED}");
+    }
+  }
+
+  _error_show($Triplay);
+
+  my $user_info = $Triplay->user_info({ UID => $uid });
+
+  if ($user_info->{TOTAL} && $user_info->{TOTAL} > 0) {
+    $Triplay->{ACTION_LNG} = $lang{CHANGE};
+    $Triplay->{ACTION} = 'change';
+
+    my $service_list = $Triplay->service_list({
+      UID        => $uid,
+      MODULE     => '_SHOW',
+      SERVICE_ID => '_SHOW',
+      COLS_NAME  => 1
+    });
+
+    my %user_services = ();
+    foreach my $service (@$service_list) {
+      $user_services{uc($service->{module}).'_SERVICE_ID'} = $service->{service_id};
+    }
+
+    my $tp_info = $Triplay->tp_info({ TP_ID => $user_info->{TP_ID} });
+
+    $services_info = $html->tpl_show(_include('triplay_sevices_info', 'Triplay'), {
+      INTERNET_TP=> $tp_info->{INTERNET_NAME},
+      VOIP_TP  => $tp_info->{VOIP_NAME},
+      IPTV_TP  => $tp_info->{IPTV_NAME},
+      INTERNET_LINK => "$SELF_URL?index=" . get_function_index('internet_user') . "&UID=" . $uid .'&chg='.($user_services{INTERNET_SERVICE_ID} || q{}),
+      VOIP_LINK     => in_array('Voip', \@MODULES) ? "$SELF_URL?index=" . get_function_index('voip_user') . "&UID=" . $uid .'&chg='.($user_services{VOIP_SERVICE_ID} || q{}) : q{},
+      IPTV_LINK     => "$SELF_URL?index=" . get_function_index('iptv_user') . "&UID=" . $uid .'&chg='.($user_services{IPTV_SERVICE_ID} || q{}),
+    }, { OUTPUT2RETURN => 1 });
+  }
+  else {
+    my %services_sel = ();
+    my @services = ('Internet', 'Iptv', 'Voip');
+    foreach my $service ( @services ) {
+      $services_sel{uc($service) . '_TP'} = triplay_get_services({
+        MODULE => ucfirst($service),
+        UID    => $uid,
+        SELECT => uc($service).'_SERVICE_ID'
+      });
+    }
+
+    $services_info = $html->tpl_show(_include('triplay_sevices_info', 'Triplay'), {
+      INTERNET => '',
+      VOIP     => '',
+      IPTV     => '',
+      %services_sel
+    }, { OUTPUT2RETURN => 1 });
+  }
+
+  $Triplay->{TP_SEL} = $html->form_select(
+    'TP_ID',
+    {
+      SELECTED      => $user_info->{TP_ID} || $FORM{TP_ID},
+      SEL_LIST      => $Triplay->tp_list({ COLS_NAME => 1 }),
+      SEL_KEY       => 'tp_id',
+      # SEL_VALUE     => 'name',
+      NO_ID         => 1,
+      MAIN_MENU     => get_function_index('triplay_tp'),
+      MAIN_MENU_ARGV=> "chg=". ($Triplay->{TRIPLAY_TP_ID} || q{}),
+    }
+  );
+
+  $Triplay->{STATUS_SEL} = sel_status({
+    DISABLE   => $Triplay->{DISABLE} || $FORM{DISABLE},
+    NAME      => 'DISABLE',
+    EX_PARAMS => (defined($Triplay->{STATUS}) && (!$attr->{REGISTRATION} && !$permissions{0}{18})) ? " disabled=disabled" : ''
+  }, $Triplay->{SHEDULE} || {});
+
+  if ($Triplay->{DISABLE}) {
+    my $service_status_colors = sel_status({ COLORS => 1 });
+    $Triplay->{STATUS_COLOR} = $service_status_colors->[$Triplay->{DISABLE} || 0];
+  }
+
+  if ($permissions{0} && $permissions{0}{14} && $Triplay->{ID}) {
+    $Triplay->{DEL_BUTTON} = $html->button($lang{DEL}, "index=$index&del=1&UID=$uid&ID=$Triplay->{ID}",
+      {
+        MESSAGE => "$lang{DEL} $lang{SERVICE} Triplay $lang{FOR} $lang{USER} $uid?",
+        class   => 'btn btn-danger float-right'
+      });
+  }
+
+  my $result = $html->tpl_show(_include('triplay_user', 'Triplay'), {
+    %{ $Triplay },
+    INDEX         => get_function_index('triplay_user'),
+    UID           => $uid,
+    SERVICES_INFO => $services_info
+  },
+    { ID => 'triplay_service', OUTPUT2RETURN => 1 });
+
+  return $result if ($attr->{PROFILE_MODE});
+
+  print $result;
+
+  return 1;
+}
+
+
+#**********************************************************
+=head2 triplay_get_services($attr) - in menu services
+
+  Arguments:
+    MODULE
+    UID
+    SELECT - SHOW Select form
+    FIRST  -
+
+  Returns:
+    $service_id
+
+=cut
+#**********************************************************
+sub triplay_get_services {
+  my ($attr) = @_;
+  my $service_id = 0 ;
+
+  if (! $attr->{MODULE}) {
+    return 0;
+  }
+
+  my $module = ucfirst($attr->{MODULE});
+  require $module.'.pm';
+  $module->import();
+
+  my $Service = $module->new($db, $admin, \%conf);
+  my $service_list;
+  my $service_fn;
+  if ($Service->can('user_list')) {
+    $service_fn = 'user_list';
+  }
+  elsif ($Service->can('list')) {
+    $service_fn = 'list';
+  }
+
+  $service_list = $Service->$service_fn({
+    UID       => $attr->{UID},
+    TP_ID     => '_SHOW',
+    TP_NAME   => '_SHOW',
+    GROUP_BY  => 'id',
+    COLS_NAME => 1
+  });
+
+  if ($attr->{SELECT}) {
+    my $select_id = $attr->{$attr->{SELECT}} || $FORM{$attr->{SELECT}} || q{};
+    return $html->form_select($attr->{SELECT},
+      {
+        SELECTED => $select_id,
+        SEL_LIST => $service_list,
+        SEL_KEY  => 'id',
+        SEL_VALUE=> 'tp_name,tp_id',
+        MAIN_MENU => get_function_index(lc($attr->{MODULE}).'_user'),
+        MAIN_MENU_ARGV => ($select_id) ? "chg=$select_id" : ''
+      });
+  }
+
+  foreach my $service (@$service_list) {
+    $service_id = $service->{id};
+    if ($attr->{FIRST}) {
+      last;
+    }
+  }
+
+  return $service_id;
+}
+
+1

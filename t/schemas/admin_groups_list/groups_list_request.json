@@ -1,0 +1,6 @@
+{
+  "name": "GROUPS_INFO",
+  "method": "GET",
+  "path": "groups/",
+  "params": {}
+}

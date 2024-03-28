@@ -1,0 +1,1085 @@
+#!perl
+
+=head1 NAME
+
+  Megogo web module
+
+=cut
+
+use Megogo;
+use Fees;
+use AXbills::Base;
+require AXbills::Defs;
+use strict;
+no strict 'vars';
+use warnings FATAL => 'all';
+no warnings 'uninitialized'; # FIXME
+
+my $VERSION = 1.0;
+
+my $Megogo = Megogo->new($db, $admin, \%conf);
+my $fees   = Fees->new($db, $admin, \%conf);
+
+my $partnerid = $conf{MEGOGO_PARTNER_ID};
+my $salt      = $conf{MEGOGO_SALT};
+my $prefix    = $conf{MEGOGO_PREFIX};
+my $bil_url   = "http://billing.megogo.net/partners";
+
+#**********************************************************
+
+=head2 megogo_main($attr)
+
+  Arguments:
+
+
+  Returns:
+
+=cut
+
+#**********************************************************
+sub megogo_main {
+  my ($attr) = @_;
+  my $tp_info;
+  my $action = 'add';
+  my $button = "$lang{ADD}";
+
+  if ($FORM{action} eq 'add') {
+
+    $Megogo->add_tp(
+      {
+        NAME        => $FORM{NAME},
+        AMOUNT      => $FORM{AMOUNT},
+        SERVICEID   => $FORM{SERVICEID},
+        ADDITIONAL  => $FORM{ADDITIONAL} ? 1 : 0,
+        FREE_PERIOD => $FORM{FREE_PERIOD} ? 1 : 0
+      }
+    );
+
+    if (!$Megogo->{errno}) {
+      $html->message('success', "$lang{SUCCESS}", "$lang{TP} $lang{ADDED}", {});
+    }
+    else {
+      $html->message('err', "$lang{ERROR}", "$lang{TP} $lang{NOT} $lang{ADDED}", {});
+    }
+  }
+  elsif ($FORM{action} eq 'change') {
+    $Megogo->change_tp(
+      {
+        %FORM,
+        ADDITIONAL  => $FORM{ADDITIONAL}  ? 1 : 0,
+        FREE_PERIOD => $FORM{FREE_PERIOD} ? 1 : 0
+      }
+    );
+  }
+
+  if ($FORM{del}) {
+    $Megogo->del_tp({ ID => $FORM{del} });
+
+    if (!$Megogo->{errno}) {
+      $html->message('success', "$lang{SUCCESS}", "$lang{TP} $lang{DELETED}", {});
+    }
+    else {
+      $html->message('err', "$lang{ERROR}", "$lang{TP} $lang{NOT} $lang{DELETED}", {});
+    }
+  }
+
+  if ($FORM{chg}) {
+    $action  = 'change';
+    $button  = "$lang{CHANGE}";
+    $tp_info = $Megogo->select_tp({ TP_ID => $FORM{chg} });
+  }
+
+  $html->tpl_show(
+    _include('megogo_tariff_plans', 'Megogo'),
+    {
+      ACTION        => $action,
+      BUTTON        => $button,
+      ID            => $tp_info->{ID},
+      NAME          => $tp_info->{NAME},
+      AMOUNT        => $tp_info->{AMOUNT},
+      SERVICEID     => $tp_info->{SERVICEID},
+      IS_ADDITIONAL => ($tp_info->{ADDITIONAL} == 1) ? 'checked' : '',
+      IS_FREE       => ($tp_info->{FREE_PERIOD} == 1) ? 'checked' : ''
+    }
+  );
+
+  my ($table, $list) = result_former(
+    {
+      INPUT_DATA      => $Megogo,
+      FUNCTION        => 'list_tp',
+      BASE_FIELDS     => 6,
+      DEFAULT_FIELDS  => "id, name, amount, serviceid, additional, free_period",
+      FUNCTION_FIELDS => 'change, del',
+      EXT_TITLES      => {
+        'id'          => 'ID',
+        'name'        => "$lang{NAME}",
+        'amount'      => "$lang{AMOUNT}",
+        'serviceid'   => "$lang{SERVICEID}",
+        'additional'  => "$lang{TYPE}",
+        'free_period' => "$lang{FREE_PERIOD}"
+      },
+      TABLE => {
+        width   => '100%',
+        caption => "$lang{TPS}",
+        qs      => $pages_qs,
+        ID      => 'MEGOGO_TP',
+        header  => '',
+        EXPORT  => 1,
+        #MENU    => "$lang{ADD}:index=" . get_function_index('triplay_main') . ':add' . ";",
+      },
+      SELECT_VALUE => {
+        additional => {
+          0 => "$lang{PRIMARY}:text-danger",
+          1 => "$lang{SECONDARY}:text-primary"
+        },
+        free_period => {
+          0 => "$lang{NOTAVAILABLE}:text-info",
+          1 => "$lang{AVAILABLE}:text-primary"
+
+        }
+      },
+      MAKE_ROWS     => 1,
+      SEARCH_FORMER => 1,
+      MODULE        => 'Megogo',
+      TOTAL         => 1
+    }
+  );
+
+  return 1;
+}
+
+#**********************************************************
+
+=head2 megogo_user_interface($attr)
+
+  Arguments:
+
+
+  Returns:
+
+=cut
+
+#**********************************************************
+sub megogo_user_interface {
+  my ($attr)        = @_;
+  my $primary_tps   = '';
+  my $secondary_tps = '';
+  my $watch_label   = '';
+  my $watch_button  = '';
+
+  if ($FORM{PRIMARY_SUB_ID}) {
+    megogo_primary_subscribe($FORM{PRIMARY_SUB_ID});
+  }
+  elsif ($FORM{SECONDARY_SUB_ID}) {
+    megogo_secondary_subscribe($FORM{SECONDARY_SUB_ID});
+  }
+  elsif ($FORM{PRIMARY_UNSUB_ID}) {
+    megogo_primary_unsubscribe($FORM{PRIMARY_UNSUB_ID});
+  }
+  elsif ($FORM{SECONDARY_UNSUB_ID}) {
+    megogo_secondary_unsubscribe($FORM{SECONDARY_UNSUB_ID});
+  }
+
+  my $user_tp_list = $Megogo->list_user({ UID => $user->{UID}, COLS_NAME => 1 });
+
+  foreach my $user_tp (@$user_tp_list) {
+    my $next_tp_info = $Megogo->select_tp({ TP_ID => $user_tp->{next_tp_id} });
+    my $continue = $user_tp->{active} == 0 ? "$lang{YES}" : "$lang{NO}";
+
+    $html->message(
+      'success', "$lang{TP} - $user_tp->{name}<br>
+                                   $lang{EXPIRE} - $user_tp->{expiry_date}<br>
+                                   $lang{CONTINUE} - $continue<br>
+                                   $lang{TP} $lang{IN_NEXT_MONTH} -" . ($user_tp->{active} == 0 ? " $next_tp_info->{NAME}" : " $lang{NO}"),
+      "", {}
+    );
+  }
+
+  my $tp_list = $Megogo->list_tp({ COLS_NAME => 1 });
+
+  foreach my $tp (@$tp_list) {
+    my $check_active_tp = $Megogo->select_user({ COLS_NAME => 1, UID => $user->{UID}, TP_ID => $tp->{id} });
+
+    if ($tp->{additional} == 0) {
+
+      $primary_tps .= $html->tpl_show(
+        _include('megogo_primary_tp', 'Megogo'),
+        {
+          TP_ID          => $tp->{id},
+          TP_NAME        => $tp->{name},
+          TP_AMOUNT      => $tp->{amount},
+          TP_FREE_PERIOD => $tp->{free_period} == 1 ? "$lang{AVAILABLE}" : "$lang{NOTAVAILABLE}",
+          BUTTON         => $check_active_tp->{TOTAL} ? "$lang{UNSUB}" : "$lang{SUB}",
+          ACTION         => $check_active_tp->{TOTAL} ? "PRIMARY_UNSUB_ID" : "PRIMARY_SUB_ID",
+          STYLE          => $check_active_tp->{TOTAL} ? 'btn btn-danger' : 'btn btn-primary'
+        },
+        { OUTPUT2RETURN => 1 }
+      );
+    }
+    else {
+
+      $secondary_tps .= $html->tpl_show(
+        _include('megogo_secondary_tp', 'Megogo'),
+        {
+          TP_ID          => $tp->{id},
+          TP_NAME        => $tp->{name},
+          TP_AMOUNT      => $tp->{amount},
+          TP_FREE_PERIOD => $tp->{free_period} == 1 ? "$lang{AVAILABLE}" : "$lang{NOTAVAILABLE}",
+          BUTTON         => $check_active_tp->{TOTAL} ? "$lang{UNSUB}" : "$lang{SUB}",
+          ACTION         => $check_active_tp->{TOTAL} ? "SECONDARY_UNSUB_ID" : "SECONDARY_SUB_ID",
+          STYLE          => $check_active_tp->{TOTAL} ? 'btn btn-danger' : 'btn btn-warning'
+        },
+        { OUTPUT2RETURN => 1 }
+      );
+    }
+  }
+
+  if(scalar @$user_tp_list != 0){
+
+  	my $string_for_token = $prefix . $user->{LOGIN} . $partnerid . $salt;
+    load_pmodule('Digest::MD5');
+    my $md5 = new Digest::MD5;
+    $md5->reset;
+    $md5->add($string_for_token);
+    my $token = $md5->hexdigest();
+    $watch_url    = "http://megogo.net/auth/by_partners/dialog?isdn=$prefix" .$user->{LOGIN} ."&partner_key=$partnerid&token=$token";
+    $watch_label = "<label class='col-md-12 text-center' style='color: red'>
+    $lang{MEGOGO_WARNING}</label>";
+    $watch_button = "<a href=$watch_url class='btn btn-success btn-lg'>$lang{GO_TO_MEGOGO}</a>";
+  }
+
+  $html->tpl_show(
+    _include('megogo_client_tp_choose', 'Megogo'),
+    {
+      PRIMARY_TP   => $primary_tps,
+      SECONDARY_TP => $secondary_tps,
+      WATCH_BUTTON => $watch_button,
+      WATCH_LABEL  => $watch_label
+    }
+  );
+
+  return 1;
+}
+
+#**********************************************************
+
+=head2 megogo_primary_subscribe($tp_id, $attr) - subscribe for primary tp
+
+  Arguments:
+
+
+  Returns:
+
+=cut
+
+#**********************************************************
+sub megogo_primary_subscribe {
+  my ($tp_id, $attr) = @_;
+
+  my $user_primary_tarif = $Megogo->list_user({ COLS_NAME => 1, UID => $user->{UID}, ADDITIONAL => 0 });
+  my $tp_info = $Megogo->select_tp({ TP_ID => $tp_id });
+  my $check_free_open = $Megogo->select_user_free({ UID => $user->{UID} });
+
+  my ($pay_amount, $pay_days, $amount_per_day) = megogo_get_pay_amount($tp_info->{AMOUNT});
+  my ($y,$m,$d) = split('-', $DATE);
+
+  if($tp_info->{FREE_PERIOD} == 1 && $check_free_open->{USED} != 1 && $user_primary_tarif eq ''){
+   my $action_result = megogo_user_actions('subscribe', $tp_id, $user->{LOGIN});
+
+   if ($action_result eq 'subscribe') {
+     $Megogo->add_user_free({
+     UID         => $user->{UID},
+     FP          => 1,
+     });
+
+     if (!$Megogo->{errno}) {
+       $html->message('success', "$lang{SUCCESS}", "$lang{FREE_PERIOD} $lang{USED}", {});
+
+       $Megogo->add_user(
+         {
+           UID            => $user->{UID},
+           TP_ID          => $tp_id,
+           NEXT_TP_ID     => $tp_id,
+           SUBSCRIBE_DATE => $DATE,
+           EXPIRY_DATE    => megogo_get_expire_date({FREE => 1}),
+           SUSPEND        => 0,
+           ACTIVE         => 0
+         }
+       );
+
+       $Megogo->add_tp_report(
+         {
+           TP_ID     => $tp_id,
+           UID       => $user->{UID},
+           FREE_DAYS => $pay_days + $d,
+           YEAR      => $y,
+           MONTH     => $m
+         }
+       );
+     }
+   }
+
+   return 1;
+  }
+
+  if ($user_primary_tarif eq '') {
+   if ($user->{DEPOSIT} >= $pay_amount) {
+
+     my $action_result = megogo_user_actions('subscribe', $tp_id, $user->{LOGIN});
+
+     if ($action_result eq 'subscribe') {
+       $Megogo->add_user(
+         {
+           UID            => $user->{UID},
+           TP_ID          => $tp_id,
+           NEXT_TP_ID     => $tp_id,
+           SUBSCRIBE_DATE => $DATE,
+           EXPIRY_DATE    => megogo_get_expire_date(),
+           SUSPEND        => 0,
+           ACTIVE         => 0
+         }
+       );
+
+       $Megogo->add_tp_report(
+         {
+           TP_ID    => $tp_id,
+           UID      => $user->{UID},
+           DAYS     => $pay_days,
+           YEAR     => $y,
+           MONTH    => $m,
+           PAYMENTS => $pay_amount
+         }
+       );
+
+       if (!$Megogo->{errno}) {
+         #$html->message('success', "$lang{SUCCESS}", "$lang{SUBSCRIBED}", {});
+         $fees->take($user, $pay_amount, { DESCRIBE => "Megogo $tp_info->{NAME}" });
+       }
+       else {
+         $html->message('err', "$lang{ERROR}", "$lang{NOT} $lang{SUBSCRIBED}", { ID => 1402});
+       }
+     }
+     else {
+       $html->message('err', "$lang{ERROR}", "$lang{WRONG} $lang{ANSWER} $lang{FROM} $lang{MEGOGO}", { ID => 1401});
+     }
+   }
+   else {
+     $html->message('err', "$lang{ERROR}", "$lang{NOT_ENOUGH_MONEY}", { ID => 1403});
+   }
+  }
+  else {
+   $Megogo->change_user(
+     {
+       UID        => $user->{UID},
+       NEXT_TP_ID => $tp_id,
+       TP_ID      => $user_primary_tarif->[0]->{tp_id}
+     }
+   );
+
+   if (!$Megogo->{errno}) {
+     $html->message('success', "$lang{SUCCESS}", "$lang{CHANGED}", {});
+   }
+   else {
+     $html->message('err', "$lang{ERROR}", "$lang{NOT} $lang{CHANGED}", {});
+   }
+  }
+
+  return 1;
+}
+
+#**********************************************************
+
+=head2 megogo_secondary_subscribe($tp_id, $attr) -  subscribe for secondary tp
+
+  Arguments:
+
+
+  Returns:
+
+=cut
+
+#**********************************************************
+sub megogo_secondary_subscribe {
+  my ($tp_id, $attr) = @_;
+  my $tp_info = $Megogo->select_tp({ TP_ID => $tp_id });
+  my ($pay_amount, $pay_days, $amount_per_day) = megogo_get_pay_amount($tp_info->{AMOUNT});
+  my ($y,$m,undef) = split('-', $DATE);
+
+  if ($user->{DEPOSIT} >= $pay_amount) {
+    my $action_result = megogo_user_actions('subscribe', $tp_id, $user->{LOGIN});
+    if ($action_result eq 'subscribe') {
+      $Megogo->add_user(
+        {
+          UID            => $user->{UID},
+          TP_ID          => $tp_id,
+          NEXT_TP_ID     => $tp_id,
+          SUBSCRIBE_DATE => $DATE,
+          EXPIRY_DATE    => megogo_get_expire_date(),
+          SUSPEND        => 0,
+          ACTIVE         => 0
+        }
+      );
+
+      $Megogo->add_tp_report(
+          {
+            TP_ID    => $tp_id,
+            UID      => $user->{UID},
+            DAYS     => $pay_days,
+            YEAR     => $y,
+            MONTH    => $m,
+            PAYMENTS => $pay_amount
+          }
+        );
+
+      if (!$Megogo->{errno}) {
+        $html->message('success', "$lang{SUCCESS}", "$lang{SUBSCRIBED}", {});
+        $fees->take($user, $pay_amount, { DESCRIBE => "Megogo $tp_info->{NAME}" });
+      }
+      else {
+        $html->message('err', "$lang{ERROR}", "$lang{NOT} $lang{SUBSCRIBED}", {ID => 1404});
+      }
+    }
+    else {
+      $html->message('err', "$lang{ERROR}", "$lang{WRONG} $lang{ANSWER} $lang{FROM} $lang{MEGOGO}", { ID => 1401});
+    }
+  }
+  else {
+    $html->message('err', "$lang{ERROR}", "$lang{NOT_ENOUGH_MONEY}", { ID => 1403});
+  }
+
+  return 1;
+}
+
+#**********************************************************
+
+=head2 megogo_user_actions($action, $tp_id, $login) - do subscribe,unsubscribe
+
+  Arguments:
+    $action
+    $tp_id
+    $login
+
+  Returns:
+
+=cut
+
+#**********************************************************
+sub megogo_user_actions {
+  my ($action, $tp_id, $login) = @_;
+  load_pmodule('JSON');
+
+  use LWP::UserAgent;
+
+  my $ua      = LWP::UserAgent->new;
+  my $tp_info = $Megogo->select_tp({ TP_ID => $tp_id });
+  my $user_id = $prefix . $login;
+  my $res     = $ua->get("$bil_url/$partnerid/subscription/$action?userId=$user_id&serviceId=$tp_info->{SERVICEID}");
+  my $answer  = $res->content;
+
+  if($answer =~ /^Partner|DOCTYPE html/){
+    return 0;
+  }
+
+
+print $answer;
+
+  my $hash_answer = from_json($answer);
+  my $status;
+
+  if ($hash_answer->{successful} == 1) {
+    $status = "$action";
+  }
+  else {
+    $status = "Error with $action";
+  }
+
+  return $status;
+}
+
+#**********************************************************
+
+=head2 megogo_get_expire_date($attr)
+
+  Arguments:
+    FREE  -
+
+  Returns:
+
+
+  Examples:
+
+=cut
+
+#**********************************************************
+sub megogo_get_expire_date {
+  my ($attr) = @_;
+  my ($year, $month, $day) = split('-', $DATE);
+  $month = $month + 1;
+  if ($month > 12) {
+    $year  = $year + 1;
+    $month = 1;
+  }
+  if(!$attr->{FREE}){
+    $day   = 1;
+  }
+
+  return "$year-$month-$day";
+}
+
+
+#**********************************************************
+
+=head2 megogo_get_pay_amount($attr)
+
+  Arguments:
+
+
+  Returns:
+
+=cut
+
+#**********************************************************
+sub megogo_get_pay_amount {
+  my ($tp_amount, $attr) = @_;
+  my $days_in_month = days_in_month();
+  my (undef, undef, $now_day) = split('-', $DATE);
+  my $pay_days = $days_in_month - $now_day + 1;
+
+  my $amount_per_day = $tp_amount / $days_in_month;
+  my $pay_amount = $pay_days * $amount_per_day;
+
+  return ($pay_amount, $pay_days, $amount_per_day);
+}
+
+#**********************************************************
+=head2 megogo_primary_unsubscribe($attr)
+
+  Arguments:
+
+
+  Returns:
+
+=cut
+#**********************************************************
+sub megogo_primary_unsubscribe {
+  my ($tp_id, $attr) = @_;
+
+  $Megogo->change_user({UID => $user->{UID}, TP_ID => $tp_id, ACTIVE => 1});
+
+  if (!$Megogo->{errno}) {
+    $html->message('success', "$lang{SUCCESS}", "$lang{CHANGED}", {});
+  }
+  else {
+    $html->message('err', "$lang{ERROR}", "$lang{NO} $lang{CHANGE}", {});
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 megogo_secondary_unsubscribe($attr)
+
+  Arguments:
+
+
+  Returns:
+
+=cut
+#**********************************************************
+sub megogo_secondary_unsubscribe {
+  my ($tp_id, $attr) = @_;
+
+  $Megogo->change_user({UID => $user->{UID}, TP_ID => $tp_id, ACTIVE => 1});
+
+  if (!$Megogo->{errno}) {
+    $html->message('success', "$lang{SUCCESS}", "$lang{CHANGED}", {});
+  }
+  else {
+    $html->message('err', "$lang{ERROR}", "$lang{NO} $lang{CHANGED}", {});
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 megogo_report($attr)
+
+  Arguments:
+
+
+  Returns:
+
+=cut
+#**********************************************************
+sub megogo_report {
+  my ($attr) = @_;
+
+  my ($year, $month, undef) = split('-', $DATE);
+
+  my %years = ( 2016 => '2016',
+                2017 => '2017',
+                2018 => '2018');
+
+  if(defined $FORM{MONTH_ID}){
+    $month = $FORM{MONTH_ID};
+  }
+
+  if(defined $FORM{YEAR_ID}){
+    $year = $FORM{YEAR_ID};
+  }
+
+  my $month_select =  $html->form_select(
+  'MONTH_ID',
+  {
+    SELECTED      => $month,
+    SEL_ARRAY     => \@MONTHES,
+    SEL_KEY       => 'id',
+    SEL_VALUE     => 'name',
+    ARRAY_NUM_ID  => 1,
+    NO_ID         => 1
+  }
+);
+
+  my $year_select =  $html->form_select(
+  'YEAR_ID',
+  {
+    SELECTED  => $FORM{YEAR_ID},
+    SEL_HASH  => \%years,
+    SEL_KEY   => 'id',
+    SEL_VALUE => 'name',
+    NO_ID     => 1
+  }
+);
+
+  $html->tpl_show(
+    _include('megogo_report', 'Megogo'),
+    {
+      MONTHES => $month_select,
+      YEARS   => $year_select,
+      INDEX   => get_function_index('megogo_report')
+    }
+  );
+
+  print megogo_report_table({MONTH_ID => $FORM{MONTH_ID}, YEAR_ID => $FORM{YEAR_ID}});
+  return 1;
+}
+
+#**********************************************************
+=head2 megogo_report_table($attr)
+
+  Arguments:
+
+
+  Returns:
+
+=cut
+#**********************************************************
+sub megogo_report_table {
+  my ($attr) = @_;
+  my $table = '';
+  my ($year, $month, undef) = split('-', $DATE);
+
+  if( ref $attr eq 'HASH') {
+    if (defined $attr->{MONTH_ID}) {
+      $month = $attr->{MONTH_ID} + 1;
+    }
+    if (defined $attr->{YEAR_ID}) {
+      $year = $attr->{YEAR_ID};
+    }
+  }
+
+  my $report_list = $Megogo->report_lists(
+    {
+      MONTH => $month,
+      YEAR  => $year,
+      COLS_NAME => 1
+    }
+  );
+  my $tp_list = $Megogo->list_tp({ COLS_NAME => 1 });
+
+  $table = $html->table(
+      {
+        width   => '100%',
+        caption => defined $FORM{MONTH_ID} ? "$lang{MEGOGO} $year  $MONTHES[$FORM{MONTH_ID}]" : "$lang{MEGOGO} $year $MONTHES[$month - 1]",
+        title   => [ $lang{TP}, $lang{AMOUNT} . "($lang{IN_MONTH})", $lang{DAYS},  $lang{FREE_PERIOD} . "($lang{DAYS})", $lang{PAYMENTS} ],
+        ID      => 'MEGOGO_REPORT',
+        EXPORT  => 1,
+      }
+    );
+
+  foreach my $tp (@$tp_list){
+    my $payments;
+    my $days;
+    my $free_days;
+
+    foreach my $line (@$report_list) {
+        if($tp->{id} == $line->{tp_id})
+        {
+          $payments += $line->{payments};
+          $days += $line->{days};
+          $free_days += $line->{free_days};
+        }
+      }
+      $table->addrow($tp->{name}, $tp->{amount}, $days || 0,  $free_days || 0, $payments || 0);
+  }
+
+  return $table->show();
+}
+
+
+#**********************************************************
+=head2 megogo_start_page($attr)
+
+  Arguments:
+
+
+  Returns:
+
+=cut
+#**********************************************************
+sub megogo_start_page {
+  #my ($attr) = @_;
+
+  my %START_PAGE_F = ('megogo_report_table' => "$lang{USED}");
+
+  return \%START_PAGE_F;
+}
+
+#**********************************************************
+=head2 megogo_monthly_pay($attr)
+
+  Arguments:
+
+
+  Returns:
+
+=cut
+#**********************************************************
+sub megogo_monthly_pay {
+  my ($attr) = @_;
+  my $users = Users->new($db, $admin, \%conf);
+  my $debug = $attr->{DEBUG};
+  use Time::Local;
+  my $all_users = $Megogo->list_user({COLS_NAME => 1});
+
+  my ($now_year, $now_month, $now_day) = split('-', $DATE);
+  my $now_time = timelocal( 1, 1, 0, $now_day, $now_month - 1, $now_year );
+  foreach my $user (@$all_users){
+    my ($year, $month, $day) = split('-', $user->{expiry_date});
+    my $expiry_time = timelocal( 1, 1, 0, $day, $month - 1, $year );
+    #print "exp time - $expiry_time\n";
+    my $user_information = $users->info($user->{uid});
+
+    if($now_time >= $expiry_time){
+
+      if($user->{active} == 1){
+        print "UID = $user->{uid}\nОтписать\n" if ($debug == 1);
+        my $action_result = megogo_user_actions('unsubscribe', $user->{tp_id}, $user_information->{LOGIN});
+
+        if($action_result eq 'unsubscribe'){
+          $Megogo->delete_user({UID => $user->{uid}, TP_ID => $user->{tp_id}});
+
+          if(!$Megogo->{errno}){
+            print "\nUID = $user->{uid}\nОтписан и удален\n";
+          }
+          else {
+            print "\nUID = $user->{uid}\nПроблема с удалением\n";
+          }
+        }
+      }
+      else{
+        if($user->{tp_id} != $user->{next_tp_id}){
+          my $tp_info = $Megogo->select_tp({TP_ID => $user->{next_tp_id}});
+          my $check_free_open = $Megogo->select_user_free({ UID => $user->{uid} });
+          my ($pay_amount, $pay_days, $amount_per_day) = megogo_get_pay_amount($tp_info->{AMOUNT});
+          my ($y,$m,$day) = split('-', $DATE);
+
+          if($tp_info->{FREE_PERIOD} == 1 && $check_free_open->{USED} != 1){
+            print "\n\n\n";
+            my $action_result = megogo_user_actions('unsubscribe', $user->{tp_id}, $user_information->{LOGIN});
+            $action_result = megogo_user_actions('subscribe', $user->{next_tp_id}, $user_information->{LOGIN});
+
+            if ($action_result eq 'subscribe') {
+              $Megogo->add_user_free({
+                UID         => $user->{uid},
+                FP          => 1,
+              });
+
+              if (!$Megogo->{errno}) {
+                #$html->message('success', "$lang{SUCCESS}", "$lang{FREE_PERIOD} $lang{USED}", {});
+                # CHECK CHANGES
+                # print "\nChange number 1\n";
+                # $Megogo->{debug} = 1;
+                $Megogo->change_tp_id(
+                  {
+                    UID            => $user->{uid},
+                    TP_ID          => $user->{next_tp_id},
+                    NEXT_TP_ID     => $user->{next_tp_id},
+                    #SUBSCRIBE_DATE => $DATE,
+                    EXPIRY_DATE    => megogo_get_expire_date({FREE => 1}),
+                    SUSPEND        => 0,
+                    ACTIVE         => 0
+                  }
+                );
+                print "UID = $user->{uid}\nПеренаправлен на другой тариф с бесплатным месяцем\n";
+
+                $Megogo->add_tp_report(
+                  {
+                    TP_ID     => $user->{next_tp_id},
+                    UID       => $user->{uid},
+                    FREE_DAYS => $pay_days + $day,
+                    YEAR      => $y,
+                    MONTH     => $m
+                  }
+                );
+              }
+            }
+          }
+          else{
+            my $tp_info = $Megogo->select_tp({TP_ID => $user->{next_tp_id}});
+            my ($pay_amount, $pay_days, $amount_per_day) = megogo_get_pay_amount($tp_info->{AMOUNT});
+            my ($y,$m,undef) = split('-', $DATE);
+            my $action_result = megogo_user_actions('unsubscribe', $user->{tp_id}, $user_information->{LOGIN});
+            if($action_result eq 'unsubscribe'){
+              $action_result = megogo_user_actions('subscribe', $user->{next_tp_id}, $user_information->{LOGIN});
+            }
+            if($action_result eq 'subscribe') {
+              if ($user_information->{DEPOSIT} >= $pay_amount) {
+                # CHECK CHANGES
+                # print "\nChange number 2\n";
+                # print "uid = $user->{uid}\n";
+                # print "next id = $user->{next_tp_id}\n";
+                $Megogo->{debug} = 1;
+                $Megogo->change_tp_id(
+                  {
+                    UID            => $user->{uid},
+                    TP_ID          => $user->{next_tp_id},
+                    NEXT_TP_ID     => $user->{next_tp_id},
+                    #SUBSCRIBE_DATE => $DATE,
+                    EXPIRY_DATE    => megogo_get_expire_date(),
+                    SUSPEND        => 0,
+                    ACTIVE         => 0
+                  }
+                );
+                print "$user->{uid} перенаправлен на другой тариф\n";
+                $Megogo->add_tp_report(
+                  {
+                    TP_ID    => $user->{next_tp_id},
+                    UID      => $user->{uid},
+                    DAYS     => $pay_days,
+                    YEAR     => $y,
+                    MONTH    => $m,
+                    PAYMENTS => $pay_amount
+                  }
+                );
+
+                my %subscriber = (
+                  LOGIN        => $user_information->{LOGIN},
+                  UID          => $user_information->{UID},
+                  BILL_ID      => $user_information->{BILL_ID},
+                  MAIN_BILL_ID => $user_information->{BILL_ID},
+                  DEPOSIT      => $user_information->{DEPOSIT},
+                  CREDIT       => $user_information->{CREDIT},
+                );
+
+                if (!$Megogo->{errno}) {
+                  #$html->message('success', "$lang{SUCCESS}", "$lang{CHANGED}", {});
+                  $fees->take(\%subscriber, $pay_amount, { DESCRIBE => "Megogo $tp_info->{NAME}" });
+                  print "C абонента $user->{uid} снято $pay_amount денег\n";
+                }
+                else {
+                  #$html->message('err', "$lang{ERROR}", "lang{NOT} $lang{CHANGED}", { ID => 1402});
+                }
+              }
+            }
+            else{
+              my $action_result = megogo_user_actions('unsubscribe', $user->{tp_id}, $user_information->{LOGIN});
+
+              if($action_result eq 'unsubscribe'){
+                $Megogo->delete_user( {UID => $user->{uid}, TP_ID => $user->{tp_id}} );
+                print "UID = $user->{uid}\nНедостаочно средств для перехода на другой тариф, удален и отписан\n";
+              }
+            }
+          }
+        }
+        else{
+          my $tp_info = $Megogo->select_tp({TP_ID => $user->{tp_id}});
+          my ($pay_amount, $pay_days, $amount_per_day) = megogo_get_pay_amount($tp_info->{AMOUNT});
+          my ($y,$m,undef) = split('-', $DATE);
+          if($user_information->{DEPOSIT} >= $pay_amount){
+            $Megogo->change_user(
+                  {
+                    UID            => $user->{uid},
+                    TP_ID          => $user->{tp_id},
+                    NEXT_TP_ID     => $user->{tp_id},
+                    #SUBSCRIBE_DATE => $DATE,
+                    EXPIRY_DATE    => megogo_get_expire_date(),
+                    SUSPEND        => 0,
+                    ACTIVE         => 0
+                  }
+                );
+                print "UID = $user->{uid}\nПродлен тот же тариф\n" if ($debug == 1);
+                $Megogo->add_tp_report(
+                  {
+                    TP_ID    => $user->{next_tp_id},
+                    UID      => $user->{uid},
+                    DAYS     => $pay_days,
+                    YEAR     => $y,
+                    MONTH    => $m,
+                    PAYMENTS => $pay_amount
+                  }
+                );
+
+                my %subscriber = (
+                  LOGIN        => $user_information->{LOGIN},
+                  UID          => $user_information->{UID},
+                  BILL_ID      => $user_information->{BILL_ID},
+                  MAIN_BILL_ID => $user_information->{BILL_ID},
+                  DEPOSIT      => $user_information->{DEPOSIT},
+                  CREDIT       => $user_information->{CREDIT},
+                );
+
+                if (!$Megogo->{errno}) {
+                  #$html->message('success', "$lang{SUCCESS}", "$lang{CHANGED}", {});
+                  $fees->take(\%subscriber, $pay_amount, { DESCRIBE => "Megogo $tp_info->{NAME}" });
+                  print "С пользователя $user->{uid} снято денег за тот же тариф\n";
+                }
+                else {
+                  #$html->message('err', "$lang{ERROR}", "lang{NOT} $lang{CHANGED}", { ID => 1402});
+                }
+          }
+          else{
+            my $action_result = megogo_user_actions('unsubscribe', $user->{tp_id}, $user_information->{LOGIN});
+
+            if($action_result eq 'unsubscribe'){
+              $Megogo->delete_user( {UID => $user->{uid}, TP_ID => $user->{tp_id}} );
+              print "UID = $user->{uid}\nНедостаточн средств для продления, отписан и удален\n" if ($debug == 1);
+            }
+          }
+        }
+      }
+    }
+    else {
+      print "UID = $user->{uid}\nПодписка ещё не истекла\n\n" if ($debug == 1)
+    }
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 megogo_user_service($attr) - user's service show
+
+  Arguments:
+
+
+  Returns:
+
+=cut
+#**********************************************************
+sub megogo_user_service {
+  my ($attr) = @_;
+
+  my $free_period_info = $Megogo->select_user_free({ UID  => $FORM{UID} });
+  my $user_tp_list     = $Megogo->list_user({UID => $FORM{UID}, COLS_NAME => 1});
+
+  my $tables;
+
+  foreach my $tp (@$user_tp_list){
+    $tables .= $html->tpl_show(
+    _include('megogo_service_table', 'Megogo'),
+    {
+      EXPIRY_DATE => $tp->{expiry_date},
+      TP_NAME     => $tp->{name},
+      CONTINUE    => $tp->{active} == 0 ? "$lang{YES}" : "$lang{NO}"
+    },{OUTPUT2RETURN=>1});
+  }
+
+  $html->tpl_show(
+    _include('megogo_user', 'Megogo'),
+    {
+      TABLES      => defined $tables ? $tables : "$lang{NO_TPS}",
+      FREE_PERIOD => $free_period_info->{USED} == 1 ? "$lang{USED_FROM} $free_period_info->{DATE_START}" : "$lang{NOT_USED}"
+    });
+}
+
+
+#**********************************************************
+=head2 megogo_show_users($attr) - table with user's subscriptions
+
+  Arguments:
+
+
+  Returns:
+
+=cut
+#**********************************************************
+sub megogo_show_users {
+
+  my $users_table = '';
+
+  # Таблица пользователей
+  $users_table = $html->table(
+    {
+      width   => '100%',
+      caption => $lang{USERS},
+      title   => [ 'UID', $lang{TP}, "$lang{TP} $lang{IN_NEXT_MONTH}", $lang{DATE_REGISTER}, $lang{EXPIRE}, $lang{STATUS}, $lang{TP}, $lang{FREE_PERIOD} ],
+      ID      => 'MEGOGO_USERS'
+    }
+  );
+
+  # Удаление и отписка пользователя через админский интерфейс
+  if ($FORM{del}) {
+    my $login = $users->info($FORM{del});
+    my $action_result = megogo_user_actions('unsubscribe', $FORM{tp}, $login->{LOGIN});
+    # удаление из базы
+    if ($action_result eq 'unsubscribe') {
+      $Megogo->delete_user({ UID => $FORM{del}, TP => $FORM{tp} });
+
+      $html->message('success', "$lang{USER} $lang{DELETED}", "UID = $FORM{del} $status", {});
+    }
+  }
+
+  # Вывод списка пользователей
+  my $list = $Megogo->list_user(
+    {
+      PAGE_ROWS => 100000,
+      COLS_NAME => 1
+    }
+  );
+
+
+  foreach my $line (@$list) {
+    #my $tp_info = $Megogo->select_tp({ TP_ID => $line->{tp_id} });
+    my $tp_name = $line->{name};
+    if ($line->{suspend} == 0) {
+      $sts = "$lang{ON}";
+    }
+    else { $sts = "$lang{OFF}" }
+
+    if ($line->{active} == 0) {
+      $active = "$lang{SUB}";
+    }
+    else { $active = "$lang{UNSUB}" }
+
+    my $ufp = $Megogo->select_user_free({ UID => $line->{uid} });
+    if ($ufp->{TOTAL} == 0) {
+      $fp ="$lang{AVAILABLE}";
+    }
+    else { $fp = "$lang{NOTAVAILABLE}" }
+
+    my $next_tp_info = $Megogo->select_tp({ TP_ID => $line->{next_tp_id} });
+
+    $users_table->addrow(
+      $html->button($line->{uid}, "index=" . get_function_index('megogo_user_service') . "&UID=$line->{uid}"),
+      $tp_name, $next_tp_info->{NAME}, $line->{subscribe_date},
+      $line->{expiry_date}, $sts, $active, $fp, $html->button($lang{DEL}, "index=$index&del=$line->{uid}&tp=$line->{tp_id}", { MESSAGE => "$lang{DEL} $line->{uid}?", class => 'del' })
+    );
+  }
+
+  print $users_table->show();
+
+  return 1;
+}
+
+1

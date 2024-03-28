@@ -1,0 +1,10 @@
+#include "ccdgenKeywords.h"
+
+Begin: eponUniCfg.mi2 eponUniCfg
+       IncludeFile: $GBN_DIR/tools/mibs
+       SupportPath: $GBN_DIR/tools/mibs
+       SupportMibs: eponRoot.mi2
+       GroupList: eponUniCfg
+    /* HideFromSNMP: true */
+
+End:

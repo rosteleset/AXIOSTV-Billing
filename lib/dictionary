@@ -1,0 +1,516 @@
+ATTRIBUTE  User-Name      1  string
+ATTRIBUTE  Password      2  string
+ATTRIBUTE  User-Password 2 string
+ATTRIBUTE  CHAP-Password    3  octets
+ATTRIBUTE  NAS-IP-Address    4  ipaddr
+ATTRIBUTE  NAS-Port    5  integer
+ATTRIBUTE  Service-Type    6  integer
+ATTRIBUTE  Framed-Protocol    7  integer
+ATTRIBUTE  Framed-IP-Address  8  ipaddr
+ATTRIBUTE  Framed-IP-Netmask  9  ipaddr
+ATTRIBUTE  Framed-Routing    10  integer
+ATTRIBUTE  Filter-Id    11  string
+ATTRIBUTE  Framed-MTU    12  integer
+ATTRIBUTE  Framed-Compression  13  integer
+ATTRIBUTE  Login-IP-Host    14  ipaddr
+ATTRIBUTE  Login-Service    15  integer
+ATTRIBUTE  Login-TCP-Port    16  integer
+ATTRIBUTE  Reply-Message    18  string
+ATTRIBUTE  Callback-Number    19  string
+ATTRIBUTE  Callback-Id    20  string
+ATTRIBUTE  Framed-Route    22  string
+ATTRIBUTE  Framed-IPX-Network  23  ipaddr
+ATTRIBUTE  State      24  string
+ATTRIBUTE  Class      25  string
+ATTRIBUTE  Vendor-Specific    26  string
+ATTRIBUTE  Session-Timeout    27  integer
+ATTRIBUTE  Idle-Timeout    28  integer
+ATTRIBUTE  Termination-Action  29  integer
+ATTRIBUTE  Called-Station-Id  30  string
+ATTRIBUTE  Calling-Station-Id  31  string
+ATTRIBUTE  NAS-Identifier    32  string
+ATTRIBUTE  Proxy-State    33  string
+ATTRIBUTE  Login-LAT-Service  34  string
+ATTRIBUTE  Login-LAT-Node    35  string
+ATTRIBUTE  Login-LAT-Group    36  string
+ATTRIBUTE  Framed-AppleTalk-Link  37  integer
+ATTRIBUTE  Framed-AppleTalk-Network 38  integer
+ATTRIBUTE  Framed-AppleTalk-Zone  39  string
+
+ATTRIBUTE  Acct-Status-Type  40  integer
+ATTRIBUTE  Acct-Delay-Time    41  integer
+ATTRIBUTE  Acct-Input-Octets  42  integer
+ATTRIBUTE  Acct-Output-Octets  43  integer
+ATTRIBUTE  Acct-Session-Id    44  string
+ATTRIBUTE  Acct-Authentic    45  integer
+ATTRIBUTE  Acct-Session-Time  46  integer
+ATTRIBUTE  Acct-Input-Packets  47  integer
+ATTRIBUTE  Acct-Output-Packets  48  integer
+ATTRIBUTE  Acct-Terminate-Cause 49  integer
+ATTRIBUTE  Acct-Multi-Session-Id 50  string
+ATTRIBUTE  Acct-Link-Count       51  integer
+ATTRIBUTE  Event-Timestamp       55  integer
+
+ATTRIBUTE  CHAP-Challenge        60  string
+ATTRIBUTE  NAS-Port-Type         61  integer
+ATTRIBUTE  Port-Limit            62  integer
+ATTRIBUTE  Login-LAT-Port        63  integer
+
+ATTRIBUTE  Connect-Info          77  string
+ATTRIBUTE  Message-Authenticator 80  octets
+ATTRIBUTE  Acct-Interim-Interval 85  integer
+ATTRIBUTE  NAS-Port-Id           87  string
+
+ATTRIBUTE       Digest-Response                         103     string
+ATTRIBUTE       Digest-Realm                            104     string
+ATTRIBUTE       Digest-Nonce                            105     string
+ATTRIBUTE       Digest-Response-Auth                    106     string
+ATTRIBUTE       Digest-Nextnonce                        107     string
+ATTRIBUTE       Digest-Method                           108     string
+ATTRIBUTE       Digest-URI                              109     string
+ATTRIBUTE       Digest-Qop                              110     string
+ATTRIBUTE       Digest-Algorithm                        111     string
+ATTRIBUTE       Digest-Entity-Body-Hash                 112     string
+ATTRIBUTE       Digest-CNonce                           113     string
+ATTRIBUTE       Digest-Nonce-Count                      114     string
+ATTRIBUTE       Digest-Username                         115     string
+ATTRIBUTE       Digest-User-Name                        115     string
+ATTRIBUTE       Digest-Opaque                           116     string
+ATTRIBUTE       Digest-Auth-Param                       117     string
+ATTRIBUTE       Digest-AKA-Auts                         118     string
+ATTRIBUTE       Digest-Domain                           119     string
+ATTRIBUTE       Digest-Stale                            120     string
+ATTRIBUTE       Digest-HA1                              121     string
+ATTRIBUTE       SIP-AOR                                 122     string
+
+#ATTRIBUTE       Delegated-IPv6-Prefix                   123     ipv6addr
+
+#ATTRIBUTE  Digest-Response      206  string
+#ATTRIBUTE  Digest-Attributes    207  sublist
+
+ATTRIBUTE  PPPD-Upstream-Speed-Limit     230 integer
+ATTRIBUTE  PPPD-Downstream-Speed-Limit   231 integer
+ATTRIBUTE  PPPD-Upstream-Speed-Limit-1   232 integer
+ATTRIBUTE  PPPD-Downstream-Speed-Limit-1 233 integer
+ATTRIBUTE  PPPD-Upstream-Speed-Limit-2   234 integer
+ATTRIBUTE  PPPD-Downstream-Speed-Limit-2 235 integer
+ATTRIBUTE  PPPD-Upstream-Speed-Limit-3   236 integer
+ATTRIBUTE  PPPD-Downstream-Speed-Limit-3 237 integer
+
+
+#
+#  Experimental Non Protocol Attributes used by Cistron-Radiusd
+#
+ATTRIBUTE  Old-Huntgroup-Name  221  string
+
+#   These attributes CAN go in the reply item list.
+ATTRIBUTE  Fall-Through    500  integer
+ATTRIBUTE  Add-Port-To-IP-Address  501  integer
+ATTRIBUTE  Exec-Program    502  string
+ATTRIBUTE  Exec-Program-Wait  503  string
+
+#  These attributes CANNOT go in the reply item list.
+ATTRIBUTE  User-Category    1029  string
+ATTRIBUTE  Group-Name    1030  string
+ATTRIBUTE  Huntgroup-Name    1031  string
+ATTRIBUTE  Simultaneous-Use  1034  integer
+ATTRIBUTE  Strip-User-Name    1035  integer
+ATTRIBUTE  Old-Fall-Through  1036  integer
+ATTRIBUTE  Old-Add-Port-To-IP-Address 1037  integer
+ATTRIBUTE  Old-Exec-Program  1038  string
+ATTRIBUTE  Old-Exec-Program-Wait  1039  string
+ATTRIBUTE  Hint      1040  string
+ATTRIBUTE  Pam-Auth    1041  string
+ATTRIBUTE  Login-Time    1042  string
+ATTRIBUTE  Realm      1045  string
+
+#
+#  Non-Protocol Attributes
+#  These attributes are used internally by the server
+#
+ATTRIBUTE  Expiration      21  date
+ATTRIBUTE  Auth-Type    1000  integer
+ATTRIBUTE  Menu      1001  string
+ATTRIBUTE  Termination-Menu  1002  string
+ATTRIBUTE  Prefix      1003  string
+ATTRIBUTE  Suffix      1004  string
+ATTRIBUTE  Group      1005  string
+ATTRIBUTE  Crypt-Password    1006  string
+ATTRIBUTE  Connect-Rate    1007  integer
+
+#
+#  Integer And Sub-Attribute Translations
+#
+
+#  Digest
+
+VALUE           Digest-Attributes       Realm                   1
+VALUE           Digest-Attributes       Nonce                   2
+VALUE           Digest-Attributes       Method                  3
+VALUE           Digest-Attributes       URI                     4
+VALUE           Digest-Attributes       QOP                     5
+VALUE           Digest-Attributes       Algorithm               6
+VALUE           Digest-Attributes       Body-Digest             7
+VALUE           Digest-Attributes       CNonce                  8
+VALUE           Digest-Attributes       Nonce-Count             8
+VALUE           Digest-Attributes       User-Name               10
+
+
+#  User Types
+
+VALUE    Service-Type    Login-User    1
+VALUE    Service-Type    Framed-User    2
+VALUE    Service-Type    Callback-Login-User  3
+VALUE    Service-Type    Callback-Framed-User  4
+VALUE    Service-Type    Outbound-User    5
+VALUE    Service-Type    Administrative-User  6
+VALUE    Service-Type    NAS-Prompt-User    7
+VALUE    Service-Type    Call-Check    10
+
+#  Framed Protocols
+
+VALUE    Framed-Protocol    PPP      1
+VALUE    Framed-Protocol    SLIP      2
+
+#  Framed Routing Values
+
+VALUE    Framed-Routing    None      0
+VALUE    Framed-Routing    Broadcast    1
+VALUE    Framed-Routing    Listen      2
+VALUE    Framed-Routing    Broadcast-Listen  3
+
+#  Framed Compression Types
+
+VALUE    Framed-Compression  None      0
+VALUE    Framed-Compression  Van-Jacobson-TCP-IP  1
+
+#  Login Services
+
+VALUE    Login-Service    Telnet      0
+VALUE    Login-Service    Rlogin      1
+VALUE    Login-Service    TCP-Clear    2
+VALUE    Login-Service    PortMaster  3
+
+#  Status Types
+
+VALUE    Acct-Status-Type  Start      1
+VALUE    Acct-Status-Type  Stop      2
+VALUE    Acct-Status-Type  Alive      3
+VALUE    Acct-Status-Type  Accounting-On      7
+VALUE    Acct-Status-Type  Accounting-Off    8
+
+#  Authentication Types
+
+VALUE    Acct-Authentic    RADIUS      1
+VALUE    Acct-Authentic    Local        2
+
+#  Termination Options
+
+VALUE    Termination-Action  Default      0
+VALUE    Termination-Action  RADIUS-Request    1
+
+#  NAS Port Types, available in 3.3.1 and later
+
+VALUE    NAS-Port-Type    Async      0
+VALUE    NAS-Port-Type    Sync      1
+VALUE    NAS-Port-Type    ISDN      2
+VALUE    NAS-Port-Type    ISDN-V120    3
+VALUE    NAS-Port-Type    ISDN-V110    4
+
+#  Acct Terminate Causes, available in 3.3.2 and later
+
+VALUE           Acct-Terminate-Cause    User-Request            1
+VALUE           Acct-Terminate-Cause    Lost-Carrier            2
+VALUE           Acct-Terminate-Cause    Lost-Service            3
+VALUE           Acct-Terminate-Cause    Idle-Timeout            4
+VALUE           Acct-Terminate-Cause    Session-Timeout         5
+VALUE           Acct-Terminate-Cause    Admin-Reset             6
+VALUE           Acct-Terminate-Cause    Admin-Reboot            7
+VALUE           Acct-Terminate-Cause    Port-Error              8
+VALUE           Acct-Terminate-Cause    NAS-Error               9
+VALUE           Acct-Terminate-Cause    NAS-Request             10
+VALUE           Acct-Terminate-Cause    NAS-Reboot              11
+VALUE           Acct-Terminate-Cause    Port-Unneeded           12
+VALUE           Acct-Terminate-Cause    Port-Preempted          13
+VALUE           Acct-Terminate-Cause    Port-Suspended          14
+VALUE           Acct-Terminate-Cause    Service-Unavailable     15
+VALUE           Acct-Terminate-Cause    Callback                16
+VALUE           Acct-Terminate-Cause    User-Error              17
+VALUE           Acct-Terminate-Cause    Host-Request            18
+
+#VALUE    Tunnel-Type    L2TP          3
+#VALUE    Tunnel-Medium-Type  IP      1
+
+#
+#  Non-Protocol Integer Translations
+#
+
+VALUE    Auth-Type    Local       0
+VALUE    Auth-Type    System      1
+VALUE    Auth-Type    SecurID     2
+VALUE    Auth-Type    Crypt-Local 3
+VALUE    Auth-Type    Reject      4
+VALUE    Auth-Type    ActivCard   4
+
+#
+#  Cistron extensions
+#
+VALUE    Auth-Type    Pam         253
+VALUE    Auth-Type    Accept      254
+
+#
+#  Experimental Non-Protocol Integer Translations for Cistron-Radiusd
+#
+VALUE    Fall-Through    No      0
+VALUE    Fall-Through    Yes      1
+VALUE    Add-Port-To-IP-Address  No      0
+VALUE    Add-Port-To-IP-Address  Yes      1
+
+#
+#  Configuration Values
+#  comment out these two lines to turn account expiration off
+#
+
+VALUE    Server-Config    Password-Expiration  30
+VALUE    Server-Config    Password-Warning    5
+
+
+
+
+# Cisco attributes
+VENDOR          Cisco                   9
+ATTRIBUTE       Cisco-AVPair            1       string  Cisco
+ATTRIBUTE       Cisco-NAS-Port          2       string  Cisco
+ATTRIBUTE       Cisco-Call-Type         19      string  Cisco
+ATTRIBUTE       h323-call-origin        26      string  Cisco
+ATTRIBUTE       h323-conf-id            24      string  Cisco
+ATTRIBUTE       h323-gw-id              33      string  Cisco
+ATTRIBUTE       h323-disconnect-cause   30      string  Cisco
+ATTRIBUTE       h323-setup-time         25      string  Cisco
+ATTRIBUTE       h323-connect-time       28      string  Cisco
+ATTRIBUTE       h323-disconnect-time    29      string  Cisco
+ATTRIBUTE       h323-credit-time        102     string  Cisco
+ATTRIBUTE       h323-return-code        103     string  Cisco
+#SIP Attributes
+ATTRIBUTE       call-id                 141     string  Cisco
+ATTRIBUTE       session-protocol        142     string  Cisco
+ATTRIBUTE       method                  143     string  Cisco
+ATTRIBUTE       prev-hop-via            144     string  Cisco
+ATTRIBUTE       prev-hop-ip             145     string  Cisco
+ATTRIBUTE       incoming-req-uri        146     string  Cisco
+ATTRIBUTE       outgoing-req-uri        147     string  Cisco
+ATTRIBUTE       next-hop-ip             148     string  Cisco
+ATTRIBUTE       next-hop-dn             149     string  Cisco
+ATTRIBUTE       sip-hdr                 150     string  Cisco
+ATTRIBUTE       Cisco-Account-Info      250     string  Cisco
+ATTRIBUTE       Cisco-Service-Info      251     string  Cisco
+ATTRIBUTE       Cisco-Command-Code      252     string  Cisco
+ATTRIBUTE       Cisco-Control-Info      253     string  Cisco
+
+
+
+ATTRIBUTE       Error-Cause                             101     integer
+
+#       Service Types
+
+VALUE   Service-Type                    Authorize-Only          17
+
+#       Error causes
+
+VALUE   Error-Cause                     Residual-Context-Removed 201
+VALUE   Error-Cause                     Invalid-EAP-Packet      202
+VALUE   Error-Cause                     Unsupported-Attribute   401
+VALUE   Error-Cause                     Missing-Attribute       402
+VALUE   Error-Cause                     NAS-Identification-Mismatch 403
+VALUE   Error-Cause                     Invalid-Request         404
+VALUE   Error-Cause                     Unsupported-Service     405
+VALUE   Error-Cause                     Unsupported-Extension   406
+VALUE   Error-Cause                     Administratively-Prohibited 501
+VALUE   Error-Cause                     Proxy-Request-Not-Routable 502
+VALUE   Error-Cause                     Session-Context-Not-Found 503
+VALUE   Error-Cause                     Session-Context-Not-Removable 504
+VALUE   Error-Cause                     Proxy-Processing-Error  505
+VALUE   Error-Cause                     Resources-Unavailable   506
+VALUE   Error-Cause                     Request-Initiated       507
+
+
+
+# MX80 atrribute
+VENDOR          ERX                             4874
+
+ATTRIBUTE       ERX-Service-Activate    65      string ERX
+ATTRIBUTE       ERX-Service-Deactivate  66      string ERX
+ATTRIBUTE       Authenticator-Field     178     octets ERX
+
+#Mpd 
+VENDOR          mpd                             12341
+ATTRIBUTE       mpd-table-static        5       string mpd
+ATTRIBUTE       mpd-filter              6       string mpd
+ATTRIBUTE       mpd-limit               7       string mpd
+
+
+#Mikrotik
+VENDOR          Mikrotik        14988
+
+ATTRIBUTE       Mikrotik-Recv-Limit          1    integer Mikrotik
+ATTRIBUTE       Mikrotik-Xmit-Limit          2    integer Mikrotik
+ATTRIBUTE       Mikrotik-Group               3    string Mikrotik
+ATTRIBUTE       Mikrotik-Wireless-Forward    4    integer Mikrotik 
+ATTRIBUTE       Mikrotik-Wireless-Skip-Dot1x 5    integer Mikrotik
+ATTRIBUTE       Mikrotik-Wireless-Enc-Algo   6    integer Mikrotik
+ATTRIBUTE       Mikrotik-Wireless-Enc-Key    7    string Mikrotik
+ATTRIBUTE       Mikrotik-Rate-Limit          8    string Mikrotik
+ATTRIBUTE       Mikrotik-Realm               9    string Mikrotik
+ATTRIBUTE       Mikrotik-Host-IP             10   ipaddr Mikrotik
+ATTRIBUTE       Mikrotik-Mark-Id             11   string Mikrotik 
+ATTRIBUTE       Mikrotik-Advertise-URL       12   string Mikrotik
+ATTRIBUTE       Mikrotik-Advertise-Interval  13   integer Mikrotik
+ATTRIBUTE       Mikrotik-Recv-Limit-Gigawords 14  integer Mikrotik
+ATTRIBUTE       Mikrotik-Xmit-Limit-Gigawords 15  integer Mikrotik
+ATTRIBUTE       Mikrotik-Wireless-PSK         16  string Mikrotik 
+ATTRIBUTE       Mikrotik-Total-Limit          17  integer Mikrotik
+ATTRIBUTE       Mikrotik-Total-Limit-Gigawords 18 integer Mikrotik
+ATTRIBUTE       Mikrotik-Address-List          19 string Mikrotik
+ATTRIBUTE       Mikrotik-Wireless-MPKey        20 string Mikrotik
+ATTRIBUTE       Mikrotik-Wireless-Comment      21 string Mikrotik
+ATTRIBUTE       Mikrotik-Delegated-IPv6-Pool    22 string Mikrotik
+ATTRIBUTE       Ascend-Data-Rate               197 integer Mikrotik
+ATTRIBUTE       Ascend-Xmit-Rate               255 integer Mikrotik
+
+VENDOR          Redback        2352
+ATTRIBUTE  Agent-Remote-Id	     96  octets Redback
+ATTRIBUTE  Agent-Circuit-Id	     97  octets Redback
+
+
+#Freeradius
+VENDOR  FreeRADIUS  11344
+
+ATTRIBUTE   FreeRADIUS-Proxied-To       1   ipaddr FreeRADIUS
+ATTRIBUTE   FreeRADIUS-Statistics-Type  127 integer FreeRADIUS
+
+VALUE	FreeRADIUS-Statistics-Type	None			0
+VALUE	FreeRADIUS-Statistics-Type	Authentication		1
+VALUE	FreeRADIUS-Statistics-Type	Accounting		2
+VALUE	FreeRADIUS-Statistics-Type	Proxy-Authentication	4
+VALUE	FreeRADIUS-Statistics-Type	Proxy-Accounting	8
+VALUE	FreeRADIUS-Statistics-Type	Internal		0x10
+VALUE	FreeRADIUS-Statistics-Type	Client			0x20
+VALUE	FreeRADIUS-Statistics-Type	Server			0x40
+VALUE	FreeRADIUS-Statistics-Type	Home-Server		0x80
+VALUE	FreeRADIUS-Statistics-Type	Auth-Acct		0x03
+VALUE	FreeRADIUS-Statistics-Type	Proxy-Auth-Acct		0x0c
+VALUE	FreeRADIUS-Statistics-Type	All			0x1f
+
+
+#
+#  Global authentication statistics for packets received by the server.
+#
+ATTRIBUTE	FreeRADIUS-Total-Access-Requests	128	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Access-Accepts		129	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Access-Rejects		130	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Access-Challenges	131	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Auth-Responses		132	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Auth-Duplicate-Requests 133	integer  FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Auth-Malformed-Requests 134	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Auth-Invalid-Requests	135	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Auth-Dropped-Requests	136	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Auth-Unknown-Types	137	integer FreeRADIUS
+
+#
+#  Global statistics for auth packets sent by the server to all home servers
+#
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Access-Requests	138	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Access-Accepts	139	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Access-Rejects	140	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Access-Challenges 141	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Auth-Responses	142	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Auth-Duplicate-Requests 143	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Auth-Malformed-Requests 144	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Auth-Invalid-Requests 145	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Auth-Dropped-Requests 146	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Auth-Unknown-Types 147	integer FreeRADIUS
+
+#
+#  Global accounting statistics for packets received by the server.
+#
+ATTRIBUTE	FreeRADIUS-Total-Accounting-Requests	148	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Accounting-Responses	149	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Acct-Duplicate-Requests 150	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Acct-Malformed-Requests 151	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Acct-Invalid-Requests	152	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Acct-Dropped-Requests	153	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Acct-Unknown-Types	154	integer FreeRADIUS
+
+#
+#  Global statistics for acct packets sent by the server to all home servers
+#
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Accounting-Requests 155	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Accounting-Responses 156	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Acct-Duplicate-Requests 157	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Acct-Malformed-Requests 158	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Acct-Invalid-Requests 159	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Acct-Dropped-Requests 160	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Total-Proxy-Acct-Unknown-Types 161	integer FreeRADIUS
+
+#
+#  Internal queues.  Different packet types are put into different queues.
+#
+ATTRIBUTE	FreeRADIUS-Queue-Len-Internal		162	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Queue-Len-Proxy		163	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Queue-Len-Auth		164	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Queue-Len-Acct		165	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Queue-Len-Detail		166	integer FreeRADIUS
+
+ATTRIBUTE	FreeRADIUS-Stats-Client-IP-Address	167	ipaddr FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Stats-Client-Number		168	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Stats-Client-Netmask		169	integer FreeRADIUS
+
+ATTRIBUTE	FreeRADIUS-Stats-Server-IP-Address	170	ipaddr FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Stats-Server-Port		171	integer FreeRADIUS
+
+ATTRIBUTE	FreeRADIUS-Stats-Server-Outstanding-Requests	172	integer
+ATTRIBUTE	FreeRADIUS-Stats-Server-State		173	integer FreeRADIUS
+
+VALUE	FreeRADIUS-Stats-Server-State	Alive	0
+VALUE	FreeRADIUS-Stats-Server-State	Zombie	1
+VALUE	FreeRADIUS-Stats-Server-State	Dead	2
+
+#
+#  When a home server is marked "dead" or "alive"
+#
+ATTRIBUTE	FreeRADIUS-Stats-Server-Time-Of-Death	174	date FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Stats-Server-Time-Of-Life	175	date FreeRADIUS
+
+#
+#  When this server was started.  If start == hup, it hasn't been
+#  hup'd yet.  This is friendlier than having hup == 0 on start.
+#
+ATTRIBUTE	FreeRADIUS-Stats-Start-Time		176	date FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Stats-HUP-Time		177	date FreeRADIUS
+
+#
+#  Exponential moving average of home server response time
+#  Window-1 is the average is calculated over "window" packets.
+#  Window-10 is the average is calculated over "10 * window" packets.
+#
+#  Both Window-1 and Window-10 are times in microseconds
+#  (1/1000000 of a second).
+#
+ATTRIBUTE	FreeRADIUS-Server-EMA-Window		178	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Server-EMA-USEC-Window-1	179	integer FreeRADIUS
+ATTRIBUTE	FreeRADIUS-Server-EMA-USEC-Window-10	180	integer FreeRADIUS
+
+#Accel pairs
+ATTRIBUTE DHCP-Router-IP-Address 241 ipaddr
+ATTRIBUTE DHCP-Mask              242 integer
+ATTRIBUTE L4-Redirect      243 integer
+ATTRIBUTE L4-Redirect-ipset      244 string
+ATTRIBUTE DHCP-Option82          245 octets
+
+
+#Huawai ME60
+VENDOR          Huawei        2011
+ATTRIBUTE  Huawei-Qos-Profile-Name	        31  string Huawei
+ATTRIBUTE  Huawei-Input-Average-Rate         2   integer Huawei
+ATTRIBUTE  Huawei-Output-Average-Rate        5   integer Huawei
+

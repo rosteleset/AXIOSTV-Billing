@@ -1,0 +1,6 @@
+{
+  "name": "USER_MSGS_CHAPTERS_LIST",
+  "method": "GET",
+  "path": "user/:uid/msgs/chapters/",
+  "params": {}
+}

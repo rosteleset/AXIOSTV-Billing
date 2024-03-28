@@ -1,0 +1,33 @@
+CREATE TABLE IF NOT EXISTS `internet_users_pool` (
+  `service_id`  SMALLINT(6) UNSIGNED NOT NULL DEFAULT '0',
+  `pool_id`   SMALLINT(5) UNSIGNED NOT NULL DEFAULT '0',
+  `comments`    VARCHAR(60) NOT NULL DEFAULT '',
+  PRIMARY KEY (`service_id`)
+)
+  DEFAULT CHARSET = utf8
+  COMMENT = 'Internet users ip pool';
+
+CREATE TABLE IF NOT EXISTS `crm_bonus_types` (
+  `id` SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name` char(60) NOT NULL DEFAULT '',
+  `amount` DOUBLE(6, 2) UNSIGNED NOT NULL DEFAULT '0.00',
+  `comments` TEXT,
+  PRIMARY KEY (`id`)
+)
+  DEFAULT CHARSET = utf8
+  COMMENT = 'Bonust types for salaries';
+
+CREATE TABLE IF NOT EXISTS `crm_salary_bonus` (
+  `id` SMALLINT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `aid` SMALLINT(6) UNSIGNED NOT NULL DEFAULT 0,
+  `year` SMALLINT(4) UNSIGNED NOT NULL DEFAULT 0,
+  `month` SMALLINT(2) UNSIGNED NOT NULL DEFAULT 0,
+  `amount` DOUBLE(6, 2) UNSIGNED NOT NULL DEFAULT '0.00',
+  `bonus_type_id` SMALLINT UNSIGNED NOT NULL DEFAULT '0',
+  `date` DATE NOT NULL DEFAULT '0000-00-00',
+  PRIMARY KEY (`id`)
+)
+  DEFAULT CHARSET = utf8
+  COMMENT = 'Bonust to salaries';
+
+ALTER TABLE `ippools` MODIFY COLUMN `name` VARCHAR(50) NOT NULL DEFAULT '';

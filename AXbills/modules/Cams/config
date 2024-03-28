@@ -1,0 +1,30 @@
+%FUNCTIONS_LIST = (
+  "1:0:$lang{CAMERAS}:null"                    => 5,
+  "2:1:$lang{SERVICES}:cams_services"          => 5,
+  "3:1:$lang{TARIF_PLANS}:cams_tp"             => 5,
+  "4:1:$lang{GROUPS}:cams_groups"              => 5,
+  "5:1:$lang{CAMERAS}:cams_main"               => 5,
+  "8:0:Folders:cams_get_group_folders:AJAX"    => 5,
+  "09:0:$lang{CAMERAS}:cams_users_list:"       => 11,
+  "10:0:$lang{CAMERAS}:null:"                  => 4,
+  "11:10:$lang{SERVICES}:cams_service_report:" => 4,
+);
+
+$FUNCTIONS_LIST{"6:0:$lang{TP_CAMERAS}:cams_user"} = 20;
+$FUNCTIONS_LIST{"7:0:$lang{CAMERAS}:cams_cameras"} = 20;
+$FUNCTIONS_LIST{"8:4:$lang{FOLDERS}:cams_folder"} = 5;
+$FUNCTIONS_LIST{"12:01::cams_get_service_groups:AJAX"} = 5;
+
+%USER_FUNCTION_LIST = (
+  "01:0:$lang{CAMERAS}:cams_clients_streams"        => 0,
+  "04:1:$lang{CHANGE}:cams_user_streams_management" => 0,
+  "03:1:$lang{TARIF_PLAN}:cams_user_info"           => 0,
+  "02:1:$lang{CAMERAS}:cams_clients_streams"        => 0,
+  "05:1:$lang{CAMS_ARCHIVE}:cams_archives"          => 0
+);
+
+our %PERIODIC = (
+  monthly => [ 'cams_monthly_fees' ]
+);
+
+1;

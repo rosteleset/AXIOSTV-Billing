@@ -1,0 +1,102 @@
+{
+  "DEVICE":"Cdata",
+  "FDB":"1",
+//  "FDB_OID": "1.3.6.1.4.1.34592.1.3.2.3.4.1.4",
+//  "FDB_EXPR": "(%%d+%%.%%d+%%.%%d+%%.%%d+%%.%%d+%%.%%d+)%%.(%%d+):(.+)|MAC,VLAN,PORT",
+  "FDB_OID": "1.3.6.1.4.1.34592.1.3.4.10.2.1.2.1",
+  "FDB_EXPR": "(%%d+%%.%%d+):(.*)|PORT,MAC_HEX",
+  "info" : {
+
+  },
+  "epon" : {
+    "ONU_MAC_SERIAL" : {
+      "NAME"   : "Mac/Serial",
+      "OIDS"   : "1.3.6.1.4.1.34592.1.3.4.1.1.7.1",
+      "PARSER" : "bin2mac"
+    },
+    "ONU_STATUS"     : {
+      "NAME"   : "STATUS",
+      "OIDS"   : "1.3.6.1.4.1.34592.1.3.4.1.1.11.1",
+      "PARSER" : ""
+    },
+    "ONU_TX_POWER"   : {
+      "NAME"   : "ONU_TX_POWER",
+      "OIDS"   : "1.3.6.1.4.1.34592.1.3.4.1.1.37.1",
+      "PARSER" : "_cdata_convert_power"
+    },
+    "ONU_RX_POWER"   : {
+      "NAME"   : "ONU_RX_POWER",
+      "OIDS"   : "1.3.6.1.4.1.34592.1.3.4.1.1.36.1",
+      "PARSER" : "_cdata_convert_power"
+    },
+    "ONU_DESC"       : {
+      "NAME"   : "ONU_DESC",
+      "OIDS"   : "1.3.6.1.4.1.34592.1.3.4.1.1.4.1",
+      "PARSER" : ""
+    },
+    //        "ONU_IN_BYTE"    : {
+    //          "NAME"   : "",
+    //          "OIDS"   : "",
+    //          "PARSER" : ""
+    //        },
+    //        "ONU_OUT_BYTE"   : {
+    //          "NAME"   : "",
+    //          "OIDS"   : "",
+    //          "PARSER" : ""
+    //        },
+    "TEMPERATURE"    : {
+      "NAME"   : "TEMPERATURE",
+      "OIDS"   : "1.3.6.1.4.1.34592.1.3.4.1.1.40.1",
+      "PARSER" : "_cdata_convert_temperature"
+    },
+    //        "reset"          : {
+    //          "NAME"        : "",
+    //          "OIDS"        : "",
+    //          RESET_VALUE : 0,
+    //          "PARSER"      : ""
+    //        },
+    //        "VLAN"           : {
+    //          "NAME"   : "",
+    //          "OIDS"   : "",
+    //          "PARSER" : "",
+    //          WALK   : 1
+    //        },
+    "main_onu_info"    : {
+      "HARD_VERSION"     : {
+        "NAME"   : "VERSION",
+        "OIDS"   : "1.3.6.1.4.1.34592.1.3.4.1.1.5.1",
+        "PARSER" : ""
+      },
+      "FIRMWARE"         : {
+        "NAME"   : "FIRMWARE",
+        "OIDS"   : "1.3.6.1.4.1.34592.1.3.4.1.1.6.1"
+      },
+      "VOLTAGE" : {
+        "NAME"   : "VOLTAGE",
+        "OIDS"   : "1.3.6.1.4.1.34592.1.3.4.1.1.37.1",
+        "PARSER" : "_cdata_convert_voltage"
+      }, //voltage = voltage * 0.0001
+      "DISTANCE"       : {
+        "NAME"   : "DISTANCE",
+        "OIDS"   : "1.3.6.1.4.1.34592.1.3.4.1.1.13.1",
+        "PARSER" : "_cdata_convert_distance"
+      },
+       "MAC_BEHIND_ONU" : {
+          "NAME" : "MAC_BEHIND_ONU",
+          "USE_MAC_LOG" : 1
+        }
+      //        "ONU_PORTS_STATUS" : {
+      //          "NAME"   : "",
+      //          "OIDS"   : "",
+      //          "PARSER" : "",
+      //          "WALK"   : 1
+      //        }
+    }
+  },
+  "gpon" : {
+  }
+  //      "unregister" : {
+  //
+  //      }
+
+}

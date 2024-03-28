@@ -1,0 +1,14 @@
+type: object
+properties:
+  name:
+    type: string
+    example: Canada
+  prefix:
+    type: number
+    example: 1581
+  price:
+    type: number
+    example: 0
+  status:
+    type: number
+    example: 0

@@ -1,0 +1,628 @@
+#!perl
+
+=head1 NAME
+
+  Sms functions
+
+  Error ID: 16xx
+
+=cut
+
+
+use strict;
+use warnings FATAL => 'all';
+use Encode;
+use Fees;
+use Sms;
+use Sms::Init;
+use AXbills::Filters;
+use AXbills::Defs;
+use AXbills::Base qw(convert);
+
+our ($db,
+  $admin,
+  %conf,
+  %lang,
+  %err_strs,
+  $index,
+  $user,
+  $users,
+  $DATE,
+  $TIME,
+  $pages_qs,
+  %LIST_PARAMS,
+  %FORM
+);
+
+our AXbills::HTML $html;
+
+my $Sms   = Sms->new($db, $admin, \%conf);
+my $Fees  = Fees->new($db, $admin, \%conf);
+my $Users = Users->new($db, $admin, \%conf);
+
+my %sms_status = (
+	#sms api status 
+  0  => $lang{DISPATCH_SMS},
+  1  => $lang{SMALL_DEPOSIT},
+  2  => $lang{IS_PROCESS},
+  3  => $lang{SENDED_SMS},
+  4  => $lang{NO_VALID_PHONE},
+  5  => $lang{PARTIALLY_SEND},
+  6  => $lang{SPAM},
+  7  => $lang{INVALID_SENDER},
+  8  => $lang{PAUSE},
+  9  => $lang{PLANNED},
+  10 => $lang{PENDING_MODERATION},
+  11 => $lang{ERROR_PARAMETRS},
+  12 => $lang{IP_BLOCKED},
+  14 => $lang{CANNOT_BE_DELIVERY},
+  15 => $lang{IDENTICAL_REQUEST},
+  16 => $lang{UNKNOWN},
+  100 => $lang{DELIVERED},
+  101 => $lang{NOT_DELIVERED},
+  102 => $lang{ERROR_SENDING},
+  103 => $lang{REJECT_SYSTEM},
+  104 => $lang{DELAYED},
+	#mts api status 
+  110  => $lang{MTS_SMS_ENROUTE},
+  111  => $lang{MTS_SMS_DELIVRD},
+  112  => $lang{MTS_SMS_EXPIRED},
+  113  => $lang{MTS_SMS_DELETED},
+  114  => $lang{MTS_SMS_UNDELIV},
+  115  => $lang{MTS_SMS_ACCEPTD},
+  116  => $lang{MTS_SMS_UNKNOWN},
+  117  => $lang{MTS_SMS_REJECTED},			  
+);
+
+#**********************************************************
+=head2 sms_send($attr) - Send SMS
+
+  Arguments:
+    $attr
+      NUMBER   - User number
+      MESSAGE  - Message
+      UID      - User iD
+      RIZE_ERROR - Rize arror and stop
+
+  Multi send sms
+    NUMBERS  - Hash of NUMBER => UID
+    MOre priority then NUMBER option
+
+  Returns:
+    Sended Sms ID or fail
+
+=cut
+#**********************************************************
+sub sms_send {
+  my ($attr) = @_;
+
+  my $Sms_service = init_sms_service($db, $admin, \%conf, $attr);
+  my $status = 0;
+
+  return 0 if ($Sms_service->{errno});
+
+  my $numbers = $attr->{NUMBERS};
+  if ($conf{SMS_NUMBER_EXPR}) {
+    if ($attr->{NUMBER}) {
+      $attr->{NUMBER} = _expr($attr->{NUMBER}, $conf{SMS_NUMBER_EXPR});
+    }
+    elsif ($attr->{NUMBERS}) {
+      my %new_numbers  = ();
+      while (my($number, $uid)=each %{ $attr->{NUMBERS} }) {
+        my $num = _expr($number, $conf{SMS_NUMBER_EXPR});
+        $new_numbers{$num}=$uid;
+      }
+
+      $numbers = \%new_numbers;
+    }
+  }
+
+  $conf{SMS_NUMBER}= "[0-9]{12}" if (!$conf{SMS_NUMBER});
+
+  if (!$attr->{NUMBER} && !$attr->{NUMBERS}) {
+    $html->message('err', $lang{ERROR}, $lang{ERR_PHONE_NOT_DEFINED}, { ID => 1601 });
+  }
+  elsif (!$attr->{NUMBERS} && $conf{SMS_NUMBER} && $attr->{NUMBER} !~ /$conf{SMS_NUMBER}/) {
+    $html->message('warn', $lang{ERROR}, ($lang{ERR_WRONG_PHONE} || q{})
+      . " '$attr->{NUMBER}' ". ((! $user->{UID}) ? "\n "
+      . ($lang{OPTIONS} || q{}). " \$conf{SMS_NUMBER}" : ''), { ID => 1602 });
+
+    return 0 if ($attr->{RIZE_ERROR});
+  }
+
+  if ($attr->{UID} && $conf{SMS_LIMIT}) {
+    my $uid_sms_list = $Sms->list({
+      UID      => $attr->{UID},
+      INTERVAL => "$DATE/$DATE",
+      NO_SKIP  => 1,
+    });
+
+    if ($uid_sms_list && scalar(@$uid_sms_list) >= $conf{SMS_LIMIT}) {
+      $html->message('err', $lang{ERROR}, $lang{EXCEEDED_SMS_LIMIT});
+
+      return 0;
+    }
+  }
+
+  if ($conf{SMS_TRANSLIT}) {
+    $attr->{MESSAGE} = convert($attr->{MESSAGE}, { txt2translit => 1 });
+  }
+
+  if ($attr->{DEBUG} && $attr->{DEBUG} > 9) {
+    print qq{ Service: $Sms_service->{SERVICE_NAME}, NUMBERS => };
+    print join(',', keys %$numbers) ;
+    print qq{ NUMBER  => $attr->{NUMBER}, $attr->{MESSAGE} };
+
+    return 0;
+  }
+
+  $Sms_service->send_sms({
+    NUMBERS => $numbers,
+    NUMBER  => $attr->{NUMBER},
+    MESSAGE => (($conf{TURBOSMS_MESSAGE_HEADER}) ? $conf{TURBOSMS_MESSAGE_HEADER}.' ' : '') . $attr->{MESSAGE},
+    DEBUG   => $attr->{DEBUG} || $conf{SMS_DEBUG} || 0
+  });
+
+  if ($Sms_service->{errno}) {
+    if ($attr->{QUITE}) {
+      print "[$Sms_service->{errno}] $err_strs{$Sms_service->{errno}} $Sms_service->{errstr}\n";
+    }
+    else {
+      $html->message('err', "SMS: $Sms_service->{SERVICE_NAME} : ". ($lang{ERROR} || q{}),
+        "[$Sms_service->{errno}] ". (($sms_status{$Sms_service->{errno}}) ? $sms_status{$Sms_service->{errno}} : '' )
+        . " ". ($Sms_service->{errstr} || q{}), { ID => 1603 });
+    }
+
+    return 0;
+  }
+  else {
+    if ($conf{SMS_FEES}) {
+      if ($attr->{NUMBERS}) {
+        while (my ($number, $uid) = each %{ $attr->{NUMBERS} }) {
+          $Users->info($uid);
+          $Fees->take($users, $conf{SMS_FEES}, { DESCRIBE => 'Sms ' . $number });
+        }
+      }
+      elsif ($attr->{UID}) {
+        $Users->info($attr->{UID});
+        $Fees->take($users, $conf{SMS_FEES}, { DESCRIBE => 'Sms ' . $attr->{NUMBER} });
+      }
+    }
+  }
+
+  if ($attr->{NUMBERS} && ! $attr->{NUMBER}) {
+    $attr->{NUMBER} = (keys %{ $attr->{NUMBERS} })[0];
+  }
+
+  $DATE = POSIX::strftime("%Y-%m-%d", localtime(time));
+  $TIME = POSIX::strftime("%H:%M:%S", localtime(time));
+
+  $Sms->add({
+    UID          => $attr->{UID},
+    MESSAGE      => $attr->{MESSAGE},
+    PHONE        => $attr->{NUMBER},
+    DATETIME     => "$DATE $TIME",
+    STATUS       => $status || 0,
+    EXT_ID       => $Sms_service->{id} || $Sms_service->{INSERT_ID} || '',
+    STATUS_DATE  => "$DATE $TIME",
+    EXT_STATUS   => $Sms_service->{status} || '',
+  });
+
+  return $Sms_service->{id} || 1;
+}
+
+#**********************************************************
+=head2 sms_info($id, $attr);
+
+=cut
+#**********************************************************
+sub sms_info {
+  my ($id) = @_;
+
+  my $Sms_service = init_sms_service($db, $admin, \%conf);
+
+  return 0 if ($Sms_service->{errno});
+
+  $Sms_service->info({ ID => $id });
+
+  _error_show($Sms_service);
+
+  return 1;
+}
+
+#**********************************************************
+=head2 sms_account_info($attr)
+
+=cut
+#**********************************************************
+sub sms_account_info {
+  my $Sms_service = init_sms_service($db, $admin, \%conf);
+
+  return 0 if ($Sms_service->{errno});
+
+  if ($Sms_service->can('account_info')) {
+    my $list = $Sms_service->account_info({
+      %LIST_PARAMS,
+      DEBUG     => $conf{SMS_DEBUG} || 0,
+      COLS_NAME => 1
+    });
+
+    my $table = $html->table({
+      width   => '100%',
+      caption => "$Sms_service->{SERVICE_NAME} - $lang{INFO}",
+      ID      => 'REPORTS_SMS',
+    });
+
+    foreach my $line (@$list) {
+      while (my ($k, $v,) = each %$line) {
+        $table->addrow($k, $v);
+      }
+    }
+
+    print $table->show();
+  }
+  else {
+    $html->message('warn', '', $Sms_service->{SERVICE_NAME} . ' NOT_SUPPORT: account_info');
+  }
+
+  return 1;
+}
+
+
+#**********************************************************
+=head2 sms_reports()
+
+=cut
+#**********************************************************
+sub sms_reports {
+
+  my $Sms_service = init_sms_service($db, $admin, \%conf);
+
+  return 0 if ($Sms_service->{errno});
+
+  if (!$FORM{desc} && !$FORM{sort}) {
+    $LIST_PARAMS{DESC} = 'DESC';
+    $LIST_PARAMS{SORT} = 1;
+  }
+
+  if ($FORM{search_form}) {
+    $Sms_service->{STATUS_SEL} = $html->form_select('STATUS', {
+      SELECTED => $FORM{STATUS} || '',
+      SEL_HASH => { '' => $lang{ALL}, %sms_status },
+      NO_ID    => 1
+    });
+
+    $Sms_service->{GROUP_SEL} = sel_groups();
+    form_search({
+      SHOW_PERIOD => 1,
+      SEARCH_FORM => $html->tpl_show(
+        _include('sms_search', 'Sms'),
+        { %FORM, %$Sms_service },
+        { OUTPUT2RETURN => 1 }
+      ),
+    });
+  }
+  else {
+    my $phone_search = $html->form_input('SMS_PHONE', $FORM{SMS_PHONE});
+
+    require Control::Reports;
+	reports({
+      PERIOD_FORM     => 1,
+      DATE_RANGE      => 1,
+      NO_TAGS         => 1,
+      HIDDEN          => {
+        direct => $FORM{direct},
+        sort   => $FORM{sort},
+        desc   => $FORM{desc}
+      },
+      EXT_SELECT      => $phone_search,
+      EXT_SELECT_NAME => $lang{PHONE}
+    });
+  }
+
+  if ($Sms_service->can('info')){
+    my @header_arr = ("$lang{MAIN}:index=$index",
+      "$lang{DIRECT}:index=$index&direct=1");
+
+    print $html->table_header( \@header_arr, { TABS => 1 } );
+  }
+
+  if ($FORM{direct}){
+    $pages_qs .= "&direct=1";
+
+    if ($FORM{SMS_PHONE}) {
+      $LIST_PARAMS{PHONE} = $FORM{SMS_PHONE};
+      $pages_qs .= "&SMS_PHONE=$FORM{SMS_PHONE}";
+    }
+
+    my $list = $Sms_service->info({
+      %LIST_PARAMS,
+      DEBUG     => $conf{SMS_DEBUG} || 0,
+      COLS_NAME => 1
+    });
+
+    if ($Sms_service->{errno}){
+      $html->message( 'err', "$Sms_service->{SERVICE_NAME} - $lang{ERROR}",
+        "[$Sms_service->{errno}] $sms_status{$Sms_service->{errno}} $Sms_service->{errstr}" );
+
+      return 0;
+    }
+
+    my $table = $html->table({
+      width   => '100%',
+      caption => "$Sms_service->{SERVICE_NAME} ($Sms_service->{SERVICE_VERSION}) - $lang{REPORTS}",
+      title   => [ '#', $lang{MSG_ID}, $lang{NUM}, $lang{SIGNATURE}, $lang{MESSAGE}, 'wappush', $lang{PRICE}, $lang{DEPOSIT},
+          $lang{SEND_TIME}, $lang{SENDED}, $lang{UPDATED}, $lang{STATUS}, $lang{ERROR} ],
+      qs      => $pages_qs,
+      pages   => $Sms_service->{TOTAL},
+      ID      => 'REPORTS_SMS',
+      MENU    => "$lang{SEARCH}:index=$index&search_form=1&direct=1:search",
+    });
+
+    foreach my $line (@{ $list }){
+      my $status = ($line->{status} && $sms_status{$line->{status}}) ? $sms_status{$line->{status}} : ($line->{status} || q{});
+
+      Encode::_utf8_off( $line->{message} );
+      Encode::_utf8_off( $line->{number} );
+
+      my $destination = $line->{number} || '';
+
+      Encode::_utf8_off( $destination );
+
+      my $error_code = $line->{error_code} || '';
+
+      Encode::from_to($status, 'utf-8', 'windows-1251') if ($conf{dbcharset} ne 'utf8');
+
+      $destination =~ s/[\+\ ]+//;
+
+      $table->addrow(
+        $line->{id},
+        $line->{msg_id},
+        $html->button( $destination,
+          "index=" . get_function_index( 'ureports_users_list' ) . "&DESTINATION_ID=". ($destination || q{}) ."&search=1&search_form=1" ),
+        $line->{sign},
+        $line->{message},
+        $line->{wappush},
+        $line->{cost},
+        $line->{credits} || $line->{balance},
+        $line->{send_time},
+          ($line->{sended} && $line->{sended} =~ /\d{4}/) ? $line->{sended} : ($line->{sended}) ? $lang{YES} : $lang{NO},
+        $line->{updated},
+        $status,
+        ($sms_status{$error_code}) ? $sms_status{$error_code} : $error_code,
+      );
+    }
+
+    print $table->show();
+
+    $table = $html->table({
+      width => '100%',
+      rows  => [ [ "$lang{TOTAL}:", $html->b( $Sms_service->{TOTAL} ) ] ]
+    });
+
+    print $table->show();
+  }
+  else {
+    if ($FORM{SMS_PHONE}) {
+      $LIST_PARAMS{SMS_PHONE} = $FORM{SMS_PHONE};
+    }
+
+    result_former({
+      INPUT_DATA      => $Sms,
+      FUNCTION        => 'list',
+      DEFAULT_FIELDS  => 'DATETIME,LOGIN,SMS_STATUS,SMS_PHONE',
+      SELECT_VALUE  => {
+        sms_status => \%sms_status,
+        ext_status => \%sms_status,
+      },
+      EXT_TITLES => {
+        datetime      => $lang{DATE},
+        sms_status    => "SMS $lang{STATUS}",
+        sms_phone     => "SMS $lang{PHONE}",
+        message       => $lang{MESSAGE},
+        ext_id        => 'EXT ID',
+        ext_status    => 'EXT status',
+        status_date   => "$lang{STATUS} $lang{DATE}",
+      },
+      TABLE => {
+        width      => '100%',
+        caption    => "SMS $lang{REPORTS}",
+        qs         => $pages_qs,
+        ID         => 'SMS_REPOSRT',
+        EXPORT     => 1,
+        MENU       => "$lang{SEARCH}:index=$index&search_form=1&$pages_qs:search",
+      },
+      MAKE_ROWS    => 1,
+      SEARCH_FORMER=> 1,
+      TOTAL        => 1
+    });
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 send_user_memo($attr)
+
+  Arguments:
+    $attr
+
+  Return:
+
+
+=cut
+#**********************************************************
+sub send_user_memo {
+  my ($attr) = @_;
+
+  return 0 unless (defined($attr->{PHONE}));
+
+  my $uid = $attr->{UID};
+
+  if ($conf{SMS_REG_GREETING}) {
+    # require Users;
+    # Users->import();
+    # $Users = Users->new($db, $admin, \%conf);
+  }
+
+  $user = $Users->info($uid, { SHOW_PASSWORD => 1 });
+
+  if ( (($attr->{sms} && !$conf{SMS_REG_GREETING}) ||
+      ($attr->{finish} && $conf{SMS_REG_GREETING})) ||
+      ($attr->{sms} && $attr->{ACTION} && $attr->{ACTION} eq 'send') && in_array('Internet', \@MODULES)) {
+
+    my $message;
+    if ($attr->{NEW_USER}) {
+      $message = $html->tpl_show(_include('sms_send_user_memo', 'Sms'), {
+        %$attr,
+        %$user,
+        ISP => $conf{WEB_TITLE}
+      }, {
+        OUTPUT2RETURN      => 1,
+        SKIP_DEBUG_MARKERS => 1
+      });
+    }
+    else {
+      $message = $html->tpl_show(_include('internet_user_memo_sms', 'Internet'), {
+        %$attr,
+        %$user
+      }, {
+        OUTPUT2RETURN      => 1,
+        SKIP_DEBUG_MARKERS => 1
+      });
+    }
+
+    unless ($attr->{PHONE} || $attr->{CALL_PHONE}) {
+      $users->list(
+        {
+          UID         => $uid,
+          PHONE       => '_SHOW',
+          COLS_NAME   => 1
+        });
+
+        if ($users->{list}->[0]->{phone}) {
+          ($attr->{PHONE}, $attr->{CALL_PHONE}) = split(/;/, $users->{list}->[0]->{phone});
+        }
+    }
+
+    my $sms_id = sms_send(
+    {
+      NUMBER  => $attr->{PHONE} || $attr->{CALL_PHONE},
+      MESSAGE => $message,
+      UID     => $attr->{UID},
+    });
+
+    if ($sms_id) {
+      return $html->message('info', $lang{INFO}, "SMS $lang{SENDED}");
+    }
+    else {
+      return $html->message('err', $lang{INFO}, "SMS $lang{NOT} $lang{SENDED}");
+    }
+  }
+}
+
+#**********************************************************
+=head2 sms_send_register()
+
+=cut
+#**********************************************************
+sub sms_send_register {
+  my ($attr) = @_;
+
+  my $uid        = $attr->{USER_INFO}->{UID} || $attr->{UID};
+  my $login      = $attr->{USER_INFO}->{LOGIN} || '';
+  my $phone      = $attr->{USER_INFO}->{PHONE} || '';
+
+  if ($uid) {
+    $attr->{READONLY} = 'readonly';
+  }
+
+  if (!$attr->{LNG_ACTION} && !$attr->{ACTION}) {
+    $attr->{ACTION}     = 'send';
+    $attr->{LNG_ACTION} = $lang{SEND};
+
+    if (!$phone) {
+      require Contacts;
+      Contacts->import();
+
+      my $Contacts = Contacts->new($db, $admin, \%conf);
+      my $user_phone = $Contacts->contacts_list({
+        UID     => $uid,
+        TYPE    => 1,
+        VALUE   => '_SHOW'
+      });
+
+      $phone = $user_phone->[0]{value};
+    }
+  }
+
+  if ($attr->{ACTION} eq 'send') {
+    $attr->{UID} = $uid;
+    send_user_memo({ %$attr, %FORM });
+  }
+
+  $html->tpl_show(_include('sms_send_end_register', 'Sms'), {
+    %$attr,
+    INDEX                   => $index,
+    UID                     => $uid,
+    USER                    => $login,
+    PHONE                   => $phone,
+    UID                     => $uid,
+    REGISTRATION_INFO_SMS   => 1,
+    sms                     => 1,
+    step                    => $attr->{step}
+  }, { ID => 'sms_send_end_register' });
+}
+
+#**********************************************************
+=head2 sel_sms_systems($attr)
+
+=cut
+#**********************************************************
+sub sel_sms_systems {
+  my ($attr) = @_;
+
+  my %enable_sms_systems = ();
+  my %sms_systems = (
+    SMS_PLAYMOBILE_LOGIN   => 'Playmobile',
+    SMS_CMD                => 'Cmd',
+    SMS_TXTLOCAL_APIKEY    => 'Txtlocal',
+    SMS_SMSC_USER          => 'Smsc',
+    SMS_LITTLESMS_USER     => 'Littlesms',
+    SMS_EPOCHTASMS_OPENKEY => 'Epochtasms',
+    SMS_TURBOSMS_PASSWD    => 'Turbosms',
+    SMS_JASMIN_USER        => 'Jasmin',
+    SMS_SMSEAGLE_USER      => 'Smseagle',
+    SMS_BULKSMS_LOGIN      => 'Bulksms',
+    SMS_IDM_LOGIN          => 'IDM',
+    SMS_TERRA_USER         => 'Sms_terra',
+    SMS_UNIVERSAL_URL      => 'Universal_sms_module',
+    SMS_ESKIZ_URL          => 'Eskizsms',
+    SMS_BROKER_LOGIN       => 'Sms_Broker',
+    SMS_OMNICELL_URL       => 'Omnicell',
+    SMS_LIKON_URL          => 'LikonSms',
+    SMS_MSGAM_URL          => 'MsgAm',
+    SMS_CABLENET_LOGIN     => 'Cablenet',
+    SMS_WEBSMS_URL         => 'WebSms',
+    SMS_FENIX_URL          => 'Fenix',
+    SMS_AMD_URL            => 'AMD',
+    SMS_SMSCLUB_URL        => 'SmsClub',
+    SMS_ALPHASMS_URL        => 'AlphaSms',
+  );
+
+  foreach my $config_key (sort keys %sms_systems) {
+    next if !$conf{$config_key};
+
+    $enable_sms_systems{$config_key} = $sms_systems{$config_key};
+  }
+
+  return $html->form_select($attr->{NAME} || 'SMS_SERVICE', {
+    SELECTED => $attr->{SELECTED} || '',
+    SEL_HASH => { '' => '--', %enable_sms_systems },
+    NO_ID    => 1,
+    SORT_KEY => 1
+  });
+}
+
+1
+

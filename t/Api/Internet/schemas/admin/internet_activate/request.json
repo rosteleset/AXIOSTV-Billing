@@ -1,0 +1,5 @@
+{
+  "name": "ADMIN_INTERNET_ACTIVATE",
+  "method": "POST",
+  "path": "internet/:uid/activate/"
+}

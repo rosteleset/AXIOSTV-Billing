@@ -1,0 +1,9 @@
+===== Payment =====
+amount -> 1.00
+currency -> UAH
+merchant_data -> 1
+order_id -> 99999
+payment_id -> 10133519
+signature -> f4394076112065cba9939907587e44f18349adce
+order_status -> approved
+order_time -> 02.06.2016 12:34:31

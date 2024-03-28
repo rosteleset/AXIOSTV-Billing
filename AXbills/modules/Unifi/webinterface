@@ -1,0 +1,309 @@
+#!perl
+=head1 NAME
+
+  Ubiquiti Uni-Fi Controller
+
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+use Unifi::Unifi;
+use AXbills::Base qw(int2byte sec2time);
+
+our (
+  %conf,
+  $html,
+  %lang,
+  $db,
+  $admin
+);
+
+my $Nas   = Nas->new($db, \%conf, $admin);
+my $Unifi = Unifi->new( \%conf );
+
+if($FORM{DEBUG}) {
+  $Unifi->{debug}=1;
+}
+
+#********************************************************************
+=head1 unifi_main()
+
+  show configuration params related to UniFi
+
+=cut
+#********************************************************************
+sub unifi_main {
+
+  $html->message( 'info', 'UniFi', 'config.pl' );
+
+  $html->tpl_show( _include( 'unifi_settings', 'Unifi' ), \%conf );
+
+  return 1;
+}
+
+#********************************************************************
+=head2 unifi_guests_list()
+
+=cut
+#********************************************************************
+sub unifi_guests_list {
+  $Nas->{NAME_SEL} = $html->form_main(
+    {
+      CONTENT => $html->form_select(
+        'NAS_ID',
+        {
+          SELECTED  => $FORM{NAS_ID},
+          SEL_LIST  => $Nas->list({ NAS_TYPE => 'Unifi', PAGE_ROWS => 10000, COLS_NAME => 1 }),
+          SEL_KEY   => 'nas_id',
+          SEL_VALUE => 'nas_name,nas_ip',
+        }
+      ),
+      HIDDEN => {
+        index => $index,
+      },
+      SUBMIT => { show => $lang{SHOW} },
+      class   => 'navbar-form navbar-right',
+    }
+  );
+
+  func_menu(
+    {
+      $lang{NAME} => $Nas->{NAME_SEL}
+    },
+    [
+      "Standart::&NAS_ID=". ($FORM{NAS_ID} || ''),
+      "Full::&info=FULL&NAS_ID=". ($FORM{NAS_ID} || ''),
+      "Sys info::&info=SYSINFO&NAS_ID=". ($FORM{NAS_ID} || ''),
+      "Alarms::&info=ALARM&NAS_ID=". ($FORM{NAS_ID} || ''),
+      "DAILY SITE::&info=DAILY_SITE&NAS_ID=". ($FORM{NAS_ID} || ''),
+    ]
+  );
+
+
+  if ($FORM{NAS_ID}) {
+    $Nas->info({ NAS_ID => $FORM{NAS_ID} });
+    $Unifi->{login}          = $Nas->{NAS_MNG_USER};
+    $Unifi->{password}       = $Nas->{NAS_MNG_PASSWORD};
+    $Unifi->{unifi_sitename} = $Nas->{NAS_IDENTIFIER} || 'default';
+    $Nas->{NAS_MNG_IP_PORT}  =~ s/:(\d+).*$/:$1/g;
+    $Unifi->{unifi_url}      = 'https://' . $Nas->{NAS_MNG_IP_PORT};
+
+    if ($FORM{HANGUP}) {
+      unifi_deauthorize($FORM{HANGUP});
+    }
+
+    my $users_list;
+    my $info = $FORM{info} || '';
+    if ($info eq 'ALARM') {
+      $users_list = $Unifi->alarms();
+    }
+    elsif($info eq 'SYSINFO') {
+      $users_list = $Unifi->sys_info();
+    }
+    elsif($info eq 'DAILY_SITE') {
+      $users_list = $Unifi->daily_site();
+    }
+    else {
+      $users_list = $Unifi->users_list();
+    }
+
+    if ($Unifi->{errno}) {
+      $html->message( 'err', $lang{ERROR}, "$Unifi->{errno} $Unifi->{errstr}" );
+      return 0;
+    }
+    elsif (!$users_list) {
+      $html->message( 'err', $lang{ERROR}, 'No users at UniFi controller NAS:'. $FORM{NAS_ID} );
+      return 0;
+    }
+
+    if ($FORM{info}) {
+      result_former({
+        SKIP_USER_TITLE => 1,
+        EXT_TITLES => {
+        },
+        TABLE    => {
+          width    => '100%',
+          caption  => $lang{USERS},
+          ID       => 'USERS_LIST',
+        },
+        DATAHASH        => $users_list,
+        TOTAL           => 1
+      });
+    }
+    else {
+      my $table = $html->table( {
+        width   => '100%',
+        caption => $lang{USERS},
+        title   => [
+           "№", "$lang{NAME}", "$lang{AUTH}", "$lang{DURATION}", "MAC", "RSSI", "$lang{SENT}, kb", "$lang{RECV}, kb",
+           "$lang{SPEED}, $lang{DOWN}", "$lang{SPEED}, $lang{UP}"
+        ],
+        ID      => 'USERS_LIST'
+      } );
+
+      my $lld_data = $Unifi->convert_result( $users_list );
+
+      my $i = 1;
+      foreach my $guest (@{$lld_data->{data}}) {
+        $table->addrow(
+          $i++,
+          $guest->{'{OUI}'},
+          ($guest->{'{AUTHORIZED}'}) ? "$lang{YES}" : "$lang{NO}",
+          sec2time($guest->{'{UPTIME}'}, { str => 1 }),
+          $guest->{'{MAC}'},
+          $guest->{'{SIGNAL}'},
+          int2byte($guest->{'{TRANSMIT}'}),
+          int2byte($guest->{'{RECEIVED}'}),
+          $guest->{'{SPEEDDOWN}'},
+          $guest->{'{SPEEDUP}'},
+          ($guest->{'{AUTHORIZED}'}) ? $html->button($lang{HANGUP}, "index=$index&NAS_ID=$FORM{NAS_ID}&HANGUP=". $guest->{'{MAC}'}, { class => 'off' }) : ''
+        );
+      }
+
+      print $table->show();
+    }
+  }
+  return 1;
+}
+
+##********************************************************************
+#=head2 unifi_get_deauthorize_btn($id)
+#
+#=cut
+##********************************************************************
+#sub unifi_get_deauthorize_btn {
+#  my ($id) = @_;
+#
+#  my $link = "?get_index=unifi_deauthorize&header=2&id=$id&NAS_ID=$FORM{NAS_ID}";
+#  return "<button role='button' class='btn btn-xs btn-danger' title='Disable' onclick='loadToModal(\"$link\")'>D</button>"
+#
+#}
+
+#********************************************************************
+=head2 unifi_deauthorize($id)
+
+=cut
+#********************************************************************
+sub unifi_deauthorize {
+  my ($id) = @_;
+
+  unifi_show_result( $Unifi->deauthorize( { MAC => $id } ) );
+
+  return 1;
+}
+
+#********************************************************************
+=head2 unifi_ap_list()
+
+=cut
+#********************************************************************
+sub unifi_ap_list {
+
+  my $devices = $Unifi->devices_list();
+
+  if($Unifi->{errno}){
+    $html->message( 'err', $lang{ERROR}, "$Unifi->{errno} $Unifi->{errstr}" );
+    return 0;
+  }
+  elsif ( !$devices ) {
+    $html->message( 'err', $lang{ERROR}, 'No devices at UniFi controller' );
+    return 0;
+  }
+
+  my @header_arr = ("$lang{MAIN}:index=$index",
+    "$lang{FULL}:index=$index&&FULL=1"
+  );
+  print $html->table_header(\@header_arr, { TABS => 1 });
+
+
+  if($FORM{FULL}) {
+    result_former({
+      SKIP_USER_TITLE => 1,
+        EXT_TITLES => {
+      },
+      TABLE    => {
+        width    => '100%',
+        caption  => $lang{USERS},
+        ID       => 'USERS_LIST',
+      },
+      DATAHASH       => $devices,
+      TOTAL          => 1
+    });
+  }
+  else {
+    my $table = $html->table( {
+        width   => '100%',
+        caption => "$lang{HARDWARE}",
+        title   => [
+          "№", $lang{NAME}, $lang{MODEL}, "MAC", $lang{ENABLE}, "IP", "$lang{RECV}, kb", "$lang{SENT}, kb",
+          "$lang{DURATION}, s", '-' ],
+        ID      => 'GUESTS_TABLE'
+      } );
+
+    my $lld_data = $Unifi->convert_result( $devices );
+
+    my $i = 1;
+    foreach my $device (@{$lld_data->{data}}) {
+      $table->addrow(
+        $i++,
+        $device->{'{NAME}'},
+        $device->{'{ALIAS}'},
+        $device->{'{MAC}'},
+          ($device->{'{ADOPTED}'}) ? $lang{YES} : $lang{NO},
+        $device->{'{IP}'},
+        int2byte($device->{'{RECEIVED}'} || 0),
+        int2byte($device->{'{TRANSMIT}'} || 0),
+        $device->{'{UPTIME}'},
+        unifi_get_restart_ap_button($device->{'{MAC}'})
+      );
+    }
+
+    print $table->show();
+  }
+  return 1;
+}
+
+#********************************************************************
+#
+#********************************************************************
+sub unifi_get_restart_ap_button {
+  my ($mac) = @_;
+
+  return '' unless ($mac);
+
+  my $link = "?get_index=unifi_restart_ap&header=2&id=$mac";
+  return "<button role='button' class='btn btn-xs btn-success' title='Restart' onclick='loadToModal(\"$link\")'>R</button>";
+}
+
+#********************************************************************
+#
+#********************************************************************
+sub unifi_restart_ap {
+  my ($ap_mac) = $FORM{id} || @_;
+
+  unless ( $ap_mac ) {return 0};
+
+  unifi_show_result( $Unifi->restart_ap( { MAC => $ap_mac } ) );
+
+  return 1;
+}
+
+
+#********************************************************************
+#
+#********************************************************************
+sub unifi_show_result {
+  my ($status) = @_;
+
+  if ( $status ) {
+    $html->message( 'info', "$lang{EXECUTED}" );
+  }
+  else {
+    $html->message( 'warn', $lang{ERROR} );
+  }
+
+  return 1;
+}
+
+
+1;

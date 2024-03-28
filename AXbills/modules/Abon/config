@@ -1,0 +1,17 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+our %FUNCTIONS_LIST = ("01:0:$lang{ABON}:abon_user_list:" => 11,
+  "02:0:$lang{ABON}:abon_user_list:COMPANY_ID"            => 13,
+  "03:0:$lang{ABON}:abon_user:UID"                        => 20,
+  "06:0:$lang{ABON}:null:"                                => 5,
+  "09:6:$lang{TARIF_PLANS}:abon_tariffs:"                 => 5,
+  "10:6:$lang{CATEGORIES}:abon_categories:"               => 5,
+  #"07:6:$lang{USERS}:abon_user_list:ABON_ID"    => 5,
+  "08:0:$lang{ABON}:abon_plugin_reports:"                 => 4
+);
+
+our %USER_FUNCTION_LIST = ("01:0:$lang{EXT_SERVICES}:abon_client:" => 0,
+);
+
+our %PERIODIC = (daily => [ 'abon_periodic' ]);
+
+1;

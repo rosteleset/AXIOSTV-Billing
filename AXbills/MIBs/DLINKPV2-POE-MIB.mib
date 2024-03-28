@@ -1,0 +1,470 @@
+-- *****************************************************************
+-- DLINKPV2-POE-MIB.mib : D-Link extensions to POWER-ETHERNET-MIB (PoE)
+--
+-- Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--
+-- *****************************************************************
+DLINKPV2-POE-MIB DEFINITIONS ::= BEGIN
+
+     IMPORTS
+        OBJECT-GROUP, MODULE-COMPLIANCE, NOTIFICATION-GROUP 
+            FROM SNMPv2-CONF
+        MODULE-IDENTITY, OBJECT-TYPE, Integer32 
+            FROM SNMPv2-SMI
+        DisplayString,TruthValue
+            FROM SNMPv2-TC   
+        InetAddressType, InetAddress
+            FROM INET-ADDRESS-MIB
+        pethPsePortIndex
+            FROM POWER-ETHERNET-MIB
+        dlinkDGS1100CommonV2
+            FROM DGS1100SERMGMT-MIB;
+
+
+    primeV2PoeExtMIB MODULE-IDENTITY
+        LAST-UPDATED "201404260000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+                "        D-Link Corporation
+                 Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                         Taipei City 114, Taiwan, R.O.C
+                 Tel:     +886-2-66000123
+                 E-mail: tsd@dlink.com.tw
+                "
+        DESCRIPTION
+                "A MIB module for extending POWER-ETHERNET-MIB specified in 
+                RFC 3621.
+                " 
+        REVISION "201404260000Z"
+        DESCRIPTION
+                 "Initial version of this MIB module."
+        ::= { dlinkDGS1100CommonV2 11 }
+
+-- -----------------------------------------------------------------------------
+    v2PoeMIBNotifications OBJECT IDENTIFIER ::= { primeV2PoeExtMIB 0 }       
+    v2PoeMIBObjects       OBJECT IDENTIFIER ::= { primeV2PoeExtMIB 1 }
+    v2PoeMIBConformance   OBJECT IDENTIFIER ::= { primeV2PoeExtMIB 2 }
+
+------------------------------------------------------------------------------------------------------
+--  ***************************************************************************	
+--  POE Global Table
+--  ***************************************************************************
+    v2PoeGblObjects		OBJECT IDENTIFIER ::= { v2PoeMIBObjects 1 }
+    	
+    v2PoeUsageThresholdTrapEnabled OBJECT-TYPE
+        SYNTAX          TruthValue 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object enables usage threshold trap function."
+        ::= { v2PoeGblObjects 1 }	
+	
+    v2PoeUsageThreshold OBJECT-TYPE
+        SYNTAX      Integer32  (1..99)
+        UNITS      "%"
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "The usage threshold expressed in percents for
+            comparing the measured power and initiating
+            an alarm if the threshold is exceeded and
+			v2PoeUsageThresholdTrapEnabled is enabled."
+        ::= { v2PoeGblObjects 2 }
+
+--  ***************************************************************************	
+--  POE Port Table
+--  ***************************************************************************
+    v2PoeIfObjects  OBJECT IDENTIFIER ::= { v2PoeMIBObjects 2 }  
+                
+    v2PoeIfCfgTable OBJECT-TYPE
+        SYNTAX        SEQUENCE OF V2PoeIfCfgEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION
+             "This table consists of a list of PoE configuration 
+             information for ports."
+        ::= { v2PoeIfObjects 1 }   
+       
+    v2PoeIfCfgEntry OBJECT-TYPE
+        SYNTAX        V2PoeIfCfgEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION
+             "An entry contains PoE configuration on a port."
+        INDEX { 
+            pethPsePortIndex
+        }
+        ::= { v2PoeIfCfgTable 1 }    
+        
+    V2PoeIfCfgEntry ::=            SEQUENCE {
+        v2PoeIfState             INTEGER,
+		v2PoeIfPriority          INTEGER,
+        v2PoeIfMaxPower          Integer32,
+        v2PoeIfTimeRange         DisplayString
+    }      
+        
+    v2PoeIfState OBJECT-TYPE
+        SYNTAX      INTEGER {
+			enabled(1),          
+			disabled(2)
+		}
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+
+			"This object indicates whether the POE is enabled on the interface."
+
+        ::= { v2PoeIfCfgEntry 1 }
+		        
+    v2PoeIfPriority OBJECT-TYPE
+        SYNTAX  INTEGER {
+            critical(1),
+            high(2),
+			low(3)
+        }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+			"This object set POE priority.
+            critical -  Power critical's port connected PD device first.
+            high - The second priority is to power the high port connected PD device.
+			low  - The last one supplies power to the low port connected PD device.Port power has a default priority of low.
+            "
+
+        ::= { v2PoeIfCfgEntry 2 }
+
+    v2PoeIfMaxPower OBJECT-TYPE
+        SYNTAX          Integer32 (0 | 1000..30000)
+        UNITS           "milliwatts"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+              "This object indicates the max wattage value which can 
+               be provisioned to the port.
+	       This value of '0' means that the device is high-power 
+	       and cannot limit power.
+               Note: This object is valid only while the v2PoeIfState 
+               object is configured as static.
+	       This value is meaningful only when low power.
+	       "
+        ::= { v2PoeIfCfgEntry 3 } 
+        
+    v2PoeIfTimeRange OBJECT-TYPE
+        SYNTAX          DisplayString (SIZE (0..8))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+              "This object indicates the name of time-range profile to delineate
+               the activation period.
+               A zero length string indicates the time-range is not specified."
+        ::= { v2PoeIfCfgEntry 4 }
+
+------------------------------------------------------------------------------------------------------
+    v2PoeIfInfoObjects  OBJECT IDENTIFIER ::= { v2PoeIfObjects 2 }
+
+    v2PoeIfStatusTable OBJECT-TYPE
+        SYNTAX        SEQUENCE OF V2PoeIfStatusEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION
+             "This table consists of a list of PoE status for ports."
+        ::= { v2PoeIfInfoObjects 1 } 
+                         
+    v2PoeIfStatusEntry  OBJECT-TYPE
+        SYNTAX          V2PoeIfStatusEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+             "An entry consists of PoE status for a port."
+        INDEX { pethPsePortIndex }
+        ::= { v2PoeIfStatusTable 1 }  
+        
+    V2PoeIfStatusEntry ::=         SEQUENCE {
+        v2PoeIfDetectStatus     INTEGER,
+        v2PoeIfFaultyType       INTEGER
+    } 
+
+    v2PoeIfDetectStatus OBJECT-TYPE
+        SYNTAX          INTEGER             {
+            disabled(1),
+            searching(2),
+            requesting(3),
+            delivering(4),
+            faulty(5)
+        }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+             "This object indicates the operational status of the port PD detection.
+             disabled(1) - PSE function is disabled.
+             searching(2) - Remote PD is not connected.
+             requesting(3) - Remote PD is inserted, but the PSE doesn't provide power yet.
+             delivering(4) - Remote PD is now powering by PoE system.
+             faulty(5) - Device detection or a powered device is in a faulty state.
+             "
+        ::= { v2PoeIfStatusEntry 1 }  
+            
+    v2PoeIfFaultyType OBJECT-TYPE
+        SYNTAX        INTEGER {     
+            notApplicable(0),
+            mpsAbsent(1),
+            pdShort(2),
+            overload(3),
+            powerDenied(4),
+            thermalShutdown(5),
+            startupFailure(6),
+            classificationFailure(7)
+        }
+        MAX-ACCESS    read-only
+        STATUS        current
+        DESCRIPTION
+            "This object indicates the specific faulty type. It is meaningful
+            only when v2PoeIfDetectStatus object is 'faulty'.
+            notApplicable(0) - indicates this object is meaningless, e.g. the 
+                v2PoeIfDetectStatus is not 'faulty'.
+            mpsAbsent(1) - indicates MPS(Maintain Power Signature) Absent
+            pdShort(2) - indicates PD Short
+            overload(3) - indicates Overload
+            powerDenied(4) - indicates Power Denied
+            thermalShutdown(5)- indicates Thermal Shutdown
+            startupFailure(6) -  indicates Startup Failure
+            classificationFailure(7) - indicates Classification Failure(IEEE 802.3at)
+            "
+        ::= { v2PoeIfStatusEntry 2 }
+
+------------------------------------------------------------------------------------------------------
+    v2PoeIfMeasurementTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2PoEIfMeasurementEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table consists of a list of POE measurement 
+            information for ports."
+        ::= { v2PoeIfInfoObjects 2 } 
+                         
+    v2PoeIfMeasurementEntry  OBJECT-TYPE
+        SYNTAX          V2PoEIfMeasurementEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+             "An entry consists of PoE measurement information of a port."
+        INDEX { 
+            pethPsePortIndex 
+        }
+        ::= { v2PoeIfMeasurementTable 1 }  
+        
+    V2PoEIfMeasurementEntry ::=        SEQUENCE {
+        v2PoeIfPower             Integer32
+    } 
+ 
+     v2PoeIfPower OBJECT-TYPE
+        SYNTAX        Integer32
+        MAX-ACCESS    read-only
+        STATUS        current
+        DESCRIPTION
+             "This object indicates consumption power of port in milliwatts."
+        ::= { v2PoeIfMeasurementEntry 1 }  
+---------------------------------------------------------------------------------
+-- Add a new table for SNR-20170223-001(ASV2.1)(PD alive check)
+---------------------------------------------------------------------------------
+   v2PoeIfPdAliveCfgTable OBJECT-TYPE
+        SYNTAX        SEQUENCE OF V2PoeIfPdAliveCfgEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION
+             "This table consists of a list of configuration for the PD
+             alive check function for ports.
+             The PD alive check feature provides the solution for 
+             PD device that has the stop working or no response 
+             problem via Ping mechanism.
+             Detailed Process:
+             The detailed processes are described as follows:
+             1. The system  needs to  periodically monitor the 
+              specific PD by using Ping function. If there is no 
+              response, system takes one of the following actions:
+              (1) Reset: Switch resets (disable then enable) PoE 
+                  power on the port which connects to a PD under monitoring.
+              (2) Notify: Switch sends logs and traps to notify the administrator.
+              (3) Both: Switch sends logs and traps, and resets the PoE port power.
+             2. The system should implement the retry  mechanism to check 
+              PD aliveness, hence the system will reset the PoE port power 
+              feeding after the retry by using Ping without any response from a PD.
+             3. If the action is Reset or  Both, the system needs 
+              to wait for PD recovery from rebooting and then executes 
+              the Ping function again. Besides, the waiting time can 
+              be configured by users.
+             4. If PoE schedule (time range) function is configured 
+              on the port which enables the PD Alive Check  function, 
+              the time range function has the top priority, and 
+              therefore PD Alive Check function will not work 
+              while PoE time range function is still active.
+             5. This function only takes effect on PoE enabled 
+              port with power feeding.
+             
+             Note: It is required to setup IP settings properly that 
+              the PD can be reachable for Ping, otherwise this function 
+              cannot work as expected.
+             
+              Limitation
+             1. Support Ping Function: If the PD does not support ICMP, 
+              this function cannot work normally.
+             2. Direct-Connected PD: The Reset Action can only work on 
+              the direct-connected PD. If the PD is not connected directly, 
+              the Reset Action may not work as expected.
+             3. PD Also Acts as PSE: If the direct-connected PD is also a PSE, 
+              all the next level PDs connect to this PSE will be power cycling 
+              whenever PD Alive Check function takes effect on 'Reset' or 'Both' Action." 
+        ::= { v2PoeIfObjects 3 }   
+       
+    v2PoeIfPdAliveCfgEntry OBJECT-TYPE
+        SYNTAX        V2PoeIfPdAliveCfgEntry
+        MAX-ACCESS    not-accessible
+        STATUS        current
+        DESCRIPTION
+             "An entry contains configuration for PD alive check on a port."
+        INDEX { 
+            pethPsePortIndex
+        }
+        ::= { v2PoeIfPdAliveCfgTable 1 }    
+        
+    V2PoeIfPdAliveCfgEntry ::=      	  SEQUENCE {
+        v2PoeIfPdAliveCfgState                 INTEGER,
+        v2PoeIfPdAliveCfgPdIpAddr              InetAddress,
+        v2PoeIfPdAliveCfgInterval              Unsigned32,
+        v2PoeIfPdAliveCfgRetry                 Unsigned32,
+        v2PoeIfPdAliveCfgWaitTime              Unsigned32,
+        v2PoeIfPdAliveCfgAction                INTEGER
+    }      
+        
+    v2PoeIfPdAliveCfgState OBJECT-TYPE
+        SYNTAX      INTEGER    {
+           enabled(1),          
+           disabled(2)
+        }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the the PD alive function sate.
+             enabled - Enable the PD alive check function
+             disabled - Disable the PD alive check function."          
+        DEFVAL { disabled }
+        ::= { v2PoeIfPdAliveCfgEntry 1 }         
+    
+    v2PoeIfPdAliveCfgPdIpAddr OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the IP address of the target PD."
+        ::= { v2PoeIfPdAliveCfgEntry 2 }
+
+    v2PoeIfPdAliveCfgInterval OBJECT-TYPE
+        SYNTAX          Unsigned32 (10..300)
+        UNITS           "seconds"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+              "This object indicates the time interval for system 
+               issues ping request to detect the target PD.
+               The valid range for interval time is 10s to 300s."
+        DEFVAL { 30 }
+        ::= { v2PoeIfPdAliveCfgEntry 3 }         
+        
+    v2PoeIfPdAliveCfgRetry OBJECT-TYPE
+        SYNTAX          Unsigned32 (0..5)
+        UNITS           "times"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+              "This object indicates the retry count of ping 
+               request when PD has no response.
+               The valid range for retry count is 0 to 5 times."
+        DEFVAL { 2}
+        ::= { v2PoeIfPdAliveCfgEntry 4 }    
+
+
+    v2PoeIfPdAliveCfgWaitTime OBJECT-TYPE
+        SYNTAX          Unsigned32 (30..300)
+        UNITS           "seconds"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+              "This object indicates the waiting time for PD reboot.
+              The valid range for waiting time is 30s to 300s."
+        DEFVAL { 90 }
+        ::= { v2PoeIfPdAliveCfgEntry 5 }    
+
+    v2PoeIfPdAliveCfgAction OBJECT-TYPE
+        SYNTAX          INTEGER {
+           reset(1),          
+           notify(2),
+           both(3)
+        }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+              "This object indicates the action when PD doesn't reply the ping request.
+               reset- System will reset the PoE port state .
+               notify- System will send log and trap to notify the administrator.
+               both- System will send log and trap first and reset the PoE port state."
+        DEFVAL { both }
+        ::= { v2PoeIfPdAliveCfgEntry 6 }    
+ 
+-- *****************************************************************************
+-- MIB Notifications 
+-- *****************************************************************************
+    v2PoeIfPdAliveFailOccurNotification  NOTIFICATION-TYPE
+         OBJECTS  {
+                    v2PoeIfPdAliveCfgPdIpAddr 
+                  }
+         STATUS      current
+         DESCRIPTION
+             " This Notification indicates if the PD device has 
+               the stop working or no response problem."
+          ::= { v2PoeMIBNotifications 1 }
+	
+-- *****************************************************************************
+-- MIB Conformance statements
+-- *****************************************************************************
+    v2PoeMIBCompliances  OBJECT IDENTIFIER  ::= { v2PoeMIBConformance 1 }
+
+    v2PoeMIBGroups  OBJECT IDENTIFIER  ::= { v2PoeMIBConformance 2 }   
+    v2PoeMIBCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION
+            "The compliance statement for entities which implement the
+             DLINKPV2-POE-MIB."
+        MODULE          -- this module
+        MANDATORY-GROUPS { 
+            v2PoeGroupCfgGroup,
+            v2PoeIfCfgGroup,
+            v2PoeGroupInfoGroup,
+            v2PoeIfInfoGroup,
+            v2PoeIfErrorStateNotificationGroup
+        }
+
+        ::= { v2PoeMIBCompliances 1 }
+
+    v2PoeIfCfgGroup OBJECT-GROUP
+        OBJECTS {
+             v2PoeIfState,
+             v2PoeIfMaxPower,
+             v2PoeIfTimeRange
+        }
+        STATUS current
+        DESCRIPTION
+            "A collection of objects configure or display the ports information."
+        ::= { v2PoeMIBGroups 1 }
+
+    v2PoeIfInfoGroup OBJECT-GROUP
+        OBJECTS {
+             v2PoeIfDetectStatus,
+             v2PoeIfFaultyType,
+             v2PoeIfPower
+        }
+        STATUS current
+        DESCRIPTION
+            "A collection of objects display the ports information."
+        ::= { v2PoeMIBGroups 2 } 
+                                                                                                                
+END          

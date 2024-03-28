@@ -1,0 +1,1 @@
+../AXbills/modules/Iptv/get_pl.cgi

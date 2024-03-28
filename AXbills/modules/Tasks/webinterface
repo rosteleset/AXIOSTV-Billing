@@ -1,0 +1,637 @@
+#!perl
+=head1 NAME
+
+ Tasks web functions
+
+=cut
+
+
+use strict;
+use warnings FATAL => 'all';
+
+use Time::Piece;
+use Tasks::db::Tasks;
+use JSON qw(decode_json);
+use AXbills::Base qw/in_array _bp/;
+
+require Tasks::Plugins;
+
+our(
+  %lang,
+  $html,
+  $admin,
+  $db,
+  %conf,
+  @MODULES,
+  @MON,
+);
+
+Time::Piece::mon_list(@MON);
+
+my $Tasks = Tasks->new($db, $admin, \%conf);
+
+#**********************************************************
+=head2 tasks_list()
+
+=cut
+#**********************************************************
+sub tasks_list {
+
+  _tasks_check_state();
+
+  if ($FORM{del}) {
+    $Tasks->del({ ID => $FORM{del} });
+  }
+  elsif ($FORM{show_task}) {
+    print _task_show($FORM{show_task});
+  }
+
+  my $params->{U_TASKS} = tasks_table({ TABLE_NAME => $lang{UNFULFILLED_TASKS}, STATE => 2, TABLE_ID => 'U_TASKS', TAB => 1 });
+  $params->{U_COUNT} = $Tasks->{TOTAL} || 0;
+  $params->{C_TASKS} = tasks_table({ TABLE_NAME => $lang{COMPLETED_TASKS}, STATE => 1, , TABLE_ID => 'C_TASKS', TAB => 2 });
+  $params->{C_COUNT} = $Tasks->{TOTAL} || 0;
+  $params->{W_TASKS} = tasks_table({ TABLE_NAME => $lang{TASK_IN_WORK}, STATE => 0, PLAN_DATE => "<=$DATE", TABLE_ID => 'W_TASKS', TAB => 3 });
+  $params->{W_COUNT} = $Tasks->{TOTAL} || 0;
+  $params->{Q_TASKS} = tasks_table({ TABLE_NAME => $lang{TASK_IN_QUEUE}, STATE => 0, PLAN_DATE => ">$DATE", TABLE_ID => 'Q_TASKS', TAB => 4 });
+  $params->{Q_COUNT} = $Tasks->{TOTAL} || 0;
+
+  if($FORM{tab}) {
+    $params->{"DIV_ACTIVE_$FORM{tab}"} = 'in active show';
+    $params->{"LI_ACTIVE_$FORM{tab}"} = 'active';
+  }
+  else {
+    $params->{DIV_ACTIVE_1} = 'in active show';
+    $params->{LI_ACTIVE_1} = 'active';
+  }
+
+  $html->tpl_show('', $params, { TPL => 'tasks_list', MODULE => 'Tasks'});
+
+  return 1;
+}
+#**********************************************************
+=head2 tasks_table()
+
+=cut
+#**********************************************************
+sub tasks_table {
+  my ($attr) = @_;
+
+  my $tasks_list = $Tasks->list({
+    COLS_NAME  => 1,
+    COLS_UPPER => 1,
+    PAGE_ROWS  => 999999,
+    %{$attr ? $attr : {}},
+  });
+
+  my $f_index = get_function_index('task_web_add');
+
+  my @columns = ($lang{TYPE}, $lang{NAME}, $lang{RESPONSIBLE}, $lang{DUE_DATE});
+  if ($attr->{TAB}) {
+    if ($attr->{TAB} == 1 || $attr->{TAB} == 2) {
+      push (@columns, $lang{COMMENTS});
+    }
+    elsif ($attr->{TAB} == 4) {
+      push (@columns, $lang{DEFERRED});
+    } 
+  }
+  push (@columns, '');
+
+  my $table = $html->table({
+    width       => '100%',
+    caption     => $attr->{TABLE_NAME} || $lang{TASKS},
+    title_plain => \@columns,
+    ID          => $attr->{TABLE_ID},
+    pages       => ($Tasks->{TOTAL} - 1),
+    DATA_TABLE  => 1,
+  });
+
+  foreach my $task (@$tasks_list) {
+    my $del_button = $html->button("", "index=$index&del=$task->{id}&tab=$attr->{TAB}", { class => "text-danger mr-2", ADD_ICON => "fa fa-trash", CONFIRM => $lang{CONFIRM} });
+    my $edit_button = $html->button("", "index=$f_index&chg_task=$task->{id}&tab=$attr->{TAB}", { ADD_ICON => "fa fa-pencil-alt mr-2" });
+    my $show_button = $html->button("", "index=$index&show_task=$task->{id}&tab=$attr->{TAB}", { ADD_ICON => "fa fa-eye mr-2" });
+    my @fields = ($task->{type_name}, $task->{name}, $task->{responsible_name}, $task->{control_date});
+    if ($attr->{TAB}) {
+      if ($attr->{TAB} == 1 || $attr->{TAB} == 2) {
+        push(@fields, $task->{comments});
+      }
+      elsif ($attr->{TAB} == 4) {
+        push(@fields, $task->{plan_date});
+      }
+    }
+    push(@fields, "$show_button$edit_button$del_button");
+    $table->addrow(@fields);
+  }
+
+  return $table->show({ OUTPUT_TO_RETURN => 1 });
+}
+
+#**********************************************************
+=head2 my_tasks_list()
+
+=cut
+#**********************************************************
+sub my_tasks_list {
+  my ($attr) = @_;
+  my %params = ();
+
+  my $my_tasks_list = $Tasks->list({
+    COLS_NAME     => 1,
+    COLS_UPPER    => 1,
+    PAGE_ROWS     => 9999,
+    SORT          => 'tm.control_date',
+    %{$attr ? $attr : { } },
+  });
+  $params{M_COUNT} = $Tasks->{TOTAL};
+
+  my $tasks_list = $Tasks->p_list({
+    COLS_NAME     => 1,
+    COLS_UPPER    => 1,
+    PAGE_ROWS     => 9999,
+    SORT          => 'tm.control_date',
+    %{$attr ? $attr : { } },
+  });
+  $params{P_COUNT} = $Tasks->{TOTAL};
+
+  if(!$FORM{show} && $params{M_COUNT}) {
+    $FORM{show} = $my_tasks_list->[0]->{ID};
+  }
+  elsif(!$FORM{show} && $params{P_COUNT}) {
+    $FORM{show} = $tasks_list->[0]->{ID};
+    $FORM{tab} = 2;
+  }
+  
+  my $qs = "tab=$FORM{tab}&" if ($FORM{tab});
+  if ($FORM{show}) {
+    $qs .= "show=$FORM{show}";
+    $params{TASK_BOX} = _task_show($FORM{show}, $qs);
+  }
+
+  $params{MY_TASKS} = _show_task_cards($my_tasks_list, 1);
+  $params{TASKS} = _show_task_cards($tasks_list, 2);
+
+  if($FORM{tab}) {
+    $params{"DIV_ACTIVE_$FORM{tab}"} = 'in active show';
+    $params{"LI_ACTIVE_$FORM{tab}"} = 'active';
+  }
+  else {
+    $params{DIV_ACTIVE_1} = 'in active show';
+    $params{LI_ACTIVE_1} = 'active';
+  }
+
+  return $html->tpl_show('', \%params, { TPL => 'tasks', MODULE => 'Tasks', OUTPUT2RETURN => 1 });;
+}
+
+#**********************************************************
+=head2 _show_task_cards()
+
+=cut
+#**********************************************************
+sub _show_task_cards {
+  my ($list, $tab) = @_;
+  my $result = '';
+
+  foreach my $line (@$list) {
+    my $d = Time::Piece->strptime($line->{CONTROL_DATE}, "%Y-%m-%d");
+    my $c = Time::Piece->strptime($DATE, "%Y-%m-%d");
+
+    my $days = ($d - $c) / 86400;
+
+    my $class = 'task-grey';
+    $class = $days < 1 ? 'task-danger' : $days < 6 ? 'task-warning' : 'task-success';
+
+    if ($FORM{show} && $FORM{show} == $line->{ID}) {
+      $class .= ' task-selected';
+    }
+
+    $result .= $html->tpl_show('', {
+      ID        => "task_$line->{ID}",
+      TITLE     => $line->{NAME},
+      BODY      => $line->{DESCR},
+      TYPE_NAME => $line->{TYPE_NAME},
+      C_DATE    => $d->mday . " " . $d->monname,
+      CLASS     => $class,
+      SHOW_LINK => "$SELF_URL?index=$index&show=$line->{ID}&tab=$tab",
+    }, { TPL => 'task_card', MODULE => 'Tasks', OUTPUT2RETURN => 1 });
+  }
+
+  return $result;
+}
+
+
+#**********************************************************
+=head2 my_tasks()
+
+=cut
+#**********************************************************
+sub my_tasks {
+
+  if ($FORM{plugin} && $FORM{fn}) {
+    _task_plugin_call(\%FORM);
+  }
+
+  if($FORM{done} && $FORM{ID}) {
+    _task_change_state({ ID => $FORM{ID}, STATE => 1, COMMENTS => $FORM{COMMENTS} });
+  }
+  elsif($FORM{undone} && $FORM{ID}) {
+    _task_change_state({ ID => $FORM{ID}, STATE => 2, COMMENTS => $FORM{COMMENTS} });
+  }
+
+  print my_tasks_list({ RESPONSIBLE => $admin->{AID}, STATE => '0', PLAN_DATE => "<=$DATE" });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _task_show(task_id)
+
+=cut
+#**********************************************************
+sub _task_show {
+  my ($task_id, $qs) = @_;
+  my $task_info = $Tasks->info({ ID => $task_id });
+
+  if ($task_info->{PARTCIPIANTS_LIST}) {
+    $task_info->{PARTCIPIANTS} = _admins_list({ AID => $task_info->{PARTCIPIANTS_LIST}, READONLY => 1 });
+  }
+  else {
+    $task_info->{HIDE_PARTCIPIANTS} = 'style="display: none;"';
+  }
+
+  if (!$FORM{show_task}) {
+    $task_info->{PLUGINS_HTML} = plugins_fn_loader({ID => $task_id, FN => 'html_for_task_show', qs => $qs });
+  }
+
+  my $result = $html->tpl_show('', $task_info, { TPL => 'task_show', MODULE => 'Tasks', OUTPUT2RETURN => 1 });
+
+  return $result;
+}
+
+#**********************************************************
+=head2 task_web_add()
+
+=cut
+#**********************************************************
+sub task_web_add {
+
+  my $params = ();
+  my $types_list = $Tasks->types_list();
+  my %hash = ();
+  my $task_info = {};
+  my $json_fields = "{";
+  my $json_admins = "{";
+  my $json_partcipiants = "{";
+  my $json_plugins = "{";
+  foreach my $line (@$types_list) {
+    my $plugins_fields = plugins_fn_loader({ PLUGINS => $line->{plugins}, FN => 'fields_for_task_add' }) || '""';
+    my $additional_fields = $line->{additional_fields} || '""';
+    $json_fields .= qq/"$line->{id}":$additional_fields,/;
+    $json_admins .= qq/"$line->{id}":"$line->{admins}",/;
+    $json_partcipiants .= qq/"$line->{id}":"$line->{partcipiants}",/;
+    $json_plugins .= qq/"$line->{id}":$plugins_fields,/;
+  }
+  $json_fields       =~ s/,$/}/;
+  $json_admins       =~ s/,$/}/;
+  $json_partcipiants =~ s/,$/}/;
+  $json_plugins      =~ s/,$/}/;
+
+  $params->{JSON_LIST} = $json_fields;
+  $params->{JSON_ADMINS} = $json_admins;
+  $params->{JSON_PARTCIPIANTS} = $json_partcipiants;
+  $params->{JSON_PLUGINS_FIELDS} = $json_plugins;
+  $params->{BTN_ACTION} = 'add';
+  $params->{BTN_NAME} = $lang{ADD};
+  $params->{BOX_TITLE} = $lang{ADD_TASK};
+
+  if ($FORM{add}) {
+    _task_add(\%FORM);
+    _error_show($Tasks);
+    $html->redirect('?index=' . get_function_index('tasks_list')) if !$FORM{MSG_ID};
+    return 1;
+  }
+  elsif ($FORM{chg}) {
+    $Tasks->chg({ %FORM, STATE => 0 });
+    _error_show($Tasks);
+    if (!$Tasks->{errno} && $FORM{PARTCIPIANTS_LIST}) {
+      $Tasks->p_del({ ID => $FORM{ID} });
+      foreach (split(',', $FORM{PARTCIPIANTS_LIST})) {
+        $Tasks->p_add({ ID => $FORM{ID}, AID => $_ });
+      }
+    }
+    $html->redirect('?index=' . get_function_index('tasks_list'));
+    return 1;
+  }
+  elsif ($FORM{chg_task}) {
+    $params->{BTN_ACTION} = 'chg';
+    $params->{BTN_NAME} = $lang{CHANGE};
+    $params->{BOX_TITLE} = $lang{CHANGE_TASK};
+    $task_info = $Tasks->info({ ID => $FORM{chg_task} });
+    $params->{RESPONSIBLE} = $task_info->{responsible};
+  }
+
+  $params->{SEL_TASK_TYPE} = _task_type_select($types_list, $task_info->{task_type} || '');
+  $params->{SEL_RESPONSIBLE} = _responsible_select({ SELECTED => ($task_info->{responsible} || '') });
+  $params->{ADMINS_LIST} = _admins_list({ RESPONSIBLE => 1 });
+
+  if (!$task_info->{CONTROL_DATE}) {
+    my $date = Time::Piece->strptime($DATE, "%Y-%m-%d");
+    $date += 86400 * 7;
+    $task_info->{CONTROL_DATE} = $date->ymd;
+  }
+
+  if ($FORM{SHORT_FORM}) {
+    $html->tpl_show('', { %{$params}, %{$task_info}, %FORM }, { TPL => 'task_add_short_form', MODULE => 'Tasks' });
+    return 1;
+  }
+
+  $html->tpl_show('', { %{$params}, %{$task_info} }, { TPL => 'task_add', MODULE => 'Tasks' });
+  return 1;
+}
+
+#**********************************************************
+=head2 _task_add($attr)
+
+=cut
+#**********************************************************
+sub _task_add {
+  my ($attr) = @_;
+
+  my $type_info = $Tasks->type_info({ ID => $FORM{TASK_TYPE} });
+  my $add_values = ();
+  if ($type_info->{ADDITIONAL_FIELDS} && $type_info->{ADDITIONAL_FIELDS} ne "{}") {
+    my $arr = decode_json($type_info->{ADDITIONAL_FIELDS});
+    foreach (@$arr) {
+      $add_values->{$_->{NAME}} = $FORM{$_->{NAME}} || '';
+    }
+  }
+  $attr->{ADDITIONAL_VALUES} = JSON->new->utf8(0)->encode($add_values) if ($add_values);
+
+  $Tasks->add({ AID => $admin->{AID}, %$attr });
+
+  if (!$Tasks->{errno} && $Tasks->{INSERT_ID} && $attr->{PARTCIPIANTS_LIST}) {
+    foreach (split(',', $attr->{PARTCIPIANTS_LIST})) {
+      $Tasks->p_add({ ID => $Tasks->{INSERT_ID}, AID => $_ });
+    }
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _task_change_state($attr) 
+  ID      - task id
+  STATE   - new state
+  COMMENT - comment
+
+=cut
+#**********************************************************
+sub _task_change_state {
+  my ($attr) = @_;
+
+  $Tasks->chg($attr);
+
+  if($Tasks->{errno}) {
+    $html->message('err', $lang{ERROR}, $Tasks->{errstr});
+    return 1;
+  }
+
+  plugins_fn_loader({ ID => $attr->{ID}, FN => 'task_done' })  if ($attr->{STATE} == 1);
+  plugins_fn_loader({ ID => $attr->{ID}, FN => 'task_undone' }) if ($attr->{STATE} == 2);
+
+  return 1;
+}
+
+
+#**********************************************************
+=head2 tasks_type_config()
+
+=cut
+#**********************************************************
+sub tasks_type_config {
+
+  if ($FORM{add} || $FORM{chg}) {
+    if ($FORM{ID}) {
+      $Tasks->type_hide($FORM{ID});
+      delete $FORM{ID};
+    }
+    $FORM{ADDITIONAL_FIELDS} ||= '{}';
+    $Tasks->type_add({ %FORM, ADMINS => $FORM{RESPONSIBLE_LIST}, PARTCIPIANTS => $FORM{PARTCIPIANTS_LIST} });
+    $html->message('err', $lang{ERROR}, "$lang{TASK_TYPE_ERROR}\n $Tasks->{errstr}") if $Tasks->{errno};
+  }
+  if ($FORM{del}) {
+    $Tasks->type_hide($FORM{del});
+  }
+  elsif ($FORM{add_type}) {
+    my $params = ();
+    $params->{BTN_ACTION} = 'add';
+    $params->{BTN_NAME} = $lang{ADD};
+    $params->{ADDITIONAL_FIELDS} ||= '""';
+    $params->{ADMINS_LIST} = _admins_list({ RESPONSIBLE => 1 });
+    $params->{SELECT_PLUGINS} = enabled_plugins();
+    $html->tpl_show('', $params, { TPL => 'tasks_type_add', MODULE => 'Tasks' });
+  }
+  elsif ($FORM{chg_type}) {
+    my $params = ();
+    $params->{BTN_ACTION} = 'chg';
+    $params->{BTN_NAME} = $lang{CHANGE};
+    $params->{ADMINS_LIST} = _admins_list({ RESPONSIBLE => 1 });
+    my $type_info = $Tasks->type_info({ ID => $FORM{chg_type} });
+    $type_info->{ADDITIONAL_FIELDS} ||= '""';
+    $type_info->{RESPONSIBLE_LIST} = $type_info->{ADMINS};
+    $type_info->{PARTCIPIANTS_LIST} = $type_info->{PARTCIPIANTS};
+    $params->{SELECT_PLUGINS} = enabled_plugins();
+    $html->tpl_show('', { %$params, %$type_info }, { TPL => 'tasks_type_add', MODULE => 'Tasks' });
+  }
+
+  print tasks_type_table();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 tasks_type_table()
+
+=cut
+#**********************************************************
+sub tasks_type_table {
+  my ($attr) = @_;
+
+  my $types_list = $Tasks->types_list({
+    COLS_NAME     => 1,
+    COLS_UPPER    => 1,
+    PG            => $FORM{pg},
+    SORT          => $FORM{sort} || '',
+    DESC          => $FORM{desc} || '',
+    %{$attr ? $attr : { } },
+  });
+
+  my $f_index = get_function_index('tasks_type_config');
+
+  my $pages_qs = '';
+  my $table = $html->table({
+    width               => '100%',
+    caption             => $lang{TASKS_TYPE},
+    title_plain         => [ $lang{NAME}, '', ''],
+    ID                  => 'Tasks_type',
+    pages               => ($Tasks->{TOTAL} - 1),
+    qs                  => $pages_qs,
+    HAS_FUNCTION_FIELDS => 1,
+    MENU                => "$lang{ADD}:index=$f_index&add_type=1:add;",
+  });
+
+  foreach my $type (@$types_list) {
+    my $del_button  = $html->button('', "index=$f_index&del=$type->{id}", {
+      class   => 'del',
+      MESSAGE => $lang{CONFIRM}
+    });
+    my $edit_button = $html->button('', "index=$f_index&chg_type=$type->{id}", { ADD_ICON => "fa fa-pencil-alt" });
+    $table->addrow($type->{name}, $edit_button, $del_button);
+  }
+
+  return $table->show({OUTPUT_TO_RETURN => 1});
+}
+
+#**********************************************************
+=head2 tasks_admins()
+
+=cut
+#**********************************************************
+sub tasks_admins {
+  my ($attr) = @_;
+
+  if($FORM{SAVE}) {
+    my $admins_list = $Tasks->admins_list();
+    foreach my $line (@$admins_list) {
+      my $field_name = "admin_" . $line->{aid};
+      if ($FORM{$field_name}) {
+        my @permits = split (',', $FORM{$field_name});
+        $Tasks->admins_change({ 
+          AID        => $line->{aid},
+          RESPONSIBLE => $permits[0],
+          ADMIN      => $permits[1],
+          SYSADMIN   => $permits[2],
+        });
+      }
+    }
+  }
+
+  my $admins_list = $Tasks->admins_list( $attr );
+  
+  my $table = $html->table({
+    width               => '100%',
+    caption             => $lang{PERMISIONS},
+    title_plain         => [ $lang{ADMIN}, $lang{RESPONSIBLE}, $lang{ADD_TASK}, $lang{ADD_TASK_TYPE}],
+    ID                  => 'tasks_admins',
+  });
+
+  foreach my $line (@$admins_list) {
+    $table->addrow( 
+      "$line->{a_login} : $line->{a_name}",
+      $html->form_input('', '', { TYPE => 'checkbox', STATE => ($line->{responsible}?'checked':''), class => 'responsible', EX_PARAMS => "aid=$line->{aid}" }),
+      $html->form_input('', '', { TYPE => 'checkbox', STATE => ($line->{admin}?'checked':''), class => 'admin', EX_PARAMS => "aid=$line->{aid}" }),
+      $html->form_input('', '', { TYPE => 'checkbox', STATE => ($line->{sysadmin}?'checked':''), class => 'sysadmin', EX_PARAMS => "aid=$line->{aid}" }),
+    );
+  }
+
+  print $table->show();
+  $html->tpl_show('', '', { TPL => 'admin_permits', MODULE => 'Tasks' });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _responsible_select()
+
+=cut
+#**********************************************************
+sub _responsible_select {
+  my ($attr) = @_;
+
+  my $admins_list = $Tasks->admins_list({ RESPONSIBLE => 1 });
+
+  my $result = $html->form_select('RESPONSIBLE',
+    {
+      SELECTED    => $attr->{SELECTED} || 0,
+      SEL_LIST    => $admins_list,
+      SEL_KEY     => 'aid',
+      SEL_VALUE   => 'a_name,a_login',
+      REQUIRED    => 1,
+      NO_ID       => 1,
+    });
+
+  return $result;
+}
+
+#**********************************************************
+=head2 _task_type_select()
+
+=cut
+#**********************************************************
+sub _task_type_select {
+  my ($types_list, $selected) = @_;
+
+  my $result = $html->form_select('TASK_TYPE', {
+    SELECTED => $selected || '',
+    SEL_LIST => $types_list,
+    REQUIRED => 1,
+    NO_ID    => 1,
+  });
+
+  return $result;
+}
+
+#**********************************************************
+=head2 _admins_list()
+
+=cut
+#**********************************************************
+sub _admins_list {
+  my ($attr) = @_;
+
+  my $admins_list = $Tasks->admins_list($attr);
+
+  my $table = $html->table({
+    width       => '100%',
+    title_plain => [ '#', $lang{ADMIN}, $lang{FIO} ],
+  });
+
+  foreach my $line (@$admins_list) {
+    my $checkbox = '';
+    if ($attr->{READONLY}) {
+      $checkbox = $html->form_input('', '', { TYPE => 'checkbox', class => 'admin_checkbox', EX_PARAMS => "aid=$line->{aid} disabled" });
+    }
+    else {
+      $checkbox = $html->form_input('', '', { TYPE => 'checkbox', class => 'admin_checkbox', EX_PARAMS => "aid=$line->{aid}" });
+    }
+    $table->addrow($checkbox, $line->{A_LOGIN}, $line->{A_NAME});
+  }
+
+  return $table->show({ OUTPUT_TO_RETURN => 1 });
+}
+
+#**********************************************************
+=head2 _admin_role()
+
+=cut
+#**********************************************************
+sub _admin_role {
+  my ($aid) = @_;
+  my $admin_info = $Tasks->admins_list({ AID => $aid });
+
+  return $admin_info->[0];
+}
+
+#**********************************************************
+=head2 _tasks_check_state()
+
+=cut
+#**********************************************************
+sub _tasks_check_state {
+  my $list = $Tasks->list({ CONTROL_DATE => "<$DATE", STATE => '0'});
+  foreach (@$list) {
+    _task_change_state({ ID => $_->{id}, STATE => 2, COMMENTS => 'Closed on expiration' });
+  }
+
+  return 1;
+}
+
+1;

@@ -1,0 +1,102 @@
+type: object
+properties:
+  cid:
+    type: string
+    example: 14:11:11:11:11:c1
+  dayFee:
+    type: number
+    example: 99
+  id:
+    type: number
+    example: 196
+  iptvExpire:
+    type: string
+    example: "0000-00-00"
+  monthFee:
+    type: number
+    example: 0
+  nextAbon:
+    type: object
+    properties:
+      abonDate:
+        type: string
+        format: date
+        example: '2022-12-22'
+      daysToFee:
+        type: number
+        example: 11
+      activateDate:
+        type: string
+        example: "2022-12-31"
+      sum:
+        type: number
+        example: 20
+  schedule:
+    type: object
+    properties:
+      date:
+        type: string
+        example: '2023-01-13'
+      dateFrom:
+        type: string
+        example: '2023-01-25'
+      dayFee:
+        type: number
+        example: 0
+      monthFee:
+        type: number
+        example: 0
+      tpAge:
+        type: number
+        example: 1
+      activatePrice:
+        type: number
+        example: 60
+      sheduleId:
+        type: number
+        example: 248
+      tpComments:
+        type: string
+        example: Cool tariff plan
+      tpId:
+        type: number
+        example: 1
+      tpName:
+        type: string
+        example: Admin
+  serviceHoldup:
+    type: boolean
+    example: true
+  serviceStatus:
+    type: integer
+    example: 0
+  statusName:
+    type: string
+    example: enabled
+  serviceId:
+    type: number
+    example: 16
+  tpComments:
+    type: string
+    example: Cool tariff plan
+  tpId:
+    type: number
+    example: 115
+  tpName:
+    type: string
+    example: Тариф S
+  tpReductionFee:
+    type: number
+    example: 0
+  tvServiceName:
+    type: string
+    example: Trinity-TV
+  originalMonthFee:
+    type: number
+    example: 300
+  originalDayFee:
+    type: number
+    example: 0
+  uid:
+    type: number
+    example: 49

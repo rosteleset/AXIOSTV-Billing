@@ -1,0 +1,246 @@
+# get vendor id, OIDs are for vendor 1.3.6.1.4.1.14988.1
+# which is a common Mikrotik vendor ID (according to wiki)
+my $vendor = (snmpget($router, $v3opt, '.1.3.6.1.2.1.1.2.0'));
+
+if ( $vendor =~ /^1\.3\.6\.1\.4\.1\.14988\.1$/ ) {
+
+# CPU Load
+my $target_name = $router_name . ".cpu";
+$target_lines .= <<ECHO;
+#-----------------------------------------------------------------
+#	[$sysname] [$router_name] [$sysdescr] CPU load
+#-----------------------------------------------------------------
+Target[$target_name]: 1.3.6.1.2.1.25.3.3.1.2.1&1.3.6.1.2.1.25.3.3.1.2.1:$router_connect
+AbsMax[$target_name]: 100
+MaxBytes[$target_name]: 100
+Title[$target_name]: $sysname $router_name CPU load
+PageTop[$target_name]: <H1>$sysname $router_name CPU load</H1>
+Options[$target_name]: gauge,growright,nopercent, noo
+YLegend[$target_name]: CPU load
+ShortLegend[$target_name]: %
+LegendI[$target_name]: CPU load (percentage)
+ECHO
+;
+
+# Memory Usage
+my $target_name = $router_name . ".memory";
+$target_lines .= <<ECHO;
+#-----------------------------------------------------------------
+# [$sysname] [$router_name] [$sysdescr] Memory Usage
+#-----------------------------------------------------------------
+Target[$target_name]: ( 1.3.6.1.2.1.25.2.3.1.6.65536&1.3.6.1.2.1.25.2.3.1.6.65536:$router_connect) * 100 / ( 1.3.6.1.2.1.25.2.3.1.5.65536&1.3.6.1.2.1.25.2.3.1.5.65536:$router_connect)
+Title[$target_name]: $sysname $router_name Memory Usage
+PageTop[$target_name]: <H1>$sysname $router_name Memory Usage</H1>
+MaxBytes[$target_name]: 100
+ShortLegend[$target_name]: %
+YLegend[$target_name]: % of Memory
+Legend1[$target_name]: Used Memory
+LegendI[$target_name]: Used :
+LegendO[$target_name]:
+Options[$target_name]: nopercent, gauge, integer, growright
+Unscaled[$target_name]: ymwd
+ECHO
+;
+
+# Active PPPoE Users
+my $target_name = $router_name . ".pppoe";
+$target_lines .= <<ECHO;
+#-----------------------------------------------------------------
+#	[$sysname] [$router_name] [$sysdescr] Active PPPoE Users
+#-----------------------------------------------------------------
+Target[$target_name]: 1.3.6.1.4.1.9.9.150.1.1.1.0&1.3.6.1.4.1.9.9.150.1.1.1.0:$router_connect
+Title[$target_name]: Active PPPoE Users on $sysname $router_name
+PageTop[$target_name]: <H1>Active PPPoE Users on $sysname $router_name</H1>
+MaxBytes[$target_name]: 1000
+Colours[$target_name]: B#8888ff,B#8888ff,B#5398ff,B#5398ff
+Options[$target_name]: gauge,nopercent,noo,integer,growright
+LegendI[$target_name]: Active PPPoE Users on MT
+LegendO[$target_name]:
+YLegend[$target_name]: Active PPPoE Users on MT
+Legend1[$target_name]: Active PPPoE Users on MT
+Legend2[$target_name]:
+ECHO
+;
+
+# CPU Temperature
+my $target_name = $router_name . ".temperature";
+$target_lines .= <<ECHO;
+#-----------------------------------------------------------------
+# [$sysname] [$router_name] [$sysdescr] CPU Temperature
+#-----------------------------------------------------------------
+Target[$target_name]: 1.3.6.1.4.1.14988.1.1.3.11.0&1.3.6.1.4.1.14988.1.1.3.11.0:$router_connect / 10
+Options[$target_name]: gauge, growright, nopercent, noinfo
+MaxBytes[$target_name]: 100
+Colours[$target_name]: RED#ff4f27,Y#fffb15,RED#ff4f27,RED#fffb15
+Unscaled[$target_name]: dwmy
+YLegend[$target_name]: CPU Temperature
+Title[$target_name]: $sysname $router_name CPU Temprature
+PageTop[$target_name]: <H1>$sysname $router_name RB CPU Temprature</H1>
+ShortLegend[$target_name]: c
+LegendI[$target_name]:
+LegendO[$target_name]: CPU Temp
+Legend1[$target_name]: CPU Temperature
+Legend2[$target_name]: CPU Temperature
+ECHO
+;
+
+# Router Board Temperature
+my $target_name = $router_name . ".rbtemperature";
+$target_lines .= <<ECHO;
+#-----------------------------------------------------------------
+# [$sysname] [$router_name] [$sysdescr] RouterBoard Temperature
+#-----------------------------------------------------------------
+Target[$target_name]: 1.3.6.1.4.1.14988.1.1.3.10.0&1.3.6.1.4.1.14988.1.1.3.10.0:$router_connect / 10
+Options[$target_name]: gauge, growright, nopercent, noinfo
+MaxBytes[$target_name]: 100
+Colours[$target_name]: RED#ff4f27,Y#fffb15,RED#ff4f27,RED#fffb15
+Unscaled[$target_name]: dwmy
+YLegend[$target_name]: RB Temprature
+Title[$target_name]: $sysname $router_name Router Board Temprature
+PageTop[$target_name]: <H1>$sysname $router_name  Router Board Temprature</H1>
+ShortLegend[$target_name]: c
+LegendI[$target_name]:
+LegendO[$target_name]: RB Temp
+Legend1[$target_name]: RB Temprature
+Legend2[$target_name]: RB Temprature
+ECHO
+;
+
+# RouterBoard Voltage
+my $target_name = $router_name . ".voltage";
+$target_lines .= <<ECHO;
+#-----------------------------------------------------------------
+# [$sysname] [$router_name] [$sysdescr] RouterBoard Voltage
+#-----------------------------------------------------------------
+Target[$target_name]: .1.3.6.1.4.1.14988.1.1.3.8.0&1.3.6.1.4.1.14988.1.1.3.8.0:$router_connect / 10
+Options[$target_name]: gauge, growright, nopercent, noinfo
+MaxBytes[$target_name]: 1000
+Colours[$target_name]: RED#ff4f27,Y#fffb15,RED#ff4f27,RED#fffb15
+Unscaled[$target_name]: dwmy
+YLegend[$target_name]: Voltage Monitor
+Title[$target_name]: $sysname $router_name RB Voltage
+PageTop[$target_name]: <H1>$sysname $router_name RB Voltage</H1>
+ShortLegend[$target_name]: c
+LegendI[$target_name]:
+LegendO[$target_name]: Voltage
+Legend1[$target_name]: Voltage
+Legend2[$target_name]: Voltage
+ECHO
+;
+
+# WATTs Usage
+my $target_name = $router_name . ".watts";
+$target_lines .= <<ECHO;
+#-----------------------------------------------------------------
+# [$sysname] [$router_name] [$sysdescr] RouterBoard WATTs Usage
+#-----------------------------------------------------------------
+Target[$target_name]: .1.3.6.1.4.1.14988.1.1.3.12.0&.1.3.6.1.4.1.14988.1.1.3.12.0:$router_connect / 10
+Options[$target_name]: gauge, growright, nopercent, noinfo
+MaxBytes[$target_name]: 1000
+Colours[$target_name]: RED#ff4f27,Y#fffb15,RED#ff4f27,RED#fffb15
+Unscaled[$target_name]: dwmy
+YLegend[$target_name]: Watts USAGE Monitor
+Title[$target_name]: $sysname $router_name RB Watts Usage
+PageTop[$target_name]: <H1>$sysname $router_name RB Watts Usage</H1>
+ShortLegend[$target_name]: W
+LegendI[$target_name]:
+LegendO[$target_name]: power.consumption.wts
+Legend1[$target_name]: power.consumption.wts
+Legend2[$target_name]: power.consumption.wts
+ECHO
+;
+
+# FAN speed
+my $target_name = $router_name . ".fanspd";
+$target_lines .= <<ECHO;
+#-----------------------------------------------------------------
+# [$sysname] [$router_name] [$sysdescr] RouterBoard FAN speed
+#-----------------------------------------------------------------
+Target[$target_name]: 1.3.6.1.4.1.14988.1.1.3.18.0&1.3.6.1.4.1.14988.1.1.3.18.0:$router_connect
+Options[$target_name]: gauge, growright, nopercent, noinfo
+MaxBytes[$target_name]: 10000
+Colours[$target_name]: RED#ff4f27,Y#fffb15,RED#ff4f27,RED#fffb15
+Unscaled[$target_name]: dwmy
+YLegend[$target_name]: FAN Speed Monitor
+Title[$target_name]: $sysname $router_name RB FAN Speed
+PageTop[$target_name]: <H1>$sysname $router_name RB FAN Speed</H1>
+ShortLegend[$target_name]: RPM
+LegendI[$target_name]:
+LegendO[$target_name]: fan-2.rpm.speed
+Legend1[$target_name]: fan-2.rpm.speed
+Legend2[$target_name]: fan-2.rpm.speed
+ECHO
+;
+
+# AMP Usage
+my $target_name = $router_name . ".ampspd";
+$target_lines .= <<ECHO;
+#-----------------------------------------------------------------
+# [$sysname] [$router_name] [$sysdescr] AMP Usage
+#-----------------------------------------------------------------
+Target[mt-amp-mon]: 1.3.6.1.4.1.14988.1.1.3.13.0&1.3.6.1.4.1.14988.1.1.3.13.0:$router_connect / 1000
+Options[mt-amp-mon]: gauge, growright, nopercent, noinfo
+MaxBytes[mt-amp-mon]: 10000
+Colours[mt-amp-mon]: RED#ff4f27,Y#fffb15,RED#ff4f27,RED#fffb15
+Unscaled[mt-amp-mon]: dwmy
+YLegend[mt-amp-mon]: AMP Usage
+Title[mt-amp-mon]: $sysname $router_name RB AMP Usage
+PageTop[mt-amp-mon]: <H1>$sysname $router_name AMP Usage</H1>
+ShortLegend[mt-amp-mon]: amp
+LegendI[mt-amp-mon]:
+LegendO[mt-amp-mon]: amp.speed
+Legend1[mt-amp-mon]: amp.speed
+Legend2[mt-amp-mon]: amp.speed
+ECHO
+;
+
+}
+
+# interfaces with ifType = 6 (ethernet)
+my $interfaces_num = (snmpget($router, $v3opt, "1.3.6.1.2.1.2.1.0"));
+my @interface_ips = (snmpwalk($router, $v3opt, "iso.3.6.1.2.1.4.20.1.2"));
+
+for (my $interface_id = 1 ; $interface_id <= $interfaces_num ; $interface_id++) {
+  my $interface_type = (snmpget($router, $v3opt, "1.3.6.1.2.1.2.2.1.3.$interface_id"));
+  if ( $interface_type == 6 ) {
+  my $interface_name  = (snmpget($router, $v3opt, "1.3.6.1.2.1.31.1.1.1.1.$interface_id"));
+  my $interface_speed_bps = (snmpget($router, $v3opt, "1.3.6.1.2.1.2.2.1.5.$interface_id"));
+  my $interface_spd_maxgraph = 1.25 * $interface_speed_bps;
+  my $interface_spd_mbps = $interface_speed_bps / 1000000;
+  my ($zindex) = grep { ($interface_ips[$_] =~ /:$interface_id/) } (0 .. @interface_ips-1);
+  my $interface_ip = $interface_ips[$zindex];
+  $interface_ip =~ s/\:.*//;
+  $target_lines .= <<ECHO;
+
+#----------------------------------------------------------------------
+# [$sysname = $router_name] [$interface_name] [$interface_ip] Traffic
+#----------------------------------------------------------------------
+Target[$router_name-$interface_name]: $interface_id:$router_connect
+SetEnv[$router_name-$interface_name]: MRTG_INT_IP="$interface_ip" MRTG_INT_DESCR="$interface_name $interface_ip"
+MaxBytes[$router_name-$interface_name]: $interface_spd_maxgraph
+Options[$router_name-$interface_name]: gauge, growright, nopercent, noinfo
+Title[$router_name-$interface_name]: Traffic Analysis [ $interface_name ]
+PageTop[$router_name-$interface_name]: <h1>Traffic [$sysname - $router_name] $interface_name=$interface_ip</h1>
+      <div id="sysdetails">
+      <table>
+          <tr>
+              <td>System: $sysname - $router_name</td>
+          </tr>
+          <tr>
+          <td>ifType: ethernetCsmacd (6)</td>
+          </tr>
+          <tr>
+              <td>ifName: $interface_name</td>
+          </tr>
+          <tr>
+              <td>Max speed: $interface_spd_mbps MBytes/s</td>
+          </tr>
+          <tr>
+              <td>Interface IP: $interface_ip</td>
+          </tr>
+      </table>
+      </div>
+ECHO
+;
+      }
+    }

@@ -1,0 +1,5 @@
+%FUNCTIONS_LIST = (
+  "01:0:Price:null:"  => 5,
+  "02:1:$lang{ADD_SERVICE}:price_main:"  => 5,
+  "03:1:$lang{ADD_GROUP}:price_add_group:"  => 5,
+);

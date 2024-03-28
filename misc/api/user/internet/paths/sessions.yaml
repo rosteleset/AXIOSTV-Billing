@@ -1,0 +1,21 @@
+get:
+  tags:
+    - internet
+  summary: История интернет сессий
+  parameters:
+    - name: pageRows
+      in: query
+      description: Количество возвращаемых значений
+      required: false
+      schema:
+        type: number
+        default: 25
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/sessions.yaml"
+  security:
+    - USERSID: [ ]

@@ -1,0 +1,25 @@
+DGS-1100-26MPV2-AX-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        Counter32,TimeTicks,NOTIFICATION-TYPE,MODULE-IDENTITY,
+        OBJECT-TYPE,IpAddress, Unsigned32
+                                        FROM SNMPv2-SMI
+        SnmpAdminString                 FROM SNMP-FRAMEWORK-MIB
+        MacAddress, RowStatus           FROM SNMPv2-TC
+        dlink-dgs-1100-26MPV2-ax        FROM DGS1100SERMGMT-MIB;
+
+    dgs110026MPV2axMgmtMIB MODULE-IDENTITY
+	    LAST-UPDATED "201404260000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+                "        D-Link Corporation
+                 Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                         Taipei City 114, Taiwan, R.O.C
+                 Tel:     +886-2-66000123
+                 E-mail: tsd@dlink.com.tw
+                "
+	    DESCRIPTION
+		    "DGS-1100-26MP PoE 26-ports 10/100/1000Mbps"
+        ::= { dlink-dgs-1100-26MPV2-ax 1 }
+
+END

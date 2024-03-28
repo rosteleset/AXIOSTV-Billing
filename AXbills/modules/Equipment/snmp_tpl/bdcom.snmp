@@ -1,0 +1,234 @@
+{
+  "DEVICE":"BDCOM OLT",
+  "info" : {
+    "UPTIME" : {
+      "NAME" : "UPTIME",
+      "OIDS" : ".1.3.6.1.2.1.1.3.0"
+    }
+  },
+  "status" : {
+    "CPU_LOAD" : {
+      "NAME" : "CPU_LOAD",
+      "OIDS" : ".1.3.6.1.4.1.3320.9.109.1.1.1.1.4.1"
+    },
+    "TEMPERATURE" : {
+      "NAME" : "TEMPERATURE",
+      "OIDS" : ".1.3.6.1.4.1.3320.9.181.1.1.7.1"
+    }
+  },
+  "epon" : {
+    "ONU_MAC_SERIAL" : {
+      "NAME"   : "MAC/Serial",
+      "OIDS"   : ".1.3.6.1.4.1.3320.101.10.4.1.1",
+      "PARSER" : "bin2mac"
+    },
+    "ONU_STATUS"     : {
+      "NAME"   : "STATUS",
+      "OIDS"   : ".1.3.6.1.4.1.3320.101.10.1.1.26"
+    },
+    "ONU_TX_POWER"   : {
+      "NAME"   : "ONU_TX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.3320.101.10.5.1.6",
+      "PARSER" : "_bdcom_convert_power"
+    },
+    // "tx_power" = "tx_power * 0.1"
+    "ONU_RX_POWER"   : {
+      "NAME"   : "ONU_RX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.3320.101.10.5.1.5",
+      "PARSER" : "_bdcom_convert_power"
+    },
+    // "tx_power" = "tx_power * 0.1"
+    // OLT_RX_POWER have different OID for P3310C, P3310D, P3608, P3612-2TE, P3616-2TE
+    "OLT_RX_POWER"   : {
+      "NAME"   : "OLT_RX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.3320.9.183.1.1.5",
+      "PARSER" : "_bdcom_convert_power"
+    },
+    // "olt_rx_power" = "olt_rx_power * 0.1"
+    "ONU_DESC"       : {
+      "NAME"   : "DESCRIBE",
+      "OIDS"   : ".1.3.6.1.2.1.31.1.1.1.18"
+    },
+    "ONU_IN_BYTE"    : {
+      "NAME"   : "ONU_IN_BYTE",
+      "OIDS"   : ".1.3.6.1.2.1.31.1.1.1.10"
+      // ifHCOutOctets. reversed because we need traffic from ONU side
+    },
+    "ONU_OUT_BYTE"   : {
+      "NAME"   : "ONU_OUT_BYTE",
+      "OIDS"   : ".1.3.6.1.2.1.31.1.1.1.6"
+      //ifHCInOctets. reversed because we need traffic from ONU side
+    },
+    "TEMPERATURE"    : {
+      "NAME"   : "TEMPERATURE",
+      "OIDS"   : ".1.3.6.1.4.1.3320.101.10.5.1.2",
+      "PARSER" : "_bdcom_convert_temperature"
+    }, // temperature = temperature / 256
+    "reset"          : {
+      "NAME"        : "",
+      "OIDS"        : ".1.3.6.1.4.1.3320.101.10.1.1.29",
+      "RESET_VALUE" : 0
+    },
+    "VLAN"           : {
+      "NAME"   : "VLAN",
+      "OIDS"   : "1.3.6.1.4.1.3320.101.12.1.1.3",
+      "WALK"   : 1
+    },
+    "catv_port_manage"    : {
+      "NAME"               : "",
+      "OIDS"               : "1.3.6.1.4.1.3320.101.10.30.1.2",
+      "ENABLE_VALUE"       : 1,
+      "DISABLE_VALUE"      : 2
+    },
+    "main_onu_info"    : {
+      "HARD_VERSION"     : {
+        "NAME"   : "VERSION",
+        "OIDS"   : ".1.3.6.1.4.1.3320.101.10.1.1.4"
+      },
+      "FIRMWARE"         : {
+        "NAME"   : "FIRMWARE",
+        "OIDS"   : ".1.3.6.1.4.1.3320.101.10.1.1.5"
+      },
+      "VOLTAGE"          : {
+        "NAME"   : "VOLTAGE",
+        "OIDS"   : ".1.3.6.1.4.1.3320.101.10.5.1.3",
+        "PARSER" : "_bdcom_convert_voltage"
+      }, // voltage = voltage * 0.0001
+      "DISTANCE"         : {
+        "NAME"   : "DISTANCE",
+        "OIDS"   : ".1.3.6.1.4.1.3320.101.10.1.1.27",
+        "PARSER" : "_bdcom_convert_distance_epon"
+      }, // distance = distance * 0.001
+      "CATV_PORTS_ADMIN_STATUS" : {
+        "NAME"   : "CATV_PORTS_ADMIN_STATUS",
+        "OIDS"   : "1.3.6.1.4.1.3320.101.10.30.1.2",
+        "PARSER" : "_bdcom_convert_catv_port_admin_status"
+      },
+      "CATV_PORTS_COUNT" : {
+        "NAME"   : "CATV_PORTS_COUNT",
+        "OIDS"   : "1.3.6.1.4.1.3320.101.10.3.1.15" // cap2NumCATVRFPorts
+      },
+      //"VIDEO_RX_POWER" : { //XXX is very slow, at least when there"s no CATV port on ONU
+      //  "NAME"   : "VIDEO_RX_POWER",
+      //  "OIDS"   : "1.3.6.1.4.1.3320.101.10.31.1.2",
+      //  "PARSER" : "_bdcom_convert_video_power"
+      //},
+      "MAC_BEHIND_ONU"   : {
+        "NAME"   : "MAC_BEHIND_ONU",
+        "USE_MAC_LOG" : 1
+      },
+      // 0-1 - Active
+      // 2 - Not connected
+      "ONU_PORTS_STATUS" : {
+        "NAME"   : "ONU_PORTS_STATUS",
+        "OIDS"   : "1.3.6.1.4.1.3320.101.12.1.1.8",
+        "WALK"   : 1
+      }
+    }
+  },
+  "gpon" : {
+    "ONU_MAC_SERIAL"      : {
+      "NAME"   : "MAC/Serial",
+      "OIDS"   : ".1.3.6.1.4.1.3320.10.3.3.1.2"
+      //"PARSER" : "bin2hex"
+    },
+    "ONU_STATUS"          : {
+      "NAME"   : "STATUS",
+      "OIDS"   : ".1.3.6.1.4.1.3320.10.3.3.1.4"
+      //"OIDS"   : "1.3.6.1.4.1.3320.10.3.1.1.8"
+    },
+    "ONU_TX_POWER"        : {
+      "NAME"   : "ONU_TX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.3320.10.3.4.1.3",
+      "PARSER" : "_bdcom_convert_power"
+    }, //tx_power : tx_power * 0.1
+    "ONU_RX_POWER"        : {
+      "NAME"   : "ONU_RX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.3320.10.3.4.1.2",
+      "PARSER" : "_bdcom_convert_power"
+    }, //tx_power : tx_power * 0.1
+    // ONU_TX_POWER NOt work on BDCOM(tm) P3616-2TE Software, Version 10.1.0E Build 28164
+    "OLT_RX_POWER"        : {
+      "NAME"   : "OLT_RX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.3320.9.183.1.1.5",
+      "PARSER" : "_bdcom_convert_power"
+      //SKIP   : "P3616-2TE" //seems that SKIP is not used anywhere. fix? re"NAME" to SKIP_MODEL?
+    }, //olt_rx_power : olt_rx_power * 0.1
+    "ONU_DESC"            : {
+      "NAME"   : "DESCRIBE",
+      "OIDS"   : ".1.3.6.1.2.1.31.1.1.1.18"
+    },
+    "ONU_IN_BYTE"         : {
+      "NAME"   : "ONU_IN_BYTE",
+      "OIDS"   : ".1.3.6.1.2.1.31.1.1.1.10" //ifHCOutOctets. reversed because we need traffic from ONU side
+    },
+    "ONU_OUT_BYTE"        : {
+      "NAME"   : "ONU_OUT_BYTE",
+      "OIDS"   : ".1.3.6.1.2.1.31.1.1.1.6" //ifHCInOctets. reversed because we need traffic from ONU side
+    },
+    "PROFILE" : {
+      "NAME"   : "PROFILE",
+      "OIDS"   : "1.3.6.1.4.1.3320.10.4.1.1.6"
+    },
+    "VLAN"           : {
+       "NAME"   : "VLAN",
+       "OIDS"   : "1.3.6.1.4.1.3320.101.12.1.1.3",
+       "PARSER" : "_bdcom_pon_vlan"
+    //   "WALK"   : 1
+    },
+    // Port temperature
+    // "TEMPERATURE"    : {
+    //   "NAME"   : "TEMPERATURE",
+    //   "OIDS"   : "1.3.6.1.4.1.3320.10.2.2.1.4",
+    //   "PARSER" : "_bdcom_convert_temperature"
+    // }, //"temperature" : "temperature / 256"
+    "reset"               : {
+      "NAME"        : "",
+      "OIDS"        : "1.3.6.1.4.1.3320.10.3.2.1.4",
+      "RESET_VALUE" : 1
+    },
+    "main_onu_info"         : {
+      "HARD_VERSION"        : {
+        "NAME"   : "VERSION",
+        "OIDS"   : ".1.3.6.1.4.1.3320.10.3.1.1.9"
+      },
+      "FIRMWARE"            : {
+        "NAME"   : "FIRMWARE",
+        "OIDS"   : ".1.3.6.1.4.1.3320.10.3.1.1.9"
+      },
+      // "VOLTAGE"          : {
+      //   "NAME"   : "VOLTAGE",
+      //   "OIDS"   : ".1.3.6.1.4.1.3320.101.10.5.1.3",
+      //   "PARSER" : "_bdcom_convert_voltage"
+      // }, //"voltage" : "voltage * 0.0001"
+      "DISTANCE"         : {
+        "NAME"   : "DISTANCE",
+        "OIDS"   : ".1.3.6.1.4.1.3320.10.3.1.1.33",
+        "PARSER" : "_bdcom_convert_distance_gpon"
+      }, //"distance" : "distance * 0.001"
+      // 0-1 - Active
+      // 2 - Not connected
+      "ONU_PORTS_STATUS" : {
+        "NAME"   : "ONU_PORTS_STATUS",
+        "OIDS"   : "1.3.6.1.4.1.3320.10.4.9.1.3",
+        "WALK"   : 1
+      },
+      "UPTIME"           : {
+        "NAME"   : "UPTIME",
+        "OIDS"   : ".1.3.6.1.4.1.3320.10.3.1.1.19.22",
+        "PARSER" : "_bdcom_sec2time"
+      },
+      "ONU_LAST_DOWN_CAUSE" : {
+        "NAME"   : "ONU last down cause",
+        "OIDS"   : ".1.3.6.1.4.1.3320.10.3.1.1.35",
+        "PARSER" : "_bdcom_convert_onu_last_down_cause"
+      },
+      "MAC_BEHIND_ONU"      : {
+        "NAME"        : "MAC_BEHIND_ONU",
+        "USE_MAC_LOG" : 1
+      }
+    }
+  }
+
+}
+

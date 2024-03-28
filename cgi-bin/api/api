@@ -1,0 +1,220 @@
+#!/usr/bin/env perl
+use strict;
+use warnings;
+
+=head1 api
+
+ Proxy server with Mojolicious::Lite
+  run dev server
+    morbo -l http://localhost:9444 api
+  run production server
+    hypnotoad api
+
+  Test Version
+=cut
+
+#TODO DELETE ME when need
+
+BEGIN {
+  our $libpath = '../../';
+  my $sql_type = 'mysql';
+  unshift(@INC,
+    $libpath . "AXbills/$sql_type/",
+    $libpath . 'AXbills/modules/',
+    $libpath . '/lib/',
+    $libpath . '/AXbills/',
+    $libpath
+  );
+
+  eval {require Time::HiRes;};
+  our $begin_time = 0;
+  if (!$@) {
+    Time::HiRes->import(qw(gettimeofday));
+    $begin_time = Time::HiRes::gettimeofday();
+  }
+}
+
+use AXbills::JSON;
+use AXbills::Defs;
+use AXbills::Base;
+use Users;
+use Admins;
+use AXbills::Api::Paths;
+use AXbills::Api::Camelize;
+use Mojolicious::Lite -signatures;
+use Encode 'encode';
+
+our (
+  %LANG,
+  %lang,
+  @MONTHES,
+  @WEEKDAYS,
+  $base_dir,
+  @REGISTRATION,
+  %conf
+);
+
+our $VERSION = 0.01;
+
+do '../../libexec/config.pl';
+do 'AXbills/Misc.pm';
+
+require AXbills::Templates;
+require AXbills::Result_former;
+require Control::Auth;
+
+our $db = AXbills::SQL->connect(
+  $conf{dbtype}, $conf{dbhost}, $conf{dbname}, $conf{dbuser}, $conf{dbpasswd},
+  {
+    CHARSET => ($conf{dbcharset}) ? $conf{dbcharset} : undef,
+    dbdebug => $conf{dbdebug}
+  }
+);
+
+our $html = AXbills::HTML->new({
+  IMG_PATH   => 'img/',
+  NO_PRINT   => 1,
+  CONF       => \%conf,
+  CHARSET    => $conf{default_charset},
+  HTML_STYLE => $conf{UP_HTML_STYLE}
+});
+
+if ($html->{language} ne 'english') {
+  do $libpath . '../../libexec/config.pl';
+}
+
+if (-f $libpath . "/language/$html->{language}.pl") {
+  do $libpath . "/language/$html->{language}.pl";
+}
+
+our $admin = Admins->new($db, \%conf);
+our Users $user = Users->new($db, $admin, \%conf);
+
+app->config(
+  hypnotoad => {
+    listen => [ 'http://localhost:9444' ],
+    proxy  => 1
+  },
+);
+
+my $path_list = AXbills::Api::Paths::list();
+
+post '/login' => sub($router) {
+  $ENV{'REMOTE_ADDR'} = $router->req->headers->header('x-forwarded-for');
+  $ENV{'HTTP_USER_AGENT'} = $router->req->headers->header('user-agent');
+  my $hash = $router->req->json;
+  my ($uid, $sid, $login) = auth_user($hash->{login}, $hash->{password}, '');
+  $router->render(json => { uid => $uid, sid => $sid, login => $login });
+};
+
+foreach my $path (@{$path_list->{user}}) {
+  next if (ref $path->{handler} ne 'CODE');
+  if ($path->{method} eq 'GET') {
+    get $path->{path} => sub($router) {
+      response($router, $path);
+    }
+  }
+  elsif ($path->{method} eq 'POST') {
+    post $path->{path} => sub($router) {
+      response($router, $path);
+    }
+  }
+  elsif ($path->{method} eq 'PUT') {
+    put $path->{path} => sub($router) {
+      response($router, $path);
+    }
+  }
+  elsif ($path->{method} eq 'DELETE') {
+    del $path->{path} => sub($router) {
+      response($router, $path);
+    }
+  }
+}
+
+#**********************************************************
+=head2 response($router, $path) - Render response on API req
+
+  Arguments:
+     $router - Mojolicious::Lite req/res body object by default in Mojo $c
+     $path   - path object. You can read more about it in AXbills::Api::Paths::list() POD code before function.
+
+  Returns:
+    1 - SID for this user exists
+    0 - SID for this user doesn't exists
+
+=cut
+#**********************************************************
+sub response($router, $path) {
+  my $status = check_sid($router);
+  if (!$status) {
+    $router->render(json => { error => "Access denied" }, status => '401');
+  }
+  else {
+    eval "use $path->{module}";
+
+    if ($@ || !$path->{module}->can('new') || ($path->{module} !~ /^[a-zA-Z0-9_:]+$/)) {
+      $router->render(json => { errno => 1, errstr => 'Module is not found' }, status => '404');
+    }
+    else {
+      my $module = $path->{module}->new($db, $admin, \%conf);
+      my (@params) = $path->{path} =~ /(?<=\/:)([\w]+)(?=\/)/g;
+      my %params_list = ();
+      foreach my $param (@params) {
+        $params_list{$param} = $router->param($param);
+      }
+      my $body = ($path->{method} eq 'GET') ? {} : ($router->req->json || {});
+      my $result = $path->{handler}->(
+        \%params_list,
+        $body,
+        $module);
+      if ($result) {
+        if (ref $result eq 'HASH') {
+          foreach my $key (keys %{$result}) {
+            my $new_key = AXbills::Api::Camelize::camelize($key);
+            $result->{$new_key} = $result->{$key};
+            if ($new_key ne $key) {
+              delete($result->{$key});
+            }
+          }
+        }
+        elsif (ref $result eq 'ARRAY') {
+          foreach my $hash (@{$result}) {
+            if (ref $hash eq 'HASH') {
+              foreach my $key (keys %{$hash}) {
+                my $new_key = AXbills::Api::Camelize::camelize($key);
+                $hash->{$new_key} = $hash->{$key};
+                if ($new_key ne $key) {
+                  delete($hash->{$key});
+                }
+              }
+            }
+          }
+        }
+        $router->render(json => $result);
+      }
+    }
+  }
+}
+
+#**********************************************************
+=head2 check_sid($router) - Returns status of SID
+
+  Arguments:
+     $router - Mojolicious::Lite req/res body object by default in Mojo $c
+
+  Returns:
+    1 - SID for this user exists
+    0 - SID for this user doesn't exists
+
+=cut
+#**********************************************************
+sub check_sid($router) {
+  $ENV{'REMOTE_ADDR'} = $router->req->headers->header('x-forwarded-for');
+  $ENV{'HTTP_USER_AGENT'} = $router->req->headers->header('user-agent');
+  my $uid = $router->param('uid');
+  my $sid = $router->req->headers->header('USERSID');
+  my ($uid_sign) = auth_user('', '', $sid);
+  return $uid_sign ne $uid ? 0 : 1;
+}
+
+app->start;

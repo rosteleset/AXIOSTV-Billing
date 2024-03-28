@@ -1,0 +1,10 @@
+{
+  "name": "ADMIN_EQUIPMENT_NAS_GROUP_ADD",
+  "method": "POST",
+  "path": "equipment/nas/groups/add",
+  "body": {
+    "name": "test api",
+    "comments": "Hello world",
+    "disable": 1
+  }
+}

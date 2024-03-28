@@ -1,0 +1,71 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+
+%FUNCTIONS_LIST = (
+  "01:0:$lang{EMPLOYEES}:null:"                                          => 5,
+  "02:1:$lang{EMPLOYEES}:employees_main:"                                => 5,
+  "07:2:$lang{EMPLOYEE_PROFILE}:profile_list_admin:"                     => 5,
+  "03:1:$lang{GEO}:employees_geolocation:EID"                            => 5,
+  "04:2:$lang{POSITIONS}:employees_positions:"                           => 5,
+  "05:4:$lang{POSITIONS_TREE}:employees_positions_tree:"                 => 5,
+  "08:7:$lang{QUESTIONS}:question_show:"                                 => 5,
+  "10:2:$lang{VACATIONS}:employees_vacations:"                           => 5,
+  # "11:1:RFID:employees_rfid_log_to_timesheet:"         => 5,
+  "11:1:$lang{_GRAPH}:employees_time_sheet_charts:DATE"                  => 5,
+  #  "12:1:RFID:null"                                       => 5,
+  #  "13:12:$lang{MANAGE} $lang{TIME}:employees_work_time"  => 5,
+  "12:2:$lang{DUTY}:employees_duty:"                                     => 5,
+  "13:2:$lang{DEPARTMENTS}:employees_department:"                         => 5,
+
+  "20:0:$lang{EMPLOYEES}:null:"                                          => 4,
+  "21:20:RFID $lang{LOG}:employees_rfid_log:"                            => 4,
+  "24:20:$lang{COMING_REPORT}:employees_coming_reports"                  => 4,
+  "23:20:$lang{SPENDING_REPORT}:employees_spending_reports"              => 4,
+  "25:20:$lang{BALANCE} $lang{IN_CASHBOX}:employees_cashbox_balance:"    => 4,
+  "26:20:$lang{WORK}:employees_report_list:"                             => 4,
+
+  "30:0:$lang{TIME_SHEET}:form_admins_time_sheet:"                       => 8,
+  "31:30:TEST:employees_timesheet_print:print"                           => 8,
+
+  "40:0:$lang{DAILY_NOTES}:employees_daily_notes:"                       => 9,
+
+  "50:1:$lang{SALARY}:null:"                                             => 5,
+  "51:50:$lang{BET}:employees_admins_bet:"                               => 5,
+  "52:50:$lang{WORKING_TIME_NORMS}:employees_working_time_norms:"        => 5,
+  "53:50:$lang{PRINT}:employees_pay_salary::EXTERNAL"                    => 8,
+  "54:50:$lang{TYPE} $lang{BONUS}:employees_bonus_types:"                => 5,
+
+  "60:1:$lang{CASHBOX_WORK}:null:"                                       => 5,
+  "61:60:$lang{ADD_CASHBOX}:employees_cashbox_main:"                     => 5,
+
+  "62:60:$lang{COMING}:employees_cashbox_coming_add:"                    => 5,
+  "63:62:$lang{ADD} $lang{TYPE}:employees_cashbox_coming_type:"          => 5,
+  "64:62:$lang{DOCS}:employees_coming_document:ID"                       => 5,
+
+  "65:60:$lang{SPENDING}:employees_cashbox_spending_add:"                => 5,
+  "66:65:$lang{DOCS}:employees_spending_document:ID"                     => 5,
+  "67:65:$lang{ADD} $lang{TYPE}:employees_cashbox_spending_type:"        => 5,
+
+  "68:60:$lang{MOVING_BETWEEN_CASHBOXES}:employees_moving_between_cashboxes:" => 5,
+  "69:68:$lang{ADD} $lang{TYPE}:employees_cashbox_moving_type:"          => 5,
+
+  "70:1:$lang{REFERENCE_WORKS}:employees_reference_works:"               => 5,
+
+  "71:0:$lang{SALARY}:employees_salary:"                                 => 8,
+  "72:70:$lang{PRINT}:employees_print_payment_statement:PRINT_STATEMENT" => 8,
+  "73:70:$lang{BONUS}:employees_salary_bonus:"                           => 8,
+
+);
+
+if ($permissions{4} && $permissions{4}{10}) {
+  $FUNCTIONS_LIST{"14:2:$lang{MOBILE_PAY}:employees_mobile_set:"}     = 5;
+  $FUNCTIONS_LIST{"22:20:$lang{MOBILE_PAY}:employees_mobile_report:"} = 4;
+}
+
+if ($permissions{4} && $permissions{4}{11}) {
+  if (in_array('Sms', \@MODULES)) {
+    $FUNCTIONS_LIST{  "15:1:$lang{SEND} Sms:employees_send_sms_to_anyone:"} = 5;
+  }
+}
+%PERIODIC = (daily => [ 'employees_rfid_log_to_timesheet' ]);
+
+1

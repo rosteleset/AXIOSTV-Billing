@@ -1,0 +1,17 @@
+type: object
+properties:
+  body:
+    type: string
+    example: Формується через АПІ
+  icon:
+    type: string
+    example: card-bulleted-outline
+  id:
+    type: number
+    example: 5
+  title:
+    type: string
+    example: Абонентська плата як формується?
+  type:
+    type: number
+    example: 1

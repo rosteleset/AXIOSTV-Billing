@@ -1,0 +1,6 @@
+{
+  "name": "ADMIN_EQUIPMENT_BOX_LIST",
+  "method": "GET",
+  "path": "equipment/box/list/",
+  "params": {}
+}

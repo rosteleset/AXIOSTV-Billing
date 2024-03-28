@@ -1,0 +1,1 @@
+ALTER TABLE `internet_main` ADD KEY `cid` (`cid`);

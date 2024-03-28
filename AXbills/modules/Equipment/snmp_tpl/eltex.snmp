@@ -1,0 +1,202 @@
+{
+  "DEVICE":"ELTEX LTE",
+  "FDB":"1",
+  "FDB_EXPR" : "6%%.(%%d+%%.%%d+%%.%%d+%%.%%d+%%.%%d+%%.%%d+)%%.%%d+:(.*)|PORT_DEC,MAC_HEX",
+  "FDB_OID" : ".1.3.6.1.4.1.35265.1.21.25.1.6",
+  "info" : {
+  },
+  "status" : {
+    "CPU_LOAD_01" : {
+      "OIDS" : "1.3.6.1.4.1.35265.1.21.1.32.0",
+      "MULTIPLITER" : "0.01",
+      "PARSER" : ""
+    },
+    "CPU_LOAD_05" : {
+      "OIDS" : "1.3.6.1.4.1.35265.1.21.1.33.0",
+      "MULTIPLITER" : "0.01",
+      "PARSER" : ""
+    },
+    "CPU_LOAD_15" : {
+      "OIDS" : "1.3.6.1.4.1.35265.1.21.1.34.0",
+      "MULTIPLITER" : "0.01",
+      "PARSER" : ""
+    }
+  },
+
+  "gepon" : {
+    "ONU_MAC_SERIAL" : {
+      "NAME"   : "Mac/Serial",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.21.16.1.1.1.6",
+      "PARSER" : "bin2mac"
+    },
+    "ONU_STATUS"     : {
+      "NAME"   : "STATUS",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.21.6.1.1.6.6",
+      "PARSER" : ""
+    },
+    "ONU_RX_POWER"   : {
+      "NAME"   : "RX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.21.6.1.1.15.6",
+      "PARSER" : "_eltex_convert_power"
+    }, // tx_power = tx_power * 0.1;
+    "ONU_TX_POWER"   : {
+      "NAME"   : "TX_POWER",
+      "OIDS"   : "",
+      "PARSER" : ""
+    },
+    "OLT_RX_POWER"   : {
+      "NAME"   : "OLT_RX_POWER",
+      "OIDS"   : "",
+      "PARSER" : ""
+    },
+    "ONU_DESC"       : {
+      "NAME"   : "DESCRIPTION",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.21.16.1.1.8.6",
+      "PARSER" : ""
+    },
+    "ONU_IN_BYTE"    : {
+      "NAME"   : "ONU_IN_BYTE",
+      "OIDS"   : "",
+      "PARSER" : ""
+    },
+    "ONU_OUT_BYTE"   : {
+      "NAME"   : "ONU_OUT_BYTE",
+      "OIDS"   : "",
+      "PARSER" : ""
+    },
+    "TEMPERATURE"    : {
+      "NAME"   : "TEMPERATURE",
+      "OIDS"   : "",
+      "PARSER" : "_dec_div"
+    },
+    "reset"          : {
+      "NAME"   : "",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.21.6.10.1.10",
+      "PARSER" : ""
+    },
+    "main_onu_info"    : {
+      "ONU_TYPE"     : {
+        "NAME"   : "TYPE",
+        "OIDS"   : ".1.3.6.1.4.1.35265.1.21.6.1.1.2.6",
+        "PARSER" : "_eltex_convert_onu_type"
+      },
+      "SOFT_VERSION" : {
+        "NAME"   : "FIRMWARE",
+        "OIDS"   : "",
+        "PARSER" : ""
+      },
+      "VOLTAGE"      : {
+        "NAME"   : "VOLTAGE",
+        "OIDS"   : "",
+        "PARSER" : ""
+      },
+      "DISTANCE"     : {
+        "NAME"   : "DISTANCE",
+        "OIDS"   : "",
+        "PARSER" : ""
+      }
+    }
+  },
+  "gpon"  : {
+    "ONU_MAC_SERIAL" : {
+      "NAME"   : "Mac/Serial",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.2",
+      "PARSER" : "serial2mac"
+    },
+    "ONU_STATUS"     : {
+      "NAME"   : "STATUS",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.5",
+      "PARSER" : ""
+    },
+    "ONU_RX_POWER"   : {
+      "NAME"   : "ONU_RX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.14",
+      "PARSER" : "_eltex_convert_power"
+    }, // tx_power = tx_power * 0.1;
+    "ONU_TX_POWER"   : {
+      "NAME"   : "ONU_TX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.13",
+      "PARSER" : "_eltex_convert_power"
+    },
+    "OLT_RX_POWER"   : {
+      "NAME"   : "OLT_RX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.11",
+      "PARSER" : "_dec_div"
+    },
+    "ONU_DESC"       : {
+      "NAME"   : "DESCRIPTION",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.4.1.8",
+      "PARSER" : ""
+    },
+    "ONU_IN_BYTE"    : {
+      "NAME"   : "ONU_IN_BYTE",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.6",
+      "PARSER" : ""
+    },
+    "ONU_OUT_BYTE"   : {
+      "NAME"   : "ONU_OUT_BYTE",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.10",
+      "PARSER" : ""
+    },
+    "TEMPERATURE"    : {
+      "NAME"   : "TEMPERATURE",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.15",
+      "PARSER" : "_dec_div"
+    },
+    "RF_PORT_ON" : {
+      "NAME"   : "RF_PORT_ON",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.24",
+      "PARSER" : "_eltex_convert_rf_port_status"
+    },
+    "reset"          : {
+      "NAME"   : "",
+      "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.22",
+      "PARSER" : "",
+      "VALUE_TYPE" : "gauge32"
+    },
+    "main_onu_info"    : {
+      "ONU_TYPE"     : {
+        "NAME"   : "TYPE",
+        "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.12",
+        "PARSER" : ""
+        // "WALK"   : "1",
+      },
+      "SOFT_VERSION" : {
+        "NAME"   : "FIRMWARE",
+        "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.17",
+        "PARSER" : ""
+      },
+      "VOLTAGE"      : {
+        "NAME"   : "VOLTAGE",
+        "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.25",
+        "PARSER" : "_eltex_convert_volt"
+      },
+      "DISTANCE"     : {
+        "NAME"   : "DISTANCE",
+        "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.10",
+        "PARSER" : ""
+      },
+      "VIDEO_RX_POWER" : {
+        "NAME"   : "VIDEO_RX_POWER",
+        "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.16",
+        "PARSER" : "_eltex_convert_video_power"
+      }
+    },
+    "unregister"       : {
+      "ONU_STATUS" : {
+        "NAME"   : "STATUS",
+        "OIDS"   : ".1.3.6.1.4.1.35265.1.22.3.1.1.5",
+        "PARSER" : ""
+      }
+    }
+  },
+  "FDB" : {
+    "NAME"   : "TYPE",
+    "OIDS"   : ".1.3.6.1.4.1.35265.1.22.9.6",
+    "PARSER" : ""
+  }
+
+  // 1.3.6.1.4.1.35265.1.21.25  - Mac Table
+  // где 2.0.94.0.0.32 - мас адрес ОНТ в десятичной системе. Последняя единица - это порядковый номер
+}
+

@@ -1,0 +1,22 @@
+$lang{MEMORY}='Памяць';
+$lang{CPU}='Працэсар';
+$lang{DISC}='Дыск';
+$lang{NETWORK}='Сетка';
+$lang{LOAD}='Нагрузка';
+$lang{FREE}='Вольна';
+$lang{PROCCESS_LIST}='Спіс працэсаў';
+$lang{RUNNING}='Працуе';
+$lang{SYSTEM_INFO}='Інфармацыя аб сістэме';
+$lang{UPTIME}='Час працы';
+$lang{RECOMMENDED_MODULES}='Пераважныя модулі';
+$lang{YOU_SHOULD_DEFINE}='Прапішыце';
+$lang{EXECUTE} = 'Выканайце';
+$lang{TO_GRANT_PERMISSIONS} = 'для адкрыцця доступу';
+
+$lang{REMOTE_SERVERS} = 'Сервера';
+$lang{MANAGEMENT} = 'Упраўленне';
+$lang{PRIVATE_KEY} = 'Прыватны ключ';
+$lang{COPY_FROM_NAS_SERVER} = 'Скапіяваць параметры з сервера доступу';
+$lang{CHECK_STATUS_COMMAND} = 'Каманда для праверкі статуту';
+$lang{SERVER_SERVICE} = 'Служба';
+$lang{SERVER_SERVICES} = 'Службы';

@@ -1,0 +1,54 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+  "required": [
+    "activeService",
+    "id",
+    "name",
+    "missing",
+    "comments",
+    "price",
+    "period",
+    "manualActivate",
+    "description"
+  ],
+  "properties": {
+    "activeService": {
+      "$id": "#/properties/activeService",
+      "type": "number"
+    },
+    "id": {
+      "$id": "#/properties/id",
+      "type": "number"
+    },
+    "name": {
+      "$id": "#/properties/name",
+      "type": "string"
+    },
+    "missing": {
+      "$id": "#/properties/missing",
+      "type": "number"
+    },
+    "comments": {
+      "$id": "#/properties/comments",
+      "type": "string"
+    },
+    "price": {
+      "$id": "#/properties/price",
+      "type": "number"
+    },
+    "period": {
+      "$id": "#/properties/price",
+      "type": "number"
+    },
+    "manualActivate": {
+      "$id": "#/properties/price",
+      "type": "number"
+    },
+    "description": {
+      "$id": "#/properties/price",
+      "type": "string"
+    }
+  }
+}

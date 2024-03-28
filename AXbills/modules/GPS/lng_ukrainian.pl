@@ -1,0 +1,9 @@
+$lang{TRACKER} = 'Трекер';
+$lang{TRACKERS} = 'Трекери';
+$lang{TRACKED_ADMINS} = 'Відслідковувані адміністратори';
+$lang{NOT_REGISTERED} = 'Не зареєстровані';
+$lang{ROUTE_COLOR} = 'Колір маршруту';
+$lang{ADMIN_ROUTES} = 'Маршрути адміністраторів';
+$lang{FOR_TIME} = 'за період';
+$lang{GPS_MAPS_SETTINGS} = 'Налаштування зображення на карті';
+$lang{BATTERY} = 'Акумулятор';

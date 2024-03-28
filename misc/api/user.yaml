@@ -1,0 +1,260 @@
+openapi: 3.0.3
+info:
+  title: AXbills user API
+  version: 1.0.17
+  description: "Last modified 2023-07-26"
+  contact:
+    name: Have a question? Support
+    url: https://support.axbills.net.ua/
+    email: dev@axbills.net.ua
+servers:
+  - url: https://demo.axbills.net.ua:9443/api.cgi
+    description: Test Demo Server
+tags:
+  - name: user
+    description: Работа с пользователем
+  - name: internet
+    description: Работа с услугой Интернет
+  - name: iptv
+    description: Работа с IPTV
+  - name: msgs
+    description: Работа с заявками пользователя
+  - name: abon
+    description: Работа с периодическими списаниями
+  - name: paysys
+    description: Работа с платежными системами
+  - name: config
+    description: Все доступные конфигурации
+  - name: contacts
+    description: Работа с контактами
+  - name: holdup
+    description: Приостановление услуг
+  - name: services
+    description: Работа с услугами абонента
+  - name: finance
+    description: Финансовая информация по пользователю
+  - name: bots
+    description: Пути ботов пользователя
+  - name: cards
+    description: Работа с карточками пополнения
+  - name: voip
+    description: Работа с телефонией
+  - name: expert
+    description: Работа с экспертной системой
+  - name: referral
+    description: Работа с реферальной системой
+  - name: portal
+    description: Новости в пользовтелям
+paths:
+  # base user logic
+  /users/login:
+    $ref: "./user/user/paths/login.yaml"
+  /user/login:
+    $ref: "./user/user/paths/loginNew.yaml"
+  /user/password/recovery:
+    $ref: "./user/user/paths/passwordRecovery.yaml"
+  /user/password/reset:
+    $ref: "./user/user/paths/passwordReset.yaml"
+
+  /user/internet/registration:
+    $ref: "./user/user/paths/internetRegistration.yaml"
+  /user/registration:
+    $ref: "./user/user/paths/registration.yaml"
+  /user/verify:
+    $ref: "./user/user/paths/registrationVerify.yaml"
+  /user/resend/verification:
+    $ref: "./user/user/paths/registrationResend.yaml"
+  /user/logout:
+    $ref: "./user/user/paths/logout.yaml"
+  /user/social/networks:
+    $ref: "./user/user/paths/socialNetworks.yaml"
+  /user/reset/password:
+    $ref: "./user/user/paths/resetPassword.yaml"
+
+  /user:
+    $ref: "./user/user/paths/user.yaml"
+  /user/pi:
+    $ref: "./user/user/paths/userPi.yaml"
+
+  /user/credit:
+    $ref: "./user/user/paths/credit.yaml"
+
+  # internet paths
+
+  /user/internet:
+    $ref: "./user/internet/paths/internet.yaml"
+  /user/internet/{ID}/activate:
+    $ref: "./user/internet/paths/activate.yaml"
+  /user/internet/{id}:
+    $ref: "./user/internet/paths/internetTariff.yaml"
+  /user/internet/{ID}/speed:
+    $ref: "./user/internet/paths/speed.yaml"
+  /user/internet/{ID}/holdup:
+    $ref: "./user/internet/paths/holdup.yaml"
+  /user/internet/tariffs:
+    $ref: "./user/internet/paths/tariffs.yaml"
+  /user/internet/tariffs/all:
+    $ref: "./user/internet/paths/tariffsAll.yaml"
+  /user/internet/{ID}/warnings:
+    $ref: "./user/internet/paths/warnings.yaml"
+  /user/internet/sessions:
+    $ref: "./user/internet/paths/sessions.yaml"
+  /user/internet/session/active:
+    $ref: "./user/internet/paths/activeSession.yaml"
+  /user/internet/mac/discovery:
+    $ref: "./user/internet/paths/macDiscovery.yaml"
+
+  # abon paths
+
+  /user/abon:
+    $ref: "./user/abon/paths/abon.yaml"
+
+  # msgs paths
+
+  /user/msgs:
+    $ref: "./user/msgs/paths/msgs.yaml"
+  /user/msgs/{ID}:
+    $ref: "./user/msgs/paths/msg.yaml"
+  /user/msgs/{ID}/reply:
+    $ref: "./user/msgs/paths/msgsReply.yaml"
+  /user/msgs/chapters:
+    $ref: "./user/msgs/paths/chapters.yaml"
+
+  # configuration info paths
+
+  /user/config:
+    $ref: "./user/config/paths/config.yaml"
+  /version:
+    $ref: "./user/config/paths/version.yaml"
+  /config:
+    $ref: "./user/config/paths/publicConfig.yaml"
+
+  # paysys paths
+
+  /user/paysys/systems:
+    $ref: "./user/paysys/paths/systems.yaml"
+  /user/paysys/pay:
+    $ref: "./user/paysys/paths/pay.yaml"
+  /user/paysys/transaction/status:
+    $ref: "./user/paysys/paths/transactionInfo.yaml"
+  /user/paysys/transaction/status/{id}:
+    $ref: "./user/paysys/paths/transactionInfoNew.yaml"
+  /user/paysys/applePay/session:
+    $ref: "./user/paysys/paths/appleSession.yaml"
+
+  # contacts paths
+
+  /user/contacts/{typeId}:
+    $ref: "./user/contacts/paths/contacts.yaml"
+  /user/contacts/push/subscribe/{typeId}:
+    $ref: "./user/contacts/paths/push.yaml"
+  /user/contacts/push/subscribe/{typeId}/{value}:
+    $ref: "./user/contacts/paths/pushDelete.yaml"
+  /user/contacts/push/badges/{typeId}:
+    $ref: "./user/contacts/paths/badges.yaml"
+  /user/contacts/push/messages:
+    $ref: "./user/contacts/paths/messages.yaml"
+
+  # holdup paths
+
+  /user/{ID}/holdup:
+    $ref: "./user/holdup/paths/holdup.yaml"
+
+  # services paths
+
+  /user/services:
+    $ref: "./user/services/paths/services.yaml"
+
+  # finance paths
+
+  /user/payments:
+    $ref: "./user/finance/paths/payments.yaml"
+  /user/fees:
+    $ref: "./user/finance/paths/fees.yaml"
+
+  # bots paths
+
+  /user/bots/subscribe/phone:
+    $ref: "./user/bots/paths/subscribePhone.yaml"
+  /user/bots/subscribe:
+    $ref: "./user/bots/paths/subscribe.yaml"
+  /user/bots/subscribe/link/{bot}:
+    $ref: "./user/bots/paths/subscribeLink.yaml"
+  /user/bots/subscribe/qrcode/{bot}:
+    $ref: "./user/bots/paths/subscribeQrcode.yaml"
+
+  # cards paths
+
+  /user/cards/payment:
+    $ref: "./user/cards/paths/payment.yaml"
+
+  # iptv paths
+
+  /user/iptv:
+    $ref: "./user/iptv/paths/user.yaml"
+  /user/iptv/tariffs:
+    $ref: "./user/iptv/paths/availableTariffs.yaml"
+  /user/iptv/services:
+    $ref: "./user/iptv/paths/services.yaml"
+  /user/iptv/{ID}/tariffs:
+    $ref: "./user/iptv/paths/tariffs.yaml"
+  /user/iptv/tariffs/{serviceId}:
+    $ref: "./user/iptv/paths/tariffsByService.yaml"
+  /user/iptv/promotion/tariffs:
+    $ref: "./user/iptv/paths/tariffsPromotion.yaml"
+  /user/iptv/{ID}/warnings:
+    $ref: "./user/iptv/paths/warnings.yaml"
+  /user/iptv/{ID}/url:
+    $ref: "./user/iptv/paths/url.yaml"
+  /user/iptv/{ID}/playlist:
+    $ref: "./user/iptv/paths/playlist.yaml"
+  /user/iptv/{ID}/holdup:
+    $ref: "./user/iptv/paths/holdup.yaml"
+  /user/iptv/{ID}/activate:
+    $ref: "./user/iptv/paths/activate.yaml"
+  /user/iptv/tariff/add:
+    $ref: "./user/iptv/paths/tariffAdd.yaml"
+  /user/iptv/{ID}:
+    $ref: "./user/iptv/paths/iptvTariff.yaml"
+
+  # voip paths
+
+  /user/voip:
+    $ref: "./user/voip/paths/voip.yaml"
+  /user/voip/sessions:
+    $ref: "./user/voip/paths/sessions.yaml"
+  /user/voip/routes:
+    $ref: "./user/voip/paths/routes.yaml"
+  /user/voip/tariffs:
+    $ref: "./user/voip/paths/tariffs.yaml"
+
+  # expert paths
+
+  /user/expert/faqs:
+    $ref: "./user/expert/paths/faqs.yaml"
+
+  # portal paths
+
+  /user/portal/menu:
+    $ref: "./user/portal/paths/portal.yaml"
+  /user/portal/news:
+    $ref: "./user/portal/paths/news.yaml"
+  /user/portal/news/{id}:
+    $ref: "./user/portal/paths/newsId.yaml"
+
+  # referral paths
+
+  /user/referral:
+    $ref: "./user/referral/paths/referral.yaml"
+  /user/referral/bonus:
+    $ref: "./user/referral/paths/bonus.yaml"
+  /user/referral/friend:
+    $ref: "./user/referral/paths/referralAdd.yaml"
+  /user/referral/friend/{ID}:
+    $ref: "./user/referral/paths/referralChange.yaml"
+components:
+  securitySchemes:
+    USERSID:
+      type: apiKey
+      name: USERSID
+      in: header

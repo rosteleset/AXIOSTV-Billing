@@ -1,0 +1,133 @@
+type: object
+properties:
+  acceptRules:
+    type: number
+    example: 0
+  addressBuild:
+    type: string
+    example: 15
+  addressDistrict:
+    type: string
+    example: Коломия
+  addressFlat:
+    type: string
+    example: ""
+  addressFull:
+    type: string
+    example:  Вокзальная 15
+  addressStreet:
+    type: string
+    example: Вокзальная
+  birthDate:
+    type: string
+    example: "0000-00-00"
+  cellPhone:
+    type: array
+    items:
+      type: string
+    example: []
+  city:
+    type: string
+    example: Коломия
+  contractDate:
+    type: string
+    format: date
+    example: "2022-11-14"
+  contractId:
+    type: number
+    example: 100001
+  contractSufix:
+    type: string
+    example: ""
+  coordx:
+    type: number
+    example: 24.7255039215088
+  country:
+    type: number
+    example: 804
+  countryId:
+    type: number
+    example: 0
+  districtId:
+    type: number
+    example: 2
+  email:
+    type: array
+    items:
+      type: string
+      example: yusk1@gmail.com
+  entrance:
+    type: number
+    example: 0
+  fio:
+    type: string
+    example: Тестовий Клієнт Тестовичч
+  fio2:
+    type: string
+    example: ""
+  fio3:
+    type: string
+    example: ""
+  floor:
+    type: number
+    example: 0
+  googlePush:
+    type: array
+    items:
+      type: string
+    example: []
+  icq:
+    type: array
+    items:
+      type: string
+    example: []
+  locationId:
+    type: number
+    example: 1
+  pasportDate:
+    type: string
+    example: "0000-00-00"
+  pasportGrant:
+    type: string
+    example: ""
+  pasportNum:
+    type: string
+    example: ""
+  phone:
+    type: array
+    items:
+      type: number
+      example: 380509152721
+  regAddress:
+    type: string
+    example: ""
+  skype:
+    type: array
+    items:
+      type: string
+    example: []
+  streetId:
+    type: number
+    example: 1
+  taxNumber:
+    type: number
+    example: 0
+  telegram:
+    type: array
+    items:
+      type: string
+    example: []
+  total:
+    type: number
+    example: 1
+  uid:
+    type: number
+    example: 103214
+  viber:
+    type: array
+    items:
+      type: string
+    example: []
+  zip:
+    type: number
+    example: 72000

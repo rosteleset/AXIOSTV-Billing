@@ -1,0 +1,13 @@
+get:
+  tags:
+    - config
+  summary: Получить версии биллинга и API
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/version.yaml"
+  security:
+    - USERSID: []

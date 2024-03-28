@@ -1,0 +1,19 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+
+if ( defined( $admin->{AID} ) ) {
+#  print "Content-Type:text/html\n\n";
+#  require "Notepad/webinterface";
+  
+  my $count = ''; #notepad_new_count( { AID => $admin->{AID} } );
+  
+  %FUNCTIONS_LIST = (
+    "01:0:$lang{NOTEPAD} $count:notepad_main:" => 9,
+    "02:1::notepad_calendar_reminders:AJAX"    => 9,
+    "03:1::notepad_periodic_rule:IN_MODAL,ID"  => 9,
+    "04:1::notepad_checklist:AJAX"  => 9,
+    "05:1::notepad_checklist_modal:IN_MODAL"  => 9,
+    "06:1:Sticker:notepad_show_sticker:HIDDEN"  => 9,
+  );
+}
+
+1

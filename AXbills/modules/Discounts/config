@@ -1,0 +1,9 @@
+%FUNCTIONS_LIST = (
+      "01:0:$lang{DISCOUNTS}:null:"                                   => 5,
+      "02:1:$lang{ADD} $lang{DISCOUNTS}:discounts_add_discounts:"     => 5,
+      "02:1:$lang{ADD} $lang{DISCOUNT_STATUS}:discounts_add_status:"  => 5,
+);
+
+%USER_FUNCTION_LIST = (
+    "01:0:$lang{CARD_ABON}:discounts_user:"                           => 0,
+);

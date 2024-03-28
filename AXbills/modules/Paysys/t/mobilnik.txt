@@ -1,0 +1,29 @@
+===== Auth =====
+<?xml version='1.0' encoding='utf-8'?>
+<XML>
+<HEAD>
+<OP>QE11</OP>
+<QM>NORMAL</QM>
+<QID>1</QID>
+<SID>9999</SID>
+</HEAD>
+<BODY>
+<SUM>1.00</SUM>
+<SUPPLIER_ID>157</SUPPLIER_ID>
+</BODY>
+</XML>
+===== Payment =====
+<?xml version='1.0' encoding='utf-8'?>
+<XML>
+<HEAD>
+<OP>QE10</OP>
+<QM>NORMAL</QM>
+<QID>4188941</QID>
+<SID>9999</SID>
+</HEAD>
+<BODY>
+<PARAM1>1</PARAM1>
+<SUM>1.00</SUM>
+<SUPPLIER_ID>157</SUPPLIER_ID>
+</BODY>
+</XML>

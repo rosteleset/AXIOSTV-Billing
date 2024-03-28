@@ -1,0 +1,7 @@
+_{DEAR}_, %FIO%
+_{CREDIT}_ _{EXPIRE}_
+
+_{DAYS}_: %CREDIT_EXPIRE_DAYS%
+
+_{DEPOSIT}_:  %DEPOSIT%
+_{CREDIT}_:   %CREDIT%

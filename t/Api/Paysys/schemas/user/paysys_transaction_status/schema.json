@@ -1,0 +1,55 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+
+  "required": [
+    "name",
+    "status",
+    "login",
+    "id",
+    "transactionId",
+    "status",
+    "login",
+    "id",
+    "datetime"
+  ],
+  "properties": {
+    "name": {
+      "$id": "#/properties/status",
+      "type": "number"
+    },
+    "login": {
+      "$id": "#/properties/login",
+      "type": "string"
+    },
+    "id": {
+      "$id": "#/properties/id",
+      "type": "number"
+    },
+    "transactionId": {
+      "$id": "#/properties/transactionId",
+      "type": "string"
+    },
+    "datetime": {
+      "$id": "#/properties/datetime",
+      "type": "string"
+    },
+    "sum": {
+      "$id": "#/properties/sum",
+      "type": "number"
+    },
+    "domainId": {
+      "$id": "#/properties/domainId",
+      "type": "number"
+    },
+    "uid": {
+      "$id": "#/properties/uid",
+      "type": "number"
+    },
+    "systemId": {
+      "$id": "#/properties/systemId",
+      "type": "number"
+    }
+  }
+}

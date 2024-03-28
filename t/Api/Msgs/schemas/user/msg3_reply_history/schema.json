@@ -1,0 +1,34 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+  "required": [
+    "uid",
+    "text",
+    "id",
+    "datetime",
+    "admin"
+  ],
+  "properties": {
+    "text": {
+      "$id": "#/properties/text",
+      "type": "string"
+    },
+    "uid": {
+      "$id": "#/properties/uid",
+      "type": "number"
+    },
+    "datetime": {
+      "$id": "#/properties/datetime",
+      "type": "string"
+    },
+    "id": {
+      "$id": "#/properties/id",
+      "type": "number"
+    },
+    "admin": {
+      "$id": "#/properties/admin",
+      "type": "string"
+    }
+  }
+}

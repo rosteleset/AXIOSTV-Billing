@@ -1,0 +1,7 @@
+date -> 1417100752
+login -> 12025
+note -> 85515476
+hash -> 27fc18481aaa393b5c1b3d31db2d4d53
+amount -> 202.00
+id_ups -> 2092170
+order -> 12025

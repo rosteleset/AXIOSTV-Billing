@@ -1,0 +1,1 @@
+<a href='$SELF_URL?index=$index&poll=$FORM{poll}&DISCUSSION=1' class='btn btn-primary' role='button'>_{DISCUSSION}_</a>

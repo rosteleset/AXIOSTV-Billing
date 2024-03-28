@@ -1,0 +1,1376 @@
+#!/usr/bin/perl -w
+
+
+use vars qw(%conf %log_levels $db $DATE $time $var_dir
+@START_FW
+$DATE
+$TIME
+$ERR_WRONG_DATA
+);
+
+#use strict;
+
+my $Cards;
+
+
+#Ð¿ÐµÑ€ÐµÐ¼ÐµÐ½Ð½Ð°Ñ Ð²ÐµÑ€ÑÐ¸Ñ
+my $vesion    = 0.17;
+
+#Ð¤Ð»Ð°Ð³ Ð¾Ñ‚Ð»Ð°Ð´ÐºÐ¸
+$conf{dbtype} = 'mysql';
+
+#ÐŸÐ¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ½Ð¸Ðµ ÐºÐ¾Ð½Ñ„Ð¸Ð³Ð°
+use FindBin '$Bin';
+unshift(@INC, $Bin . '/../', $Bin . '/../../../', $Bin . '/../../../libexec/', $Bin . "/../../../AXbills/$conf{dbtype}");
+
+require 'config.pl';
+
+my $debug = $conf{VOIP_IVR_DEBUG} || 2;
+my $user_info;
+
+#ÐŸÐ¾Ð´ÐºÐ»ÑŽÑ‡ÐµÐ¸Ðµ AGI
+use Encode;
+use Asterisk::AGI;
+
+# For voice file
+use File::Temp qw(tempfile);
+use File::Copy qw(move);
+use File::Path qw(mkpath);
+
+# Default language
+my $lang = "en";
+# Output audio sample rate
+my $samplerate = 16000;
+# Output speed factor
+my $speed = 1;
+# SoX Version                   #
+my $intkey    = "";
+
+#--------------------------------------
+
+my $AGI   = new Asterisk::AGI;
+my %input = $AGI->ReadParse();
+
+my $pin_verify_param = $conf{CALLCENTER_PIN_VERIFY_PARAM};
+$conf{'VOIP_ASTERISK_IVR_LANG'} = 'ru:russian:Ñ€ÑƒÑÑÐºÐ¸Ð¹;' if (! $conf{'VOIP_ASTERISK_IVR_LANG'});
+
+require AXbills::Base;
+Base->import();
+require "AXbills/Misc.pm";
+
+require AXbills::SQL;
+my $sql = AXbills::SQL->connect($conf{dbtype}, $conf{dbhost}, $conf{dbname}, $conf{dbuser}, $conf{dbpasswd}, { CHARSET => ($conf{dbcharset}) ? $conf{dbcharset} : undef });
+my $db = $sql->{db};
+
+require Admins;
+Admins->import();
+my $admin = Admins->new($db, \%conf);
+$admin->info($conf{SYSTEM_ADMIN_ID}, { IP => '127.0.0.1' });
+
+require Voip;
+Voip->import();
+my $Voip = Voip->new($db, $admin, \%conf);
+
+require Users;
+Users->import();
+my $Users = Users->new($db, $admin, \%conf);
+
+require Payments;
+Payments->import();
+my $Payments   = Payments->new($db, $admin, \%conf);
+
+require Callcenter;
+Callcenter->import();
+my $Callcenter   = Callcenter->new($db, $admin, \%conf);
+
+my $user;
+my $message_id = 0;
+
+my $FUNC  = $ARGV[0]; # $input{arg_1};
+my $FUNC_ID  = $ARGV[1];
+
+my $say_money_file = 0;
+#$AGI->answer();
+
+if ($debug > 1) {
+  $AGI->verbose("AGI Environment Dump:");
+  foreach my $i (sort keys %input) {
+    $AGI->verbose(" -- $i = $input{$i}");
+  }
+}
+
+#my $exten = $AGI->get_variable('CHANNEL(EXTEN)');
+#$AGI->verbose("EXTEN: $exten");
+
+#$AGI->set_variable('NUM', '0939226291');
+#$exten = $AGI->get_variable('NUM');
+#$AGI->verbose("EXTEN: $exten");
+
+%input = $AGI->ReadParse();
+
+if ($debug > 1) {
+  $AGI->verbose("AGI Environment Dump:");
+  foreach my $i (sort keys %input) {
+    $AGI->verbose(" -- $i = $input{$i}");
+  }
+}
+my $caller_id = $AGI->get_variable('CALLERID(NUM)');
+
+#if (!defined($caller_id) or $caller_id !~ /^\d+$/) {
+#  $AGI->verbose("Invalid caller number: '$caller_id'", 3);
+#  message($_UNKNOWN_USER);
+#  $AGI->hangup();
+#  exit 1;
+#}
+
+$AGI->verbose("Phone: $caller_id");
+
+my @lang_arr   = split(/;/, $conf{'VOIP_ASTERISK_IVR_LANG'});
+my $lang_short = 'ru';
+my $lang_file  = $conf{default_language};
+
+$AGI->set_variable('CHANNEL(language)', $lang_short);
+my $remote_ip = $AGI->get_variable('CHANNEL(peerip)');
+
+require "language/$lang_file.pl";
+require "AXbills/modules/Voip/lng_$lang_file.pl";
+
+my @service_status = ("$_ENABLE", "$_DISABLE", "$_NOT_ACTIVE", "$_HOLD_UP", "$_DISABLE: $_NON_PAYMENT", "$_ERR_SMALL_DEPOSIT", "$_VIRUS_ALERT" );
+
+#if ($lang_short eq 'ru') {
+#  message($_HAY);
+#}
+#else {
+#  message($_GOOD_DAY);
+#}
+
+if ($#lang_arr > 0) {
+  select_lang({ LANGS => \@lang_arr });
+}
+my $tmpdir     = '/tmp/';
+my $cachedir   = $var_dir."voip_ivr/$lang_short";
+if (! -e $var_dir."voip_ivr") {
+  if(! mkdir($var_dir."voip_ivr")) {
+    $AGI->verbose("$_ERROR '" . "$var_dir" . "voip_ivr'  '$!'");
+  }
+}
+if (! -e $var_dir."voip_ivr/$lang_short") {
+  if(! mkdir($var_dir."voip_ivr/$lang_short")) {
+    $AGI->verbose("$_ERROR '" . "$var_dir" . "voip_ivr/$lang_short'  '$!'");
+  }
+}
+
+my $sox        = `/usr/bin/which sox`;
+my $mpg123     = `/usr/bin/which mpg123`;
+my $usecache   = 1;
+
+chomp($sox, $mpg123);
+$AGI->verbose("Found sox in: $sox, mpg123 in: $mpg123") if ($debug);
+
+# Setting filename extension according to sample rate.
+if ($samplerate == 16000) {
+  $fexten = "sln16";
+}
+else {
+  $fexten     = "slin";
+  $samplerate = 8000;
+}
+
+
+my %menu = (
+  0 => "main_menu:$_MAIN_MENU", 
+  1 => "show_deposit:$_SHOW_DEPOSIT", 
+  4 => "msgs_add:$_MSGS_ADD",
+  5 => "full_info:$_FULL_INFO", 
+  9 => "exit:$_EXIT" 
+);
+
+
+#Credit recharge
+if ($conf{user_credit_change}) {
+  $menu{3} = "use_credit:$_USE_CREDIT";
+}
+
+#Cards recharge
+eval { require Cards; };
+if (!$@) {
+  Cards->import();
+  $Cards = Cards->new($db, $admin, \%conf);
+  $menu{2} = "cards_recharge:$_CARDS_RECHARGE";
+}
+
+if ($conf{VOIP_ASTERISK_IVR_MARKETING}) {
+  $menu{6}="marketing_info:$_MARKETING_INFO"; 
+}
+
+#menu();
+
+#$AGI->hangup();
+if ($FUNC eq 'MESSAGE') {
+  messages($FUNC_ID);
+}
+elsif ($FUNC eq 'SYS_FUNC') {
+  &$FUNC_ID();
+}
+#**********************************************************
+#
+#**********************************************************
+sub select_lang {
+  my ($attr) = @_;
+
+  message($_CHOOSE_LANGUAGE);  
+
+  for( my $i=1; $i<= $#{ $attr->{LANGS} }+1; $i++) {
+    my $lang = ${ $attr->{LANGS} }[$i-1];
+    my ($lang_short, $lang_file, $lang_name)=split(/:/, $lang);
+    message("$_DLYA  $lang_name $_PRESS " . $i); 
+  }
+
+  my $pin = $AGI->get_data('beep', "10000", "1");
+  
+  if ($pin) {
+    ($lang_short, $lang_file)=split(/:/, $attr->{LANGS}->[$pin-1]);
+  }
+
+  $AGI->verbose("lang: $pin $lang_short $lang_file");
+
+  return $lang_short, $lang_file;
+}
+
+
+#**********************************************************
+#
+#**********************************************************
+sub show_deposit {
+  my ($Voip) = @_;
+
+  $AGI->verbose("Deposit: $Voip->{list}->[0]->{deposit}");
+  message($_YOUR_BALANCE);
+  say_money($Voip->{list}->[0]->{deposit});
+  
+  if ($Voip->{list}->[0]->{credit}) {
+    message($_CREDIT);
+    say_money($Voip->{list}->[0]->{credit});
+  }
+  $code = get_key("$_PRESS_ZERO_TO_RETURN", { timeout=> 5000, maxdigits => 1 });
+  return $code;
+
+}
+#**********************************************************
+#
+#**********************************************************
+sub use_credit {
+  my ($attr) = @_;
+
+  use POSIX qw(strftime);
+  my  $code;
+  my  $user_dv = '';
+  my ($sum, $days, $price, $month_changes, $payments_expr) = split(/:/, $conf{user_credit_change});
+
+  $user = $Users->info($user_info->{list}->[0]->{uid});
+  $month_changes = 0 if (!$month_changes);
+
+  if ($month_changes) {
+    my ($y, $m, $d) = split(/\-/, $DATE);
+    $admin->action_list(
+        {
+          UID       => $user->{UID},
+          TYPE      => 5,
+          AID       => $admin->{AID},
+          FROM_DATE => "$y-$m-01",
+          TO_DATE   => "$y-$m-31"
+        }
+    );
+
+    if ($admin->{TOTAL} >= $month_changes) {
+      message($_CREDIT_POSSIBILITY_OVER);
+      $code = get_key("$_PRESS_ZERO_TO_RETURN", { timeout=> 5000, maxdigits => 1 });
+      return $code;
+    }
+  }
+  
+  message("$_CREDIT_POSSIBILITY $days $_DAYS");
+
+  if ($price > 0) {
+    message($_CREDIT_CHARGE);
+    say_money($price);
+  }
+  
+#  message($_PRESS_ONE_TO_OPEN_CREDIT);
+#  message($_PRESS_TWO_FOR_ENTER);
+  my $try = 0;
+  while ($try < 3) {
+    $code = get_key("$_PRESS_ONE_TO_OPEN_CREDIT $_PRESS_ZERO_TO_RETURN", { timeout=> 5000, maxdigits => 1 });
+    last if (defined($code));
+    $code = get_key("$_PLEASE_ENTER_KEY", { timeout=> 2000, maxdigits => 1 });
+    last if (defined($code));
+    $try++;
+  }
+  $AGI->verbose("CODE: $code");  
+  return $code if ($code ne 1);  
+  my $credit_date = strftime "%Y-%m-%d", localtime(time + int($days) * 86400);
+
+  if (in_array('Dv', \@MODULES)) {
+    load_module('Dv', $html);
+    my $Dv = Dv->new($db, $admin, \%conf);
+    $user_dv = $Dv->info($user->{UID});
+    $sum = $Dv->{TP_CREDIT} if ($sum == 0 && $Dv->{TP_CREDIT} > 0);
+  }
+
+  #PERIOD=days;MAX_CREDIT_SUM=sum;MIN_PAYMENT_SUM=sum;
+  if ($payments_expr && $sum != -1) {
+    my %params = (
+      PERIOD          => 0,
+      MAX_CREDIT_SUM  => 1000,
+      MIN_PAYMENT_SUM => 1,
+      PERCENT         => 100
+    );
+
+    my @params_arr = split(/;/, $payments_expr);
+
+    foreach my $line (@params_arr) {
+      my ($k, $v) = split(/=/, $line);
+      $params{$k} = $v;
+    }
+
+    $Payments->list(
+      {
+        UID          => $user->{UID},
+        PAYMENT_DAYS => ">$params{PERIOD}",
+        SUM          => ">=$params{MIN_PAYMENT_SUM}"
+      }
+    );
+
+    if ($Payments->{TOTAL} > 0) {
+      $sum = $Payments->{SUM} / 100 * $params{PERCENT};
+      if ($sum > $params{MAX_CREDIT_SUM}) {
+        $sum = $params{MAX_CREDIT_SUM};
+      }
+    }
+    else {
+      $sum = 0;
+    }
+  }
+  $AGI->verbose("CREDID: $user->{CREDIT} | $user->{DISABLE} | $user_dv->{STATUS}");
+  if ($user->{DISABLE}) {
+    message("$_YOUR_LOGIN_DISABLE");
+    $code = get_key("$_PRESS_ZERO_TO_RETURN", { timeout=> 5000, maxdigits => 1 });
+    return $code;
+  }
+  if ($user->{CREDIT} < sprintf("%.2f", $sum)) {
+    if ($code) {
+      $user->change($user->{UID}, {
+        UID         => $user->{UID},
+        CREDIT      => $sum,
+        CREDIT_DATE => $credit_date
+      });
+      $AGI->verbose("$user->{errno}");
+
+      if (!$user->{errno}) {
+        message("$_CHANGED $_CREDIT: $sum");
+        if ($price && $price > 0) {
+          my $Fees = Finance->fees($db, $admin, \%conf);
+          $Fees->take($user, $price, { DESCRIBE => "$_CREDIT $_ENABLE" });
+        }
+        cross_modules('payments_maked', {
+          USER_INFO => $user,
+          SUM       => $sum,
+          QUITE     => 1
+        });
+        if ($conf{external_userchange}) {
+          if (!_external($conf{external_userchange}, $user)) {
+            return 0;
+          }
+        }
+      }
+
+      message($_CREDIT_OPENED);
+    }
+  }
+  else {
+    message("$_CREDIT_OPENED_ERROR $_CREDIT_OPEN $_SUM");
+    say_money($user->{CREDIT});
+    $code = get_key("$_PRESS_ZERO_TO_RETURN", { timeout=> 5000, maxdigits => 1 });
+    return $code;
+
+  }
+}
+
+#**********************************************************
+#
+#**********************************************************
+sub cards_recharge {
+  my ($user_info) = @_;
+
+  my @status = ($_ENABLE, $_DISABLE, $_USED, $_DELETED, $_RETURNED, "$_PROCESSING");
+
+  $user = $Users->info($user_info->{list}->[0]->{uid});
+
+  my $try = 0;
+  while ($try < 3) {
+    my $user_pin = '';
+    if ($try > 0) {
+      $user_pin = get_key("$_TRY_AGAIN", { timeout=> 10000, maxdigits => 15 });
+    }
+    else {
+      $user_pin = get_key("$_PIN_SHARP", { timeout=> 10000, maxdigits => 15 });
+    }
+
+    #if ($conf{CARDS_SKIP_COMPANY} && $user->{COMPANY_ID}) {
+    #  return 0;
+    #}
+
+    if ($user_pin) {
+      $db->{AutoCommit} = 0;
+
+      my $BRUTE_LIMIT = ($conf{CARDS_BRUTE_LIMIT}) ? $conf{CARDS_BRUTE_LIMIT} : 5;
+      my $brute = $Cards->bruteforce_list({ UID => $user->{UID} });
+
+      $Cards->cards_info({ PIN      => $user_pin, 
+                           UID      => $user->{UID}, 
+                           PAYMENTS => 1 });
+
+      if ($Cards->{error}) {
+        message($_ADD_ERROR, { ID => 600 });
+        next;
+      }
+      elsif (int($Cards->{BRUTE_COUNT}) >= $BRUTE_LIMIT) {
+        message('', { utf_text => "$_BRUTE_ATACK", ID => 601 });
+        last;
+      }
+      elsif ($Cards->{TOTAL} < 1) {
+        message('', { utf_text => "$_NOT_EXIST", ID => 603 });
+        $Cards->bruteforce_add({ UID => $user->{UID}, PIN => $user_pin });
+        $db->commit();
+      }
+      elsif ($Cards->{EXPIRE_STATUS} == 1) {
+        message('', { utf_text => "$_EXPIRE '$Cards->{EXPIRE}'", ID => 602 });
+        next;
+      }
+      elsif ($Cards->{SUM} < 1) {
+        message('', { utf_text => $_ERROR . " $_SUM: $Cards->{SUM}", ID => 604 });
+        next;
+      }
+      elsif ($Cards->{UID} == $user->{UID}) {
+        message('', { utf_text => "$ERR_WRONG_DATA", ID => 605 });
+        next;
+      }
+      elsif ($Cards->{STATUS} != 0) {
+        if ($Cards->{STATUS} == 5) {
+          message('', { utf_text => "$status[$Cards->{STATUS}]" });
+        }
+        else {
+          message('', { utf_text => "$status[$Cards->{STATUS}]", ID => 606 });
+        }
+
+        next;
+      }
+      else {
+        my $cards_number_length = $conf{CARDS_NUMBER_LENGTH} || 11;
+        $Payments->add(
+          $user,
+          {
+            SUM          => $Cards->{SUM},
+            METHOD       => 2,
+            DESCRIBE     => sprintf("%s%." . $cards_number_length . "d", $Cards->{SERIAL}, $Cards->{NUMBER}),
+            EXT_ID       => "$Cards->{SERIAL}$Cards->{NUMBER}",
+            CHECK_EXT_ID => "$Cards->{SERIAL}$Cards->{NUMBER}",
+            TRANSACTION  => 1
+          }
+        );
+
+        if (!$payments->{errno}) {
+          $user->{DEPOSIT} += sprintf("%.2f", $Cards->{SUM} - $Cards->{COMMISSION});
+
+          $Cards->cards_change(
+            {
+              ID     => "$Cards->{ID}",
+              STATUS => 2,
+              UID    => $user->{UID},
+            }
+          );
+
+          if ($Cards->{error}) {
+            $db->rollback();
+            message("$status[$Cards->{STATUS}]", { ID => 607 });
+            next;
+          }
+
+          message('', { utf_text => "$_PAYMENT_ADDED" });
+
+          if ($Cards->{COMMISSION} > 0) {
+            message('', { utf_text => "$_COMMISSION $Cards->{COMMISSION}" });
+          }
+
+          message($_DEPOSIT);
+          say_money("$user->{DEPOSIT}");
+
+          #Make external script
+          if ($conf{CARDS_PAYMENTS_EXTERNAL}) {
+            _external("$conf{CARDS_PAYMENTS_EXTERNAL}", { %$Cards, %$user });
+          }
+
+          if ($Cards->{COMMISSION}) {
+            my $Fees = Finance->fees($db, $admin, \%conf);
+            $Fees->take(
+              $user,
+              $Cards->{COMMISSION},
+              {
+                DESCRIBE => "$_COMMISSION $_ICARDS: $Cards->{SERIAL}$Cards->{NUMBER}",
+                METHOD   => 0,
+              }
+            );
+          }
+
+          #Disable universal card after payment
+          if ($Cards->{UID} > 0) {
+            my $user_new = Users->new($db, $admin, \%conf);
+            $user_new->info($Cards->{UID});
+            $user_new->del();
+          }
+
+          #        if ($Cards->{DILLER_ID}) {
+          #          $Cards->cards_diller_info({ ID => $Cards->{DILLER_ID} });
+          #          my $diller_fees = 0;
+          #          if ($Cards->{PAYMENT_TYPE} == 2 && $Cards->{OPERATION_PAYMENT} > 0) {
+          #            $diller_fees=$Cards->{SUM} / 100 * $Cards->{OPERATION_PAYMENT};
+          #          }
+          #          elsif ($Cards->{DILLER_PERCENTAGE} > 0) {
+          #            $diller_fees=$Cards->{DILLER_PERCENTAGE};
+          #          }
+          #
+          #          if ($diller_fees > 0) {
+          #            my $user_new = Users->new($db, $admin, \%conf);
+          #            $user_new->info($Cards->{UID});
+          #
+          #            my $Fees = Finance->fees($db, $admin, \%conf);
+          #            $Fees->take(
+          #              $user_new,
+          #              $diller_fees,
+          #              {
+          #                DESCRIBE => "Card activate: $Cards->{ID}",
+          #                METHOD   => 0,
+          #                #                                  EXT_ID       => "$Cards->{SERIAL}$Cards->{NUMBER}",
+          #                #                                  CHECK_EXT_ID => "$Cards->{SERIAL}$Cards->{NUMBER}"
+          #              }
+          #            );
+          #          }
+          #        }
+
+          # Check if not card exist
+          $Payments->list({ EXT_ID => "$Cards->{SERIAL}$Cards->{NUMBER}" });
+          if ($Payments->{TOTAL} <= 1) {
+            $db->commit();
+          }
+
+          cross_modules('payments_maked', {
+            USER_INFO    => $user,
+            SKIP_MODULES => 'Cards,Sqlcmd',
+            QUITE        => 1
+          });
+          return;
+        }
+        elsif ($payments->{errno}) {
+          $db->rollback();
+          if ($payments->{errno} == 7) {
+            message('', { utf_text => "$status[2]", ID => 608 });
+            if ($Cards->{STATUS} != 2) {
+              $Cards->cards_change(
+                {
+                  ID       => "$Cards->{ID}",
+                  STATUS   => 2,
+                  UID      => $user->{UID},
+                  DATETIME => "$DATE $TIME",
+                }
+              );
+            }
+          }
+          else {
+            message('', { utf_text => "$_ERROR " . (($user->{UID}) ? '' : "$payments->{errno} $payments->{errstr}"), ID => 609 });
+          }
+        }
+      }
+    }
+
+    $try++;
+  }
+  $db->{AutoCommit} = 1;
+  $code = get_key("$_PRESS_ZERO_TO_RETURN", { timeout=> 5000, maxdigits => 1 });
+  return $code;
+
+}
+
+
+
+#**********************************************************
+#
+#**********************************************************
+sub msgs_add {
+
+  message($_MESSAGE_AFTER_SIGNAL);
+
+  #Hangup #
+  # Add to /usr/local/share/asterisk/sounds/
+  my $num      = $Voip->{INSERT_ID} || time();
+  my $file_name= 'msgs_'.$message_id;
+  my $msg_time = 200;
+  my $ret      = $AGI->record_file($file_name, 'wav', '#', ($msg_time * 1000), '0', 0, '2');
+  
+  if ($ret > -1) {
+    message($_APPLICATION_ACCEPTED);
+    exit;
+  }
+  else {
+    message($_APPLICATION_DECLINED);
+  }
+
+  $AGI->verbose('Request added status: '. $ret. ' file: '. $file_name);
+}
+
+#**********************************************************
+#
+#**********************************************************
+sub full_info {
+  my ($Voip) = @_;
+
+#  show_deposit($Voip);
+#  $AGI->verbose("Deposit: $Voip->{list}->[0]->{deposit}");
+#  message($_YOUR_BALANCE);
+#  say_money($Voip->{list}->[0]->{deposit});
+
+#  if ($Voip->{list}->[0]->{credit}) {
+#    message($_CREDIT);
+#    say_money($Voip->{list}->[0]->{credit});
+#  }
+
+  if (in_array('Dv', \@MODULES)) {
+    load_module('Dv', $html);
+    my $Dv = Dv->new($db, $admin, \%conf);
+    $Dv->info($Voip->{list}->[0]->{uid});
+    $AGI->verbose("$Dv->{STATUS} | $service_status[ $Dv->{STATUS} ] |  $service_status[0]");
+    message("$_SERVICE $_DV $service_status[ $Dv->{STATUS} ]");
+    
+    message("$_TARIFF_PLAN $_NUM " . $Dv->{TP_ID} .' '. $Dv->{TP_NAME});
+    my $ip = $Dv->{IP};
+    if ($ip eq '0.0.0.0') {
+      my $ip = $_NONE; 
+      message("$_STATIC_IP" . $ip);
+    }
+  }
+  
+  if (in_array('Abon', \@MODULES)) {
+    message($_ADDITIONAL_SERVICES);
+  }
+
+  if (in_array('Voip', \@MODULES)) {
+    message($_TELEPHONY_ACTIVE);
+  }
+    $code = get_key("$_PRESS_ZERO_TO_RETURN", { timeout=> 5000, maxdigits => 1 });
+    return $code;
+
+}
+
+
+#**********************************************************
+#
+#**********************************************************
+sub marketing_info {
+  my ($attr) = @_;
+  my ($type, $value) = split(/:/, $conf{VOIP_ASTERISK_IVR_MARKETING});
+  $AGI->verbose("TUPE: $type | VALUE: $value");
+  if ($type eq 'file') {
+    $AGI->stream_file($value);
+  }
+  elsif ($type eq 'text') { 
+    message($value) if ($value);
+  }
+  $code = get_key("$_PRESS_ZERO_TO_RETURN", { timeout=> 5000, maxdigits => 1 });
+  return $code;
+}
+#**********************************************************
+#
+#**********************************************************
+sub pin_verify {
+  my ($attr) = @_;
+
+  my $user_pin = '';
+  my $try      = 0;
+  #$AGI->stream_file('agent-pass');
+  message($_ENTER_PASSWORD);
+  message($_AND_PRESS_POUND);
+  while (length($user_pin) != 8 && $try < 3) {
+    if ($try) {
+      message($_AUTH_ERROR);
+    }
+
+    $user_pin = $AGI->get_data('beep', "10000", "10");
+
+    if (! defined($user_pin)) {
+      $user_pin='';
+    }
+
+    $AGI->verbose("Pin verify: $pin_verify_param -> $user_pin");
+
+    $user_pin =~ s/#$//;
+
+    my $list = $Users->list(
+      {
+        DEPOSIT           => '_SHOW',
+        CREDIT            => '_SHOW',
+        FIO               => '_SHOW',
+        $pin_verify_param => "$user_pin",
+        COLS_NAME         => 1,
+      }
+    );
+
+    if ($Users->{TOTAL} == 1) {
+      $user_info->{list} = $list;
+      $Voip->{list} = $list;
+      return 1;
+    }
+    elsif($Users->{TOTAL} > 1) {
+      $AGI->verbose("Multi verification Total: $Users->{TOTAL}");
+    }
+
+    if ($debug > 0) {
+      $AGI->exec('SayDigits', $user_pin);
+    }
+
+    $try++;
+  }
+
+  return 0;
+}
+
+#***************************************************************
+#
+#***************************************************************
+sub say_money {
+  my ($array, $attr) = @_;
+  
+  $array = sprintf("%.2f", $array);
+  
+  #Use google speach
+ # if (! $say_money_file) {
+ #   my ($main_unit, $sub_unit)=split(/[,.]/, $array);
+ #   message("$main_unit ". ($conf{MONEY_UNIT_NAMES} ? $conf{MONEY_UNIT_NAMES}->[0]: '' ) ."  $sub_unit ". ($conf{MONEY_UNIT_NAMES} ? $conf{MONEY_UNIT_NAMES}->[1] : ''));
+ #   return 0; 
+ # }
+
+  #Use speach files
+  my $ret    = '';
+  my @result = ();
+  my $region = $conf{VOIP_IVR_REGION} || 'UA';
+
+  if ($say_money_file) {
+    @ones  = ('', '1000',        'ì³ëüéîí',     'ì³ëüÿðä',     'òðèëüéîí');
+    @twos  = ('', 'thousands-i', 'ì³ëüéîíè',   'ì³ëüÿðäè',   'òðèëüéîíè');
+    @fifth = ('', 'thousands',   'ì³ëüéîí³â', 'ì³ëüÿðä³â', 'òðèëüéîí³â');
+
+    @one     = ('',   '1',  '2', '3', '4', '5', '6', '7', '8', '9');
+    @onest   = ('',   '1f', '2f');
+    @ten     = ('',   '',   '20', '30', '40', '50', '60', '70', '80', '90');
+    @tens    = ('10', '11', '12', '13', '14', '15', '16', '17', '18', '19');
+    @hundred = ('',   '10', '200', '300', '400', '500', '600', '700', '800', '900');
+    $money_ivr_unit_names{$region} = ['roubles', 'roubles', 'roubles', 'roubles', 'roubles'];
+    @money_ivr_cent_names = ('copecks', 'copecks', 'copecks', 'copecks', 'copecks');
+
+  }
+
+  @ones  = @{ $attr->{ONES} }  if ($attr->{ONES});
+  @twos  = @{ $attr->{TWOS} }  if ($attr->{TWOS});
+  @fifth = @{ $attr->{FIFTH} } if ($attr->{FIFTH});
+
+  @one              = @{ $attr->{ONE} }         if ($attr->{ONE});
+  @onest            = @{ $attr->{ONEST} }       if ($attr->{ONEST});
+  @ten              = @{ $attr->{TEN} }         if ($attr->{TEN});
+  @tens             = @{ $attr->{TENS} }        if ($attr->{TENS});
+  @hundred          = @{ $attr->{HUNDRED} }     if ($attr->{HUNDRED});
+
+  push @result, 'minus' if ($array < 0);
+
+  $array =~ s/,/\./g;
+  $array =~ tr/0-9,.//cd;
+  my $tmp   = $array;
+  my $count = ($tmp =~ tr/.,//);
+
+  if ($count > 1) {
+    push @result, "bad integer format\n";
+    return 1;
+  }
+
+  my $second = "0";
+  my ($first, $i, @first, $j);
+
+  if (!$count) {
+    $first = $array;
+  }
+  else {
+    $first = $second = $array;
+    $first =~ s/(.*)(\..*)/$1/;
+    $second =~ s/(.*)(\.)(\d\d)(.*)/$3/;
+
+    #$second .= "0" if (length $second < 2);
+    $second = $second + 0;
+  }
+
+  $count = int((length $first) / 3);
+  my $first_length = length $first;
+
+  for ($i = 1 ; $i <= $count ; $i++) {
+    $tmp = $first;
+    $tmp =~ s/(.*)(\d\d\d$)/$2/;
+    $first =~ s/(.*)(\d\d\d$)/$1/;
+    $first[$i] = $tmp;
+  }
+
+  if ($count < 4 && $count * 3 < $first_length) {
+    $first[$i] = $first;
+    $first_length = $i;
+  }
+  else {
+    $first_length = $i - 1;
+  }
+  for ($i = $first_length ; $i >= 1 ; $i--) {
+    $tmp = 0;
+    my $unit = 0;
+    for ($j = length($first[$i]) ; $j >= 1 ; $j--) {
+      if ($j == 3) {
+        $tmp = $first[$i];
+        $tmp =~ s/(^\d)(\d)(\d$)/$1/;
+        push @result, $hundred[$tmp];
+
+        if ($tmp > 0) {
+          push @result, " ";
+        }
+      }
+      if ($j == 2) {
+        $tmp = $first[$i];
+        $tmp =~ s/(.*)(\d)(\d$)/$2/;
+        if ($tmp != 1) {
+          push @result, $ten[$tmp];
+          if ($tmp > 0) {
+            push @result, " ";
+          }
+        }
+      }
+      if ($j == 1) {
+        if ($tmp != 1) {
+          $tmp = $first[$i];
+          $tmp =~ s/(.*)(\d$)/$2/;
+          if ((($i == 1) || ($i == 2)) && ($tmp == 1 || $tmp == 2)) {
+            push @result, $onest[$tmp];
+            $unit = $tmp;
+            if ($tmp > 0) {
+              push @result, " ";
+            }
+          }
+          else {
+            push @result, $one[$tmp];
+            $unit = $tmp;
+            if ($tmp > 0) {
+              push @result, " ";
+            }
+          }
+        }
+        else {
+          $tmp = $first[$i];
+          $tmp =~ s/(.*)(\d$)/$2/;
+          push @result, $tens[$tmp];
+          $unit = 0;
+          if ($tmp > 0) {
+            push @result, " ";
+          }
+          $tmp = 5;
+        }
+      }
+
+    }
+    $unit = 0 if ($unit > 4);
+    push @result, ' ';
+    if ($tmp == 1) {
+      push @result, ($ones[ $i - 1 ]) ? $ones[ $i - 1 ] : $money_ivr_unit_names{$region}->[$unit];
+    }
+    elsif ($tmp > 1 && $tmp < 5) {
+      push @result, ($twos[ $i - 1 ]) ? $twos[ $i - 1 ] : $money_ivr_unit_names{$region}->[$unit];
+    }
+    elsif ($tmp > 4) {
+      push @result, ($fifth[ $i - 1 ]) ? $fifth[ $i - 1 ] : $money_ivr_unit_names{$region}->[$unit];
+    }
+    else {
+      push @result, ($fifth[0]) ? $fifth[0] : $money_ivr_unit_names{$region}->[$unit];
+    }
+    push @result, ' ';
+  }
+
+  if ($second ne '') {
+    my $unit=0;
+    for ($j = length($second) ; $j >= 1 ; $j--) {
+      if ($j == 2) {
+        $tmp = $second;
+        $tmp =~ s/(.*)(\d)(\d$)/$2/;
+        if ($tmp != 1) {
+          push @result, $ten[$tmp];
+          if ($tmp > 0) {
+            push @result, " ";
+          }
+        }
+      }
+      if ($j == 1) {
+        if ($tmp != 1) {
+          $tmp = $second;
+          $tmp =~ s/(.*)(\d$)/$2/;
+          if ((($i == 1) || ($i == 2)) && ($tmp == 1 || $tmp == 2)) {
+            push @result, $onest[$tmp];
+            $unit=$tmp;
+            if ($tmp > 0) {
+              push @result, " ";
+            }
+          }
+          else {
+            push @result, $one[$tmp];
+            $unit=$tmp;
+            if ($tmp > 0) {
+              push @result, " ";
+            }
+          }
+        }
+        else {
+          $tmp = $second;
+          $tmp =~ s/(.*)(\d$)/$2/;
+          push @result, $tens[$tmp];
+          $unit=0;
+          if ($tmp > 0) {
+            push @result, " ";
+          }
+          $tmp = 5;
+        }
+      }
+
+    }
+    $unit = 0 if ($unit > 4);
+    push @result, "$money_ivr_cent_names[$unit]";
+  }
+  else {
+    push @result, " ";
+  }
+
+  my $file_name;
+  foreach my $r (@result) {
+    next if ($r eq ' ' || $r eq '');
+    $AGI->verbose("--$r--") if ($debug > 1);
+    if ($say_money_file) {
+      $AGI->stream_file('digits/' . $r);
+    }
+    else {
+      my $marker = txt2translit($r);
+      $file_name .= voice_file({TYPE => 'text', VALUE => $r, LANG => $lang_short, MARKER => $marker, DIR => 'say_money'});
+      $file_name .= '&';
+    }
+  }
+  if (!$say_money_file) {
+    $file_name =~ s/\&$//g;
+    $AGI->exec("Playback","$file_name");
+  }
+  return 0;
+}
+#***************************************************************
+#
+#***************************************************************
+sub authorize {
+  my ($attr) = @_;
+  #Add to log session
+  $Callcenter->log_add({ UID   => 0,
+                   PHONE => $caller_id,
+                   IP    => $remote_ip,
+                 });
+
+  my $list;
+  my $name;
+
+  $list = $Callcenter->list({PHONE => $caller_id, FUNC => USERS_PHONE, COLS_NAME => 1});
+#  $Callcenter->{list} = $list;
+  $AGI->verbose("TOTAL: $Callcenter->{TOTAL} | UID : $list->[0]->{uid} | NAME : $list->[0]->{name}");
+  my %LIST_PARAMS;
+  if ($Callcenter->{TOTAL} == 0 || $Callcenter->{error}) {
+    %LIST_PARAMS = (
+        DEPOSIT   => '_SHOW',
+        CREDIT    => '_SHOW',
+        FIO       => '_SHOW',
+        PHONE     => "$caller_id",
+        DISABLE   => '_SHOW',
+        COLS_NAME => 1,
+    );
+  }
+  else {
+    $name = $list->[0]->{name}; 
+    %LIST_PARAMS = (
+        DEPOSIT   => '_SHOW',
+        CREDIT    => '_SHOW',
+        UID       => "$list->[0]->{uid}",
+        DISABLE   => '_SHOW',
+        COLS_NAME => 1,
+    );
+  }
+  $list = $Users->list(\%LIST_PARAMS);
+  $Callcenter->{list} = $list;
+
+  $Callcenter->{list}->[0]->{fio} = $name;
+
+  if ($Users->{error}) {
+    $AGI->verbose("Get user error: $Users->{error} $Users->{err_str} ");
+  }
+  # User not exist
+  elsif ($Users->{TOTAL} == 0) {
+    #Pin require
+    $AGI->verbose("$caller_id - User not found. $Users->{TOTAL} ");
+    if ($pin_verify_param) {
+      if (pin_verify()) {
+        $AGI->verbose("Pin verified UID: $Callcenter->{list}->[0]->{uid}");
+      }
+      else {
+        message($_YOU_ARE_NOT_AUTHORISED);
+        $AGI->verbose($caller_id . " Pin failed");
+      }
+    }
+  }
+  if ($Callcenter->{list}->[0]->{uid}) {
+    $AGI->verbose("Caller_id: $caller_id UID: $Callcenter->{list}->[0]->{uid} Phone: $Callcenter->{list}->[0]->{phone} Deposit: $Callcenter->{list}->[0]->{deposit}") if ($debug > 1);
+    my $file_name = voice_file({TYPE => 'text', VALUE => $_WELLCOME, LANG => $lang_short, MARKER => 'WELLCOME'});
+    my @fio = split(/ /, $Callcenter->{list}->[0]->{fio}); 
+    foreach my $line (@fio) {
+      $file_name .= '&';
+      $line =~ s/ //g;
+      my $marker = txt2translit($line); 
+      $file_name .= voice_file({TYPE => 'text', VALUE => $line, LANG => $lang_short, MARKER => $marker, DIR => 'fio'});
+    }
+    $AGI->exec("Playback","$file_name");
+    $AGI->verbose("SET CALLERID(NAME) $Callcenter->{list}->[0]->{login} <$Callcenter->{list}->[0]->{uid}>");
+    $AGI->set_variable('CALLERID(NAME)', "$Callcenter->{list}->[0]->{login} <$Callcenter->{list}->[0]->{uid}>");
+    if ($Callcenter->{list}->[0]->{deposit} < 0) {
+
+      my $file_name = voice_file({TYPE => 'text', VALUE => $_NEGATIVE_BALANCE, LANG => $lang_short, MARKER => 'NEGATIVE_BALANCE'});
+      $AGI->exec("Playback","$file_name");
+      say_money($Callcenter->{list}->[0]->{deposit});
+    }
+  }  
+  return 0;
+}
+#***************************************************************
+#
+#***************************************************************
+sub messages {
+  my ($id) = @_;
+
+#  Encode::_utf8_off($text);
+  $file_name = '';
+  if ($id) {
+    $Callcenter->info($id, {FUNC => MESSAGES});
+    if ($Callcenter->{TYPE} eq 'text') {
+      $Callcenter->{NAME} = txt2translit($Callcenter->{NAME});
+      $file_name = voice_file({TYPE => 'text', MARKER => $Callcenter->{NAME}, LANG => $lang_short, VALUE => $Callcenter->{VALUE}, STATUS => $Callcenter->{STATUS}});
+      # $AGI->stream_file($file_name);
+    }
+    elsif ($Callcenter->{TYPE} eq 'file') {  
+      $file_name = voice_file({TYPE => 'file', DATA => $Callcenter->{DATA}, LANG => $lang_short, MARKER => $Callcenter->{VALUE}, STATUS => $Callcenter->{STATUS}});
+    }
+    $AGI->set_variable("message_$id", "$file_name");
+#    $AGI->exec("Background","$file_name");
+  }
+  $Callcenter->change({ID => $id, STATUS => 0, FUNC => MESSAGES}) if ($file_name);
+  return 0;
+}
+#***************************************************************
+#
+#***************************************************************
+sub voice_file {
+  my ($attr) = @_;
+  use Digest::MD5 qw(md5_hex);
+  my $filename   = '';
+  my $url        = "http://translate.google.com/translate_tts";
+  my $file_mp3   = '';  
+  my $lang = $attr->{LANG};
+  if ($attr->{DIR}) {
+    if (! -e $cachedir ."/$attr->{DIR}") {
+      if(! mkdir($cachedir ."/$attr->{DIR}")) {
+        $AGI->verbose("$_ERROR '" . "$cachedir" . "/$attr->{DIR}'  '$!'");
+        return 0;
+      }
+    }
+  }
+  if (!$sox_ver) {
+    $sox_ver = (system("$sox --version > /dev/null 2>&1") == 0) ? 14 : 12;
+    $AGI->verbose("$name Found sox version $sox_ver in: $sox, mpg123 in: $mpg123\n") if ($debug);
+  }
+  if ($attr->{TYPE} eq 'text') {
+    my $text_ = $attr->{VALUE};
+    $text_ =~ s/[\\|*~<>^\(\)\[\]\{\}[:cntrl:]]/ /g;
+    $text_ =~ s/\s+/ /g;
+    $text_ =~ s/^\s|\s$//g;
+      die $AGI->verbose("No text passed for synthesis.") if (!length($attr->{VALUE}));
+
+    $text_ .= "." unless ($attr->{VALUE} =~ /^.+[.,?!:;]$/);
+    my @text = $text_ =~ /.{1,100}[.,?!:;]|.{1,100}\s/g;
+
+    use LWP::UserAgent;
+    my $ua = LWP::UserAgent->new;
+    $ua->agent("Mozilla/5.0 (X11; Linux; rv:8.0) Gecko/20110101");
+    $ua->timeout(5);
+
+    foreach my $line (@text) {
+      $line =~ s/^\s+|\s+$//g;
+      last if (length($line) == 0);
+      if ($debug) {
+        $AGI->verbose("Text passed for synthesis: $line Language: $lang, Interrupt keys: $intkey, Sample rate: $samplerate, Caching: $usecache, Cache dir: $cachedir");
+      }
+
+      if ($usecache) {
+        if($attr->{MARKER} =~ /^[a-zA-Z0-9\_\.\,\-]+$/) {
+          $filename = $attr->{MARKER};
+          $filename = "$attr->{DIR}/$attr->{MARKER}" if $attr->{DIR};
+          # Return file from cache if it exists #
+          if (-r "$cachedir/$filename.$fexten") {
+            if ($attr->{STATUS} != 1) {
+              return "$cachedir/$filename";
+
+            }
+            else {
+              unlink "$cachedir/$filename.$fexten";            
+            }
+            #stat($cachedir/$filename.$fexten);
+          }
+          
+        }
+        else {
+          $filename = md5_hex("text_");
+          if (-r "$cachedir/$filename.$fexten") {
+            if ($attr->{STATUS} != 1) {
+              return "$cachedir/$filename";
+            }
+            else {
+              unlink "$cachedir/$filename.$fexten";
+            }
+          }
+        }
+      }
+
+      $AGI->verbose("URL passed: $url?tl=$lang&q=$line") if ($debug);
+
+      my $ua_request = HTTP::Request->new('GET' => "$url?tl=$lang&q=$line");
+      my $ua_response = $ua->request($ua_request);
+      die $AGI->verbose("Failed to fetch file.") unless ($ua_response->is_success);
+
+      ($fh, $tmpname) = tempfile("ggl_XXXXXX", DIR => $tmpdir, UNLINK => 1);
+      open($fh, ">", "$tmpname") 
+      or die $AGI->verbose("Failed to open file: $!");
+      print $fh $ua_response->content;
+      close $fh 
+      or $AGI->verbose("Failed to close file: $!");
+      $file_mp3 .= "$tmpname ";
+    }
+    # Convert mp3 file to 16bit 8Khz mono raw #
+    my $convert = `$mpg123 -w $tmpname.wav $file_mp3`;
+#    unlink "$file_mp3";
+  }
+  else {
+    if ($usecache) {
+      if($attr->{MARKER} =~ /^[a-zA-Z0-9\_]+$/) {
+        $filename = $attr->{MARKER};
+        # Return file from cache if it exists #
+        if (-r "$cachedir/$filename.$fexten") {
+          if ($attr->{STATUS} != 1) {
+            return "$cachedir/$filename";
+          }
+          else {
+            unlink "$cachedir/$filename.$fexten";
+          }
+        }
+      }
+    }
+    $tmpname = "$tmpdir/$filename";
+    if (open(FILE, ">$tmpname.wav")) {
+      binmode FILE;
+      print FILE $attr->{DATA};
+      close(FILE);
+    }
+  }
+    @soxargs = ($sox, "$tmpname.wav", "-q", "-r", $samplerate, "-t", "raw", "$tmpname.$fexten");
+      if ($sox_ver >= 14) {
+        push(@soxargs, ("tempo", "-s", $speed)) if ($speed != 1);
+      } 
+      else {
+        push(@soxargs, ("stretch", 1/$speed, "200")) if ($speed != 1);
+      }
+
+      system(@soxargs) == 0 or die $AGI->verbose("$name $sox failed: $?");
+
+      if ($usecache) {
+        mkpath("$cachedir") unless (-d "$cachedir");
+        $AGI->verbose("Saving file $filename to cache") if ($debug);
+        move("$tmpname.$fexten", "$cachedir/$filename.$fexten");
+      }
+      my @arr = split(/ /, $file_mp3);
+      unlink @arr;
+      unlink "$tmpname.wav";
+
+  $filename = "$cachedir/$filename";
+  return $filename;
+}
+
+#***************************************************************
+#
+#***************************************************************
+sub menu {
+  #Add to log session
+  $Voip->log_add({ UID   => 0,
+                   PHONE => $caller_id,
+                   IP    => $remote_ip,
+                 });
+
+  my $list;
+
+  my %LIST_PARAMS = (
+      DEPOSIT   => '_SHOW',
+      CREDIT    => '_SHOW',
+      FIO       => '_SHOW',
+      PHONE     => "$caller_id",
+      DISABLE   => '_SHOW',
+      COLS_NAME => 1,
+  );
+
+  $list = $Users->list(\%LIST_PARAMS);
+
+  $Voip->{list} = $list;
+
+  if ($Users->{error}) {
+    $AGI->verbose("Get user error: $Users->{error} $Users->{err_str} ");
+#    $AGI->hangup();
+  }
+  # User not exist
+  elsif ($Users->{TOTAL} == 0) {
+    #Pin require
+    $AGI->verbose("$caller_id - User not found. $Users->{TOTAL} ");
+    if (pin_verify()) {
+      $AGI->verbose("Pin verified UID: $Voip->{list}->[0]->{uid}");
+    }
+    else {
+      message($_YOU_ARE_NOT_AUTHORISED);
+      $AGI->verbose($caller_id . " Pin failed");
+#      $AGI->hangup();
+      exit;
+    }
+  }
+
+  $AGI->verbose("Caller_id: $caller_id UID: $Voip->{list}->[0]->{uid} Phone: $Voip->{list}->[0]->{phone} Deposit: $Voip->{list}->[0]->{deposit}") if ($debug > 1);
+
+  message("$_WELLCOME  $Voip->{list}->[0]->{fio} ");
+ 
+  if ($Voip->{list}->[0]->{deposit} < 0) {
+    message($_NEGATIVE_BALANCE);
+    say_money($Voip->{list}->[0]->{deposit});
+  }
+
+  MAIN_MENU:
+  my $try = 0;
+  my $code = '';
+  while ($try < 4) {
+
+    $code = main_menu();
+    goto VERIFY_CODE if (defined($code));
+
+    $code = get_key("$_PLEASE_ENTER_KEY", { timeout=> 2000, maxdigits => 1 });
+
+    VERIFY_CODE:    
+
+    message($_STEP . $try) if ($debug > 2);
+
+    $AGI->verbose("User select code: ". (($code) ? $code : ''));
+
+    if (defined($code) && $menu{$code}) {
+      my ($function, $message) = split(/:/, $menu{$code});
+      $code = $function->($user_info);
+      last;
+    }
+    return 0 if (!$code && $try == 3);
+    $try++;
+  }
+  $AGI->verbose("User select code: ". (defined($code) ? $code : ''));
+  goto MAIN_MENU if ($code eq '0');
+  return 0;
+}
+
+#***************************************************************
+#
+#***************************************************************
+sub main_menu {
+
+  my $menu = "$_PRESS.";
+  foreach my $code (sort keys %menu) {
+    my ($function, $message) = split(/:/, $menu{$code});
+    $menu .= " $code. $message.";
+  }
+  $AGI->verbose("$menu");
+  my $file_name = voice_file($menu, $lang_short);
+  my $key =  $AGI->get_data( "$file_name", "5000", "1");
+
+  return $key;
+}
+#***************************************************************
+#
+#***************************************************************
+sub get_key {
+  my ($text, $attr) = @_;
+
+  $text .= $attr->{utf_text} if ($attr->{utf_text});
+  Encode::_utf8_off($text);
+
+  my $marker = $attr->{marker} || '';
+  my $timeout = $attr->{timeout} || 3000;
+  my $maxdigits = $attr->{maxdigits} || 1;
+  my $key = '';
+  if ($text) {
+    my $file_name = voice_file($text, $lang_short, $marker);
+    $key =  $AGI->get_data( "$file_name", $timeout, $maxdigits);
+  }
+  return $key;
+}
+#**********************************************************
+# convert to translit
+#**********************************************************
+sub txt2translit {
+  my ($text) = @_;
+
+  my %mchars = (
+    'Ð¡Ñ…'=>'S\'h', 'ÑÑ…'=>'s\'h',   'Ð¡Ð¥'=>'S\'H',   'Ð¨'=>'Sh',
+    'Ñˆ'=>'sh',    'Ð¡Ñ†Ñ…'=>'Sc\'h', 'ÑÑ†Ñ…'=>'sc\'h', 'Ð¡Ð¦Ð¥'=>'SC\'H',
+    'Ð©'=>'Sch',   'Ñ‰'=>'sch',     'Ð¦Ñ…'=>'C\'h',   'Ñ†Ñ…'=>'c\'h',
+    'Ð¦Ð¥'=>'C\'H', 'Ð§'=>'Ch',      'Ñ‡'=>'ch',      'Ð™Ð°'=>'J\'a',
+    'Ð¹Ð°'=>'j\'a', 'Ð™Ð'=>'J\'A',   'Ð¯'=>'Ja',      'Ñ'=>'ja',
+    'Ð™Ð¾'=>'J\'o', 'Ð¹Ð¾'=>'j\'o',   'Ð™Ðž'=>'J\'O',   'Ð'=>'Jo',
+    'Ñ‘'=>'jo',    'Ð™Ñƒ'=>'J\'u',   'Ð¹Ñƒ'=>'j\'u',   'Ð™Ð£'=>'J\'U',
+    'Ð®'=>'Ju',    'ÑŽ'=>'ju',      'Ð­'=>'E\'',     'Ñ'=>'e\'',
+    'Ð—Ñ…'=>'Z\'h', 'Ð·Ñ…'=>'z\'h',   'Ð—Ð¥'=>'Z\'H',   'Ð–'=>'Zh',
+    'Ð¶' => 'zh',  'Ð'=>'A',       'Ð‘'=>'B',       'Ð’'=>'V',
+    'Ð“'=>'G',     'Ð”'=>'D',       'Ð•'=>'E',       'Ð–'=>'J',
+    'Ð—'=>'Z',     'Ð˜'=>'I',       'Ð™'=>'Y',       'Ðš'=>'K',
+    'Ð›'=>'L',     'Ðœ'=>'M',       'Ð'=>'N',       'Ðž'=>'O',
+    'ÐŸ'=>'P',     'Ð '=>'R',       'Ð¡'=>'S',       'Ð¢'=>'T',
+    'Ð£'=>'U',     'Ð¤'=>'F',       'Ð¥'=>'H',       'Ð¦'=>'C',
+    'Ðª'=>'',      'Ð«'=>'YI',      'Ð¬'=>'',        'Ð°'=>'a', 
+    'Ð±'=>'b',     'Ð²'=>'v',       'Ð³'=>'g',       'Ð´'=>'d', 
+    'Ðµ'=>'e',     'Ð¶'=>'j',       'Ð·'=>'z',       'Ð¸'=>'i',
+    'Ð¹'=>'y',     'Ðº'=>'k',       'Ð»'=>'l',       'Ð¼'=>'m',
+    'Ð½'=>'n',     'Ð¾'=>'o',       'Ð¿'=>'p',       'Ñ€'=>'r',
+    'Ñ'=>'s',     'Ñ‚'=>'t',       'Ñƒ'=>'u',       'Ñ„'=>'f', 
+    'Ñ…'=>'h',     'Ñ†'=>'c',       'ÑŠ'=>'',        'Ñ‹'=>'yi',
+    'ÑŒ'=>'',      ' ' => '_'
+  );
+  for my $c (keys %mchars) {
+    $text =~ s/$c/$mchars{$c}/g;
+  }
+
+  return $text;
+}
+#$AGI->hangup();
+exit 0;
+

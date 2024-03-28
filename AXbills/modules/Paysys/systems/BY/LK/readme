@@ -1,0 +1,15 @@
+$conf{PAYSYS_ERIPT_PROVIDER_SELLER_ID}= ''; - ID компании в системе ЕРИП, для Paysys
+$conf{PAYSYS_ERIPT_PROVIDER_SELLER_NAME}= ''; - имя поставщика услуг (латиница), для Paysys
+
+$conf{DOCS_PRINT_ERIPT_QR}= 1; - включает генерацию QR кода при печати договоров
+
+<div id="qr-container"></div> - выводит URL гля генерации в QR (класс можно менять по желанию).
+
+Скрипт используется для генерации QR кода из приходящих данных в перенменную QR_URL. Записывается в шаблоне в конце документа:
+
+<script src="/styles/default/js/qrcode.js"></script>
+<script>
+	var qrcode = new QRCode({ content: "%QR_URL%", join: true });
+	var svg = qrcode.svg();
+	document.getElementById("qr-container").innerHTML = svg;
+</script>

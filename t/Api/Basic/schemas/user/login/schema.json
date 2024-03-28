@@ -1,0 +1,27 @@
+{
+  "definitions": {},
+  "type": "object",
+  "title": "The Root Schema",
+  "required": [
+    "sid",
+    "uid",
+    "login"
+  ],
+  "properties": {
+    "sid": {
+      "$id": "#/properties/sid",
+      "type": "string",
+      "title": "Session id"
+    },
+    "uid": {
+      "$id": "#/properties/uid",
+      "type": "integer",
+      "title": "user id"
+    },
+    "login": {
+      "$id": "#/properties/login",
+      "type": "string",
+      "title": "user login"
+    }
+  }
+}

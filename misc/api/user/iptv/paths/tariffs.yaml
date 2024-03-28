@@ -1,0 +1,25 @@
+get:
+  tags:
+    - iptv
+  summary: Список доступных тарифных планов для изменения
+  description: Список доступных тарифных планов для изменения существующей услуги
+  parameters:
+    - name: ID
+      in: path
+      description: >
+        Значение `id`, можно получить в ответе
+        в `GET /users/iptv` параметр `id`
+      required: true
+      schema:
+        type: number
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "../schemas/tariff.yaml"
+  security:
+    - USERSID: [ ]

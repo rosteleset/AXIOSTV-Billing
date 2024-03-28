@@ -1,0 +1,1278 @@
+#!perl
+
+=head1 NAME
+
+  Crm
+
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+use Crm::db::Crm;
+use AXbills::Base qw(days_in_month mk_unique_value in_array);
+
+use Admins;
+use Employees;
+use AXbills::Sender::Core;
+use Crm::Leads;
+use Crm::Reports;
+use Crm::Info_fields;
+use Crm::Log;
+use Crm::Deals;
+use Crm::Workflow;
+
+require AXbills::Misc;
+require AXbills::Defs;
+require Control::Address_mng;
+
+our ($db, $admin, %conf, %lang, @MONTHES, %permissions, @WEEKDAYS);
+
+our AXbills::HTML $html;
+our Crm $Crm = Crm->new($db, $admin, \%conf);
+
+require Control::Schedule;
+my $Schedule_control = Control::Schedule->new($db, $admin, \%conf, { HTML => $html, LANG => \%lang, index => $index });
+
+our @PRIORITY = ($lang{LOW}, $lang{NORMAL}, $lang{HIGH});
+my %STATES = (
+  0 => $html->color_mark($lang{OPEN}, '#007bff'),
+  1 => $html->color_mark($lang{CLOSED}, '#28a745'),
+  2 => $html->color_mark('Очікування', '#ffc107')
+);
+
+#**********************************************************
+=head2 crm_competitors($attr)
+
+=cut
+#**********************************************************
+sub crm_competitors {
+
+  $Crm->{ACTION} = 'add';
+  $Crm->{LNG_ACTION} = $lang{ADD};
+  my $competitor_info = {};
+
+  if ($FORM{import}) {
+    _crm_competitors_import();
+    return 1;
+  }
+  elsif ($FORM{add}) {
+    $Crm->crm_competitor_add(\%FORM);
+    $html->message('success', $lang{COMPETITOR_ADDED}) if (!_error_show($Crm));
+  }
+  elsif ($FORM{chg}) {
+    $Crm->{ACTION} = 'change';
+    $Crm->{LNG_ACTION} = $lang{CHANGE};
+
+    $competitor_info = $Crm->crm_competitor_info({ ID => $FORM{chg} });
+  }
+  elsif ($FORM{change}) {
+    $Crm->crm_competitor_change(\%FORM);
+    $html->message('success', $lang{COMPETITOR_CHANGED}) if (!_error_show($Crm));
+  }
+  elsif ($FORM{del}) {
+    $Crm->crm_competitor_del({ ID => $FORM{del} });
+    $html->message('success', $lang{COMPETITOR_DELETED}) if (!_error_show($Crm));
+  }
+
+  _crm_competitor_geolocation(\%FORM) if ($FORM{CLEAR} || $FORM{change_geo});
+
+  my $hidden_inputs = $html->form_input('COMPETITOR_ID', $FORM{chg} || '0', { TYPE => 'hidden' });
+  $hidden_inputs .= $html->form_input('chg', $FORM{chg} || '0', { TYPE => 'hidden' });
+
+  my $geo_list = $Crm->crm_competitor_geo_list({ COMPETITOR_ID => $FORM{chg} || '0', COLS_NAME => 1 });
+
+  $html->tpl_show(_include('crm_competitors', 'Crm'), { %{$Crm}, %{$competitor_info},
+    HIDE_SITE        => $Crm->{ACTION} eq 'add' ? 'hidden' : '',
+    GEOLOCATION_TREE => geolocation_tree({
+      TITLE         => $lang{LOCALITIES_OF_THE_COMPETITOR},
+      INDEX         => $index,
+      BTN_ACTION    => 'change_geo',
+      BTN_LNG       => $lang{CHANGE},
+      HIDDEN_INPUTS => $hidden_inputs
+    }, $geo_list)
+  });
+
+  my $competitors = $Crm->crm_competitor_list({
+    NAME            => '_SHOW',
+    DESCR           => '_SHOW',
+    SITE            => '_SHOW',
+    CONNECTION_TYPE => '_SHOW',
+    COLOR           => '_SHOW',
+    COLS_NAME       => 1
+  });
+
+  my $competitors_table = $html->table({
+    width   => '100%',
+    caption => $lang{COMPETITORS},
+    title   => [ 'Id', $lang{NAME}, $lang{COMPETITOR_SITE}, $lang{CONNECTION_TYPE}, $lang{COLOR}, $lang{DESCRIBE}, '', '', '' ],
+    ID      => 'CRM_COMPETITORS',
+    MENU    => "$lang{ADD}:index=$index&add_form=1:add",
+    EXPORT  => 1,
+    IMPORT  => "$SELF_URL?get_index=crm_competitors&import=1&header=2",
+  });
+
+  my $competitors_tp_index = get_function_index('crm_competitors_tp');
+  foreach (@{$competitors}) {
+    my $site = $_->{site} ? $html->button('', '', {
+      GLOBAL_URL => $_->{site},
+      target     => '_blank',
+      class      => 'btn btn-sm btn-primary',
+      ICON       => 'fa fa-globe',
+    }) : '';
+
+    my $chg_button = $html->button('', "index=$index&chg=$_->{id}", { class => 'change' });
+    my $del_button = $html->button('', "index=$index&del=$_->{id}", { MESSAGE => "$lang{DEL} $_->{name}?", class => 'del' });
+    my $tps_button = $html->button($lang{TARIF_PLANS}, "index=$competitors_tp_index&COMPETITOR_ID=$_->{id}",
+      { class => 'btn btn-sm btn-default', target => '_blank' });
+
+    $_->{color} ||= '#000000';
+    $competitors_table->addrow($_->{id}, $_->{name}, $site, $_->{connection_type},
+      $html->color_mark($_->{color}, $_->{color}), $_->{descr}, $tps_button, $chg_button, $del_button);
+  }
+
+  print $competitors_table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _crm_competitors_import()
+
+=cut
+#**********************************************************
+sub _crm_competitors_import {
+
+  if ($FORM{add}) {
+    my $import_competitors = import_former(\%FORM);
+    my $total = $#{$import_competitors} + 1;
+
+    map $Crm->crm_competitor_add($_), @{$import_competitors};
+
+    $html->message('info', $lang{INFO}, "$lang{ADDED}\n $lang{FILE}: $FORM{UPLOAD_FILE}{filename}\n Size: $FORM{UPLOAD_FILE}{Size}\n Count: $total");
+    return 1
+  }
+
+  my $import_fields = $html->form_select('IMPORT_FIELDS', {
+    SELECTED  => $FORM{IMPORT_FIELDS},
+    SEL_ARRAY => [
+      'NAME',
+      'SITE',
+      'CONNECTION_TYPE',
+      'DESCR'
+    ],
+    EX_PARAMS => 'multiple="multiple"'
+  });
+
+  $html->tpl_show(templates('form_import'), {
+    IMPORT_FIELDS     => 'NAME,SITE,CONNECTION_TYPE,DESCR',
+    CALLBACK_FUNC     => 'crm_competitors',
+    IMPORT_FIELDS_SEL => $import_fields
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 crm_competitors($attr)
+
+=cut
+#**********************************************************
+sub crm_competitors_tp {
+
+  $Crm->{ACTION} = 'add';
+  $Crm->{LNG_ACTION} = $lang{ADD};
+  my %competitor_info = ();
+
+  if ($FORM{add}) {
+    $Crm->crm_competitors_tps_add(\%FORM);
+    $html->message('success', "$lang{TARIF_PLAN}: $lang{ADDED}") if (!_error_show($Crm));
+  }
+  elsif ($FORM{chg}) {
+    $Crm->{ACTION} = 'change';
+    $Crm->{LNG_ACTION} = $lang{CHANGE};
+
+    my $competitor_info = $Crm->crm_competitors_tps_info({ ID => $FORM{chg} });
+
+    %competitor_info = %{$competitor_info};
+  }
+  elsif ($FORM{change}) {
+    $Crm->crm_competitors_tps_change(\%FORM);
+    $html->message('success', "$lang{TARIF_PLAN}: $lang{CHANGED}") if (!_error_show($Crm));
+  }
+  elsif ($FORM{del}) {
+    $Crm->crm_competitors_tps_del({ ID => $FORM{del} });
+    $html->message('success', "$lang{TARIF_PLAN}: $lang{DELETED}") if (!_error_show($Crm));
+  }
+
+  _crm_competitor_tps_geolocation(\%FORM) if ($FORM{CLEAR} || $FORM{change_geo});
+
+  if ($Crm->{ACTION} && $Crm->{ACTION} eq 'add') {
+    $competitor_info{GEO_MESSAGE} = $html->message('info', $lang{INFO}, $lang{LOCALITIES_CREATED_TP}, { OUTPUT2RETURN => 1 });
+  }
+
+  my $info_fields = crm_lead_info_field_tpl({ TP_INFO_FIELDS => 1, %competitor_info });
+  my $competitors_select = _crm_competitors_select({ %competitor_info, %FORM });
+
+  $html->tpl_show(_include('crm_competitors_tp', 'Crm'), {
+    %{$Crm},
+    %competitor_info,
+    COMPETITORS_SEL => $competitors_select,
+    INFO_FIELDS     => $info_fields,
+  });
+
+  my $competitors_tps = $Crm->crm_competitors_tps_list({
+    NAME            => '_SHOW',
+    SPEED           => '_SHOW',
+    MONTH_FEE       => '_SHOW',
+    DAY_FEE         => '_SHOW',
+    COMPETITOR_NAME => '_SHOW',
+    COMPETITOR_ID   => $FORM{COMPETITOR_ID} || '_SHOW',
+    COLS_NAME       => 1
+  });
+
+  my $competitors_tps_table = $html->table({
+    width   => '100%',
+    caption => $lang{COMPETITORS_TP},
+    title   => [ 'Id', $lang{NAME}, $lang{COMPETITOR}, $lang{SPEED}, $lang{MONTH_FEE}, $lang{DAY_FEE}, '', '' ],
+    ID      => 'CRM_COMPETITORS_TPS',
+    MENU    => "$lang{ADD}:index=$index&add_form=1:add",
+  });
+
+  foreach (@{$competitors_tps}) {
+    my $chg_button = $html->button('', "index=$index&chg=$_->{id}", { class => 'change' });
+    my $del_button = $html->button('', "index=$index&del=$_->{id}", { MESSAGE => "$lang{DEL} $_->{name}?", class => 'del' });
+
+    $competitors_tps_table->addrow($_->{id}, $_->{name}, $_->{competitor_name},
+      $_->{speed}, $_->{month_fee}, $_->{day_fee}, $chg_button, $del_button);
+  }
+
+  print $competitors_tps_table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 crm_tp_geolocation_tree()
+
+=cut
+#**********************************************************
+sub crm_tp_geolocation_tree {
+  my ($attr) = @_;
+
+  my $competitor_id = $FORM{COMPETITOR_ID} || $attr->{COMPETITOR_ID};
+
+  if (!$competitor_id) {
+    print $html->message('err', $lang{ERROR}, $lang{NO_COMPETITOR_SELECTED}) if $FORM{PRINT_JSON};
+    return '';
+  }
+
+  my $competitor_builds = $Crm->crm_competitor_builds_list($competitor_id);
+  if ($Crm->{TOTAL} < 1) {
+    print $html->message('err', $lang{ERROR}, $lang{COMPETITOR_HAS_NOT_ADDRESS}) if $FORM{PRINT_JSON};
+    return '';
+  }
+
+  my $hidden_inputs = $html->form_input('TP_ID', $FORM{chg} || '0', { TYPE => 'hidden' });
+  $hidden_inputs .= $html->form_input('chg', $FORM{chg} || '0', { TYPE => 'hidden' });
+
+  print geolocation_tree({
+    TITLE         => $lang{LOCALITIES_OF_THE_TP},
+    INDEX         => get_function_index('crm_competitors_tp'),
+    BTN_ACTION    => 'change_geo',
+    BTN_LNG       => $lang{CHANGE},
+    BUILDS        => $competitor_builds,
+    HIDDEN_INPUTS => $hidden_inputs
+  }, $Crm->crm_competitor_tps_geo_list({ TP_ID => $FORM{chg} || '0', COLS_NAME => 1 }));
+
+  return 1;
+}
+
+#**********************************************************
+=head2 crm_mass_adding()
+
+=cut
+#**********************************************************
+sub crm_mass_adding {
+  #my ($attr) = @_;
+
+  use Address;
+  my $Address = Address->new($db, $admin, \%conf);
+  my $leads_number = 0;
+
+  if ($FORM{add}) {
+    if ($FORM{BUILD_ID} && $FORM{FLAT_START} && $FORM{FLAT_END}) {
+      for (my $i = $FORM{FLAT_START}; $i <= $FORM{FLAT_END}; $i++) {
+        $Crm->crm_lead_add({ ADDRESS_FLAT => $i, BUILD_ID => $FORM{BUILD_ID} });
+
+        $leads_number++ if (!_error_show($Crm));
+      }
+
+      $html->message('success', "$lang{ADDED}", "$lang{LEADS}: $leads_number");
+    }
+    elsif ($FORM{STREET_ID} && $FORM{BUILD_START} && $FORM{BUILD_END}) {
+      for (my $i = $FORM{BUILD_START}; $i <= $FORM{BUILD_END}; $i++) {
+        my $build_info = $Address->build_list({ NUMBER => $i, STREET_ID => $FORM{STREET_ID}, COLS_NAME => 1 });
+
+        if ($Address->{TOTAL} > 0) {
+          $Crm->crm_lead_add({ BUILD_ID => $build_info->[0]{id} });
+        }
+        else {
+          $Crm->crm_lead_add({ ADD_ADDRESS_BUILD => $i, STREET_ID => $FORM{STREET_ID} });
+        }
+        $leads_number++ if (!_error_show($Crm));
+      }
+      $html->message('success', "$lang{ADDED}", "$lang{LEADS}: $leads_number");
+    }
+  }
+
+  $Crm->{DISTRICTS_SEL} = sel_districts({ SEL_OPTIONS => { 0 => '--' } });
+  $Crm->{STREETS_SEL} = sel_streets({ SEL_OPTIONS => { 0 => '--' } });
+
+  $html->tpl_show(_include('crm_mass_adding_form', 'Crm'), $Crm);
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _crm_competitor_geolocation($attr)
+
+  Arguments:
+    $attr -
+
+  Returns:
+
+=cut
+#**********************************************************
+sub _crm_competitor_geolocation {
+  my ($attr) = @_;
+
+  return '' if !$attr->{COMPETITOR_ID};
+
+  if ($attr->{CLEAR}) {
+    $Crm->crm_del_competitor_geo({ COMPETITOR_ID => $attr->{COMPETITOR_ID} });
+    $html->message('info', "$lang{GEO}", "$lang{DELETED}") if (!_error_show($Crm));
+    return '';
+  }
+
+  return '' if !$attr->{STREET_ID} && !$attr->{BUILD_ID} && !$attr->{DISTRICT_ID};
+
+  my @streets = ();
+  my @builds = ();
+  my @districts = ();
+
+  @streets = split(',\s?', $attr->{STREET_ID}) if (defined $attr->{STREET_ID});
+  @builds = split(',\s?', $attr->{BUILD_ID}) if (defined $attr->{BUILD_ID});
+  @districts = split(',\s?', $attr->{DISTRICT_ID}) if (defined $attr->{DISTRICT_ID});
+
+  $Crm->crm_del_competitor_geo({ COMPETITOR_ID => $attr->{COMPETITOR_ID} });
+
+  map $Crm->crm_add_competitor_geo({ COMPETITOR_ID => $attr->{COMPETITOR_ID}, BUILD_ID => $_ }), @builds;
+  map $Crm->crm_add_competitor_geo({ COMPETITOR_ID => $attr->{COMPETITOR_ID}, STREET_ID => $_ }), @streets;
+  map $Crm->crm_add_competitor_geo({ COMPETITOR_ID => $attr->{COMPETITOR_ID}, DISTRICT_ID => $_ }), @districts;
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _crm_competitor_tps_geolocation($attr)
+
+  Arguments:
+    $attr -
+
+  Returns:
+
+=cut
+#**********************************************************
+sub _crm_competitor_tps_geolocation {
+  my ($attr) = @_;
+
+  return '' if !$attr->{TP_ID};
+
+  if ($attr->{CLEAR}) {
+    $Crm->crm_del_competitor_tps_geo({ TP_ID => $attr->{TP_ID} });
+    $html->message('info', "$lang{GEO}", "$lang{DELETED}") if (!_error_show($Crm));
+    return '';
+  }
+
+  return '' if !$attr->{STREET_ID} && !$attr->{BUILD_ID} && !$attr->{DISTRICT_ID};
+
+  my @streets = ();
+  my @builds = ();
+  my @districts = ();
+
+  @streets = split(',\s?', $attr->{STREET_ID}) if (defined $attr->{STREET_ID});
+  @builds = split(',\s?', $attr->{BUILD_ID}) if (defined $attr->{BUILD_ID});
+  @districts = split(',\s?', $attr->{DISTRICT_ID}) if (defined $attr->{DISTRICT_ID});
+
+  $Crm->crm_del_competitor_tps_geo({ TP_ID => $attr->{TP_ID} });
+
+  map $Crm->crm_add_competitor_tps_geo({ TP_ID => $attr->{TP_ID}, BUILD_ID => $_ }), @builds;
+  map $Crm->crm_add_competitor_tps_geo({ TP_ID => $attr->{TP_ID}, STREET_ID => $_ }), @streets;
+  map $Crm->crm_add_competitor_tps_geo({ TP_ID => $attr->{TP_ID}, DISTRICT_ID => $_ }), @districts;
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _crm_competitors_select()
+
+=cut
+#**********************************************************
+sub _crm_competitors_select {
+  my ($attr, $sel_params) = @_;
+
+  return $html->form_select('COMPETITOR_ID', {
+    SELECTED       => $attr->{COMPETITOR_ID} || 0,
+    SEL_LIST       => $Crm->crm_competitor_list({ NAME => '_SHOW', COLS_NAME => 1 }),
+    SEL_KEY        => 'id',
+    SEL_VALUE      => 'name',
+    NO_ID          => 1,
+    MAIN_MENU      => get_function_index('crm_competitors'),
+    MAIN_MENU_ARGV => "chg=" . ($attr->{COMPETITOR_ID} || ''),
+    ref($sel_params) eq 'HASH' ? %{$sel_params} : ()
+  });
+}
+
+#**********************************************************
+=head2 crm_competitor_tps_select()
+
+=cut
+#**********************************************************
+sub crm_competitor_tps_select {
+  my ($attr) = @_;
+
+  $attr->{COMPETITOR_ID} ||= $FORM{COMPETITOR_ID};
+  $attr->{TP_ID} ||= $FORM{TP_ID};
+
+  my $tps_select = $html->form_select('TP_ID', {
+    SELECTED  => $attr->{TP_ID} || 0,
+    SEL_LIST  => $Crm->crm_competitors_tps_list({
+      NAME          => '_SHOW',
+      COMPETITOR_ID => $attr->{COMPETITOR_ID} || '_SHOW',
+      COLS_NAME     => 1
+    }),
+    SEL_KEY   => 'id',
+    SEL_VALUE => 'name',
+    NO_ID     => 1
+  });
+
+  return $attr->{COMPETITOR_ID} ? $tps_select : '' if ($attr->{RETURN_SELECT});
+
+  print $tps_select;
+}
+
+#**********************************************************
+=head2 crm_assessments_select()
+
+=cut
+#**********************************************************
+sub crm_assessments_select {
+  my ($attr) = @_;
+
+  $attr->{ASSESSMENT} ||= $FORM{ASSESSMENT};
+
+  my @assessments = (
+    { id => 1, name => $lang{CRM_BAD} },
+    { id => 2, name => $lang{CRM_UNSATISFACTORILY} },
+    { id => 3, name => $lang{CRM_SATISFACTORILY} },
+    { id => 4, name => $lang{CRM_GOOD} },
+    { id => 5, name => $lang{CRM_IDEALLY} },
+  );
+
+  if ($conf{CRM_COMPETITOR_ASSESSMENT} && ref $conf{CRM_COMPETITOR_ASSESSMENT} eq 'ARRAY') {
+    @assessments = ();
+    while (my ($index, $value) = each @{$conf{CRM_COMPETITOR_ASSESSMENT}}) {
+      push(@assessments, { id => $index + 1, name => $value });
+    }
+  }
+
+  return $html->form_select('ASSESSMENT', {
+    SELECTED    => $attr->{ASSESSMENT} || q{},
+    SEL_LIST    => \@assessments,
+    NO_ID       => 1,
+    SEL_KEY     => 'id',
+    SEL_VALUE   => 'name',
+    SEL_OPTIONS => { "" => "" },
+  });
+}
+
+#**********************************************************
+=head2 crm_assessment_stars($assessment)
+
+  Arguments:
+
+  Returns:
+
+=cut
+#**********************************************************
+sub crm_assessment_stars {
+  my ($assessment) = @_;
+
+  return '' if !$assessment;
+
+  my $stars = '';
+  map $stars .= $html->element('i', '', { class => 'fa fa-star' }), (1 .. $assessment);
+  if (int($assessment) < $assessment && int($assessment) + 0.5 <= $assessment) {
+    $stars .= $html->element('i', '', { class => 'far fa-star-half' });
+  }
+
+  return $stars;
+}
+
+#**********************************************************
+=head2 crm_assessment_stars($assessment)
+
+=cut
+#**********************************************************
+sub crm_client_to_lead {
+
+  $FORM{add_form} = 1;
+  $FORM{MESSAGE_ONLY} = 1;
+
+  return {} if !$FORM{UID};
+
+  require Users;
+  Users->import();
+  my $Users = Users->new($db, $admin, \%conf);
+
+  my $user_info = $Users->pi({ UID => $FORM{UID} });
+
+  return {} if $Users->{TOTAL} < 1;
+
+  return $user_info;
+}
+
+#**********************************************************
+=head2 crm_registration($attr)
+
+=cut
+#**********************************************************
+sub crm_registration {
+  my ($attr) = @_;
+
+  if ($FORM{reg}) {
+    $Crm->crm_lead_add(\%FORM);
+    $html->message('info', $lang{SUCCESS}, $lang{ADDED}) if !_error_show($Crm);
+  }
+
+  $Crm->{ADDRESS_TPL} = form_address_select2();
+  $Crm->{INFO_FIELDS} = crm_lead_info_field_tpl({ REGISTRATION => 1 });
+  $Crm->{INFO_FIELDS} .= $html->element('hr', '', { OUTPUT2RETURN => 1 }) if $Crm->{INFO_FIELDS};
+
+  $html->tpl_show(_include('crm_registration', 'Crm'), { %{$Crm}, %FORM, %{$attr} }, { ID => 'CRM_REGISTRATION' });
+  return 1;
+}
+
+#**********************************************************
+=head2 crm_dialogue()
+
+=cut
+#**********************************************************
+sub crm_dialogue {
+
+  my $dialogue = $Crm->crm_dialogue_info({ ID => $FORM{ID} });
+  return if !$dialogue->{SOURCE};
+
+  $Crm->crm_open_lines_list({ SOURCE => $dialogue->{SOURCE}, AID => $admin->{AID} });
+  return if $Crm->{TOTAL} < 1;
+
+  my $lead = $Crm->crm_lead_info({ ID => $dialogue->{LEAD_ID} });
+  my $admins_avatar = {};
+  my $messages = '';
+  my $last_message_aid = undef;
+  my $day = '';
+  my $admin_id = $admin->{AID};
+  my $dialog_messages = $Crm->crm_dialogue_messages_list({
+    DIALOGUE_ID => $FORM{ID},
+    MESSAGE     => '_SHOW',
+    AID         => '_SHOW',
+    DATE        => '_SHOW',
+    DAY         => '_SHOW',
+    TIME        => '_SHOW',
+    AVATAR_LINK => '_SHOW',
+    INNER_MSG   => '_SHOW',
+    SORT        => 'cdm.date',
+    PAGE_ROWS   => 99999,
+    COLS_NAME   => 1
+  });
+
+  foreach my $message (@{$dialog_messages}) {
+    if ($day ne $message->{day}) {
+      $day = $message->{day};
+      $messages .= $html->element('h6', $day, { class => 'hr-lines text-muted' });
+      $last_message_aid = undef;
+    }
+
+    my $message_class = 'message';
+    my $message_type = $message->{aid} ? 'justify-content-end' : 'justify-content-start';
+    my $avatar = $message->{avatar_link} ? "/images/$message->{avatar_link}" : ($lead->{_AVATAR_URL} || '/styles/default/img/admin/avatar0.png');
+    my $time = $html->element('span', $message->{time}, { class => 'text-muted float-right ml-1' });
+    my $image = defined $last_message_aid && $last_message_aid == $message->{aid} ? $html->element('div', '', { class => 'img_cont_msg' }) :
+      $html->element('div', $html->element('img', '', { src => $avatar, class => 'rounded-circle user_img_msg' }), { class => 'img_cont_msg' });
+
+    if ($message->{inner_msg}) {
+      $time = '';
+      $image = '';
+      $message_type = 'justify-content-center';
+      $message_class .= ' inner-message ml-0';
+      $message->{message} = _translate($message->{message});
+      $last_message_aid = undef;
+    }
+    else {
+      $last_message_aid = $message->{aid};
+    }
+
+    $message->{message} =~ s/\n$//;
+    $message->{message} = AXbills::Base::convert($message->{message}, { text2html => 1, SHOW_URL => 1 });
+    my $message_text = $html->element('div', $message->{message} . $time, { class => $message_class });
+    $messages .= $html->element('div', !$message->{aid} ? $image . $message_text : $message_text . $image, { class => "d-flex mb-3 $message_type" });
+  }
+
+  if (!$dialogue->{AID} && defined $dialogue->{STATE} && $dialogue->{STATE} != 1) {
+    $Crm->{ACCEPT_DIALOGUE_BTN} = $html->button($lang{ACCEPT_DIALOGUE}, '', {
+      JAVASCRIPT     => '',
+      SKIP_HREF      => 1,
+      NO_LINK_FORMER => 1,
+      class          => 'btn btn-success btn-lg w-100',
+      ID             => 'accept-dialogue'
+    });
+    $Crm->{HIDE_CONTROL_BTN} = 'd-none';
+    $Crm->{DISABLE_TEXTAREA} = 'disabled';
+  }
+  elsif ($dialogue->{AID} && $dialogue->{AID} ne $admin_id) {
+    $Crm->{HIDE_CONTROL_BTN} = 'd-none';
+    $Crm->{DISABLE_TEXTAREA} = 'disabled';
+  }
+  if ($dialogue->{STATE} && $dialogue->{STATE} == 1) {
+    $Crm->{HIDE_CONTROL_BTN} = 'd-none';
+    $Crm->{DISABLE_TEXTAREA} = 'disabled';
+  }
+
+  my $right_menu = _crm_dialogue_right_menu($dialogue->{ID});
+
+  $html->tpl_show(_include('crm_dialogue', 'Crm'), { %{$Crm}, %FORM,
+    MESSAGES              => $messages,
+    ADMIN_AVATAR_LINK     => "/images/$admin->{AVATAR_LINK}",
+    USER_AVATAR_LINK      => $lead->{_AVATAR_URL} || '/styles/default/img/admin/avatar0.png',
+    DIALOGUE_ID           => $FORM{ID},
+    AID                   => $dialogue->{AID} || $admin->{AID},
+    LEAD_FIO              => $lead->{LEAD_ID} ? $html->button($lead->{FIO}, 'index=' .
+      get_function_index('crm_lead_info') . "&LEAD_ID=$lead->{LEAD_ID}") : $lead->{FIO},
+    LAST_MESSAGE_FROM_AID => $last_message_aid,
+    %{$right_menu}
+  }, { ID => 'CRM_REGISTRATION' });
+}
+
+#**********************************************************
+=head2 _crm_dialogue_right_menu($current_dialogue_id)
+
+=cut
+#**********************************************************
+sub _crm_dialogue_right_menu {
+  my $current_dialogue_id = shift;
+
+  my $enabled_open_lines = $Crm->crm_open_lines_list({
+    AID       => $admin->{AID},
+    SOURCE    => '_SHOW',
+    COLS_NAME => 1
+  });
+
+  return {} if $Crm->{TOTAL} < 1;
+
+  my $dialogues = $Crm->crm_dialogues_list({
+    STATE        => '0;2',
+    AID          => "0;$admin->{AID}",
+    SOURCE       => join(';', map {$_->{source}} @{$enabled_open_lines}),
+    LAST_MESSAGE => '_SHOW',
+    LEAD_FIO     => '_SHOW',
+    DATE         => '_SHOW',
+    COLS_NAME    => 1
+  });
+
+  my @active_dialogues = ();
+  my @new_dialogues = ();
+  my @waiting_dialogues = ();
+
+  foreach my $dialogue (@{$dialogues}) {
+    if (!$dialogue->{aid}) {
+      push(@new_dialogues, _crm_dialogue_item($dialogue));
+      next;
+    }
+
+    if (!$dialogue->{state}) {
+      push(@active_dialogues, _crm_dialogue_item($dialogue));
+      next;
+    }
+    push(@waiting_dialogues, _crm_dialogue_item($dialogue));
+  }
+
+  my $separator = $html->element('hr', '', { class => 'm-0' });
+  return {
+    NEW     => join($separator, @new_dialogues),
+    ACTIVE  => join($separator, @active_dialogues),
+    WAITING => join($separator, @waiting_dialogues),
+  };
+}
+
+#**********************************************************
+=head2 _crm_dialogue_right_menu($dialogue)
+
+=cut
+#**********************************************************
+sub _crm_dialogue_item {
+  my ($dialogue) = @_;
+
+  my $time = $html->element('p', $html->element('i', ' ', { class => 'far fa-clock mr-1' }) . $dialogue->{date}, { class => 'text-sm text-muted m-0' });
+  my $dropdown_item = $html->element('h3', $dialogue->{lead_fio}, { class => 'dropdown-item-title' });
+  my $last_message = $dialogue->{last_message} ? $html->element('p', $dialogue->{last_message}, { class => 'text-sm text-muted m-0' }) : '';
+
+  my $media_body = $html->element('div', $dropdown_item . $last_message . $time, { class => 'media-body' });
+  my $avatar = $html->element('img', '', { src => '/styles/default/img/admin/avatar0.png', class => 'img-size-50 mr-3 img-circle' });
+  my $media = $html->element('div', $avatar . $media_body, { class => 'media overflow-hidden' });
+
+  return $html->button($media, "index=$index&ID=$dialogue->{id}", {
+    class => 'dropdown-item pt-1 pb-1 cursor-pointer'
+  });
+}
+
+#**********************************************************
+=head2 crm_dialogues()
+
+=cut
+#**********************************************************
+sub crm_dialogues {
+
+  my $admin_open_lines = $Crm->crm_open_lines_list({ AID => $admin->{AID}, SOURCE => '_SHOW', PAGE_ROWS => 99999, COLS_NAME => 1 });
+  my @sources = map {$_->{source} || q{}} @{$admin_open_lines};
+  $LIST_PARAMS{SOURCE} = join(';', @sources) || 'empty';
+
+  if ($FORM{del} && $FORM{COMMENTS}) {
+    $Crm->crm_dialogue_info({ ID => $FORM{ID} });
+
+    if ($Crm->{SOURCE} && in_array($Crm->{SOURCE}, \@sources)) {
+      $Crm->crm_dialogues_del({ ID => $FORM{ID} });
+      $html->message('info', $lang{INFO}, $lang{DELETED}) if !_error_show($Crm);
+    }
+  }
+
+  result_former({
+    INPUT_DATA      => $Crm,
+    FUNCTION        => 'crm_dialogues_list',
+    BASE_FIELDS     => 0,
+    DEFAULT_FIELDS  => 'ID,LEAD_FIO,SOURCE,ADMIN,STATE,DATE',
+    FUNCTION_FIELDS => 'crm_dialogue:change:id,:del:id:&del=1',
+    FUNCTION_INDEX  => $index,
+    FILTER_VALUES   => {
+      state => sub {
+        my $state = shift;
+        $STATES{$state} || $lang{CRM_STATUS_IS_UNKNOWN}
+      }
+    },
+    SKIP_USER_TITLE => 1,
+    EXT_TITLES      => {
+      id       => '#',
+      lead_fio => $lang{FIO},
+      source   => $lang{SOURCE},
+      admin    => $lang{ADMIN},
+      state    => $lang{STATE},
+      date     => $lang{DATE},
+    },
+    SKIP_PAGES      => 1,
+    TABLE           => {
+      width   => '100%',
+      caption => $lang{DIALOGUES},
+      qs      => $pages_qs,
+      ID      => 'CRM_LEAD_DIALOGUES'
+    },
+    MAKE_ROWS       => 1,
+    MODULE          => 'Crm',
+    TOTAL           => 1,
+    SEARCH_FORMER   => 1,
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 crm_open_lines()
+
+=cut
+#**********************************************************
+sub crm_open_lines {
+
+  $Crm->{ACTION} = 'add';
+  $Crm->{LNG_ACTION} = $lang{ADD};
+
+  if ($FORM{add}) {
+    $Crm->crm_open_line_add(\%FORM);
+    if (!_error_show($Crm)) {
+      $Crm->crm_open_line_admins({ %FORM, ID => $Crm->{INSERT_ID} });
+      $html->message('success', $lang{ADDED});
+    }
+  }
+  elsif ($FORM{chg}) {
+    $Crm->crm_open_line_info($FORM{chg});
+    $Crm->{ACTION} = 'change';
+    $Crm->{LNG_ACTION} = $lang{CHANGE};
+  }
+  elsif ($FORM{change}) {
+    $Crm->crm_open_line_change(\%FORM);
+    if (!_error_show($Crm)) {
+      $Crm->crm_open_line_admins(\%FORM);
+      $html->message('info', $lang{CHANGED});
+    }
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Crm->crm_open_line_del({ ID => $FORM{del} });
+    $html->message('info', $lang{INFO}, "$lang{DELETED}: $FORM{del}") if !_error_show($Crm);
+  }
+
+  $html->tpl_show(_include('crm_open_line', 'Crm'), { %{$Crm},
+    ADMIN_SEL  => sel_admins({ MULTIPLE => 1, SELECTED => $Crm->{AID} }),
+    SOURCE_SEL => $html->form_select('SOURCE', {
+      SELECTED => $Crm->{SOURCE},
+      SEL_HASH => {
+        facebook  => 'Facebook',
+        telegram  => 'Telegram',
+        instagram => 'Instagram',
+        viber_bot => 'Viber Bot',
+        mail      => 'Mail'
+      },
+      NO_ID    => 1
+    })
+  });
+
+  result_former({
+    INPUT_DATA      => $Crm,
+    FUNCTION        => 'crm_open_lines_list',
+    BASE_FIELDS     => 0,
+    DEFAULT_FIELDS  => 'ID,NAME,SOURCE,ADMINS_NAME',
+    FUNCTION_FIELDS => 'change,del',
+    FUNCTION_INDEX  => $index,
+    SKIP_USER_TITLE => 1,
+    EXT_TITLES      => {
+      id          => '#',
+      name        => $lang{NAME},
+      source      => $lang{SOURCE},
+      admins_name => $lang{ADMINS}
+    },
+    SKIP_PAGES      => 1,
+    TABLE           => {
+      width   => '100%',
+      caption => $lang{OPEN_LINES},
+      qs      => $pages_qs,
+      ID      => 'CRM_OPEN_LINES',
+      MENU    => "$lang{ADD}:index=$index&add_form=1:add"
+    },
+    MAKE_ROWS       => 1,
+    MODULE          => 'Crm',
+    TOTAL           => 1,
+    SEARCH_FORMER   => 1,
+  });
+}
+
+#**********************************************************
+=head2 crm_progressbar_show($lead_id)
+
+=cut
+#**********************************************************
+sub crm_progressbar_show {
+  my ($current_step, $attr) = @_;
+
+  my $Tasks;
+  if (in_array('Tasks', \@MODULES) && (!$admin->{MODULES} || $admin->{MODULES}{Tasks})) {
+    use Tasks::db::Tasks;
+    $Tasks = Tasks->new($db, $admin, \%conf);
+  }
+
+  my $pb_list = translate_list($Crm->crm_progressbar_step_list({
+    STEP_NUMBER => '_SHOW',
+    NAME        => '_SHOW',
+    COLOR       => '_SHOW',
+    DESCRIPTION => '_SHOW',
+    %{$attr || {}},
+    COLS_NAME   => 1
+  }));
+
+  $current_step ||= 1;
+  my $steps = '';
+  my $timeline = '';
+  my $extra_css = '';
+  my %timeline_items_all = ();
+
+  foreach my $line (@{$pb_list}) {
+    if ($line->{color}) {
+      $line->{color} =~ s/#//;
+      my $rgb = join(', ', map $_, unpack 'C*', pack 'H*', $line->{color});
+      $extra_css .= ".step-$line->{step_number}.active:before,.step-$line->{step_number}.active:after { background: rgba($rgb, 0.5) !important; }"
+    }
+
+    my $step_class = "steps step-$line->{step_number} " . ($current_step >= $line->{step_number} ? 'active' : '');
+    my $step_element = $html->element('div', $html->element('span', $line->{name} || $line->{step_number}),
+      { class => $step_class, id => $line->{step_number} }) . "\n";
+
+    $steps .= $html->element('span', $step_element . _crm_pill_btn($line->{id}), { class => 'step-container' });
+
+    my $messages_list = $Crm->progressbar_comment_list({
+      STEP_ID      => $line->{id},
+      MESSAGE      => '_SHOW',
+      DATE         => '_SHOW',
+      ADMIN        => '_SHOW',
+      ACTION       => '_SHOW',
+      PLANNED_DATE => '_SHOW',
+      PRIORITY     => '_SHOW',
+      SORT         => 'cpsc.date',
+      DAY          => '_SHOW',
+      PIN          => '_SHOW',
+      %{$attr || {}},
+      COLS_NAME    => 1,
+      COLS_UPPER   => 1,
+    });
+
+    my $step_tasks_by_day = crm_step_tasks($Tasks, $line->{step_number}, $attr);
+    my $timeline_items = crm_step_timeline($step_tasks_by_day, $messages_list);
+    map {$timeline_items_all{$_} .= $step_tasks_by_day->{$_}} keys %{$step_tasks_by_day};
+
+    my $admin_sel = sel_admins({ ID => 'AID_' . $line->{id}, SELECTED => $attr->{RESPONSIBLE} || $admin->{AID} });
+    my $action_sel = _actions_sel({ ID => 'ACTION_' . $line->{id} });
+
+    my $priority_comment_select = $html->form_select('PRIORITY', {
+      ID           => 'PRIORITY_SEL_' . $line->{id},
+      SELECTED     => $FORM{PRIORITY} || q{},
+      SEL_ARRAY    => \@PRIORITY,
+      NO_ID        => 1,
+      SEL_OPTIONS  => { '' => '' },
+      ARRAY_NUM_ID => 1
+    });
+
+    my $task_btn = '';
+    if ($attr->{TASK_URL} && in_array('Tasks', \@MODULES) && (!$admin->{MODULES} || $admin->{MODULES}{Tasks})) {
+      my $add_form_index = get_function_index('task_web_add');
+      my $add_url = "?qindex=$add_form_index&header=2&SHORT_FORM=1&$attr->{TASK_URL}&STEP_ID=$line->{step_number}";
+      $task_btn = !$add_form_index ? '' : $html->button($lang{ADD_TASK}, undef, {
+        class          => 'btn btn-success mr-2',
+        ex_params      => qq/onclick=loadToModal('$add_url'\,''\,'') class='ml-3 cursor-pointer'/,
+        NO_LINK_FORMER => 1,
+        SKIP_HREF      => 1
+      });
+    }
+
+    $timeline .= $html->tpl_show(_include('crm_pb_timeline', 'Crm'), {
+      ID                   => $line->{id},
+      # ACTIVE               => ($line->{step_number} == $current_step) ? 'in active show' : '',
+      TIMELINE_ITEMS       => $timeline_items,
+      ADMIN_SEL            => $admin_sel,
+      ACTION_SEL           => $action_sel,
+      INDEX                => get_function_index('crm_lead_info'),
+      TASK_BTN             => $task_btn,
+      PRIORITY_COMMENT_SEL => $priority_comment_select,
+      %{$attr || {}}
+    }, { OUTPUT2RETURN => 1 });
+  }
+
+  my $all_items_result = '';
+  foreach my $day (reverse sort keys(%timeline_items_all)) {
+    my $time_label = $html->element('div', $html->element('span', $day, { class => 'bg-info' }), { class => 'time-label' });
+    $all_items_result .= $time_label;
+    $all_items_result .= $timeline_items_all{$day};
+  }
+  $all_items_result =~ s/timeline-item/timeline-item timeline-item-all/g;
+  $timeline .= $html->tpl_show(_include('crm_pb_timeline_all', 'Crm'), {
+    ID                 => 0,
+    ACTIVE             => 'in active show',
+    TIMELINE_ITEMS_ALL => $all_items_result,
+    INDEX              => get_function_index('crm_lead_info'),
+    LEAD_ID            => $FORM{LEAD_ID},
+  }, { OUTPUT2RETURN => 1 });
+
+  return $html->tpl_show(_include('crm_progressbar', 'Crm'), {
+    STEPS          => $steps,
+    CUR_STEP       => $current_step || 1,
+    STEPS_COMMENTS => $html->tpl_show(_include('crm_pb_steps_comments', 'Crm'), {
+      TIMELINE => $timeline,
+    }, { OUTPUT2RETURN => 1 }),
+    CSS            => $extra_css,
+    OBJECT_TYPE    => $attr->{OBJECT_TYPE},
+    OBJECT_VALUE   => $attr->{OBJECT_VALUE},
+  }, { OUTPUT2RETURN => 1 });
+}
+
+#**********************************************************
+=head2 _crm_pill_btn($id, $attr)
+
+=cut
+#**********************************************************
+sub _crm_pill_btn {
+  my $id = shift;
+  my ($attr) = @_;
+
+  my $pill_btn = $html->element('span', $html->element('span', '', { class => 'fa fa-pencil-alt p-1 step-info-btn' }));
+
+  return $html->element('div', $pill_btn, {
+    class           => 'steps steps-info steps-info-hide',
+    'aria-controls' => "s$id",
+  }) . "\n";
+}
+
+#**********************************************************
+=head2 _crm_step_timeline()
+
+  Arguments:
+    $lead_id
+    $task_items
+    $messages
+
+=cut
+#**********************************************************
+sub crm_step_timeline {
+  my $timeline_items_by_day = shift;
+  my ($messages) = @_;
+
+  return '' if (!$messages && !$timeline_items_by_day);
+
+  my @priority_lit = ($lang{LOW}, $lang{NORMAL}, $lang{HIGH});
+  my @priority = (
+    $html->element('span', '', { class => 'fa fa-thermometer-empty', OUTPUT2RETURN => 1 }),
+    $html->element('span', '', { class => 'fa fa-thermometer-half', OUTPUT2RETURN => 1 }),
+    $html->element('span', '', { class => 'fa fa-thermometer-full', OUTPUT2RETURN => 1 })
+  );
+  my @priority_colors = ('#8A8A8A', '#000000', '#DC3545');
+
+  my $pin_button = $html->button('', '', {
+    NO_LINK_FORMER => 1,
+    JAVASCRIPT     => 1,
+    SKIP_HREF      => 1,
+    ICON           => 'fa fa-map-pin',
+    ex_params      => "data-tooltip-position='top' data-tooltip='$lang{HOLD}' class='pin-button'"
+  });
+
+  foreach my $message (@{$messages}) {
+    my ($day, $time) = split('\s', $message->{DATE});
+    $timeline_items_by_day->{$day} //= '';
+
+    my $del_button = $html->button('', '', {
+      NO_LINK_FORMER => 1,
+      JAVASCRIPT     => 1,
+      SKIP_HREF      => 1,
+      ICON           => 'fa fa-trash text-red message-del',
+      ex_params      => "data-message='$message->{id}'",
+    });
+
+    my %TIMELINE_ITEM_TEMPLATE = (
+      ICON   => 'fas fa-comments bg-yellow',
+      HEADER => $lang{NOTES},
+      FOOTER => $pin_button . $del_button,
+    );
+
+    if ($message->{admin} && $message->{action}) {
+      my %ACTION_STATUSES = ('0' => 'bg-red', '1' => 'bg-green');
+
+      $TIMELINE_ITEM_TEMPLATE{ICON} = 'fa fa-wrench ' . $ACTION_STATUSES{$message->{status} || 0};
+      $TIMELINE_ITEM_TEMPLATE{HEADER} = $message->{action};
+      if ($message->{planned_date}) {
+        my $footer = $html->element('div', "$lang{PLANNED} $lang{DATE}: $message->{planned_date}", { class => 'float-left' });
+        $TIMELINE_ITEM_TEMPLATE{FOOTER} = $footer . $TIMELINE_ITEM_TEMPLATE{FOOTER};
+      }
+      if ($message->{priority}) {
+        my $priority_id = $message->{priority};
+        my $priority_icon = $html->element('span', $html->color_mark($priority[$priority_id], $priority_colors[$priority_id]),
+          { "data-tooltip" => $priority_lit[$priority_id], "data-tooltip-position" => 'top' });
+        $TIMELINE_ITEM_TEMPLATE{HEADER} = $priority_icon . ' ' . $TIMELINE_ITEM_TEMPLATE{HEADER};
+      }
+    };
+
+    $timeline_items_by_day->{$day} .= $html->tpl_show(_include('crm_timeline_item', 'Crm'), {
+      MESSAGE  => $message->{message},
+      DATE     => $time,
+      DATA_ID  => $message->{id},
+      DATA_PIN => $message->{pin},
+      %TIMELINE_ITEM_TEMPLATE
+    }, { OUTPUT2RETURN => 1 })
+  }
+
+  my $result = '';
+  foreach my $day (reverse sort keys(%{$timeline_items_by_day})) {
+    my $time_label = $html->element('div', $html->element('span', $day, { class => 'bg-info' }), { class => 'time-label' });
+    $result .= $time_label;
+    $result .= $timeline_items_by_day->{$day};
+  }
+
+  return $result;
+}
+
+#**********************************************************
+=head2 crm_step_tasks()
+
+=cut
+#**********************************************************
+sub crm_step_tasks {
+  my $Tasks = shift;
+  my $step = shift;
+  my ($attr) = @_;
+
+  return {} if !$Tasks || !$step;
+
+  my $tasks_state_color = { 0 => 'bg-blue', 1 => 'bg-green', 2 => 'bg-red' };
+  my $tasks_index = get_function_index('tasks_list');
+  my $timeline_items_by_day = {};
+  my $tasks = $Tasks->list({
+    %{$attr || {}},
+    PLAN_DATE   => '_SHOW',
+    CLOSED_DATE => '_SHOW',
+    STEP_ID     => $step,
+    COLS_NAME   => 1
+  });
+
+  foreach my $task (@{$tasks}) {
+    my ($day, $time) = split('\s', $task->{CONTROL_DATE});
+
+    my $task_responsible = $html->element('div', "$lang{RESPONSIBLE}: $task->{RESPONSIBLE_NAME}", { class => 'text-left float-left' });
+    # CONTROL DATE
+    my $del_button = '';
+    my $done_btn = '';
+    if (in_array('Tasks', \@MODULES) && (!$admin->{MODULES} || $admin->{MODULES}{Tasks})) {
+      $del_button = $html->button('', "index=$tasks_index&del=$task->{id}&tab=3", {
+        ICON      => 'fa fa-trash text-red',
+        ex_params => "data-tooltip-position='top' data-tooltip='$lang{DELETE}' class='del-task-button'",
+        target    => '_blank'
+      });
+
+      $done_btn = $html->element('input', '', {
+        class          => 'mr-2',
+        type           => 'checkbox',
+        value          => '1',
+        name           => 'CLOSE_TASK',
+        'data-task'    => $task->{ID},
+        'data-tooltip' => $lang{CLOSE_TASK}
+      }) if !$task->{STATE};
+
+      $task->{STATE} = 2 if ($task->{STATE} && $task->{PLAN_DATE} && $task->{PLAN_DATE} ne '0000-00-00'
+        && $task->{CLOSED_DATE} && $task->{CLOSED_DATE} gt $task->{PLAN_DATE});
+
+      if ($task->{STATE} && $task->{CLOSED_DATE} && $task->{CLOSED_DATE} ne '0000-00-00') {
+        $task_responsible = $html->element('div', "$lang{RESPONSIBLE}: $task->{RESPONSIBLE_NAME}\n$lang{EXECUTED}: $task->{CLOSED_DATE}",
+          { class => 'text-left float-left' });
+      }
+    }
+
+    $timeline_items_by_day->{$day} .= $html->tpl_show(_include('crm_timeline_item', 'Crm'), {
+      MESSAGE => $task->{NAME} . ($task->{DESCR} ? "<br>(<i>$task->{DESCR}</i>)" : ''),
+      DATE    => $task->{CONTROL_DATE},
+      ICON    => 'fas fa-tasks ' . ($tasks_state_color->{$task->{STATE}} || 'bg-blue'),
+      HEADER  => $done_btn . $html->button($task->{TYPE_NAME},
+        "index=$tasks_index&show_task=$task->{ID}", { target => '_blank' }),
+      FOOTER  => $task_responsible . $del_button
+    }, { OUTPUT2RETURN => 1 });
+  }
+
+  return $timeline_items_by_day;
+}
+
+#**********************************************************
+=head2 crm_tasks_board()
+
+=cut
+#**********************************************************
+sub crm_tasks_board {
+
+  if ($FORM{HOURS}) {
+    crm_schedule_hours();
+    return 1;
+  }
+
+  my $date = $FORM{DATE} ? $FORM{DATE} : $DATE;
+  my ($year, $month, $day) = $date =~ /(\d{4})\-(\d{2})\-(\d{2})/;
+  my $date_interval = "$year-$month-01/$year-$month-" . days_in_month({ DATE => "$year-$month-1" });
+  my $actions = $Crm->progressbar_comment_list({
+    ACTION_ID    => '!',
+    ACTION       => '_SHOW',
+    LEAD_ID      => '_SHOW',
+    LEAD_FIO     => '_SHOW',
+    DEAL_ID      => '_SHOW',
+    PLANNED_DATE => $date_interval,
+    PRIORITY     => '_SHOW',
+    MESSAGE      => '_SHOW',
+    ADMIN        => '_SHOW',
+    AID          => $FORM{AID} || '_SHOW',
+    PAGE_ROWS    => 100,
+    COLS_NAME    => 1
+  });
+  my $free_actions = $Crm->progressbar_comment_list({
+    ACTION_ID    => '!',
+    ACTION       => '_SHOW',
+    LEAD_ID      => '_SHOW',
+    LEAD_FIO     => '_SHOW',
+    DEAL_ID      => '_SHOW',
+    PLANNED_DATE => '0000-00-00',
+    PRIORITY     => '_SHOW',
+    MESSAGE      => '_SHOW',
+    ADMIN        => '_SHOW',
+    AID          => $FORM{AID} || '_SHOW',
+    PAGE_ROWS    => 100,
+    COLS_NAME    => 1
+  });
+
+  my @tasks = ();
+  map push(@tasks, {
+    id          => $_->{id},
+    subject     => $_->{message} || $_->{action},
+    priority    => $_->{priority},
+    responsible => $_->{admin},
+    plan_date   => $_->{planned_date},
+    info_url    => $_->{lead_id} ? "?get_index=crm_lead_info&full=1&LEAD_ID=$_->{lead_id}" :
+      $_->{deal_id} ? "?get_index=crm_deal_info&full=1&DEAL_ID=$_->{deal_id}" : ''
+  }), (@{$actions}, @{$free_actions});
+
+  $Schedule_control->schedule_tasks_board(json_former(\@tasks), { %FORM, ID => 'CRM_ACTION_TASKS_BOARD' });
+  $html->tpl_show(_include('crm_actions_schedule', 'Crm'));
+}
+
+#**********************************************************
+=head2 crm_schedule_hours()
+
+=cut
+#**********************************************************
+sub crm_schedule_hours {
+
+  my $actions = $Crm->progressbar_comment_list({
+    ACTION_ID     => '!',
+    ACTION        => '_SHOW',
+    LEAD_ID       => '_SHOW',
+    DEAL_ID       => '_SHOW',
+    PLANNED_DATE  => $FORM{DATE} || 'NOW()',
+    PRIORITY      => '_SHOW',
+    PLAN_TIME     => '_SHOW',
+    PLAN_INTERVAL => '_SHOW',
+    PRIORITY      => '_SHOW',
+    MESSAGE       => '_SHOW',
+    ADMIN         => '_SHOW',
+    AID           => '_SHOW',
+    PAGE_ROWS     => 100,
+    COLS_NAME     => 1
+  });
+
+  my @tasks = ();
+  map push(@tasks, {
+    id            => $_->{id},
+    subject       => $_->{message} || $_->{action},
+    priority      => $_->{priority},
+    plan_date     => $_->{planned_date},
+    responsible   => $_->{aid},
+    plan_time     => $_->{plan_time},
+    plan_interval => $_->{plan_interval},
+    priority      => $_->{priority},
+    info_url      => $_->{lead_id} ? "?get_index=crm_lead_info&full=1&LEAD_ID=$_->{lead_id}":
+      $_->{deal_id} ? "?get_index=crm_deal_info&full=1&DEAL_ID=$_->{deal_id}" : ''
+  }), @{$actions};
+
+  my $tasks_json = json_former(\@tasks);
+  $tasks_json =~ s/[\n\r]+//g;
+
+  $Schedule_control->schedule_hours_tasks_board($tasks_json);
+
+  $html->tpl_show(_include('crm_actions_schedule', 'Crm'));
+
+  return 1;
+}
+
+1

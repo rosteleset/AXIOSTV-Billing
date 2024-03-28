@@ -1,0 +1,1 @@
+ALTER TABLE `storage_sn` ADD COLUMN `qrcode_hash` CHAR(32) NOT NULL DEFAULT '';

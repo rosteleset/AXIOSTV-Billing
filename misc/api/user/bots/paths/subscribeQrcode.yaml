@@ -1,0 +1,22 @@
+get:
+  tags:
+    - bots
+  summary: Получения QRCode на подписания на бота
+  parameters:
+    - name: bot
+      in: path
+      description: названия бота Viber или Telegram
+      required: true
+      schema:
+        type: string
+      example: Telegram
+  responses:
+    200:
+      description: |
+        #
+        ![Swagger logo](https://chart.apis.google.com/chart?cht=qr&chs=350x350&chld=L&choe=UTF-8&chl=https%3A%2F%2Ft.me%2Faxbills_user_bot%3Fstart%3Du_fB4xWXze5HgdSCu4)
+      content:
+        image/jpeg:
+          schema:
+            type: string
+            format: binary

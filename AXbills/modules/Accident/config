@@ -1,0 +1,47 @@
+our %FUNCTIONS_LIST = ();
+our %USER_FUNCTION_LIST = ();
+our AXbills::HTML $html;
+our ($db, $admin, %conf);
+use Accident;
+my $Accident = Accident->new($db, $admin, \%conf);
+
+$Accident->list({ STATUS => 0 });
+
+my $info = $html->badge($Accident->{TOTAL}, { TYPE => 'bg-red' });
+
+if ($Accident->{TOTAL} > 0) {
+  $FUNCTIONS_LIST{"01:0:$lang{ACCIDENT_LOG} $info:accident_log:"} = 8;
+}
+else {
+  $FUNCTIONS_LIST{"01:0:$lang{ACCIDENT_LOG}:accident_log:"} = 8;
+}
+
+if (in_array('Equipment', \@MODULES) && $conf{EQUIPMENT_LOG}) {
+  $Accident->accident_equipment_list({
+    STATUS => 0
+  });
+  $info = $html->badge($Accident->{TOTAL}, { TYPE => 'bg-red' });
+
+  if ($Accident->{TOTAL} > 0) {
+    $FUNCTIONS_LIST{"03:1:$lang{ACCIDENT_FOR_EQUIPMENT} $info:accident_equipment_log:"} = 8;
+  }
+  else {
+    $FUNCTIONS_LIST{"03:1:$lang{ACCIDENT_FOR_EQUIPMENT}:accident_equipment_log:"} = 8;
+  }
+}
+
+$FUNCTIONS_LIST{"04:1:$lang{COMPENSATION}:accident_compensation:"}  = 8;
+$FUNCTIONS_LIST{"05:0:$lang{ACCIDENT_LOG}:accident_user:"}          = 20;
+$FUNCTIONS_LIST{"06:0:$lang{ACCIDENTS}:accident_report:"}           = 4;
+
+%PERIODIC = (
+  daily   => [ 'accident_auto_close' ],
+);
+
+
+if ($conf{USER_ACCIDENT_LOG}){
+  $USER_FUNCTION_LIST{"01:0:$lang{PLANNED_EVENTS}:accident_user_planned_events:"} = 0;
+}
+
+
+1;

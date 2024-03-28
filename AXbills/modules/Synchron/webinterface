@@ -1,0 +1,171 @@
+#!perl
+
+=head1 NAME
+
+ Syncron with other system
+
+ Error ID:
+
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+use AXbills::Defs;
+
+our(
+  $html,
+  %lang
+);
+
+#*******************************************************************
+=head2 syncron_report()
+
+=cut
+#*******************************************************************
+sub syncron_report {
+
+  my $url      = $conf{SYNCHRON_ODOO_URL} || 'https://demo.odoo.com:8069/';
+  my $dbname   = $conf{SYNCHRON_ODOO_DBNAME} || 'demo';
+  my $username = $conf{SYNCHRON_ODOO_USERNAME} || 'admin';
+  my $password = $conf{SYNCHRON_ODOO_PASSWORD} || 'admin';
+
+  my $debug = 0;
+  use Synchron::Odoo;
+  my $Odoo = Synchron::Odoo->new({
+    LOGIN    => $username,
+    PASSWORD => $password,
+    URL      => $url,
+    DBNAME   => $dbname,
+    debug    => $debug,
+    CONF     => \%conf
+  });
+
+  my @header_arr = (
+    "$lang{USERS}:index=$index",
+    "$lang{FIELDS}:index=$index&FIELDS=1",
+  );
+
+  if ($Odoo->can('reports_list')) {
+    my $list =  $Odoo->reports_list();
+    foreach my $line (@$list) {
+      push @header_arr, "$line:index=$index&fn=$line";
+    }
+  }
+
+  print $html->table_header( \@header_arr, { TABS => 1 } );
+
+  my $user_list;
+
+  if($FORM{FIELDS}) {
+    my %sync_field = ();
+    if($conf{SYNC_ODOO_FIELDS}) {
+      my @sync_fields_info = split(/;/, $conf{SYNC_ODOO_FIELDS});
+      foreach my $line (@sync_fields_info) {
+        my($fld, $axbills_field)=split(/:/, $line);
+        $sync_field{$fld}=$axbills_field;
+      }
+    }
+    else {
+      %sync_field = %{ $Odoo->fields_info() };
+    }
+
+    $user_list = $Odoo->fields_list('res.partner');
+    my $table = $html->table({
+      width      => '100%',
+      caption    => "$lang{FIELDS}",
+      title      => [$lang{FIELDS},  'ABILLS', 'TYPE', 'STRING', 'HELP' ],
+      class      => 'table table-hover',
+      ID         => 'FIELDS'
+    });
+
+    my $i=0;
+    my $sync = 0 ;
+    foreach my $key (sort keys %$user_list) {
+      my $axbills_field = q{};
+      if ($sync_field{$key}) {
+        $axbills_field = $sync_field{$key};
+        $table->{rowcolor}='bg-success';
+        $sync++;
+      }
+      else {
+        $table->{rowcolor}=undef;
+      }
+
+      $table->addrow($key,
+        $axbills_field,
+        $user_list->{$key}->{type},
+        $user_list->{$key}->{string},
+        $user_list->{$key}->{help},
+      );
+
+      $i++;
+    }
+
+    print $table->show();
+
+    $table = $html->table(
+      {
+        width => '100%',
+        rows  => [ [ $lang{TOTAL}, $i ], [ "SYNC", $sync ] ]
+      }
+    );
+
+    print $table->show();
+    return 1;
+  }
+  elsif($FORM{fn} && $Odoo->can($FORM{fn})) {
+    my $fn = $FORM{fn};
+    $user_list = $Odoo->$fn();
+  }
+  else {
+    my $show_fields = ($FORM{show_columns}) ? lc($FORM{show_columns}) : 'name, country_id, comment, display_name';
+    $user_list = $Odoo->user_list({
+      FIELDS => $show_fields
+    });
+  }
+
+  my $ext_titles = {
+    id   => 'ID',
+    name => $lang{NAME}
+  };
+
+  if($Odoo->can('fields_info')) {
+    $ext_titles = $Odoo->fields_info();
+  }
+
+  result_former({
+    #FUNCTION_FIELDS => $Tv_service->{FUNCTION_FIELDS},
+    #          FUNCTION_FIELDS => "iptv_console:DEL:mac;serial_number:&list="
+    #            . ($FORM{list} || '') . "&del=1&COMMENTS=1"
+    #            . (($FORM{SERVICE_ID}) ? "&SERVICE_ID=$FORM{SERVICE_ID}" : ''),
+    #":$lang{DEL}:MAC:&del=1&COMMENTS=del",
+    SKIP_USER_TITLE => 1,
+    EXT_TITLES => $ext_titles,
+    TABLE   => {
+      width    => '100%',
+      caption  => 'Odoo',
+      #qs       => "&list=" . ($FORM{list} || ''). (($FORM{SERVICE_ID}) ? "&SERVICE_ID=$FORM{SERVICE_ID}" : ''),
+      EXPORT   => 1,
+      ID       => 'SYNCRON_REPORTS',
+      #header   => $Tv_service->{MENU}
+    },
+    FILTER_COLS   => {
+      account   => 'search_link:iptv_users_list:ID',
+    },
+    DATAHASH   => $user_list,
+    TOTAL      => 1
+  });
+
+#  if($FORM{DEBUG} && $user_list) {
+#    print '<pre>';
+#    print Dumper $user_list;
+#    print '</pre>';
+#  }
+#  #my $fields = $Odoo->fields_list('res.partner');
+#  #my $invoces = $Odoo->invoice_list();
+
+  return 1;
+}
+
+1
+

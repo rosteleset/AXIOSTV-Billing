@@ -1,0 +1,41 @@
+type: object
+properties:
+  comments:
+    type: string
+    example: Дуже класний тариф
+  dayFee:
+    type: number
+    example: 50
+  id:
+    type: number
+    example: 101
+  monthFee:
+    type: number
+    example: 50
+  name:
+    type: string
+    example: Тест 1
+  reductionFee:
+    type: number
+    example: 0
+  originalMonthFee:
+    type: number
+    example: 100
+  originalDayFee:
+    type: number
+    example: 0
+  tpFee:
+    type: number
+    example: 110
+  serviceId:
+    type: number
+    example: 5
+  tpId:
+    type: number
+    example: 15
+  tpAge:
+    type: number
+    example: 1
+  activatePrice:
+    type: number
+    example: 60

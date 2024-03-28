@@ -1,0 +1,43 @@
+type: array
+items:
+  type: object
+  properties:
+    id:
+      type: integer
+      example: 2
+    name:
+      type: string
+      example: Call everywhere
+    tpId:
+      type: integer
+      example: 41
+    monthFee:
+      type: integer
+      example: 250
+    dayFee:
+      type: integer
+      example: 0
+    originalMonthFee:
+      type: number
+      example: 300
+    originalDayFee:
+      type: number
+      example: 0
+    tpFee:
+      type: number
+      example: 310
+    comments:
+      type: string
+      example: Wow cool tariff
+    tpReductionFee:
+      type: string
+      example: 0
+    tpAge:
+      type: number
+      example: 1
+    activatePrice:
+      type: number
+      example: 60
+    popular:
+      type: number
+      example: 0

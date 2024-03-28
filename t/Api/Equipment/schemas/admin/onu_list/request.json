@@ -1,0 +1,6 @@
+{
+  "name": "ADMIN_EQUIPMENT_ONU_LIST",
+  "method": "GET",
+  "path": "equipment/onu/list/",
+  "params": {}
+}

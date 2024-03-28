@@ -1,0 +1,48 @@
+DGS1100SERMGMT-MIB    DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY             FROM SNMPv2-SMI
+        dlink-products,dlink-mgmt   FROM DLINK-ID-REC-MIB;
+
+
+    dlinkDGS1100SeriesProd    OBJECT IDENTIFIER ::= { dlink-products 170 }
+	 
+    dgs-1100-16V2           OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProd 1 }
+    dgs-1100-16V2-ax        OBJECT IDENTIFIER ::= { dgs-1100-16V2 1 }
+    dgs-1100-24V2           OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProd 2 }
+    dgs-1100-24V2-ax        OBJECT IDENTIFIER ::= { dgs-1100-24V2 1 }
+    dgs-1100-24PV2          OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProd 3 }
+    dgs-1100-24PV2-ax       OBJECT IDENTIFIER ::= { dgs-1100-24PV2 1 }	
+    dgs-1100-10MPV2         OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProd 4 }
+    dgs-1100-10MPV2-ax      OBJECT IDENTIFIER ::= { dgs-1100-10MPV2 1 }
+    dgs-1100-10MPPV2        OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProd 5 }
+    dgs-1100-10MPPV2-ax     OBJECT IDENTIFIER ::= { dgs-1100-10MPPV2 1 }
+    dgs-1100-26MPV2         OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProd 6 }
+    dgs-1100-26MPV2-ax      OBJECT IDENTIFIER ::= { dgs-1100-26MPV2 1 }
+    dgs-1100-26MPPV2        OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProd 7 }
+    dgs-1100-26MPPV2-ax     OBJECT IDENTIFIER ::= { dgs-1100-26MPPV2 1 }
+    dgs-1100-18PV2          OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProd 8 }
+    dgs-1100-18PV2-ax       OBJECT IDENTIFIER ::= { dgs-1100-18PV2 1 }	
+
+    dlinkDGS1100SeriesProj  OBJECT IDENTIFIER ::= { dlink-mgmt 170 }
+	
+    dlink-dgs-1100-16V2     OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProj 1 }
+    dlink-dgs-1100-16V2-ax  OBJECT IDENTIFIER ::= { dlink-dgs-1100-16V2 1 }
+    dlink-dgs-1100-24V2     OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProj 2 }
+    dlink-dgs-1100-24V2-ax  OBJECT IDENTIFIER ::= { dlink-dgs-1100-24V2 1 }
+    dlink-dgs-1100-24PV2    OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProj 3 }
+    dlink-dgs-1100-24PV2-ax OBJECT IDENTIFIER ::= { dlink-dgs-1100-24PV2 1 }
+    dlink-dgs-1100-10MPV2    OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProj 4 }
+    dlink-dgs-1100-10MPV2-ax OBJECT IDENTIFIER ::= { dlink-dgs-1100-10MPV2 1 }
+    dlink-dgs-1100-10MPPV2    OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProj 5 }
+    dlink-dgs-1100-10MPPV2-ax OBJECT IDENTIFIER ::= { dlink-dgs-1100-10MPPV2 1 }
+    dlink-dgs-1100-26MPV2    OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProj 6 }
+    dlink-dgs-1100-26MPV2-ax OBJECT IDENTIFIER ::= { dlink-dgs-1100-26MPV2 1 }
+    dlink-dgs-1100-26MPPV2    OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProj 7 }
+    dlink-dgs-1100-26MPPV2-ax OBJECT IDENTIFIER ::= { dlink-dgs-1100-26MPPV2 1 }
+    dlink-dgs-1100-18PV2    OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProj 8 }
+    dlink-dgs-1100-18PV2-ax OBJECT IDENTIFIER ::= { dlink-dgs-1100-18PV2 1 }
+    dlinkDGS1100CommonV2    OBJECT IDENTIFIER ::= { dlinkDGS1100SeriesProj 1000 }
+
+
+END

@@ -1,0 +1,1 @@
+../AXbills/modules/Multidoms/reseller.cgi

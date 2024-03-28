@@ -1,0 +1,5 @@
+type: object
+properties:
+  google:
+    type: string
+    example: ya29.A0AVA9y1s12FRL1mMwZTTq9PSX6fSSzzRINDtnnJf7Gdwf9c0URWEAu203MKj3sxHFW9x2pFd8IqHexGfkfhOe95sLgQk6g1u36lP4t5DXYH4U6yalrLaWHOEP-T3AnhgyNoWcLDqTk8W6neCFKoweuNuEjx_ehAYUNnWUtBVEFTQVRBU0ZRRTY1ZHI4WjIxdXFWYnAzZzNsYkdpQXVIUWw1Zw0165

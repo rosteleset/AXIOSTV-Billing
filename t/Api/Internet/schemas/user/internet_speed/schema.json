@@ -1,0 +1,57 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+
+  "required": [],
+  "properties": {
+    "uid": {
+      "$id": "#/properties/uid",
+      "type": "number"
+    },
+    "outSpeed": {
+      "$id": "#/properties/outSpeed",
+      "type": "number"
+    },
+    "speed": {
+      "$id": "#/properties/speed",
+      "type": "number"
+    },
+    "expression": {
+      "$id": "#/properties/expression",
+      "type": "string"
+    },
+    "inSpeed": {
+      "$id": "#/properties/inSpeed",
+      "type": "number"
+    },
+    "tpId": {
+      "$id": "#/properties/tpId",
+      "type": "number"
+    },
+    "tpNum": {
+      "$id": "#/properties/tpNum",
+      "type": "number"
+    },
+    "netId": {
+      "$id": "#/properties/netId",
+      "type": "number"
+    },
+    "netmask": {
+      "$id": "#/properties/netmask",
+      "type": "number"
+    },
+    "intervalId": {
+      "$id": "#/properties/intervalId",
+      "type": "number"
+    },
+    "ttId": {
+      "$id": "#/properties/ttId",
+      "type": "number"
+    },
+    "joinService": {
+      "$id": "#/properties/joinService",
+      "type": "number"
+    }
+  }
+}

@@ -1,0 +1,28 @@
+msgs_unreg_request.tpl:russian:Другое/Сообщения/Заявки подключения/Добавить
+msgs_dispatch.tpl:russian:Другое/Сообщения/Наряды робот/+
+msgs_template_add.tpl:russian:Настройка/Сообщения/Шаблоны
+msgs_managment.tpl:russian:Другое/Сообщения/Все/Показать/
+msgs_show.tpl:russian:Другое/Сообщения/Все/Показать/
+msgs_reply_show.tpl:russian:Другое/Сообщения/Все/Показать/Ответ
+msgs_request_show.tpl:russian:Другое/Сообщения/Заявки подключения/Показать
+msgs_add_user.tpl:russian:Другое/Сообщения/Заявки подключения/Добавить пользователя
+msgs_reply.tpl:russian:Другое/Сообщения/Все/Показать
+msgs_admin.tpl:russian:Настройка/Сообщения/Администраторы/Изменить
+msgs_request_search.tpl:russian:Настройка/Сообщения/Заявки подключения/Поиск
+msgs_survey_question.tpl:russian:Настройка/Сообщения/Опрос/Вопросы
+msgs_dispatch_blank.tpl:russian:Настройки/Сообщения/Наряд работ/Печать
+msgs_search.tpl:russian:Другое/Сообщения/Поиск
+msgs_client_show.tpl:russian:Форма отображения сообщений у абонента
+msgs_progressbar.tpl:russian:Форма показа прогрес бара
+msgs_client_reg_request.tpl:russian:Заявка на подключение
+msgs_registration.tpl:russian:Самостоятельная регистрация абонента
+msgs_pb.tpl:russian:Шкала выполнения работЗаведение этапов выполнения работ
+msgs_progressbar.tpl:russian:Шкала выполнения работ
+msgs_reg_complete.tpl:russian:Форма успешной регистрации
+msgs_reg_complete_mail.tpl:russian:Фотрма сообщения успешной регистрации
+msgs_ticket_form.tpl:russian:Форма тикета сообщения
+msgs_ticket_form.tpl:russian:Форма тикета сообщения
+msgs_dispatch_category.tpl:russian:Настройки/Сообщения/Категории нарядов работ
+msgs_quick_replys_types.tpl:russian:Настройки/Сообщения/Типы быстрых ответов
+msgs_quick_replys.tpl:russian:Настройки/Сообщения/Быстрые ответы
+msgs_quick_replys_tags.tpl:russian:Форма добавления тегов к сообщению

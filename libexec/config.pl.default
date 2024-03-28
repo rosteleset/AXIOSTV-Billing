@@ -1,0 +1,885 @@
+#!/usr/bin/perl -w
+# ACP configuretion file
+
+$PROGRAM='АСР AXIOSTV';
+
+#Брендирование мини лого 50x50 основное лого 220x50
+$conf{FULL_LOGO} = '/img/logo/logo_kazna.png';
+$conf{MINI_LOGO} = '/img/logo/logo-mini.png';
+
+#DB configuration
+$conf{dbhost}='localhost';
+$conf{dbname}='ktk';
+$conf{dbuser}='ktk';
+$conf{dbpasswd}='sqlpassword';
+$conf{dbtype}='mysql';
+#For MySQL 5 and highter (cp1251, utf8)
+$conf{dbcharset}='utf8';
+
+#Mail configuration
+$conf{ADMIN_MAIL}='mail@ACP.ru';
+$conf{USERS_MAIL_DOMAIN}='ACP.ru';
+$conf{MAIL_CHARSET}='utf-8';
+$conf{default_language}='russian';
+$conf{default_charset}='utf-8';
+$conf{WEB_TITLE}='Личный кабинет - АСР';
+$conf{WEB_TITLE_ADMIN}='Интерфейс администратора - АСР';
+
+our @MODULES = (
+  'Internet',
+  'Iptv',		# Модуль управления телевидением: кабельным, цифровым, ip
+  'Ureports',		# Модуль для оповещения пользователей о состоянии счёта и другим событиям
+  'Storage',		# Модуль складского учёта
+  'Accident',		# Модуль для ведения аварий
+  'Abon',		# Модуль периодических платежей
+#  'Docs',		# Модуль работы с бухгалтерскими документами
+  'Equipment',		# Модуль мониторинга и управления оборудованием (Ethernet, PON, WI-FI)
+  'Paysys',		# Модуль автоматического зачисления платежей через разные платёжные системы
+  'Sms',		# Модуль рассылки SMS
+  'Msgs',		# Модуль связи с оператором (HelpDesk)
+#  'Hotspot',		# Модуль хотспота
+  'Sorm',		# СОРМ
+  'Dom',		# Модуль для графического отображения дома
+  'Snmputils',		# Утилиты контроля по SNMP
+  'Events',		# Модуль сбора событий системы и отображения уведомлений
+#  'Tags',		# Модуль теггирования абонентов для более удобного группирования
+#  'Tasks',		# Модуль для создания внутренних задач и контроля за их выполнением
+#  'Sqlcmd',		# Модуль управления и анализа СУБД - ПОТЕНЦИАЛЬНО ОПАСНЫЙ!!!
+  'Sysinfo',		# Информация о системе
+#  'Triplay',		# Модуль объединения услуг (Internet/TV/Voip) в один пакет
+#  'Sharing',		# Модуль для скачивания лицензий антивируса и различных файлов
+#  'Info',		# Модуль глобальных комментариев
+#  'Extfin',		# Расширенный финансовый модуль для взаимодействия с внешними бухгалтерскими системами
+#  'Netlist',		# Модуль ведения IP адресов
+#  'Portal',		# Модуль ведения презентационной страницы провайдера с разными разделами и новостями
+#  'Multidoms',		# Модуль для создания независимых суббилингов (доменов) в главной системе и предоставление интерфейса реселлера
+#  'Employees',		# Модуль для ведения учета сотрудников
+#  'Config',		# Модуль визуальной настройки системы через веб интерфейс - ПОТЕНЦИАЛЬНО ОПАСНЫЙ!!!
+#  'Bonus',		# Модуль автоматического начисления вознаграждений
+#  'Referral',		# Модуль для реализации бонусной реферальной программы
+#  'Mail',		# Модуль управления почтовым сервером и почтовыми аккаунтами
+#  'Voip',		# Модуль работы с VoIP (GNU Gatekeeper, Asterisk, CDR)
+#  'Cams',		# Полукоммерческий, так и не понял что и как настраивать
+#  'Poll',		# Модуль для создания опросов
+#  'Rwizard',		# Модуль построения индивидуальных бухгалтерских отчётов  
+#  'GPS',		# Модуль логирования GPS положения сотрудников
+#  'Crm',		# Система управления взаимоотношениями с клиентами
+#  'Expert',		# Модуль реализации экспертной системы для операторов технической поддержки провайдеров
+#  'Notepad',		# Персональный блокнот администратора
+#  'Dunes',		# Модуль описания ошибок MS Windows
+#  'Maps',		# Новый модуль карт
+#  'Cablecat',		# Халява, но работает только с модулем Maps
+#  'Timetracker',	# Модуль учета времени.
+#  'Speedtest',		# Модуль проверки скорости из ЛК абонента
+#  'Confcontrol',	# Модуль отслеживания изменений файлов
+#  'Discounts',		# Модуль скидок для сторонних услуг, пока бесполезен
+#  'Ring',		# Модуль для обзвона абонентов
+#  'Economizer',		# Ведение расходов за коммуналку
+#  'Netblock',		# Модуль блокировки запрещенных ресурсов
+#  'Weather',		# Модуль погоды в админке
+#  'Cards',		# Карточки пополнения и загрузка абонентов. Работает, временно не нужен
+);
+
+our %ACCT = ();
+#For VoIP GNU Gatekeeper accounting
+$ACCT{gnugk} = 'Voip_aaa';
+#For Astrisk accounting
+$ACCT{asterisk} = 'Voip_aaa';
+
+#$AUTH{default} = 'Auth2';
+#$ACCT{default} = 'Acct2';
+$AUTH{default} = 'Auth2';
+$AUTH{mikrotik_dhcp}='Mac_auth2';
+$ACCT{mikrotik_dhcp}='Mac_auth2';
+$ACCT{default} = 'Acct2';
+#$AUTH{mikrotik_dhcp}='Mac_auth';
+$AUTH{dhcp}='Mac_auth2';
+
+$conf{CUSTOM_START_PAGE}=1;
+$conf{AUTH_METHOD}=1;
+
+#Periodic functions
+$conf{p_admin_mails}=1;  # Отправлять ежедневный и ежемесячный отчёт о работе пользователей администратору
+$conf{p_users_mails}=0;  # Оповещать пользователей о средствах на балансе. Лимит оповещения указывается в тарифном плане
+
+# chap encryption decription key
+$conf{secretkey}="test12345678901234567890";
+$conf{s_detalization}=1; #make session detalization recomended for vpn leathed lines
+$conf{ERROR2DB}=1;
+
+#Octets direction
+# server - Count octets from server side
+# user   - Count octets from user side (default)
+$conf{octets_direction}='user';
+
+#Check web interface brute force
+$conf{wi_bruteforce}=10;
+$conf{user_finance_menu}=1; 
+
+#Minimum session costs
+$conf{MINIMUM_SESSION_TIME}=5; # Минимальное время (в секундах) для отправки сессии в базу
+$conf{MINIMUM_SESSION_TRAF}=0; # Минимальный трафик (в байтах) для отправки сессии в базу
+
+#System admin id
+#ID for system operation, periodic procces
+$conf{SYSTEM_ADMIN_ID}=2;
+#ID For users web operations
+$conf{USERS_WEB_ADMIN_ID}=3;
+
+#System Langs
+$conf{LANGS}="english:English;
+ russian:Русский;";
+
+
+#Web interface
+$conf{PASSWD_LENGTH}=8;
+$conf{MAX_USERNAME_LENGTH}=8;
+$conf{PASSWD_SYMBOLS}="1234567890";
+
+# User name expration
+$conf{USERNAMEREGEXP}="^[a-z0-9_][a-z0-9_-]*\$";
+$conf{list_max_recs}=2000;
+$conf{web_session_timeout} = 86000;
+$conf{user_chg_passwd}=0;
+
+#Auto assigning MAC in first connect
+$conf{KBYTE_SIZE}      = 1;
+$conf{ADDRESS_REGISTER}= 1;
+
+# Debug mod 
+$conf{debug}=10;
+$conf{debugmods}='LOG_DEBUG LOG_NOTICE LOG_ALERT LOG_WARNING LOG_ERR LOG_INFO';
+
+#show auth and accounting time need Time::HiRes module (available from CPAN)
+# Check script runnig time
+$conf{time_check}=1;
+
+
+# --------------------------------------------------------------------------
+# -----========			Мои настройки			=======-----
+# --------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------
+# -----========			billd -all			=======-----
+# --------------------------------------------------------------------------
+$conf{BILLD_PLUGINS} = 'sorm,check_mem_freerad';	# Указываем плагины для запуска в billd -all через запятую
+
+# --------------------------------------------------------------------------
+# -----========			Общие настройки			=======-----
+# --------------------------------------------------------------------------
+$conf{API_ENABLE}=1;				# ОБЯЗАТЕЛЬНО ! Включаем API, включает нормальную работу с журналом адресов
+#$conf{MAIL_TEST}=1;				# Проверка sendmail
+$conf{MIKROTIK_QUEUES}=1;			# Старая модель шейпера для PPPoE (Simple QUEUES)
+$conf{INTERNET_EXTERNAL_SHAPPER}=1;
+#$conf{tech_works}='Технические работы на сервере, зайдите через 15 минут';		# Технические работы. Появляется оповещение в интерфейсе администратора и блокируется доступ пользователей к системе
+#$conf{TECH_WORKS}='На сервере производятся технические работы, пожалуйста зайдите через 15 минут';     # Баннер о техработах на сервере в ЛК абона
+$conf{hard_simultaneously_control}=1;		# Запрет дубликатов сессий
+$conf{PUBLIC_MODE}=0;				# Режим публичной демонстрации системы. Блокирует потенциально опасные действия.
+$conf{CONFIG_MANAGE}=1;				# Добавление новых параметров конфигурации
+$conf{ERROR_ALIVE_COUNT}=1;			# Количество периодов не пришедших Alive пакетов после которого сессия автоматом попадает в Zap таблицу
+$conf{SYSTEM_CURRENCY}=643;			# Валюта системы
+$conf{CURRENCY_ICON}='fas fa-ruble-sign';	# Валюта системы
+$conf{MSGS_CHAT}=0; 				# Включает Чат
+$conf{'NMAP_LOCATION'}="/usr/bin/nmap";		# Расположение nmap
+$conf{INTERNET_UP_SESSIONS}='DATE,DURATION_SEC,SENT,RECV,TP_ID,IP,SUM';
+$conf{HELP_EDIT}=1; 				# Разрешить администратору правку системы помощи
+$conf{CLIENT_INTERFACE_URL} = 'https://stat.acp.ru/';
+$conf{SYSINFO_FREERADIUS_NAME} = '/etc/init.d/radiusd';
+$conf{SYSINFO_FLOW_CAPTURE_NAME} = '/usr/bin/flow-capture';
+$conf{SYSINFO_ALLOW_APACHE_RESTART} = 0; 	# Разрешить рестарт апача
+$conf{NOTEPAD_BIRTHDAY_GREETINGS_TEXT}="Уважаемый абонент! Наша компания поздравляет Вас с Днем Рождения! Спасибо что вы с нами!";
+$conf{GET_IP2}=1;				# Улучшенный вариант выдачи IP адресов
+$conf{PASSWD_POLICY_USERS}=1;			# Учитывать пароль в соответствии с заданным в генераторе политикам сложности
+$conf{AUTOSIZE_JS}=1;				# Подгружать скрипт авторесайза полей textarea (https://www.jacklmoore.com/autosize/)
+#$conf{DEBETORS_GROUP}='2:-300:-500:93::';	# Перенос должников в другую группу
+$conf{DEFAULT_LIVE_SEARCH_TYPE} = '10'; 	# Задаёт тип быстрого поиска (в верхней панели) по умолчанию (1-Пользователи, 2-Оплаты, 3-Списания, 10-Универсальный
+$conf{IPV6}=1;					# Работа с пулами IPv6
+$conf{INTERNET_LOGIN}=1;			# Дополнительный логин сервиса
+$conf{INTERNET_PASSWORD}=1;			# Дополнительный пароль сервиса
+$conf{USER_DELETE_USE_SUFFIX} = 0;		# Добавить суффикс к удалённому абоненту
+$conf{USER_DELETE_USE_SUFFIX_VALUE} = 'del';	# Что именно добавить
+$conf{USER_DELETE_USE_SUFFIX_DATE} = 1;		# Добавить дату
+$conf{INTERNET_FINE_LIMIT} = -500;		# Лимит денег для пени
+$conf{ISP_EXPRESSION} = 1;			# Панель быстрых кнопок
+$conf{TWO_CONFIRMATION} = 0;			# Активирует систему проверки второго параметра, то есть вам надо будет ввести не только комментарий при удалении но еще и слово "Удалить" 
+$conf{CELL_PHONE_FORMAT}='^\+7\d{10}$';		# Формат номера мобильного телефона
+$conf{PHONE_FORMAT}='^\+7\d{10}$';		# Формат номера обычного телефона
+
+# IPoE ###############
+#$conf{AUTH_PARAMS}=1;				# Авторизация по совокупности заполненных параметров USER_MAC,PORT,VLAN,NAS_ID 
+$conf{IPN_DHCP_ACTIVE}=1;			# Включать сервис для всех IP адресов прописанных в IP (DHCP) секции абонента.
+$conf{NAS_PORT_AUTH}=1;				# Авторизовать абонента с учётом его порта подключения (SWITCH,PORT). Мак адрес не учитывается. Система следит чтобы на порту было не больше 1 авторизированного абонента
+$conf{NAS_SECOND_MAC_AUTH}=1;			# Данная опция расширяет параметр $conf{NAS_PORT_AUTH}=1; Если не находится абонента по порту и комутатору система повторно ищет подходящего абонента по MAC адресу.
+$conf{INTERNET_IPOE_NEGATIVE}=1;		# Включение негативного пула
+$conf{DHCPHOSTS_LEASES}='db';			# Включение в мониторинга leases сессий
+$conf{INTERNET_MAC_DICOVERY}=1;			# Включение ручной регистрации MAC адреса
+#$conf{INTERNET_IP_DISCOVERY_IP}='45598673:172.31.252.122';	# Опция, которая эмулирует на абоненте нужный IP адрес. IP подменяется только указанному в опции абоненту
+#$conf{INTERNET_GUEST_STATIC_IP}=1;		# Выдача статического гостевого IP абонента (IPoE)
+#$conf{INTERNET_STATUS_NEG_DEPOSIT}=1;		# Выдавать гостевой IP  для абонентов заблокированных по статусу услуги.
+$conf{INTERNET_IPOE_FILTER}='if [ "%FILTER_ID" != "" ] ; then CMD="/usr/axbills/libexec/linkupdown mikrotik guest - %LOGIN %IP NAS_HOST=${NAS_MNG_IP_PORT} NAS_MNG_USER=${NAS_MNG_USER}"; eval "${CMD}" >> /tmp/ipoe; fi;';
+
+$conf{INTERNET_GUEST_POOLS}='0:10:Mikrotik-Address-List=negative;Session-Timeout=60';		# Длительность негатива перед запросом
+#$conf{INTERNET_IP_DISCOVERY}='0:172.31.252.0/22:MAC';	# При включении - меняется страница в ЛК по умолчанию
+#######################
+
+#$conf{USERNAME_CREATE_FN}='login_create'; 	# Функция создания уникальных случайных логинов в системе по формуле UID + суфикс (кретинизм, но другого варианта автосоздания нет
+$conf{USERPORTAL_MULTI_SESSIONS}=1;		# Возможность одновременного множественного подключения к кабинету абонента.
+$conf{COOKIE_URL_DOC} = 'https://acp.ru/privacy-policy/';			# Ссылка на документ о использование персданных и Cookie файлов
+$conf{COOKIE_POLICY_VISIBLE} = 1;		# Включения баннера для уведомления о использование персданных и кукисов
+
+# Вход по номеру телефона
+$conf{AUTH_BY_PHONE}=1;				# Включить вход по номеру телефона для пользователя.
+$conf{PHONE_NUMBER_PATTERN }='+xxxxxxxxxxx';	# Шаблон для ввода номера телефона (Прим. '+380 (xx) xxx-xx-xx', '0 97 xxx-xx-xx')
+$conf{AUTH_BY_PHONE_PIN_INTERVAL}='10';		# Время (в минутах) действия отправленного PIN-кода (по умолчанию 5).
+$ENV{SENDMAIL_SAVE_ATTACH}=1;			# Сохранение отправляемых аттачментов почты в каталоге /tmp
+
+# --------------------------------------------------------------------------
+# -----=======			Журнал адресов			=======-----
+# --------------------------------------------------------------------------
+$conf{ADDRESS_REGISTER}=1;			# Включаем расширенный функционал
+$conf{NON_PRIVILEGES_LOCATION_OPERATION}=0;	# Работы с журналом адресов переносятся из раздела Настройка в раздел Обслуживание
+$conf{ADDRESS_FULL_SHOW_DISTRICT}=1;		# Отображение район в колонке "Полный адрес".Возможность искать по району с помощью универсального поиска.
+$conf{BUILD_DELIMITER} = ', ';			# Разделитель при отображении адреса (вставляется между улицей и домом, между домом и квартирой, ...). Значение по умолчанию - ', '.
+$conf{ADDRESS_DISTRICT_ONE_LINE}=1;		# Отображение списков округов в одном выпадающем списке
+$conf{ADMIN_NEW_ADDRESS_FORM} = 1;		# Адрес проживания администратора, новая форма
+$conf{REG_CHECK_ADDRESS_FLAT} = 1;		# Проверка адреса на дубликат
+$conf{ADDRESS_FORMAT}="%ADDRESS_DISTRICT%: ул. %ADDRESS_STREET%, д. %ADDRESS_BUILD% кв. %ADDRESS_FLAT%";	# Формат адреса абонента
+
+
+# --------------------------------------------------------------------------
+# -----=======			Списания			=======-----
+# --------------------------------------------------------------------------
+$conf{FIXED_FEES_DAY}=1;			# Фиксирования дата абон. платы. При включении данной опции модули системы будут снимать абон. плату всегда фиксированного числа месяца. Дата первой абон. платы указывается в поле «Активация» и после каждого снятия абон. платы переносится на 1 месяц вперёд.
+$conf{INTERNET_PAY_ACTIVATE}=1;			# Изменение даты активации (если дата активации клиента выставлена). 
+$conf{INTERNET_USER_ACTIVATE_DATE}=1;		# Установка даты активации при первом подключении абонента со статусом «Не активировано». Абонент подключается, статус меняется на Активно и устанавливается текущая дата активации.
+$conf{payment_chg_activate}=0;                  # Изменение даты активизации на текущую при внесении денег
+
+# --------------------------------------------------------------------------
+# -----=======			Смена Тарифных планов		=======-----
+# --------------------------------------------------------------------------
+$conf{INTERNET_USER_CHG_TP}=1;			# Включение возможности смены тарифного плана в пользовательском портале
+$conf{INTERNET_USER_CHG_TP_NOW}=1; 		# Моментальная смена тарифа со снятием абонплаты
+$conf{INTERNET_USER_CHG_TP_SHEDULE}=1;		# Включить возможность задавать расписания изменения тарифного плана для пользователя. 
+#$conf{INTERNET_USER_CHG_TP_NPERIOD}=1;
+#$conf{INTERNET_USER_CHG_TP_NEXT_MONTH}=1;	# Разрешить смену тарифного плана раз в месяц
+$conf{INTERNET_USER_CHG_TP_SMALL_DEPOSIT}=1;	# Разрешать устанавливать расписание на изменение тарифного плана даже при недостаточном депозите
+$conf{INTERNET_SKIP_CHG_TPS}='13,14,15,16'; 	# номер в биллинге именно "Номер". Не показывать тарифные планы в меню изменения тарифного плана личного кабинета
+$conf{INTERNET_SKIP_CHG_TPS_DISC}=1;		# скрывать тарифы Интернет c меньшим приоритетом в ЛК, если у абонента есть скидка
+$conf{IPTV_SKIP_CHG_TPS}='131,98,97,96,94,95,87,88,93,89,90,88,91,92';			# Скрыть тарифы IPTV из кабинета абонента, прописывать TP_ID, если что 757 строка Iptv/Users_portal.pm должна быть next if (in_array($tp->{tp_id}, \@skip_tp_changes));
+$conf{IPTV_SKIP_CHG_TPS_DISC}=1;		# скрывать тарифы ТВ c меньшим приоритетом в ЛК, если у абонента есть скидка
+$conf{DV_RATING_SYSTEM}=1;			# Включить возможность ведения рейтинга
+$conf{DV_TP_MULTISHEDULE}=1;			# Разрешить в административном интерфейсе несколько расписаний по изменению тарифного плана
+
+# --------------------------------------------------------------------------
+# -----========			TFTP Сервер			=======-----
+# --------------------------------------------------------------------------
+$conf{TFTP_ROOT} = '/srv/tftp';			# Корень TFTP сервера. Все конфигурации складываются в эту папку
+$conf{TFTP_SERVER_IP} = '100.100.100.254';	# IP адрес TFTP сервера
+
+# --------------------------------------------------------------------------
+# -----========		Формат отображения денег после запятой	=======-----
+# --------------------------------------------------------------------------
+$conf{DEPOSIT_FORMAT}='%.2f';			# Формат депозита
+
+# --------------------------------------------------------------------------
+# -----========		Статистика навигации абонентов		=======-----
+# --------------------------------------------------------------------------
+$conf{USER_FN_LOG}='/usr/axbills/var/log/user_fn.log';
+
+# --------------------------------------------------------------------------
+# -----========		PUSH сервер (оповещения в браузере)	=======-----
+# --------------------------------------------------------------------------
+$conf{PUSH_ENABLED}=0;
+$conf{PUSH_USER_PORTAL}=0;
+$conf{FIREBASE_VAPID_KEY}="vapid_key";
+$conf{FIREBASE_SERVER_KEY}="server_key";
+$conf{FIREBASE_CONFIG}={
+ apiKey			=> "api_key",
+ authDomain		=> "acp-ru.firebaseapp.com",
+ projectId		=> "acp.ru",
+ storageBucket		=> "acp-ru.appspot.com",
+ messagingSenderId	=> "1234567890",
+ appId			=> "1:0987654321:1234567890",
+ measurementId		=> "G-ACPPCAACP"
+};
+
+
+
+
+# --------------------------------------------------------------------------
+# -----========			Telegram			=======-----
+# --------------------------------------------------------------------------
+#$conf{TELEGRAM_LOAD_EXTENSIONS}="User_interface";
+$conf{CONTACTS_NEW}=1;
+$conf{TELEGRAM_TOKEN}='your_roken';	# Обязательный параметр
+$conf{TELEGRAM_BOT_NAME}='ACP_bot';				# Обязательно, одинаково с именем бота
+$conf{TELEGRAM_SUPPORT_PHONE}='ACP.ru|+71234567890';		# Подпись и номер телефона разделяются знаком ' | ' а каждый следующий номер знаком ' ; '
+$conf{TELEGRAM_LANG}='russian';					# Локализация бота. Допустимы три значения (english, russian, ukrainian).
+$conf{TELEGRAM_SITE}='https://acr.ru';				# Ссылка на сайт провайдера.
+#$conf{TELEGRAM_CHANEL}							# Ссылка на произвольный телеграм канал.
+#$conf{TELEGRAM_LINK_URL}						# Подпись и url разделяются знаком ' | ' а каждый следующий url знаком ' ; ' 
+$conf{TELEGRAM_MSGS_BOT_ENABLE}=0;					# Позволяет пользователю отвечать на сообщения тех. поддержки.
+$conf{BILLING_URL}='https://stat.acp.ru/';
+$conf{TELEGRAM_DEBUG}=3;
+$conf{TELEGRAM_DEBUG_FILE}='/var/log/telegram.log';
+$conf{TELEGRAM_API_REQUEST_INTERVAL}=1;
+$conf{TELEGRAM_API_DEBUG}=3;
+$conf{TELEGRAM_API_DEBUG_FILE}='/var/log/telegram.log';
+$conf{MSGS_MESSAGING_DEBUG_FILE}='/var/log/telegram_msgs.log';
+
+# --------------------------------------------------------------------------
+# -----========			Websocket			=======-----
+# --------------------------------------------------------------------------
+$conf{WEBSOCKET_ENABLED}=1;
+$conf{WEBSOCKET_URL}='https://127.0.0.1:19443/admin/wss';
+
+# --------------------------------------------------------------------------
+# -----========			Работа с радиусом и брасами	=======-----
+# --------------------------------------------------------------------------
+#$conf{SHAPER_RESTART_CMD}='/usr/axbills/libexec/billd checkspeed mikrotik RECONFIGURE=1 SINGLE_THREAD=1 NAT=1 NO errors'; 
+$conf{USER_ALL_SERVICES}=1;			# Отобразить все модули учётной записи в интерфейсе администратора
+$conf{RESTART_RADIUS}='/bin/systemctl restart radiusd.service';
+$conf{CHART_ANIMATION} = 1;			# Анимировать графики в веб интерфейсе
+$conf{INTERNET_SKIP_SESSION_RESTART}=1; 	# Не делать ежемесячный рестарт сессий
+
+# --------------------------------------------------------------------------
+# -----====================== Платежные системы =======================-----
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# -----========			Общие настройки			=======-----
+# --------------------------------------------------------------------------
+$conf{PAYSYS_NEW_SCHEME}=1;			# Новая схема модулей
+$conf{PAYSYS_NEW_SETTINGS}=1;			# Новая схема настроек
+$conf{PAYSYS_EMAIL_NOTICE}=1;
+$conf{PAYSYS_IPS}='0.0.0.0/0';
+$conf{PAYSYS_PAYMENTS_METHODS}='127:Сбербанк;135:Яндекс;47:USMP;59:QIWI;99:НКО';
+$conf{PAYSYS_DEBUG}=1;
+$conf{PAYSYS_INTERACT_PARAMS}='FIO,ADDRESS_FULL';
+$conf{PAYSYS_EXCHANGE_RATES}=0;			# Меню для просмотра курса обмена валют
+$conf{PAYSYS_ADD_TO_RECOMMENDED_SUMM}='10';	# Значение суммы, которое будет добавляться к рекомендуемой сумме оплаты
+$conf{PAYSYS_MIN_SUM}=200; 			# Минимальная сумма оплаты через ЛК
+$conf{PAYSYS_MAX_SUM}=1700;			# Максимальная сумма оплаты через ЛК
+$conf{PAYMENT_METHOD_NEW}=1;			# Включение работы модуля с меню Настройки>Другое>Вид оплаты.
+$conf{PAYMENT_HIDE_USER_MENU}=0;		# После включения данной опции, все меню модуля не будут показываться абоненту в кабинете пользователя.
+$conf{PAYSYS_GATEWAY_IDENTIFIER}='LOGIN';	# Параметр по которому проверяется абонент из бота, по умолчанию UID
+
+# --------------------------------------------------------------------------
+# -----========			Банковские выписки		=======-----
+# --------------------------------------------------------------------------
+$conf{PAYSYS_IMPORT_RULES}='Сбербанк';
+$conf{PAYSYS_IMPORT_BINDING_0} = 'LOGIN';
+$conf{PAYSYS_IMPORT_EXPRATION_0}='^(\d+)\^(\d+)\^([a-z0-9\.\-\_]+)\^(.{0,90})\^(.{0,60})\^([0-9\.]{0,20})\^([0-9\.]+)\^([0-9\.]{0,20})\^(\d+)\^\^(\d+)\^(\d+)\^(\d+)\^([a-zA-Z0-9\_\-\.]+)\^([a-zA-Z\_\-\.]+)\^(.{0,1000})\^(\d+)\^:NUM,SERVICE_ID,LOGIN,FIO,ADDRESS,PAYMENT_PERIOD,SUM,VAT_FEES,DATE,UNDEF,FORM_DATE,PAYSYS_EXT_ID,NUM_AGENT,TERMINAL_ID,AUTH,COMMENTS';
+
+# --------------------------------------------------------------------------
+# -----======== 	Отображение пункта платежа на карте	=======-----
+# --------------------------------------------------------------------------
+$conf{PAYSYS_TERMINALS_ADD}='0';
+
+# --------------------------------------------------------------------------
+# -----========			QIWI Терминал (OSMP)		=======-----
+# --------------------------------------------------------------------------
+#$conf{PAYSYS_QIWI_TERMINAL_ID}='12332';
+#$conf{PAYSYS_QIWI_PASSWD}='xxc33322';
+
+# --------------------------------------------------------------------------
+# -----================		ЕРИП - Беларусь		==============-------
+# --------------------------------------------------------------------------
+$conf{MAIL_CHARSET_ERIPT}='cp1251';		# кодировка для сообщений ЕРИП (рекомендлуется cp1251)
+$conf{SYSTEM_CURRENCY}='933';			# валюта для модуля QR ЕРИП
+$conf{PAYSYS_ERIPT_PROVIDER_SELLER_ID}='';	# номер оператора в базе ERIP
+$conf{PAYSYS_ERIPT_PROVIDER_SELLER_NAME}= '';	# короткое имя оператора (латиница) 
+
+# --------------------------------------------------------------------------
+# -----================== Окончание платёжных систем ================-------
+# --------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------
+# -----========			Работа с документами		=======-----
+# --------------------------------------------------------------------------
+$conf{DOCS_PDF_PRINT}=1;                        # Вывод печатных документов в формате PDF
+$conf{DOCS_ORDERS}=['Интернет', 'Телевидение', 'Тех. поддержка', 'Дополнительные услуги']; # Виды товаров для счёта
+$conf{DOCS_SKIP_NEXT_PERIOD_INVOICE}=0; 	# Не отображать в пользовательском интерфейсе форму выписки счета на следующий учётный период
+$conf{DOCS_PAYMENT_SYSTEM_CURRENCY}=1;		# При оплате заполнять поля оплаты системной валютой
+$conf{DOCS_PRE_INVOICE_PERIOD}=10;		# Количество дней до начала учётного периода для генерации счетов.
+$conf{PAYMENTS_NOT_CREATE_INVOICE}=1;           # Не создавать счет при оплате, выбор только из списка счетов
+$conf{DOCS_PAYMENT_SENDMAIL}=1;                 # Отправлять созданные после оплаты документы почтой: счет и квитанцию
+$conf{DOCS_INVOICE_TERMO_PRINTER}=0;            # Кнопка Печать чека для термо-принтера
+$conf{MONEY_UNIT_NAMES}='руб.;коп.';		# Название денежной единицы=[большая часть, меньшая часть]
+$conf{DOCS_PAYMENT_METHODS}='0:Оплата через банк';	# Описание типов платежей для бухгалтерских документов. 
+#$conf{DOCS_ACCOUNT_EXPIRE_DAY}=5;		# Дата действия счета. Имеет более высокий приоритет чем $conf{DOCS_ACCOUNT_EXPIRE_PERIOD}
+
+# Счета
+
+$conf{DOCS_SKIP_USER_MENU}=0;                   # Не отображать меню документов в портале абонента
+$conf{DOCS_INVOICE_ALT_TPL}=0;			# Включить возможность вести 2 шаблона счетов. Основной и дополнительный
+$conf{DOCS_INVOICE_ORDERS}=24; 			# Количество позиций в счете. По умолчанию 12
+$conf{DOCS_ACCOUNT_EXPIRE_PERIOD}=30;           # Время действительности счета. По умолчанию 30 дней
+
+# Акты
+
+$conf{DOCS_ACTS_LAST_DATE}=1;			# Создание актов последним числом месяца
+$conf{DOCS_USERPORTAL_ACT}=0; 			# Отображение актов в кабинете абонента
+$conf{DOCS_ACCOUNT_EXPIRE_PERIOD_MULTIPLIER}=12;	# Множитель для удаления неоплаченных счетов. Если Время действительности счета кончилось и он не оплачен. Счет будет удален через («Дата действия счета» * «Множитель»). Пример: DOCS_ACCOUNT_EXPIRE_DAY(DOCS_ACCOUNT_EXPIRE_PERIOD)=30; DOCS_ACCOUNT_EXPIRE_PERIOD_MULTIPLIER=3; 30 * 3 = 90 дней
+$conf{DEPOSIT_CHECK_LIMIT}=1;			# Сверка депозитов - функция позволяющая сверить приход и расход абонентов и сообщить о расхождении.
+
+# Квитанции
+
+$conf{DOCS_PAYMENT_RECEIPT_SKIP}=1;             # Не создавать квитанцию после оплаты
+$conf{DOCS_USERPORTAL_INVOICE}=0;               # Список квитанций в портале абонентов
+
+# --------------------------------------------------------------------------
+# -----========		SMSCentr (настройки авторизации)	=======-----
+# --------------------------------------------------------------------------
+#$conf{SMS_SMSC_USER}='username';		# Логин
+#$conf{SMS_SMSC_PASSWORD}='password';		# Пароль
+#$conf{SMS_SMSC_TEST_MODE}=0;			# Режим тестирования вкл/выкл
+#$conf{SMS_CALLBACK_LANGUAGE}='russian'; 	# SMS Callback
+#$conf{SMS_CMD} = '/usr/bin/gammu sendsms TEXT %NUMBER% -unicode -report -text %MESSAGE%';
+
+# --------------------------------------------------------------------------
+# -----========		Настройки SMS (формат номера, транслит)	=======-----
+# --------------------------------------------------------------------------
+$conf{SMS_NUMBER}='[0-9]{11}';			# Проверка правильности номера отправки. Формат номера по умолчанию [0-9]{12} 
+$conf{SMS_SEND_ALL} = 1; 			# Отсылать на все номера абонента
+#$conf{SMS_CONTACT_ID} = 2; 			# Отсылать по новой схеме (не работает с массовой рассылкой)
+$conf{SMS_DEBUG}=0;				# Глобальный режим отладки для всех систем
+$conf{SMS_TRANSLIT}=0;				# Транслитерировать отправляемые сообщения
+$conf{SMS_REG_GREETING}=0;			# Меню с отправкой СМС о регистрации
+#$conf{USER_LIMIT_SMS} = 20;			# Лимит смс для пользователя
+
+# --------------------------------------------------------------------------
+# -----========		Оповещение пользователей - Ureports	=======-----
+# --------------------------------------------------------------------------
+$conf{UREPORTS_ROUNDING}=1; 			# Округление рекомендуемой суммы оплаты к целым числам, округление всегда происходит в большую сторону
+$conf{UREPORTS_ALLOWED_TYPES} = 'Sms,Viber_bot,Telegram,Mail'; # Список доступных типов оповещений для модуля.
+$conf{UREPORTS_SKIP_ACTIVATE_SMS}=1; 		# Не отправлять SMS при активации и изменении данных услуги.
+$conf{INTERNET_USER_WARNING_SMS}=1;		# Небходимо для отсылки оповещений о недостаточности баланса
+$conf{UREPORTS_PAYMENT_METHOD}='1,9,11,12,127,135';		# Оповещать только о платежах определенного типа
+$conf{UREPORTS_CREDIT_NOTIFICATION}=1;		# Не отправлять 12 отчёт, когда абонент взял кредит
+
+# --------------------------------------------------------------------------
+# -----========		Сбор траффика, статистика, графики	=======-----
+# --------------------------------------------------------------------------
+$conf{IPN_DETAIL}=1;				# Вести детальную статистику. на сервере где traffic2sql работает
+$conf{INTERNET_TRAFFIC_DETAIL}=1;
+$conf{INTERNET_DETAIL_MIN_SIZE}=1;		# Задаёт минимальный размер пакета который будет попадать в детализацию. Данная опция предохраняет от замусоривания
+$conf{IPN_DETAIL_MIN_SIZE}=1;
+$conf{IPN_DAILY_LOG_ROTATE}=1;			# Ротация детализации и логов статистики каждый день. При включённой опции не работает подсёчет предоплаченного трафика
+$conf{IPN_USERMENU}=1;				# Включить в пользовательском интерфейсе меню открытия доступа
+$conf{IPN_DETAIL_CLEAN_PERIOD}=91;		# Чистить лог детализации каждых xx дней
+$conf{INTERNET_DETAIL_CLEAN_PERIOD}=91;
+$conf{IPN_LOG_KEEP_PERIOD}=1;			# Время сохранение несгрупированной  детализации. Указываются месяцы
+$conf{IPN_TCOLLECTOR}=1;			# Включение коллектора
+$conf{rt_billing}=1;				# Информация по временной нагрузке.
+$conf{CHARTS_SKIP_IPN} = 1; 			# Пропустить получение данных из таблицы ipn_log 
+$conf{CHARTS_LONG_PAUSE} = 1; 			# Учитывать трафик с интервалом больше 5 минут. 
+$conf{IPN_CLUBMONITOR}=1;			# Включить клуб монитор. Упрощённый интерфейс мониторинга активных сессий и меню создания карточек доступа
+$conf{INTERNET_TRAFFIC_DETAIL}=1;		# Вести детальную статистику на сервере где traffic2sql работает
+$conf{INTERNET_FT_DIR} = '/usr/axbills/var/log/ipn';
+$conf{INTERNET_UNKNOWN_IP_LOG}=1;		# Включить учёт адресов, не относящихся к активным пользователям
+$conf{UNKNOWN_IP_LOG}=1;			# Включить учёт адресов, не относящихся к активным пользователям
+$conf{CHARTS_DEFAULT_USER_STATISTIC}='day'; 	# Период по-умолчанию. day/week/month
+$conf{INTERNET_EXTERNAL_DIAGNOSTIC}='ARPPING:/usr/axbills/AXbills/modules/Internet/arping.pl ACCT_SESSION_ID=%ACCT_SESSION_ID% EXTENDED=1'; # ARPPING
+$conf{CHARTS_RRD} = 0; 				# Кешировать рассчитаную скорость в RRD файлы
+$conf{INTERNET_SKIP_SESSION_RESTART}=1;		# Не делать ежемесячный рестарт сессий
+#$conf{EQUIPMENT_PORT_INFO_FIELDS} = 'PORT_STATUS,ADMIN_PORT_STATUS,PORT_IN,PORT_OUT,PORT_IN_ERR,PORT_OUT_ERR,PORT_IN_DISCARDS,PORT_OUT_DISCARDS,PORT_UPTIME,CABLE_TESTER';
+#$conf{EQUIPMENT_ONU_INFO_FIELDS} = 'CATV_PORTS_ADMIN_STATUS,CATV_PORTS_COUNT,CATV_PORTS_STATUS,CVLAN,DISTANCE,EQUIPMENT_ID,ETH_ADMIN_STATE,ETH_DUPLEX,ETH_SPEED,FIRMWARE,HARD_VERSION,LINE_PROFILE,LLID,MAC_BEHIND_ONU,MODEL,OLT_RX_POWER,ONU_DESC,ONU_IN_BYTE,ONU_LAST_DOWN_CAUSE,ONU_MAC_SERIAL,ONU_NAME,ONU_OUT_BYTE,ONU_PORTS_STATUS,ONU_RX_POWER,ONU_STATUS,ONU_TX_POWER,ONU_TYPE,RF_PORT_ON,SOFT_VERSION,SRV_PROFILE,SVLAN,TEMPERATURE,UPTIME,VENDOR,VENDOR_ID,VERSION_ID,VIDEO_RX_POWER,VOLTAGE';
+#$conf{EQUIPMENT_SW_INFO_FIELDS}='
+#  DESCRIBE:.1.3.6.1.2.1.1.1.0;
+#  SYSTEM_ID:.1.3.6.1.2.1.1.5.0;
+#  UPTIME:.1.3.6.1.2.1.1.3.0;
+#';
+
+# --------------------------------------------------------------------------
+# -----========				SNMP			=======-----
+# --------------------------------------------------------------------------
+$conf{SNMPUTILS_SAVE_CONF}=1; 			# Сохранение параметров конфигурации после применения привязок MAC к портам 
+$conf{SNMPUTILS_CHANGE_PORT_STATE}=0;		# Разрешить выключать порт
+$conf{SNMPUTILS_CHANGE_VLAN}=0;			# Разрешить менять vlan
+
+# --------------------------------------------------------------------------
+# -----========				Hotspot			=======-----
+# --------------------------------------------------------------------------
+### - Общие настройки
+$conf{HOTSPOT_LOG} = '/usr/axbills/var/log/hotspot_log';	# Отдельный лог для событий связанных с хотспотом (авторизация, регистрация, ошибки)
+$conf{HOTSPOT_REDIRECT_URL} = 'https://acp.ru';		# Страница, на которую будет перенаправлен пользователь после подключения
+#$conf{HOTSPOT_MAC_LOGIN} = 1;				# Разрешить авторизацию пользователей по MAC адресу клиента
+#$conf{HOTSPOT_CHECK_PHONE} = 1;				# Обязательная проверка телефона. Система отправляет смс с пин-кодом на указанный номер
+#$conf{HOTSPOT_AUTH_NUMBER} = '+XXXXXXXXXXX';		# Номер телефона, на который нужно перезвонить пользователю для авторизации
+#$conf{HOTSPOT_SN_LOGIN} = 'Facebook';			# Разрешить авторизацию пользователей через Фейсбук.
+#$conf{HOTSPOT_BUY_CARDS} = 1;				# Разрешить регистрацию только после оплаты тарифа. (Должен быть настроен прием онлайн платежей)
+#$conf{HOTSPOT_SHOW_FB} = 'https://www.facebook.com/KT';	# Предложение лайкнуть ФБ страницу. (Работает только с авторизацией через Фейсбук)
+#$conf{HOTSPOT_LOGIN_PREFIX} = 'hs';			# Префикс который добавляется к логину пользователей хотспота
+#$conf{HOTSPOT_GUESTS_GROUP} = 'HotGroup';		# Группа для пользователей, которые регистрируются через хотспот
+#$conf{HOTSPOT_GUESTS_GID} = '800';			# Номер (ID) этой группы
+#$conf{HOTSPOT_TPS}='7;10;11';				# Явно указать тарифы для пользователей хотспота. По умолчанию используется гостевой тариф
+
+### --- Один логин для всех гостей
+#$conf{HOTSPOT_AUTO_LOGIN} = 1;
+#$conf{HOTSPOT_ONE_LOGIN_FOR_ALL} = '97839769:59537504';
+
+### --- Идентификация пользователя с помощью СМС
+#$conf{HOTSPOT_PHONE_LOGIN} = 1;
+#$conf{HOTSPOT_CHECK_PHONE} = 1;
+
+### --- Идентификация пользователя с помощью звонка на указанный номер
+#$conf{HOTSPOT_PHONE_LOGIN} = 1;
+#$conf{HOTSPOT_CHECK_PHONE} = 1;
+#$conf{HOTSPOT_AUTH_NUMBER} = '+71234567890'; 
+
+### --- Подключение с онлайн-оплатой активации
+#$conf{HOTSPOT_MAC_LOGIN} = 1;
+#$conf{HOTSPOT_REGISTRATION} = 'NO';		# (запретить гостевых пользователей)
+#$conf{HOTSPOT_BUY_CARDS} = 1;			# (разрешить онлайн оплату тарифа)
+#$conf{HOTSPOT_TPS}='123;345';			# (тарифы доступные для пользователя)
+
+### --- Оплата с помощью ваучера
+#$conf{HOTSPOT_MAC_LOGIN} = 1;
+#$conf{HOTSPOT_USE_PIN} = 1;
+#$conf{HOTSPOT_TPS}='123';
+
+### --- MAC авторизация
+$conf{HOTSPOT_AUTO_LOGIN} = 1;
+$conf{HOTSPOT_MAC_LOGIN} = 1;
+$conf{HOTSPOT_REDIRECT_URL} = 'https://acp.ru';
+
+### --- Фейсбук авторизация
+#$conf{HOTSPOT_SN_LOGIN} = 'Facebook';
+#$conf{HOTSPOT_SHOW_FB} = 'https://www.facebook.com/KA3HA-39/';
+$conf{HOTSPOT_LOGIN_URL}= 'http://100.64.0.11/login?fastlogin=true&login=%LOGIN%&password=%PASSWORD%';	# Линк для кнопки «Залогиниться в хотспот» на start.cgi - IP адрес микротика с ХотСпот
+
+# --------------------------------------------------------------------------
+# -----========			Бонусы и Рефераллы		=======-----
+# --------------------------------------------------------------------------
+$conf{CUSTOM_BONUS_DISC} = 1;			# включаем бонусную программу, добавляющую скидку в зависимости от стажа
+$conf{CUSTOM_BONUS_DISC_TP_ID} = '104,75,73,74,76,1233,1235,1232,1236,1234,1243';	# список тарифов для которых на которх меняется скидка
+$conf{CUSTOM_BONUS_DISC_PAY_INTERVAL} = '6';	# количество месяцев без задолженности
+$conf{CUSTOM_BONUS_DISC_MIN_DISCOUNT} = '2';	# минимальный процент скидки
+$conf{CUSTOM_BONUS_DISC_MAX_DISCOUNT} = '15';	# максимальный процент скидки
+$conf{CUSTOM_BONUS_DISC_MULTIPLY} = 0;		# режим работы скидочной системы (год = скидка или год * минимальная скидка = скидка)
+$conf{CUSTOM_BONUS_DISC_CHECK} = 1;		# проверка количества списаний (для распределенныхы списаний)
+$conf{CUSTOM_BONUS_DISC_FEES} = '80';		# процент списаний от количества дней с активации (для распределенных дневных списаний)
+
+#$conf{CUSTOM_BONUS_ACCUM} = 1;			# включаем бонусную программу, накапливающую бонус в зависимости от стажа, количества списаний и баланса
+
+#$conf{DV_BONUS}=1;
+#$conf{EXT_BILL_ACCOUNT}=1; 			# Включение допсчёта
+#$conf{BONUS_ACCOMULATION_FIRST_BONUS}=0; 	# Количество бонусов при активации
+#$conf{BONUS_ACCOMULATION}=1;			# Включение накопительного аккаунта
+#$conf{BONUS_PAYMENTS}=1;			# Включение бонусной системы
+#$conf{BONUS_PAYMENTS_AUTO}=1; 			# Автовключение бонусной программы
+#$conf{BONUS_ACCOMULATION_TRANSFER_MIN}=50;	# Минимальная сумма перевода с бонусного счета
+#$conf{BONUS_ACCOMULATION_FIRST_INTERVAL}=0;	# Зачислении первого бонуса при условии положительного депозита определённое количество месяцев
+#$conf{BONUS_ACCOMULATION_TRANSFER_PERCENT}=0;	# Процент средств зачисляемых на счет от суммы бонусных начислений
+#$conf{BONUS_EXT_FUNCTIONS}=1;			# Включение меню в ТП откуда списывать. Расширенные функции бонусного счёта. Ведение отдельного лога бонусных операций. Время жизни бонусного счета. Накопление бонусных операций на отдельном счете
+#$conf{BONUS_SERVICE_DISCOUNT}=1; 		# Включение бонусных расчётов
+#$conf{FEES_PRIORITY}='';	 		# Установка приоритета снятия денег с аккаунтов пользователей. Временно не работает
+#$conf{BONUS_RESET_PERIOD}='60'; 		# Обнуление накопительного аккаунта если у абонента на протяжении определённого периода нет активных сессий
+#$conf{REFERRAL_BONUS_AMOUNT}=150;
+#$conf{REFERRAL_BONUS_BILL}=0;
+#$conf{REFERRAL_DISCOUNT_COEF}=0;
+#$conf{REFERRAL_DISCOUNT_NEXT_COEF}=0;
+#$conf{REFERRAL_MAX_LEVEL}=24;
+#$conf{REFERRAL_PAYMENT_ARREARS}=0;
+#$conf{REFERRAL_PERIOD}=0;
+#$conf{REFERRAL_REPL_PERCENT}=0;
+
+# --------------------------------------------------------------------------
+# -----========			Контроль макадреса		=======-----
+# --------------------------------------------------------------------------
+$conf{MAC_AUTO_ASSIGN}=0;			# Заполнять поле CID при соединении, если оно не заполнено.
+$conf{INTERNET_CID_SKIP}=1;			# Игнорировать параметр Calling-Station-Id
+# Проверка формата MAC-адреса
+#$conf{INTERNET_CID_FORMAT} = "^(([0-9A-F]{2}[:]){5}([0-9A-F]{2});?){1,}\$";
+# Проверка формата CPE
+#$conf{INTERNET_CPE_FORMAT} = "^(([0-9A-F]{2}[:]){5}([0-9A-F]{2});?){1,}\$";
+
+# --------------------------------------------------------------------------
+# -----========			Блокировка РКН			=======-----
+# --------------------------------------------------------------------------
+#$conf{UNBOUND_RESTART}='/usr/local/sbin/unbound-control reload';
+#$conf{NETBLOCK_DNS_TPL} = 'local-data: "%NAME A 127.0.0.1"';
+#$conf{NETBLOCK_DNS_ADD_CMD} = '/usr/local/sbin/unbound-control local_data %NAME A 127.0.0.1';
+#$conf{NETBLOCK_DNS_DEL_CMD} = '/usr/local/sbin/unbound-control local_data_remove %NAME';
+
+# --------------------------------------------------------------------------
+# -----========			Заявки на подключение Msgs	=======-----
+# --------------------------------------------------------------------------
+$conf{MSGS_REG_REQUEST}=1;			# Включить веб форму получения заявок на подключение от пользователей. https://xx.xx/registration.cgi 
+#@REGISTRATION = ('Internet', 'Msgs', 'Ureports');
+@REGISTRATION = ('Internet', 'Msgs');
+#@REGISTRATION = ('Msgs');
+$conf{REGISTRATION_CHECK_PHONE}=1;		# Обязательный телефон при регистрации
+$conf{INTERNET_REGISTRATION_ADDRESS}=1; 	# Показывать форму адреса при регистрации
+$conf{REGISTRATION_CAPTCHA}=1; 			# Включение капчи
+$conf{REGISTRATION_REQUEST}=0; 			# Если пользователь укажет существующий адрес - он сможет зарегистрироваться в системе как новый абонент. Если его адреса нет в системе - будет создана заявка на подключение.
+$conf{MSGS_CHECK_REPEAT} = 0; 			# Данный параметр проверяет заявки в меню администратора.
+$conf{INTERNET_REGISTRATION_SEND_SMS}=0; 	# Отправлять смс при регистрации (если включён модуль Sms)
+$conf{INTERNET_REGISTRATION_TP_GIDS}='10;';	# Группы тарифных планов доступные при регистрации
+#$conf{REGISTRATION_DEFAULT_TP}}='111';		# Тарифный план по умолчанию при регистрации
+#$conf{REGISTRATION_GID}='11';			# Вносить вновь зарегистрированных абонентов в группу
+$conf{REGISTRATION_VERIFY_PHONE} = 0; 		# Регистрация происходит только после подтверждения телефона. Необходим модуль SMS для отправки пин-кода.
+$conf{REGISTRATION_SHOW_PASSWD}=1; 		# Показывать пользователю пароль после регистрации
+$conf{REGISTRATION_REDIRECT} = 'https://stat.acp.ru/'; # Перенаправлять пользователя на указанный URL после регистрации
+$conf{MSGS_SIMPLIFIED_MODE}=0;			# Отображение Обслуживание>Сообщения, ключевые блоки которого сортированы по вкладкам.
+$conf{MSGS_ADDRESS} = 1;			# Привязка сообщения к адресу
+$conf{MSGS_SEND_MESSAGES_TYPES} = 'Telegram,Mail,Browser,Viber_bot';	# Через запятую можно указать куда будут отправляться  оповещения пользователю об ответе на заявку. Возможные значения: Browser, Sms, Viber, Telegram, Mail, Push, Hyber, XMPP
+$conf{MSGS_INNER_DEFAULT}=1;			# По умолчанию отмечать сообщение как внутренние
+$conf{MSGS_ATTACH2FILE}=1;			# Сохранять прикрепления к сообщениям на диск в папку AXbills/templates/attach/msgs. Работает вместе с $conf{ATTACH2FILE} = 1;
+$conf{MSGS_MAX_FILES} = 10;			# К-во файлов, которые можно прикрепить к сообщению (по умолчанию - 3).
+$conf{MSGS_SCRUB_BOX} = 1;			# Канбан сообщений
+$conf{CHECK_ADDRESS_REGISTRATION}=0;		# Чтобы убрать кнопку "Проверить адрес" используйте данный параметр в конфигурационном файле
+
+# --------------------------------------------------------------------------
+# -----========			Новости для абонентов		=======-----
+# --------------------------------------------------------------------------
+$conf{PORTAL_START_PAGE}=0;  			# Включение портала с менюшками
+$conf{REGISTRATION_PORTAL_SKIP}=1;		# Не отображать в портале кнопку регистрации
+
+# --------------------------------------------------------------------------
+# -----========			Работа с заявками абонентов	=======-----
+# --------------------------------------------------------------------------
+#$conf{MSGS_SENDER_SMS_TYPE}='2';		# Перечисление типов контактов для отправки смс
+
+# --------------------------------------------------------------------------
+# -----========			IPTV + Смотрёшка		=======-----
+# --------------------------------------------------------------------------
+$conf{IPTV_USER_UNIQUE_TP}=1;			# Запретить два одинаковых сервисных тарифных плана для одного абонента. У каждой услуги должен быть свой уникальный ТП.
+$conf{IPTV_CLOSE_PERIOD}=0;			# Снимать месячную абон. плату только после установки флага период закрыт. 
+$conf{IPTV_USER_CHG_TP}=1;			# Изменение тарифного плана на следующий учётный период
+$conf{IPTV_USER_CHG_CHANNELS}=1;		# Выбор каналов из интерфейса пользователя.
+$conf{SMOTRESHKA_PREFIX}='ht-';			# Префикс для Смотрёшки
+$conf{IPTV_SHOW_ALL_SERVICES} = 1;		# Отображать все услуги в баннере оплат.
+$conf{IPTV_SHOW_FREE_TPS} = 1;			# Отображать бесплатные ТП в баннере.
+
+# --------------------------------------------------------------------------
+# -----========			Журнал аварий			=======-----
+# --------------------------------------------------------------------------
+$conf{EQUIPMENT_LOG} = 1;			# Отображение Поломки оборудования
+$conf{USER_ACCIDENT_LOG}=1;			# Отображение журнала аварий в кабинете пользователя
+$conf{ACCIDENT_WARNING} = "Telegram,Viber_bot";		# Оповещение пользователя о аварии
+
+# --------------------------------------------------------------------------
+# -----========			Viber bot			=======-----
+# --------------------------------------------------------------------------
+$conf{VIBER_TOKEN} = 'viber_token';
+$conf{VIBER_BOT_NAME} = 'viberbotname';
+$conf{VIBER_SITE} = 'https://acp.ru';
+$conf{VIBER_LANG} = 'russian';
+$conf{VIBER_USER_PORTAL} = 'https://stat.acp.ru';
+$conf{DOCS_MONEY_NAMES} = 'руб.';
+$conf{VIBER_SUPPORT_PHONE} = 'ACP|+71234567890';
+#$conf{VIBER_LINK_URL} = 'MTC|+12345678900';
+
+# --------------------------------------------------------------------------
+# -----=================== Личный кабинет пользователя ================-----
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+# -----========			Общий функционал		=======-----
+# --------------------------------------------------------------------------
+$conf{INTERNET_UP_SESSIONS}='DATE,DURATION_SEC,SENT,RECV,IP';	# Отображение статистики абонента по полям DATE,DURATION_SEC,SENT,RECV,TP_ID,IP,SUM
+$conf{CLIENT_LOGIN_GEOLOCATION}=0;		# Определение местоположения клиента
+$conf{PASSWORD_RECOVERY}=1;			# Включить функцию восстановления пароля для пользователей
+$conf{user_chg_login}=1;			# Разрешить пользователям самостоятельно менять персональные данные через личный кабинет
+$conf{client_theme}='dark-black';		# Цветовая схема клиентского кабинета
+$conf{user_chg_pi}=1;				# Разрешить пользователям самостоятельно менять персональную информацию.
+$conf{user_finance_menu}=1;			# Включение меню Finance (Денежные операции) в акаунте пользователя
+$conf{web_page_rows}=500;			# Количество строк которые система отображает по умолчанию
+$conf{user_chg_info_fields} = 1;		# Отображать информационные поля на странице смены персональной информации
+#$conf{USERNAMEREGEXP}=".{0,20}";		# Символы, разрешённые для использования в логине.
+$conf{HOLIDAY_SHOW_BACKGROUND} = 1;		# Показывать заставку на странице логина пользователей, если включена стартовая страница портала - этот функционал работать не будет!
+$conf{user_background_url} = '/images/fon.jpg';	# Смена фона кабинета пользователя	
+$conf{ACT_EXP_BTN_HIDE}=1;			# Скрыть даты активации и заключение договора
+$conf{ACCEPT_RULES}=1;				# Возможность включения страницы ознакомления и принятия правил провайдера.
+$conf{user_hide_reduction}=0;			# Скрывать скидку (даже если есть скидка)
+$conf{user_chg_passwd}=0;			# Разрешить пользователям самостоятельно менять себе пароль
+$conf{USER_START_PAGE}=0;			# Отображение портала абонента - Dashboard (Дашбоард)
+$conf{user_confirm_changes}=0;			# Включить дополнительное подтверждение паролем изменений данных (кредит, смена тарифа, перс.данных, перевод денег) 
+$conf{MSGS_USER_DEFAULT_CHAPTER} = 5;		# Устанавливает раздел по умолчанию для заявок пользователей
+$conf{ATTACH2FILE}=1;				# Сохранять прикрепления к сообщениям на диск, в папку AXbills/templates/attach/msgs
+$conf{info_fields_new}=1;			# Включение новых информационных полей
+#$conf{web_session_timeout} = 18000;		# Таймаут сессии в ЛК в секундах, по умолчанию 86000 (24 часа)
+$conf{CHECK_CHANGE_PI}='CELL_PHONE, EMAIL';	# В этой опции можно прописать следующие параметры для проверки: PHONE, EMAIL, FIO, ADDRESS, CELL_PHONE) Пишем их через запятую и большими буквами, как в примере.
+$conf{PORTAL_EXTRA_WARNING}='На вашем балансе недостаточно средств, для пользования усугами.';		# Оповещалка о СМД 
+
+# --------------------------------------------------------------------------
+# -----========			Приостановка услуги		=======-----
+# --------------------------------------------------------------------------
+#$conf{INTERNET_USER_SERVICE_HOLDUP}='min_period:max_period:holdup_period:daily_fees:hold_fees_deposit:active_fees:holdup_skip_gids';
+#min_period		Минимальный период блокировки. Если услуга Приостановки сервиса была активизированна, её отмена возможна только после истечения минимального периода блокировки
+#max_period		Максимальный период блокировки
+#holdup_period		Период в днях, за который можно приостановить услугу. Например, не чаще чем раз в 60 дней
+#daily_fees		Сумма дневной абон. платы при приостановленной услуге, если не указывать - сниматься не будет
+#hold_fees_deposit	Лимит, ниже которого деньги за приостановку сервиса не снимаются
+#active_fees		Сумма за активацию приостановления
+#holdup_skip_gids	Группы, с которых запрещено приостановку услуги
+#user_del_shedule	Разрешить в портале удалять запланированое приостановление:1 - Разрешено удалять (появляется кнопка удалить), 0 - нет кнопки удалить
+# Настроено		Минимально 1 день, максимум 90 дней, цена за ТП 0, активация 50, группы все, удаление разрешено
+$conf{INTERNET_USER_SERVICE_HOLDUP_MP}=1;	# Отображать максимальный период приостановки. По умолчанию отображается приостановка до конца текущего месяца.
+$conf{INTERNET_USER_SERVICE_HOLDUP}='1:90::::75::1';
+
+# --------------------------------------------------------------------------
+# -----========			Обещанный платёж		=======-----
+# --------------------------------------------------------------------------
+#$conf{user_credit_change}='[sum]:[days]:[price]:[month_count]:[payments_expr]';
+#[sum]			Если параметр [sum] равен нулю тогда сума кредита берётся из кредитного лимита тарифного плана (поле: Кредит портал абонента).
+#[days]			Количество дней действия кредита.
+#[price]		С пользователя снимается сумма указанная в нём.
+#[month_count]		Определяет разрешённое количество раз по изменению кредита с пользовательского интерфейса
+#[payments_expr]	Выражения которое формирует суму кредита исходя из пополнения клиенты. аргументы 
+# Настроено		Брать из биллинга, на 5 дней, по цене 30 рублей, 10 раз в месяц
+$conf{user_credit_change}='0:5:30:10';
+$conf{user_credit_all_services}=0;		# Система сумирует все начисления за все сервисы абонента и добавляет одну еденицу к этой сумме
+$conf{MAX_STABLE_CREDIT}=0;			# Значение кредита после процедуры обнуления по времени
+
+# --------------------------------------------------------------------------
+# -----========			Вход в ЛК без пароля		=======-----
+# --------------------------------------------------------------------------
+$conf{PASSWORDLESS_ACCESS}=0;			# Всем - 1, Никому - 0
+$conf{PASSWORDLESS_GUEST_ACCESS}='3;5';		# Только для тех у кого нет денег
+
+# --------------------------------------------------------------------------
+# -----=================== Окончание ЛК пользователя ================-------
+# --------------------------------------------------------------------------
+
+# --------------------------------------------------------------------------
+# -----========				Опросы			=======-----
+# --------------------------------------------------------------------------
+$conf{POLL_USERS_ADD_POLE} = 1;			# Дает возможность пользователям заводить новые голосования
+$conf{POLL_DISCUSSION}=1;			# включаем блок обсуждений в ЛК
+
+# --------------------------------------------------------------------------
+# -----========				GPS			=======-----
+# --------------------------------------------------------------------------
+$conf{GPS_MISTAKE}='0.01'; 			# Минимальное расстояние между координатами, которое учитывается при выводе отчёта, в километрах
+
+# --------------------------------------------------------------------------
+# -----========				Mail			=======-----
+# --------------------------------------------------------------------------
+$conf{MAIL_CHG_PASSWD}=0;			# Разрешить пользователям изменять пароли для своих почтовых ящиков
+$conf{MAIL_USER_DOMAIN_MNG}=0;			# Разрешить пользователю управлять своим доменом
+$conf{MAIL_USER_FULL_CONTROL}=1; 		# Разрешить пользователям удалять и добавлять себе почтовые ящики с возможностью снятия платы за услугу
+$conf{EMAIL_FORMAT}='^[^\s@]+@[^\s@]+\.[^\s@]+$';	# формат email
+
+# --------------------------------------------------------------------------
+# -----========			Maps&Cablecat			=======-----
+# --------------------------------------------------------------------------
+$conf{MAPS_DEFAULT_TYPE}='Yandex';		# Карта по умолчанию
+$conf{MAPS_DEFAULT_LATLNG} = '20.482295;54.727284;16';	# Координаты первоначальной загрузки карты, если не разрешено получать текущие координаты
+$conf{MAPS_MAP_TYPE} = 'google';
+$conf{MAP_LINE_SIZE} = 5;			# Толщина линий маршрута
+$conf{MAP_LINE_OPACITY} = 0.5;			# Прозрачность линий маршрутов
+$conf{GOOGLE_API_KEY} = 'your_api_key';
+$conf{MAPS_GOOGLE_API_KEY} ='your_api_key';
+$conf{YANDEX_API_KEY} = 'yandex_api_key';
+$conf{MAPS_PAYSYS_NO_BUILDS} = 1;		# Включить слой домов на карте, в кабинете пользователя
+$conf{MAPS_NON_PRIVILEGED_EDIT} = '1';		# Позволит администраторам без доступа к меню «Настройка» изменять обьекты на карте
+$conf{MAPS_BUILD_COLOR_BY_ONLINE} = 1;		# Цвет дома на карте зависит от онлайна в доме
+$conf{MAPS_GMA_SKIP_ZIPCODE} = 1;		# Не учитывать почтовый индекс района
+$conf{MAPS_NO_THROTTLE} = 0;			# Убрать ограничение на периодичность повторения запросов (1 раз в две секунды)
+$conf{MAP_VIEW} = 'ROADMAP';			# Тип отображения карты (ROADMAP – дорожная карта, используемая по умолчанию. SATELLITE – снимки Google Планета Земля, сделанные со спутника. HYBRID – комбинация обычной карты и снимков со спутника. TERRAIN – физическая карта, основанная на информации о ландшафте.);
+#@CABLECAT_EXTRA_COLORS = ('fde910', '9c3232');	# Дополнительные цвета для волокон. Масив строк цветов в HEX-формате, без знака '#'
+$conf{CABLECAT_CLEAR_DEFAULT_COLORS} = 0;	# Убрать стандартные цвета (Позволяет заменить стандартные цвета собственными)
+$conf{CABLECAT_COLOR_SCHEME_NUMBERS} = 1;	# Показывать нумерацию волокон в таблице цветовых схем
+$conf{CABLECAT_LIST_SIZE} = 100;		# Возможность задания количества элементов на странице таблицы
+
+# --------------------------------------------------------------------------
+# -----========		Регистрация нового абонента		=======-----
+# --------------------------------------------------------------------------
+$conf{REG_WIZARD}="user_form::Данные абонента;
+internet_user:Internet:Тарифный план;
+ureports_user:Ureports:Оповещения;
+sms_send_register:Sms:SMS;
+";
+$conf{REG_SURELY_VALUE}='FIO,PHONE_NUMBER,GROUP';	# Обязательные поля которые будут обязательные для заполнения 'FIO,PHONE_NUMBER,GROUP,DISTRICT,STREET,BUILD';
+
+# --------------------------------------------------------------------------
+# -----========			Facebook			=======-----
+# --------------------------------------------------------------------------
+#$conf{AUTH_FACEBOOK_ID}='facebook_id';
+#$conf{AUTH_FACEBOOK_SECRET}='password';
+#$conf{AUTH_FACEBOOK_URL}='%SELF_URL%?external_auth=Facebook';
+#$conf{auth_debug}=1;
+
+# --------------------------------------------------------------------------
+# -----========				Cams			=======-----
+# --------------------------------------------------------------------------
+#$conf{CAMS_SERVER_HOST}='100.127.255.237';
+#$conf{CAMS_SERVER_PORT}='8088';
+
+# --------------------------------------------------------------------------
+# -----========			Автообзвон			=======-----
+# --------------------------------------------------------------------------
+#$conf{ASTERISK_AMI_IP}='127.0.0.1';		# IP сервера Asterisk
+#$conf{ASTERISK_AMI_PORT}='5039';		# Порт сервера Asterisk
+#$conf{ASTERISK_AMI_USERNAME}='admin';		# Логин пользователя для AMI
+#$conf{ASTERISK_AMI_SECRET}='123456';		# Секрет для пользователя
+#$conf{ASTERISK_AMI_REMOTE}='yes'; 		# Указывается если asterisk на удаленном сервере и нужно синхронизировать файлы оповещения
+
+# --------------------------------------------------------------------------
+# -----========			Sharing - доступ к файлам	=======-----
+# --------------------------------------------------------------------------
+$conf{SHARING_DOWNLOAD_PATH}='/usr/axbills/AXbills/templates/sharing/';	# Путь к папке, в которой у нас хранятся файлы:
+$conf{SHARING_APACHE_ERROR_LOGSHARING}=1;	# Разрешить пользователю менять тарифный план из пользовательского веб акаунта
+
+# --------------------------------------------------------------------------
+# -----========				Погода			=======-----
+# --------------------------------------------------------------------------
+#$conf{WEATHER_KEY}='key';	# Ваш ключ с сайта darksky API
+#$conf{WEATHER_COORD}='https://ipapi.co/' . $ENV{REMOTE_ADDR} . '/json/';	# Сайт откуда берутся вашикоординаты
+
+# --------------------------------------------------------------------------
+# -----========                         SORM                    =======-----
+# --------------------------------------------------------------------------
+# -----========                 Основные настройки              =======-----
+# --------------------------------------------------------------------------
+$conf{SORM_ISP_ID}='39';			# Идентифакатор ИСП из "информация по операторам связи и их филалах
+$conf{SORM_DEFAULT_ZIP} = '236005';		# Индекс по умолчанию
+$conf{SORM_COUNTRY} = 'РОССИЙСКАЯ ФЕДЕРАЦИЯ';	# Страна
+$conf{SORM_REGION} = 'КАЛИНИНГРАДСКАЯ ОБЛАСТЬ';	# Область
+$conf{SORM_ZONE} = '';				# Район
+$conf{OFFICE_CITY} = 'КАЛИНИНГРАД';		# Адрес компании - ГОРОД
+$conf{OFFICE_STREET} = 'ТИХОРЕЦКАЯ';		# Адрес компании - УЛИЦА
+$conf{OFFICE_BUILD} = '37';			# Адрес компании - дом
+$conf{OFFICE_APART} = '56';			# Адрес компании - кв./офис
+$conf{OFFICE_ZIP} = '236005';			# Адрес компании - Индекс
+# --------------------------------------------------------------------------
+# -----========         СОРМ адрес доступа по FTP               =======-----
+# --------------------------------------------------------------------------
+$conf{SORM_SERVER}='100.64.1.3';		# Адрес сервера
+$conf{SORM_LOGIN}='print';			# Логин
+$conf{SORM_PASSWORD}='print';			# Пароль
+$conf{SORM_ERR_LOGIN}='print';			# Логи для получения лога ошибок
+$conf{SORM_ERR_PASSWORD}='print';		# Пароль для получения лога ошибок
+# --------------------------------------------------------------------------
+# --------------------------------------------------------------------------
+
+
+# --------------------------------------------------------------------------
+# -----===================== Окончание моих настроек ==================-----
+# --------------------------------------------------------------------------
+
+# Folders and files
+$base_dir='/usr/axbills/';
+$lang_path=$base_dir . 'language/';
+$lib_path=$base_dir .'libexec/';
+$var_dir=$base_dir .'var/';
+$conf{SPOOL_DIR}=$base_dir.'var/q';
+
+# Backup SQL data
+#$conf{BACKUP_DIR}=$base_dir.'/backup';
+$conf{BACKUP_DIR}='/backup';
+
+# Template folder
+$conf{TPL_DIR}   = $base_dir . 'AXbills/templates/';
+$conf{LOG_DEBUG} = $base_dir . 'var/log/axbills.debug';
+$conf{LOGFILE}   = $base_dir . 'var/log/axbills.log';
+
+use POSIX qw(strftime);
+our $DATE    = strftime "%Y-%m-%d", localtime(time);
+our $TIME    = strftime "%H:%M:%S", localtime(time);
+our $curtime = strftime("%F %H.%M.%S", localtime(time));
+our $year    = strftime("%Y", localtime(time));
+
+
+1

@@ -1,0 +1,19 @@
+get:
+  tags:
+    - paysys
+  summary: Список платежных систем доступных пользователю
+  parameters:
+    - name: requestMethod
+      in: query
+      description: сделать фильтрацию по методу запроса (GET, POST)
+      schema:
+        type: string
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/systems.yaml"
+  security:
+    - USERSID: [ ]

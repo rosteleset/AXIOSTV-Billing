@@ -1,0 +1,52 @@
+type: object
+properties:
+  news:
+    type: array
+    items:
+      type: object
+      properties:
+        content:
+          type: string
+          example: При замовленні пакету «ABillS+» платіть X грн/міс замість X грн/міс. Підключайте ТВ-пакет «База+» і отримаєте в подарунок півроку користування послугою! Кожен місяць сплачуйте лише 50% вартості пакету. Абонплата складе всього X грн.
+        date:
+          type: string
+          format: date
+          example: 2023-01-23
+        id:
+          type: number
+          example: 4
+        importance:
+          type: number
+          example: 1
+        onMainPage:
+          type: number
+          example: 1
+        permalink:
+            type: string
+            example: special-promotion-50-2023
+        picture:
+          type: string
+          example: "http://192.168.99.2:9443/images/attach/portal/9700077.png"
+        shortDescription:
+          type: string
+          example: Тарифний план для всіх у сімї
+        title:
+          type: string
+          example: Акціний тариф візьми поки можеш
+        topicId:
+          type: number
+          example: 1
+  topics:
+    type: array
+    items:
+      type: object
+      properties:
+        id:
+          type: number
+          example: 1
+        name:
+          type: string
+          example: Акції від нас
+        url:
+          type: string
+          example: "https://demo.axbills.net.ua:9443/"

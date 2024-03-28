@@ -1,0 +1,237 @@
+EPON-BUS-CONFIG-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    IpAddress, Unsigned32, Integer32, Counter32, TimeTicks, Gauge32, Counter64,
+    MODULE-IDENTITY, OBJECT-IDENTITY, OBJECT-TYPE, enterprises     
+      FROM SNMPv2-SMI     
+    DateAndTime, MacAddress, TimeStamp, RowStatus, TruthValue, DisplayString, TEXTUAL-CONVENTION
+      FROM SNMPv2-TC      ;
+
+--------------------------------------------------------------
+    greennet MODULE-IDENTITY
+        LAST-UPDATED    "200712050000Z"  -- Dec 5, 2000
+        ORGANIZATION    "GreenNet Systems, Inc."
+        CONTACT-INFO    "GreenNet Systems, Inc.
+                         E-mail: support@green-net.com.cn"
+        DESCRIPTION     "GREENNET Master MIB OID defines and documentation."
+        REVISION        "201510100000Z"  -- Oct 10, 2015
+        DESCRIPTION     "Initial MIB creation."
+    	::= { enterprises 27514 }
+    	
+--GREENNET Products----------------------------------------------------
+datacom		OBJECT IDENTIFIER ::= { greennet 1 }
+
+--DataCom Products-----------------------------------------------------
+eponBusCfg		OBJECT IDENTIFIER ::= {datacom 16}
+
+
+------------------------------------------------------------------
+--  eponBusCfg[Broadband Universal Service 宽带普遍服务 配置管理项](1.3.6.1.4.1.27514.1.16)
+------------------------------------------------------------------
+
+
+------------------------------------------------------------------
+--  epon bus glob attribute
+------------------------------------------------------------------
+eponBusGlobAttribute  OBJECT IDENTIFIER ::= {eponBusCfg 1}
+
+busGlobLongitude  OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        Longitude
+    "
+    ::= {eponBusGlobAttribute 1}
+
+busGlobLatitude  OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        Latitude
+    "
+    ::= {eponBusGlobAttribute 2}
+
+busGlobElevation  OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        Elevation
+    "
+    ::= {eponBusGlobAttribute 3}
+
+busGlobHorizontalError  OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        HorizontalError
+    "
+    ::= {eponBusGlobAttribute 4}
+
+busGlobAltitudeError  OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        AltitudeError
+    "
+    ::= {eponBusGlobAttribute 5}
+
+busGlobAreaCode  OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        AreaCode
+    "
+    ::= {eponBusGlobAttribute 6}
+
+busGlobDate  OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        Date
+    "
+    ::= {eponBusGlobAttribute 7}
+
+busGlobTime  OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        Time
+    "
+    ::= {eponBusGlobAttribute 8}
+
+busGlobGISDigest  OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        GISDigest
+    "
+    ::= {eponBusGlobAttribute 9}
+
+busGlobCheckSum  OBJECT-TYPE
+    SYNTAX      OCTET STRING
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        CheckSum
+    "
+    ::= {eponBusGlobAttribute 10}
+
+busGlobRowStatus  OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        RowStatus
+    "
+    ::= {eponBusGlobAttribute 11}
+
+
+------------------------------------------------------------------
+-- epon onu bus table
+------------------------------------------------------------------ 
+eponBusIndepAttribute  OBJECT IDENTIFIER ::= {eponBusCfg 2}
+
+eponOnuBusTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponOnuBusEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        epon onu bus table
+        7500 don't support
+    "
+    ::= {eponBusIndepAttribute 1}
+
+eponOnuBusEntry  OBJECT-TYPE
+    SYNTAX       EponOnuBusEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        onu bus attribute entry
+    "
+    INDEX
+    {
+        busSlotIndex,
+        busPonIndex,
+        busOnuInde
+    }
+    ::= {eponOnuBusTable 1}
+
+EponOnuBusEntry ::=  SEQUENCE
+    {
+        busSlotIndex                 INTEGER,
+        busPonIndex                  INTEGER,
+        busOnuInde                   INTEGER,
+        busEnable                    INTEGER
+    }    
+
+busSlotIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        slot index
+    "
+    ::= {eponOnuBusEntry 1}
+
+busPonIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        pon index
+    "
+    ::= {eponOnuBusEntry 2}
+
+busOnuInde  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        onu index
+    "
+    ::= {eponOnuBusEntry 3}
+
+busEnable  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        disable(0),
+        enable(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        bus enable
+    "
+    ::= {eponOnuBusEntry 4}
+
+                           
+--
+-- END of EPON-PROFILE-CONFIG-MIB
+--      
+END

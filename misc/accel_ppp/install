@@ -1,0 +1,24 @@
+:DEFAULT:RADIUS_AUTH_SERVER=127.0.0.1:Radius auth server ip
+:DEFAULT:RADIUS_AUTH_PORT=1812:Radius auth port
+:DEFAULT:RADIUS_ACCT_SERVER=127.0.0.1:Radius accounting ip
+:DEFAULT:RADIUS_ACCT_PORT=1813:Radius accounting port
+:DEFAULT:RADIUS_SECRET=secretpass:Radius Secret key
+:DEFAULT:BILLING_IP=127.0.0.1:Billing server IP for hangup and CoA request
+:DEFAULT:POD_IP=127.0.1:POD server IP
+:DEFAULT:POD_PASSWORD=secretpass:POD and CoA password
+:DEFAULT:POD_PORT=3799:PoD/CoA Port
+:DEFAULT:IPOE_GW_IP=10.0.0.1/24:IPoE gateway IP
+
+accel-ppp.conf > [/etc]/accel-ppp.conf
+accel-ppp.lua > [/etc]/accel-ppp.lua
+dictionary.accel_ppp >> [/usr/local/share/accel-ppp/radius]/dictionary
+#:exec: %RESTART_ACCEL_PPP% restart
+
+#Accel-ppp
+accel-ppp > [/etc]/init.d/accel-ppp
+:exec: chmod +x /etc/init.d/accel-ppp
+:exec:update-rc.d accel-ppp defaults
+:exec:/etc/init.d/accel-ppp restart
+
+#logrotate
+accel-ppp_logrotate > [/etc]/logrotate.d/accel-ppp

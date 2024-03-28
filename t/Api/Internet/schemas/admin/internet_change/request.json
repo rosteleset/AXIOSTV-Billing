@@ -1,0 +1,5 @@
+{
+  "name": "ADMIN_INTERNET_CHANGE",
+  "method": "PUT",
+  "path": "internet/:uid/activate/"
+}

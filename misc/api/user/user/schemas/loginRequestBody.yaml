@@ -1,0 +1,17 @@
+type: object
+properties:
+  login:
+    type: string
+    example: testuser
+  password:
+    type: string
+    example: testuser
+  google:
+    type: string
+    example: google_token
+  facebook:
+    type: string
+    example: facebook_token
+  apple:
+    type: string
+    example: apple_token

@@ -1,0 +1,6 @@
+{
+  "name": "USER_HOLDUP_CANCEL",
+  "method": "DELETE",
+  "path": "user/:uid/internet/:id/holdup/",
+  "params": {}
+}

@@ -1,0 +1,29 @@
+type: object
+required: [login, email, phone, tpId]
+properties:
+  login:
+    type: string
+    example: testuser
+  email:
+    type: string
+    example: test@gmail.com
+  phone:
+    type: string
+    example: 380912324212
+  tpId:
+    type: number
+    example: 112
+  userIp:
+    type: string
+    example: 0.0.0.0
+    description: Нужный параметр если включена опция INTERNET_REGISTRATION_IP
+  fio:
+    type: string
+    example: Test user
+  registrationTag:
+    type: number
+    example: 1
+  password:
+    type: string
+    example: testpass
+    description: Нужный параметр если включена опция REGISTRATION_PASSWORD

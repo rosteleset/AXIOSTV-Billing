@@ -1,0 +1,6 @@
+{
+  "name": "ADMIN_USERS_INFO_PI",
+  "method": "GET",
+  "path": "users/1/pi/",
+  "params": {}
+}

@@ -1,0 +1,22 @@
+use strict;
+use warnings FATAL => 'all';
+
+=head1 NAME
+
+  Sysinfo system information
+
+  http://www.osix.net/modules/article/?id=156
+
+=cut
+
+our (%conf, $db, $admin, %permissions);
+
+if ($permissions{3}) {
+  require Sysinfo::Reports;
+}
+
+if ($permissions{4}){
+  require Sysinfo::Configure;
+}
+
+1;

@@ -1,0 +1,6 @@
+{
+  "name": "VERSION",
+  "method": "GET",
+  "path": "version/",
+  "params": {}
+}

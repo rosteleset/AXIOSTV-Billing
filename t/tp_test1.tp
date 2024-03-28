@@ -1,0 +1,20 @@
+UID=10
+
+
+===TP_INFO
+  ID                 = 1
+  NAME               = Test TP
+  TP_ID              = 1
+  MONTH_FEE          = 100
+  DAY_FEE            = 0
+  POSTPAID_MONTH_FEE = 1
+  ABON_DISTRIBUTION  = 0
+  PERIOD_ALIGNMENT   = 0
+  ACTIV_PRICE        = 0
+  FEES_METHOD        = 0
+
+===OLD_TP_INFO
+
+
+===RESULT
+

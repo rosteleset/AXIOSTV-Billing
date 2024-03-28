@@ -1,0 +1,19 @@
+{
+  "definitions": {},
+  "type": "object",
+  "title": "The Root Schema",
+  "required": [
+    "body",
+    "sign"
+  ],
+  "properties": {
+    "body": {
+      "$id": "#/properties/body",
+      "type": "string"
+    },
+    "sign": {
+      "$id": "#/properties/sign",
+      "type": "string"
+    }
+  }
+}

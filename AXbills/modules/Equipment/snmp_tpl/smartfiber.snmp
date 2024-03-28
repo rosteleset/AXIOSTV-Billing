@@ -1,0 +1,104 @@
+{
+  "DEVICE": "SMARTFIBER OLT",
+  "info": {
+    "UPTIME": {
+      "NAME": "UPTIME",
+      "OIDS": "1.3.6.1.2.1.1.3.0"
+    }
+  },
+  "status": {
+    "CPU_LOAD": {
+      "NAME": "CPU_LOAD",
+      "OIDS": "1.3.6.1.4.1.8888.1.2.1.1.2.25.0"
+    },
+    "MEMORY": {
+      "NAME": "MEMORY",
+      "OIDS": "1.3.6.1.4.1.8888.1.2.1.1.2.26.0"
+    },
+    "TEMPERATURE": {
+      "NAME": "TEMPERATURE",
+      "OIDS": "1.3.6.1.4.1.8888.1.13.1.2.1.8"
+    }
+  },
+
+  "epon": {
+    "ONU_MAC_SERIAL": {
+      "NAME"   : "MAC/Serial",
+      "OIDS"   : ".1.3.6.1.4.1.8888.1.13.3.1.1.9.0",
+      "PARSER" : "bin2mac"
+    },
+    "ONU_STATUS": {
+      "NAME"   : "STATUS",
+      "OIDS"   : ".1.3.6.1.4.1.8888.1.13.3.1.1.4.0"
+    },
+    "ONU_TX_POWER": {
+      "NAME"   : "ONU_TX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.8888.1.13.3.3.1.7.0",
+      "PARSER" : "_smartfiber_convert_power"
+    },
+    "ONU_RX_POWER": {
+      "NAME"   : "ONU_RX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.8888.1.13.3.3.1.8.0",
+      "PARSER" : "_smartfiber_convert_power"
+    },
+    "ONU_DESC": {
+      "NAME"    : "DESCRIBE",
+      "OIDS"    : ".1.3.6.1.4.1.8888.1.13.3.1.1.5.0"
+    },
+    "ONU_IN_BYTE": {
+      "NAME"   : "ONU_IN_BYTE",
+      "OIDS"   : ".1.3.6.1.4.1.8888.1.13.3.17.1.4.0"
+    },
+    "ONU_OUT_BYTE": {
+      "NAME"   : "ONU_OUT_BYTE",
+      "OIDS"   : ".1.3.6.1.4.1.8888.1.13.3.17.1.11.0"
+    },
+    "TEMPERATURE": {
+      "NAME"   : "TEMPERATURE",
+      "OIDS"   : ".1.3.6.1.4.1.8888.1.13.3.3.1.4.0"
+    },
+    "CVLAN": {
+      "NAME"   : "VLAN (CVLAN)",
+      "OIDS"   : ".1.3.6.1.4.1.8888.1.13.3.2.1.7.0"
+    },
+    "SVLAN": {
+      "NAME"   : "VLAN (SVLAN)",
+      "OIDS"   : ".1.3.6.1.4.1.8888.1.13.3.2.1.8.0"
+    },
+    "reset": {
+      "NAME"   : "",
+      "OIDS"   : ".1.3.6.1.4.1.8888.1.13.3.1.1.17.0",
+      "RESET_VALUE" : 0
+    },
+    "main_onu_info": {
+      "HARD_VERSION": {
+        "NAME"   : "VERSION",
+        "OIDS"   : ".1.3.6.1.4.1.8888.1.13.3.1.1.11.0"
+      },
+      "FIRMWARE": {
+        "NAME"   : "FIRMWARE",
+        "OIDS"   : ".1.3.6.1.4.1.8888.1.13.3.1.1.10.0"
+      },
+      "VOLTAGE": {
+        "NAME"   : "VOLTAGE",
+        "OIDS"   : ".1.3.6.1.4.1.8888.1.13.3.3.1.5.0",
+        "PARSER" : "_smartfiber_convert_voltage"
+      },
+      "DISTANCE": {
+        "NAME"   : "DISTANCE",
+        "OIDS"   : ".1.3.6.1.4.1.8888.1.13.3.1.1.18.0",
+        "PARSER" : "_smartfiber_convert_distance_epon"
+      },
+      "ONU_LAST_DOWN_CAUSE": {
+        "NAME"   : "ONU last down cause",
+        "OIDS"   : ".1.3.6.1.4.1.8888.1.13.3.1.1.23.0",
+        "PARSER" : "_smartfiber_convert_onu_last_down_cause"
+      },
+      "MAC_BEHIND_ONU": {
+        "NAME"   : "MAC_BEHIND_ONU",
+        "USE_MAC_LOG" : 1
+      }
+    }
+  }
+
+}

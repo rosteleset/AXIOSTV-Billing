@@ -1,0 +1,80 @@
+SET SQL_MODE = 'NO_ENGINE_SUBSTITUTION,NO_AUTO_VALUE_ON_ZERO';
+
+CREATE TABLE IF NOT EXISTS `hotspot_visits` (
+  `id` VARCHAR(32) PRIMARY KEY NOT NULL,
+  `first_seen` DATETIME NOT NULL DEFAULT NOW(),
+  `browser_id` SMALLINT(6) NOT NULL DEFAULT 0,
+  `os_id` SMALLINT(6) NOT NULL DEFAULT 0,
+  `language` VARCHAR(32) NOT NULL DEFAULT '',
+  `country` VARCHAR(32) NOT NULL DEFAULT ''
+) COMMENT = 'Visitors';
+
+CREATE TABLE IF NOT EXISTS `hotspot_oses` (
+  `id` SMALLINT(6) PRIMARY KEY AUTO_INCREMENT,
+  `name` VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN',
+  `version` SMALLINT(6) NOT NULL DEFAULT 0,
+  `mobile` TINYINT(1) NOT NULL DEFAULT 0
+)
+  COMMENT = 'Visitors OSes';
+
+CREATE TABLE IF NOT EXISTS `hotspot_user_agents` (
+  `id` VARCHAR(32) PRIMARY KEY NOT NULL REFERENCES `hotspot_visits` (`id`)
+    ON DELETE CASCADE,
+  `user_agent` TEXT
+)
+  COMMENT = 'Hotspot user agents';
+
+CREATE TABLE IF NOT EXISTS `hotspot_browsers` (
+  `id` SMALLINT(6) PRIMARY KEY AUTO_INCREMENT,
+  `name` VARCHAR(32) NOT NULL DEFAULT 'UNKNOWN',
+  `version` SMALLINT(6) NOT NULL DEFAULT 0
+)
+  COMMENT = 'Hotspot user browsers';
+
+CREATE TABLE IF NOT EXISTS `hotspot_logins` (
+  `id` INT(11) UNSIGNED AUTO_INCREMENT NOT NULL PRIMARY KEY,
+  `visit_id` VARCHAR(32) NOT NULL REFERENCES `hotspot_visits` (`id`) ON DELETE CASCADE,
+  `uid` INT(11) UNSIGNED NOT NULL REFERENCES `users` (`uid`),
+  `login_time` DATETIME NOT NULL DEFAULT CURRENT_TIMESTAMP
+)
+  COMMENT = 'Hotspot visitors browsers';
+
+CREATE TABLE IF NOT EXISTS `hotspot_adverts` (
+  `id` SMALLINT(6) UNSIGNED AUTO_INCREMENT NOT NULL PRIMARY KEY,
+  `name` VARCHAR(50) NOT NULL DEFAULT '',
+  `comments` TEXT,
+  `price_per_show` DOUBLE(11,2) NOT NULL DEFAULT 0,
+  `price_per_period` DOUBLE(11,2) NOT NULL DEFAULT 0,
+  `period` ENUM ('month', 'week', 'day', 'year') NOT NULL DEFAULT 'month',
+  `url` TEXT,
+  `nas_id` SMALLINT(5) UNSIGNED NOT NULL DEFAULT 0 REFERENCES `nas` (`id`)
+)
+  COMMENT = 'Hotspot advert';
+
+CREATE TABLE IF NOT EXISTS `hotspot_advert_shows` (
+  `id` SMALLINT(6) UNSIGNED AUTO_INCREMENT NOT NULL  PRIMARY KEY,
+  `uid` INT(11) UNSIGNED NOT NULL REFERENCES `users` (`uid`),
+  `ad_id` INT(11) UNSIGNED NOT NULL REFERENCES `hotspot_adverts` (`id`),
+  `showed` DATETIME NOT NULL  DEFAULT CURRENT_TIMESTAMP
+);
+
+CREATE TABLE IF NOT EXISTS `hotspot_log` (
+  `id` INT(8) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `date` DATETIME NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+  `cid` VARCHAR(20) NOT NULL DEFAULT '',
+  `phone` VARCHAR(20) NOT NULL DEFAULT '',
+  `action` SMALLINT(6) UNSIGNED NOT NULL DEFAULT '0',
+  `hotspot` VARCHAR(20) NOT NULL DEFAULT '',
+  `comments` TEXT NOT NULL,
+  PRIMARY KEY (`id`)
+) 
+  COMMENT = 'Hotspot log';
+
+CREATE TABLE IF NOT EXISTS `hotspot_advert_pages` (
+  `id` SMALLINT(6) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `hostname` VARCHAR(20) NOT NULL DEFAULT '',
+  `page` TEXT,
+  `action` VARCHAR(20) NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`)
+) 
+  COMMENT = 'Hotspot advert pages';

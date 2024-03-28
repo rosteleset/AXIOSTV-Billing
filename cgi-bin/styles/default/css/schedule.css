@@ -1,0 +1,309 @@
+#new-tasks {
+	max-height: 200px;
+	overflow-y: scroll;
+}
+
+/*#new-tasks {*/
+/*	-ms-overflow-style: none; !* for Internet Explorer, Edge *!*/
+/*	scrollbar-width: none; !* for Firefox *!*/
+/*	overflow-y: scroll;*/
+/*}*/
+
+/*#new-tasks::-webkit-scrollbar {*/
+/*	display: none; !* for Chrome, Safari, and Opera *!*/
+/*}*/
+
+#hour-grid {
+	border: 1px solid #c8c8c8;
+	border-radius: 4px;
+}
+
+.time-sidebar {
+	min-width: 10%;
+	border-right: 1px solid #c8c8c8;
+	background: #3a414d;
+}
+
+.time-sidebar > .hours {
+	background: #3a414d;
+}
+
+.time-container {
+	width: 90%;
+}
+
+.time-row {
+	width: 100%;
+	background: #eceff4;
+	height: 50px;
+	position: relative;
+}
+
+.time-row-container > .time-row {
+	height: 100%;
+	display: flex;
+	transform: translate(0px, 0px);
+}
+
+.time-container > .time-row-container:not(:last-child):not(:first-child) {
+	margin-bottom: .35rem !important;
+}
+
+.time-sidebar > .time-row:not(:last-child):not(:first-child)  {
+	margin-bottom: .35rem !important;
+}
+
+.time-column {
+	height: 100%;
+	width: 100%;
+	background-color: #eceff4;
+	position: relative;
+	padding: 4px;
+}
+
+.time-row-container {
+	overflow: hidden;
+	width: 100%;
+	height: 50px;
+	position: relative;
+}
+
+.hours {
+	height: 25px !important;
+	background: #fff;
+}
+
+.hours > .time-row > .time-column {
+	background: #fff;
+}
+
+.time-column::after {
+	content: '';
+	right: 0;
+	width: 1px;
+	background: #c8c8c8;
+	position: absolute;
+	top: 1px;
+	height: 48px;
+}
+
+.time-column::before {
+	content: '';
+	left: calc(50% - 1px);
+	border-right: 1px dashed #dbe0e9;
+	height: 48px;
+	position: absolute;
+	bottom: 1px;
+}
+
+.hours > .time-row > .time-column::after {
+	content: '';
+	right: 0;
+	width: 1px;
+	height: 23px;
+	background: #c8c8c8;
+	position: absolute;
+	bottom: 1px;
+}
+
+.hours > .time-row > .time-column::before {
+	content: '';
+	left: calc(50% - 1px);
+	width: 1px;
+	height: 8px;
+	background: #dbe0e9;
+	position: absolute;
+	bottom: 1px;
+}
+
+.admin-row {
+	padding: 6px 14px 9px 18px;
+	background: #485160;
+	color: white;
+}
+
+.task {
+	position: relative;
+	/*margin: 0 0 10px;*/
+	padding: 12px;
+	background: #fff;
+	box-shadow: 0 1px 4px #d8d8d8;
+	border-radius: 2px;
+	color: #000;
+	cursor: pointer;
+}
+
+.task-info {
+	display: inline-flex;
+	flex-flow: row wrap;
+	align-items: center;
+	width: 100%;
+	margin: 10px 0 0;
+}
+
+.task-title {
+	font-size: 15px;
+	line-height: 15px;
+	font-weight: 600;
+	word-wrap: break-word;
+
+	width: 100%;
+	overflow: hidden;
+	display: inline-block;
+	text-overflow: ellipsis;
+	white-space: nowrap;
+}
+
+.task-duration {
+	position: relative;
+	padding: 0 4px 0 4px;
+	font-size: 9px;
+	line-height: 13px;
+	letter-spacing: -.13px;
+	color: #23272d;
+	background: #f8f9fb;
+	border-radius: 2px;
+}
+
+.is-drag {
+	background: rgb(88, 181, 232);
+	color: white;
+	height: 50px;
+	opacity: 0.6;
+	padding-left: 0.25rem!important;
+	padding-right: 0.25rem!important;
+}
+
+.is-drag.dropped {
+	opacity: 1;
+}
+
+.is-drag.priority-0 {
+	background: #8a8a8a;
+	color: white;
+	height: 50px;
+}
+
+.is-drag.priority-0::before {
+	background: rgb(96, 96, 96) !important;
+}
+
+.is-drag.priority-1 {
+	background: #0000a0;
+	color: white;
+	height: 50px;
+}
+
+.is-drag.priority-3 {
+	background: #e06161;
+	color: white;
+	height: 50px;
+}
+
+.is-drag.priority-4 {
+	background: #ff0000;
+	color: white;
+	height: 50px;
+}
+.is-drag.priority-4::before {
+	background: rgb(178, 0, 0) !important;
+}
+
+
+.is-drag::before {
+	content: '';
+	position: absolute;
+	left: 0;
+	top: 0;
+	bottom: 0;
+	width: 2px;
+	background: rgb(48, 142, 195);
+	border-radius: 2px 0 0 2px;
+}
+
+.is-drag.priority-1::before {
+	background: #003366;
+}
+
+.is-drag.priority-3::before {
+	background: #de1738;
+}
+
+.is-drag.time-after::after {
+	content: attr(data-after);
+	position: absolute;
+	right: -60px;
+	top: 49px;
+	color: white;
+	background: black;
+	opacity: 0.6;
+	padding: 0 2px;
+	font-size: 0.7rem;
+	border-radius: 3px;
+}
+
+.is-drag > .task-info {
+	display: none;
+}
+
+.task-btn {
+	display: none;
+}
+.is-drag .task-btn {
+	display: block;
+}
+
+
+/* Month shedule */
+
+table.work-table-month > tbody > tr > td {
+	vertical-align: top !important;
+}
+
+table.work-table-month > tbody > tr > td.active {
+	cursor: not-allowed;
+}
+
+.dayCell {
+	max-width: 70px;
+}
+
+table.work-table-month td {
+	width: 70px;
+	height: 100px;
+	border: 1px silver solid;
+}
+
+table.work-table-month a.mday {
+	right: 0;
+	text-align: right;
+}
+
+td .workElement {
+	background-color: lightblue;
+	border: 1px solid lightblue;
+	border-radius: 3px;
+	margin: 1px 0;
+	font-weight: 600;
+}
+
+.month-tasks-container {
+	max-height: 100px;
+	overflow-y: scroll;
+}
+
+.month-tasks-container {
+	-ms-overflow-style: none; /* for Internet Explorer, Edge */
+	scrollbar-width: none; /* for Firefox */
+	overflow-y: scroll;
+}
+
+.month-tasks-container::-webkit-scrollbar {
+	display: none; /* for Chrome, Safari, and Opera */
+}
+
+.month-tasks-container .is-drag {
+	height: auto;
+	padding: 5px;
+	margin-bottom: 8px;
+}

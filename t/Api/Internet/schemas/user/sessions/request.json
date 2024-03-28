@@ -1,0 +1,6 @@
+{
+  "name": "USER_INTERNET_SESSIONS",
+  "method": "GET",
+  "path": "user/:uid/internet/sessions/",
+  "params": {}
+}

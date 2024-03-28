@@ -1,0 +1,48 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+our %FUNCTIONS_LIST = (
+  "01:-1:$lang{DOCS}:docs_invoices_list:UID"                 => 20,
+  "02:1:$lang{INVOICES}:docs_invoices_list:UID"              => 20,
+  "03:1:$lang{NEXT_PERIOD_INVOICE}:docs_invoice_company:UID" => 20,
+  "04:1:$lang{RECEIPTS}:docs_receipt:UID"                    => 20,
+  "05:1:$lang{SETTINGS}:docs_user:UID"                       => 20,
+  "06:1:$lang{ACTS}:docs_acts:UID"                           => 20,
+
+  "07:0:$lang{DOCS}:docs_acts:COMPANY_ID"                    => 13,
+  "08:7:$lang{ACTS}:docs_acts:COMPANY_ID"                    => 13,
+  "09:7:$lang{TAX_INVOICE}:docs_tax_invoice:COMPANY_ID"      => 13,
+  "10:7:$lang{INVOICES}:docs_invoices_list:COMPANY_ID"       => 13,
+  "11:10:$lang{ADD}:docs_invoice_company:COMPANY_ID"         => 13,
+
+  "12:0:$lang{DOCS}:docs_summary:"                           => 5,
+  "13:12:$lang{REGISTRATION}:docs_registration_create"       => 5,
+
+  "14:0:$lang{DOCS}:docs_invoices_list:"                     => 8,
+  "15:14:$lang{INVOICES}:docs_invoices_list:"                => 8,
+  "16:15:$lang{CREATE}:docs_invoices_multi_create:"          => 8,
+  "17:14:$lang{RECEIPTS}:docs_receipt_list:"                 => 8,
+  "18:14:$lang{ACTS}:docs_acts_list:"                        => 8,
+  "19:14:$lang{USERS}:docs_users_list:"                      => 8,
+
+  "21:0:$lang{DOCS}:docs_reports:"                           => 4,
+  "22:21:$lang{TAX_INVOICE}:docs_tax_invoice_list:"          => 4,
+  "23:22:Export:docs_tax_exports:"                           => 4,
+  "24:21:$lang{ACTS}:docs_acts_list:"                        => 4,
+  "25:21:$lang{INVOICES}:docs_invoices_list:"                => 4,
+  "26:21:$lang{RECEIPTS}:docs_receipt_list:"                 => 4,
+  "27:21:$lang{UNPAID_INVOICES}:docs_unpaid_invoices:"       => 4,
+);
+
+if (! $conf{DOCS_SKIP_USER_MENU}) {
+  our %USER_FUNCTION_LIST = ("01:0:$lang{DOCS}:docs_invoices_list:" => 0);
+  if($conf{DOCS_USERPORTAL_INVOICE}) {
+    $USER_FUNCTION_LIST{"02:1:$lang{RECEIPTS}:docs_receipt_list:"} = 0;
+  }
+
+  if($conf{DOCS_USERPORTAL_ACT}) {
+    $USER_FUNCTION_LIST{"02:1:$lang{ACTS}:docs_acts_list:"} = 0;
+  }
+}
+
+%PERIODIC = (monthly   => [ 'docs_unpaid_invoice_del' ] );
+
+1

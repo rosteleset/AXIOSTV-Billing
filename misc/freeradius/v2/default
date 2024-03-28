@@ -1,0 +1,38 @@
+authenticate {
+        Auth-Type PAP {
+                pap
+        }
+        Auth-Type CHAP {
+                chap
+        }
+        Auth-Type MS-CHAP {
+                mschap
+        }
+        Auth-Type Perl {
+                perl
+        }
+        eap
+}
+
+authorize { 
+  preprocess 
+  axbills_preauth 
+  mschap 
+  files 
+#  sql
+  axbills_auth 
+ } 
+ 
+preacct { 
+  preprocess 
+  axbills_acc 
+ } 
+
+post-auth { 
+  Post-Auth-Type REJECT { 
+     axbills_postauth 
+   }
+# Post-Auth-Type REJECT {
+#   sql
+#  } 
+}

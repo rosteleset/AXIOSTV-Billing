@@ -1,0 +1,1 @@
+<label class='col-md-12 bg-success text-center'>_{ONECLICK_PAY}_</label>

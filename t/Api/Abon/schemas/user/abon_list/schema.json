@@ -1,0 +1,54 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+  "required": [
+    "activate",
+    "active",
+    "comments",
+    "endDate",
+    "startDate",
+    "id",
+    "name",
+    "period",
+    "price"
+  ],
+  "properties": {
+    "activate": {
+      "$id": "#/properties/activate",
+      "type": "boolean"
+    },
+    "active": {
+      "$id": "#/properties/active",
+      "type": "boolean"
+    },
+    "comments": {
+      "$id": "#/properties/comments",
+      "type": "string"
+    },
+    "endDate": {
+      "$id": "#/properties/endDate",
+      "type": "string"
+    },
+    "startDate": {
+      "$id": "#/properties/startDate",
+      "type": "string"
+    },
+    "name": {
+      "$id": "#/properties/name",
+      "type": "string"
+    },
+    "period": {
+      "$id": "#/properties/period",
+      "type": "string"
+    },
+    "id": {
+      "$id": "#/properties/id",
+      "type": "number"
+    },
+    "price": {
+      "$id": "#/properties/price",
+      "type": "number"
+    }
+  }
+}

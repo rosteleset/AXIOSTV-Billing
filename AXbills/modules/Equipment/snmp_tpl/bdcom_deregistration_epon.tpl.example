@@ -1,0 +1,4 @@
+enable
+conf
+interface epon %BRANCH%
+no epon bind-onu mac %MAC%

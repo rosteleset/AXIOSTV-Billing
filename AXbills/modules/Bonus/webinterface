@@ -1,0 +1,1675 @@
+#!perl
+=head1 NAME
+
+  Bonus web functions
+
+  Error ID: 19xx
+
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+
+use AXbills::Defs;
+use Bonus;
+use Finance;
+use Tariffs;
+use Users;
+use Payments;
+use AXbills::Base qw(_bp in_array cfg2hash mk_unique_value);
+
+our ($db,
+  $admin,
+  %conf,
+  %lang,
+  %permissions,
+  %err_strs,
+  %ADMIN_REPORT,
+  @BONUS_METHODS,
+  %BONUS_METHODS
+);
+
+our AXbills::HTML $html;
+my $Bonus    = Bonus->new($db, $admin, \%conf);
+my $Payments = Payments->new($db, $admin, \%conf);
+my $Tariffs  = Tariffs->new($db, \%conf, $admin);
+my @status   = ($lang{DISABLE}, $lang{ENABLE});
+
+#*******************************************************************
+=head2 bonus_user_log($attr) bonus user log
+
+=cut
+#*******************************************************************
+sub bonus_user_log {
+  my ($attr) = @_;
+
+  return 0 if (!$permissions{1});
+  my %ACTIONS = (0 => $lang{ADD}, 1 => "$lang{TAKE}");
+  my @ACTIONS_colors = ('#0000FF', '#FF8000');
+  my %BILL_ACCOUNTS = ();
+
+  if (defined($attr->{USER})) {
+    my $user = $attr->{USER};
+
+    if ($conf{EXT_BILL_ACCOUNT}) {
+      $BILL_ACCOUNTS{ $user->{EXT_BILL_ID} } = "$lang{EXTRA} : $user->{EXT_BILL_ID}" if ($user->{EXT_BILL_ID});
+      $Bonus->{BILL_ID} = $user->{EXT_BILL_ID};
+    }
+
+    if ($user->{EXT_BILL_ID} < 1) {
+      form_bills({ USER => $user, EXT_BILL_ONLY => 1 });
+      return 0;
+    }
+
+    if ($FORM{DATE}) {
+      ($DATE, $TIME) = split(/ /, $FORM{DATE});
+    }
+
+    if (defined($FORM{OP_SID}) and $FORM{OP_SID} eq $COOKIES{OP_SID}) {
+      $html->message('err', $lang{ERROR}, "$lang{EXIST}");
+    }
+    elsif ($FORM{add} && $FORM{SUM}) {
+      $Bonus->bonus_operation($user, { %FORM });
+
+      if ($Bonus->{errno}) {
+        $html->message('err', $lang{ERROR}, "[$Bonus->{errno}] $err_strs{$Bonus->{errno}}");
+        return 0 if ($FORM{'SHORT_REPORT'});
+      }
+      else {
+        return 0 if ($FORM{'SHORT_REPORT'});
+        $html->message('info', $lang{PAYMENTS}, "$lang{ADDED} $lang{SUM}: $FORM{SUM}");
+        $FORM{BONUS_PAYMENT_ID} = $Bonus->{BONUS_PAYMENT_ID};
+        $attr->{USER}->{EXT_DEPOSIT} += $FORM{SUM};
+        $attr->{USER}->{DEPOSIT} += $FORM{SUM};
+        cross_modules('payments_maked', { %{$attr}, PAYMENT_ID => $Bonus->{BONUS_PAYMENT_ID} });
+      }
+    }
+    elsif ($FORM{del} && $FORM{COMMENTS}) {
+      if (!defined($permissions{1}{2})) {
+        $html->message('err', $lang{ERROR}, "[13] $err_strs{13}");
+        return 0;
+      }
+
+      $Bonus->bonus_operation_del($user, $FORM{del});
+      if ($Bonus->{errno}) {
+        $html->message('err', $lang{ERROR}, "[$Bonus->{errno}] $err_strs{$Bonus->{errno}}");
+      }
+      else {
+        $html->message('info', $lang{PAYMENTS}, "$lang{DELETED} ID: $FORM{del}");
+      }
+    }
+
+    %BONUS_METHODS = ();
+    for (my $i = 0; $i <= $#BONUS_METHODS; $i++) {
+      $BONUS_METHODS{"$i"} = $BONUS_METHODS[$i];
+    }
+
+    $Bonus->{SEL_METHOD} = $html->form_select(
+      'METHOD',
+      {
+        SELECTED => (defined($FORM{METHOD}) && $FORM{METHOD} ne '') ? $FORM{METHOD} : '',
+        SEL_HASH => \%BONUS_METHODS,
+        NO_ID    => 1,
+        SORT_KEY => 1
+      }
+    );
+    $Bonus->{ACTION_TYPES} = $html->form_select(
+      'ACTION_TYPE',
+      {
+        SELECTED => (defined($FORM{ACTION_TYPE}) && $FORM{ACTION_TYPE} ne '') ? $FORM{ACTION_TYPE} : '',
+        SEL_HASH => \%ACTIONS,
+        NO_ID    => 1,
+        SORT_KEY => 1,
+        STYLE    => \@ACTIONS_colors
+      }
+    );
+
+    if ($permissions{1} && $permissions{1}{1}) {
+      $Bonus->{OP_SID} = mk_unique_value(16);
+      $html->tpl_show(_include('bonus_operation', 'Bonus'), $Bonus, { ID => 'bonus_operation' });
+    }
+  }
+  elsif ($FORM{AID} && !defined($LIST_PARAMS{AID})) {
+    $FORM{subf} = $index;
+    require Control::Admins_mng;
+    form_admins();
+    return 0;
+  }
+  elsif ($FORM{UID}) {
+    form_users();
+    return 0;
+  }
+  elsif ($index != 7) {
+    form_search(
+      {
+        HIDDEN_FIELDS => {
+          subf       => ($FORM{subf}) ? $FORM{subf} : undef,
+          COMPANY_ID => $FORM{COMPANY_ID}
+        }
+      }
+    );
+  }
+
+  return 0 if (!$permissions{1}{0});
+
+  if (!defined($FORM{sort})) {
+    $LIST_PARAMS{SORT} = 1;
+    $LIST_PARAMS{DESC} = 'DESC';
+  }
+
+  $LIST_PARAMS{ID} = $FORM{ID} if ($FORM{ID});
+
+  my $list = $Bonus->bonus_operation_list({ %LIST_PARAMS, COLS_NAME => 1 });
+  my $table = $html->table({
+    width   => '100%',
+    caption => $lang{BONUS},
+    title   =>
+      [ 'ID', $lang{LOGIN}, $lang{DATE}, $lang{DESCRIBE}, $lang{SUM}, $lang{DEPOSIT}, $lang{EXPIRE}, $lang{PAYMENT_METHOD}, 'EXT ID',
+        $lang{BILL}, $lang{ADMINS}, 'IP', $lang{ACTION}, '-' ],
+    qs      => $pages_qs,
+    pages   => $Bonus->{TOTAL},
+    ID      => 'BONUS_LOG'
+  });
+
+  if ($Bonus->{TOTAL} < 1) {
+    $html->message('err', $lang{ERROR}, $lang{NO_DATA});
+    return 1;
+  }
+
+  my $delete = '';
+  foreach my $line (@{$list}) {
+    if ($line->[14]) {
+      $delete = $lang{DELETED};
+    }
+    else {
+      $delete = ($permissions{1} && $permissions{1}{2} && $line->[4] > 0) ? $html->button($lang{DEL},
+        "index=$index&SUM=$line->[4]&del=$line->[0]&UID=" . $line->[13],
+        { MESSAGE => "$lang{DEL} [$line->[0]] ?", class => 'del' }) : '';
+    }
+
+    $table->addrow(
+      $html->b($line->[0]),
+      $html->button($line->[1], "index=15&UID=$line->[11]"),
+      $line->[2],
+      $line->[3] . (($line->[14]) ? $html->br() . $html->b($line->[14]) : ''),
+      $line->[4],
+      $line->[5],
+      $line->[6],
+      $BONUS_METHODS{ $line->[7] },
+      $line->[8],
+      $line->[9],
+      $line->[10],
+      $line->[11],
+      $html->color_mark($ACTIONS{"$line->[12]"}, $ACTIONS_colors[ $line->[12] ]) . ' ' .
+        $delete
+    );
+  }
+
+  print $table->show();
+
+  if (!$admin->{MAX_ROWS}) {
+    $table = $html->table({
+      width    => '100%',
+      rows     =>
+        [ [ "$lang{TOTAL}:", $html->b($Bonus->{TOTAL}), "$lang{USERS}:", $html->b($Bonus->{TOTAL_USERS}), "$lang{SUM}",
+          $html->b($Bonus->{SUM}) ] ],
+    });
+
+    print $table->show();
+  }
+
+  return 1;
+}
+
+#*******************************************************************
+=head2 bonus_tp()
+
+=cut
+#*******************************************************************
+sub bonus_tp {
+
+  $Bonus->{ACTION} = 'add';
+  $Bonus->{LNG_ACTION} = $lang{ADD};
+
+  if ($FORM{RULES}) {
+    bonus_rules();
+    return 0;
+  }
+  elsif ($FORM{ACCOMULATION}) {
+    bonus_tp_accomulation();
+    return 0;
+  }
+  elsif ($FORM{add}) {
+    $Bonus->tp_add({ %FORM });
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{ADDED}");
+    }
+  }
+  elsif ($FORM{change}) {
+    $Bonus->tp_change({ %FORM });
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED} ID: " . ($FORM{ID} || q{}));
+    }
+  }
+  elsif ($FORM{chg}) {
+    $Bonus->tp_info($FORM{chg});
+
+    $Bonus->{ACTION} = 'change';
+    $Bonus->{LNG_ACTION} = $lang{CHANGE};
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGING}");
+    }
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Bonus->tp_del({ ID => $FORM{del} });
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED} ID: $FORM{del}");
+    }
+  }
+
+  _error_show($Bonus);
+
+  $Bonus->{STATE} = ($Bonus->{STATE}) ? 'checked' : '';
+  $html->tpl_show(_include('bonus_tp', 'Bonus'), $Bonus, { ID => 'bonus_tp' });
+
+  my $list = $Bonus->tp_list();
+
+  my $table = $html->table(
+    {
+      width   => '100%',
+      caption => $lang{TARIF_PLANS},
+      title   => [ '#', $lang{NAME}, $lang{STATE}, '-' ],
+      ID      => 'TP_ID'
+    }
+  );
+
+  my ($add);
+  foreach my $line (@{$list}) {
+    if ($permissions{4}{1}) {
+      $add = $html->button($lang{ADD}, "index=$index&TP_ID=$line->[0]&add=$line->[0]", { class => 'add' });
+    }
+
+    if ($FORM{TP_ID} && $FORM{TP_ID} eq $line->[0]) {
+      $table->{rowcolor} = $_COLORS[0];
+    }
+    else {
+      delete($table->{rowcolor});
+    }
+
+    my $bonus_type = ($conf{BONUS_ACCOMULATION}) ? 'ACCOMULATION' : 'RULES';
+
+    $table->addrow(
+      $line->[0],
+      $line->[1],
+      $status[ $line->[2] ],
+      $html->button($lang{RULES}, "index=$index&$bonus_type=1&TP_ID=$line->[0]", { BUTTON => 1 })
+        . ' ' . $html->button($lang{CHANGE}, "index=$index&chg=$line->[0]", { class => 'change' })
+        . ' ' . $html->button($lang{DEL}, "index=$index&del=$line->[0]", { MESSAGE => "$lang{DEL} $line->[0] ?", class => 'del' })
+    );
+  }
+
+  print $table->show();
+
+  $table = $html->table(
+    {
+      width => '100%',
+      rows  => [ [ "$lang{TOTAL}:", $html->b($Bonus->{TOTAL}) ] ]
+    }
+  );
+
+  print $table->show();
+
+  return 1;
+}
+
+#*******************************************************************
+=head2 bonus_rules($attr)
+
+=cut
+#*******************************************************************
+sub bonus_rules {
+
+  my %BONUS_HUSH = (
+    TRAFFIC_IN_BONUS_MB  => $lang{TRAFFIC_IN_BONUS_MB},
+    TRAFFIC_OUT_BONUS_MB => $lang{TRAFFIC_OUT_BONUS_MB},
+    TRAFFIC_SUM_BONUS_MB => $lang{TRAFFIC_SUM_BONUS_MB}
+  );
+  my @BONUS_HUSH_ARRAY = (
+    'TRAFFIC_IN_BONUS_MB', 'TRAFFIC_OUT_BONUS_MB', 'TRAFFIC_SUM_BONUS_MB'
+  );
+  my %BONUS_HUSH_INDEX = (
+    TRAFFIC_IN_BONUS_MB  => 1,
+    TRAFFIC_OUT_BONUS_MB => 2,
+    TRAFFIC_SUM_BONUS_MB => 3
+  );
+
+  $Bonus->{ACTION} = 'add';
+  $Bonus->{LNG_ACTION} = $lang{ADD};
+
+  if ($FORM{add}) {
+    $FORM{RULES} = ($FORM{RULE} && $BONUS_HUSH_INDEX{$FORM{RULE}}) ? $BONUS_HUSH_INDEX{$FORM{RULE}} : q{};
+    $Bonus->rule_add({ %FORM });
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{ADDED});
+    }
+  }
+  elsif ($FORM{change}) {
+    $FORM{RULES} = $BONUS_HUSH_INDEX{$FORM{RULE}};
+    $Bonus->rule_change({ %FORM });
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED} ID: $FORM{ID}");
+    }
+  }
+  elsif ($FORM{chg}) {
+    $Bonus->rule_info($FORM{chg});
+
+    $Bonus->{ACTION} = 'change';
+    $Bonus->{LNG_ACTION} = $lang{CHANGE};
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{CHANGING});
+    }
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Bonus->rule_del({ ID => $FORM{del} });
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED} ID: $FORM{del}");
+    }
+  }
+
+  _error_show($Bonus);
+
+  $Bonus->{STATE} = ($Bonus->{STATE}) ? 'checked' : '';
+
+  my $list = $Bonus->rule_list({ TP_ID => $FORM{TP_ID} });
+  my @PERIODS = ($lang{DAY}, $lang{MONTH});
+
+  my $table = $html->table(
+    {
+      width   => '100%',
+      caption => $lang{RULES},
+      title   => [ $lang{PERIOD}, $lang{RULES}, $lang{VALUE}, $lang{BONUS}, '-' ],
+      ID      => 'BONUS_RULES'
+    }
+  );
+
+  my ($add);
+  foreach my $line (@{$list}) {
+    if ($permissions{4}{1}) {
+      $add = $html->button($lang{ADD}, "index=$index&TP_ID=$line->[0]&add=$line->[0]", { class => 'add' });
+    }
+
+    if ($FORM{TP_ID} eq $line->[0]) {
+      $table->{rowcolor} = $_COLORS[0];
+    }
+    else {
+      undef($table->{rowcolor});
+    }
+
+    $table->addrow(
+      $PERIODS[ $line->[0] ],
+      $BONUS_HUSH{$BONUS_HUSH_ARRAY[ $line->[1] - 1 ]},
+      $line->[2],
+      $line->[3],
+      $html->button($lang{CHANGE}, "index=$index&RULES=1&TP_ID=$FORM{TP_ID}&chg=$line->[4]", { class => 'change' })
+       . $html->button($lang{DEL}, "index=$index&TP_ID=$FORM{TP_ID}&RULES=1&del=$line->[4]",
+        { MESSAGE => "$lang{DEL} $line->[4] ?", class => 'del' })
+    );
+  }
+
+  my %info_bonus = ();
+
+  $info_bonus{PERIOD} = $html->form_select(
+    'PERIOD',
+    {
+      SELECTED      => $Bonus->{PERIOD},
+      SEL_ARRAY     => \@PERIODS,
+      OUTPUT2RETURN => 1,
+      ARRAY_NUM_ID  => 1
+    }
+  );
+
+  $info_bonus{RULE} = $html->form_select(
+    'RULE',
+    {
+      SELECTED => $Bonus->{RULES},
+      SEL_HASH => \%BONUS_HUSH,
+      NO_ID    => 1
+    }
+  );
+  $info_bonus{ACTIONS} = $Bonus->{ACTIONS};
+  $info_bonus{RULE_VALUE} = $Bonus->{RULE_VALUE};
+  $info_bonus{LNG_ACTION} = $Bonus->{LNG_ACTION};
+  $info_bonus{ACTION} = $Bonus->{ACTION};
+  $info_bonus{index} = $index;
+  $info_bonus{ID} = $Bonus->{ID};
+  $info_bonus{chg} = $Bonus->{ID};
+  $info_bonus{TP_ID} = $FORM{TP_ID};
+
+  $html->tpl_show(_include('bonus_rules', 'Bonus'), \%info_bonus, { ID => 'bonus_rules' });
+
+  print $html->form_main({
+    CONTENT => $table->show({ OUTPUT2RETURN => 1 }),
+    HIDDEN  => {
+      index => $index,
+      chg   => $Bonus->{ID},
+      ID    => $Bonus->{ID},
+      RULES => 1,
+      TP_ID => $FORM{TP_ID}
+    },
+    NAME    => 'list_add'
+  });
+
+  $table = $html->table(
+    {
+      width => '100%',
+      rows  => [ [ "$lang{TOTAL}:", $html->b($Bonus->{TOTAL}) ] ]
+    }
+  );
+
+  print $table->show();
+
+  return 1;
+}
+
+#*******************************************************************
+=head2 bonus_user($attr)
+
+=cut
+#*******************************************************************
+sub bonus_user {
+  my ($attr) = @_;
+
+  if (!$FORM{UID}) {
+    $FORM{UID} = $LIST_PARAMS{UID};
+  }
+
+  if ($user && $user->{UID}) {
+    $users = $user;
+  }
+
+  if ($users->{GID}) {
+    $users->group_info($users->{GID});
+
+    if (!$users->{BONUS}) {
+      $html->message('warn', $lang{BONUS_DISABLED_FOR_GROUP}, '', { ID => 1901 });
+      return 0;
+    }
+  }
+
+  my $Internet;
+  if (in_array('Internet', \@MODULES)) {
+    require Internet;
+    Internet->import();
+    $Internet = Internet->new($db, $admin, \%conf);
+    $Internet->user_info($FORM{UID});
+  }
+
+  $FORM{DV_TP_ID} = $Internet->{TP_ID};
+
+  if ($FORM{add} && $FORM{ACCEPT_RULES}) {
+    if (!$user->{UID} && ! $permissions{0}{21}) {
+      $html->message('err', $lang{ERROR}, $lang{ERR_ACCESS_DENY}, { ID => 1930 });
+      return 0;
+    }
+
+    $Bonus->user_add({ %FORM });
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{ADDED}");
+    }
+  }
+  elsif ($FORM{change}) {
+    if (!$user->{UID} && !$permissions{0}{21}) {
+      $html->message('err', $lang{ERROR}, $lang{ERR_ACCESS_DENY});
+      return 0;
+    }
+
+    if ($user->{UID}) {
+      my $accept_rules = $FORM{ACCEPT_RULES};
+      %FORM = ();
+      $FORM{STATE} = 1;
+      $FORM{UID} = $user->{UID};
+      $FORM{ACCEPT_RULES} = $accept_rules;
+    }
+
+    $Bonus->user_change({ %FORM });
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+
+    if (!$user->{UID} && !$FORM{STATE}) {
+      $FORM{SCORE} = 0;
+    }
+
+    if (defined($FORM{SCORE})) {
+      $Bonus->accomulation_scores_change({ %FORM });
+      if (!$Bonus->{errno}) {
+        $html->message('info', $lang{INFO}, "$lang{CHANGED} $lang{SUM}: $FORM{SCORE}");
+      }
+    }
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    if (!$user->{UID} && !$permissions{0}{21}) {
+      $html->message('err', $lang{ERROR}, $lang{ERR_ACCESS_DENY});
+      return 0;
+    }
+
+    $Bonus->user_del({ ID => $FORM{del} });
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED} ID: $FORM{del}");
+    }
+  }
+
+  _error_show($Bonus);
+
+  $Bonus->user_info($FORM{UID});
+  my $allow_transfer = $Bonus->{ACCEPT_RULES};
+  my $active_status = $Bonus->{STATE};
+
+  if ($Bonus->{TOTAL} < 1) {
+    $Bonus->{ACTION} = $html->form_input('add', $lang{REGISTRATION}, { TYPE => 'submit', OUTPUT2RETURN => 1 });
+    $Bonus->{ACCEPT_RULES} = $html->form_input('ACCEPT_RULES', '1',
+      { STATE => $Bonus->{ACCEPT_RULES}, TYPE => 'checkbox', OUTPUT2RETURN => 1 });
+    $Bonus->{STATE} = $html->form_input('STATE', '1',
+      { STATE => $Bonus->{STATE}, TYPE => 'checkbox', OUTPUT2RETURN => 1 });
+
+  }
+  elsif (!$user->{UID}) {
+    $Bonus->{ACTION} = $html->form_input('change', "$lang{CHANGE}", { TYPE => 'submit' });
+    $Bonus->{ACCEPT_RULES} = $html->form_input('ACCEPT_RULES', '1',
+      { STATE => $Bonus->{ACCEPT_RULES}, TYPE => 'checkbox' });
+    $Bonus->{STATE} = $html->form_input('STATE', '1',
+      { STATE => ($Bonus->{STATE} == 1) ? $Bonus->{STATE} : undef, TYPE => 'checkbox', OUTPUT2RETURN => 1 });
+  }
+  else {
+    if ($Bonus->{ACCEPT_RULES}) {
+      $Bonus->{ACCEPT_RULES} = $lang{YES}
+    }
+    else {
+      $Bonus->{ACCEPT_RULES} = $html->form_input('ACCEPT_RULES', '1',
+        { STATE => $Bonus->{ACCEPT_RULES}, TYPE => 'checkbox', OUTPUT2RETURN => 1 });
+      $Bonus->{ACTION} = $html->form_input('change', $lang{ACTIVATE}, { TYPE => 'submit', OUTPUT2RETURN => 1 });
+    }
+
+    $Bonus->{STATE} = $status[$Bonus->{STATE}];
+  }
+
+  if (!$conf{BONUS_PAYMENTS}) {
+    $Bonus->{TARIF_SEL} = $html->form_select(
+      'TP_ID',
+      {
+        SELECTED       => $Bonus->{TP_ID},
+        SEL_LIST       => $Bonus->tp_list({ COLS_NAME => 1 }),
+        MAIN_MENU      => get_function_index('bonus_tp'),
+        MAIN_MENU_ARGV => "TP_ID=" . ($Bonus->{TP_ID} || '')
+      }
+    );
+
+    $Bonus->{TARIF_SEL_NAME} = $lang{TARIF_PLAN};
+  }
+
+  my $user_form = q{};
+
+  if ($conf{BONUS_ACCOMULATION}) {
+    $Bonus->accomulation_scores_info({ UID => $FORM{UID} });
+    if (!$Bonus->{TOTAL}) {
+      $Bonus->{COST} = '0.00';
+    }
+    else {
+      if ($Bonus->{DV_TP_ID} = $Internet->{TP_ID}) {
+        my $tp_list = $Tariffs->list({ ID => "$Bonus->{DV_TP_ID}, $Internet->{TP_ID}", COLS_NAME => 1, PRIORITY => '_SHOW' });
+        my %tp_priority = ();
+        foreach my $line (@$tp_list) {
+          $tp_priority{$line->{id}} = $line->{priority};
+        }
+
+        if (defined($Bonus->{DV_TP_ID})
+          && defined($tp_priority{$Bonus->{DV_TP_ID}})
+          && $tp_priority{$Bonus->{DV_TP_ID}} > $tp_priority{$Internet->{TP_ID}}) {
+          $Bonus->{COST} = 0;
+        }
+      }
+    }
+
+    my $bonus_cost = $Bonus->{COST} || 0;
+
+    if (!$user->{UID} && $Bonus->{UID}) {
+      $Bonus->{COST_FORM} = $html->form_input('SCORE', $Bonus->{COST});
+    }
+    else {
+      $Bonus->{COST_FORM} = $bonus_cost;
+    }
+
+    $user_form = $html->tpl_show(_include('bonus_user_accomulation', 'Bonus'), $Bonus, {
+      OUTPUT2RETURN => ($user) ? undef : 1,
+      ID            => 'bonus_user_accomulation'
+    });
+
+    if ($bonus_cost > 0 && $Bonus->{UID} && $allow_transfer && $active_status) {
+      $user_form .= bonus_accomulation_transfer()
+    }
+  }
+  else {
+    $user_form = $html->tpl_show(_include('bonus_user', 'Bonus'), $Bonus, {
+      ID => 'bonus_user',
+      OUTPUT2RETURN => 1 });
+  }
+
+  if ($attr->{PROFILE_MODE} || $user) {
+    return '', $user_form;
+  }
+
+  print $user_form;
+
+  return 1;
+}
+
+#*******************************************************************
+=head2 bonus_users_list()
+
+=cut
+#*******************************************************************
+sub bonus_users_list {
+
+  result_former({
+    INPUT_DATA      => $Bonus,
+    FUNCTION        => 'user_list',
+    BASE_FIELDS     => 0,
+    DEFAULT_FIELDS  => 'LOGIN,FIO,TP_NAME,DEPOSIT,CREDIT,STATE',
+    FUNCTION_FIELDS => 'change',
+    SELECT_VALUE    => {
+      state => {
+        0 => $lang{DISABLE},
+        1 => $lang{ENABLE},
+      }
+    },
+    EXT_TITLES      => {
+      'tp_name' => "$lang{TARIF_PLAN}",
+      'state'   => "$lang{STATUS}",
+    },
+    TABLE           => {
+      width   => '100%',
+      caption => $lang{BONUS},
+      qs      => $pages_qs,
+      ID      => 'BONUS_USERS',
+      EXPORT  => 1,
+    },
+    MAKE_ROWS       => 1,
+    MODULE          => 'Bonus',
+    TOTAL           => "TOTAL:$lang{TOTAL};TOTAL_DEBETORS_SUM:$lang{SUM}"
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 bonus_periodic_daily($attr)
+
+=cut
+#**********************************************************
+sub bonus_periodic_daily {
+  my ($attr) = @_;
+
+  my $debug = $attr->{DEBUG} || 0;
+  my $debug_output = '';
+  $debug_output .= "Bonus - Daily periodic\n" if ($debug > 1);
+
+  $LIST_PARAMS{LOGIN} = $attr->{LOGIN} if ($attr->{LOGIN});
+
+  if ($conf{BONUS_RESET_PERIOD}) {
+    $debug_output .= "Bonus - BONUS_RESET_PERIOD\n" if ($debug > 1);
+    $Bonus->{debug} = 1 if ($debug > 6);
+    my $reset_list = $Bonus->accomulation_reset_list({
+      RESET_PERIOD => $conf{BONUS_RESET_PERIOD},
+      COLS_NAME    => 1
+    });
+
+    foreach my $u (@$reset_list) {
+      $Bonus->accomulation_scores_change({
+        UID   => $u->{uid},
+        SCORE => 0
+      });
+    }
+  }
+
+  if ($conf{BONUS_PAYMENTS}) {
+    return $debug_output
+  }
+  # Accomulation reset
+  elsif ($conf{BONUS_ACCOMULATION}) {
+    $debug_output .= "Bonus - BONUS_ACCOMULATION\n" if ($debug > 1);
+    my $reset_list = $users->list({
+      DEPOSIT        => '<0',
+      DISABLE        => '1',
+      _MULTI_HIT     => 1,
+      COLS_NAME      => 1,
+      SKIP_DEL_CHECK => 1,
+      PAGE_ROWS      => 1000000,
+    });
+
+    foreach my $u (@$reset_list) {
+      if ($u && $u->{uid}) {
+        $Bonus->accomulation_scores_change({
+          UID   => $u->{uid},
+          SCORE => 0
+        });
+      }
+    }
+  }
+
+  #del expired bonus
+  #list expire
+  $LIST_PARAMS{LOGIN} = $attr->{LOGIN} if ($attr->{LOGIN});
+
+  $Bonus->{debug} = 1 if ($debug > 6);
+
+  my $list = $Bonus->bonus_operation_list(
+    {
+      EXPIRE      => $ADMIN_REPORT{DATE},
+      DEPOSIT     => '>0',
+      SUM         => '_SHOW',
+      BILL_ID     => '_SHOW',
+      EXT_BILL_ID => '_SHOW',
+      EXPIRE      => '_SHOW',
+      PAGE_ROWS   => 1000000,
+      COLS_NAME   => 1,
+      %LIST_PARAMS
+    }
+  );
+
+  my %last_deposits = ();
+  foreach my $line (@{$list}) {
+    if ($line->{login}) {
+      my $sum = $line->{sum};
+      my %user = (
+        EXT_BILL_ID => $line->{ext_bill_id} || $line->{bill_id},
+        UID         => $line->{uid},
+        DEPOSIT     => $line->{deposit},
+        BILL_ID     => $line->{bill_id}
+      );
+
+      my $deposit = ($last_deposits{ $user{UID} }) ? $last_deposits{ $user{UID} } : $user{DEPOSIT};
+      $debug_output .= "LOGIN: $line->{login} [$user{UID}] DEPOSIT: $deposit SUM: $sum EXPIRE: $line->{expire} BILL_ID: $line->{bill_id} ADD DATE: $line->{date}\n" if ($debug > 1);
+
+      if ($sum > $deposit) {
+        $sum = $deposit;
+      }
+
+      next if ($sum <= 0);
+
+      $Bonus->bonus_operation(
+        \%user,
+        {
+          ACTION_TYPE => 1,
+          SUM         => $sum,
+          DESCRIBE    => "$lang{EXPIRE} ID: $line->{id}",
+        }
+      );
+
+      if ($Bonus->{errno}) {
+        print "LOGIN: $line->{login} [$user{UID}] [$Bonus->{errno}] $err_strs{$Bonus->{errno}}\n";
+      }
+      else {
+        $last_deposits{ $user{UID} } = ($last_deposits{ $user{UID} }) ? $last_deposits{ $user{UID} } -= $sum : $user{DEPOSIT} -= $sum;
+      }
+    }
+  }
+
+  $DEBUG .= $debug_output;
+  return $debug_output;
+}
+
+#**********************************************************
+=head2 bonus_periodic_monthly($attr)
+
+=cut
+#**********************************************************
+sub bonus_periodic_monthly {
+  my ($attr) = @_;
+
+  my $debug = $attr->{DEBUG} || 0;
+  my $debug_output = '';
+  $debug_output .= "Bonus - Monthly periodic\n" if ($debug > 1);
+
+  if ($conf{BONUS_PAYMENTS}) {
+    $debug_output .= "BONUS_PAYMENTS: \$conf{BONUS_PAYMENTS}\n";
+    return $debug_output;
+  }
+
+  if ($conf{BONUS_ACCOMULATION}) {
+    $debug_output .= bonus_periodic_accomulation($attr)
+  }
+
+  $DEBUG .= $debug_output;
+  return $debug_output;
+}
+
+#**********************************************************
+#
+#**********************************************************
+sub bonus_report {
+  my $REPORT = '';
+
+  return $REPORT;
+}
+
+
+#**********************************************************
+=head2 bonus_payments_maked($attr)
+
+  Arguments:
+    $attr
+      SUM
+      USER_INFO
+
+  Returns:
+    TRUE or FALSE
+
+=cut
+#**********************************************************
+# sub bonus_payments_maked {
+#   my ($attr) = @_;
+#
+#   my $user;
+#
+#   $user = $attr->{USER_INFO} if ($attr->{USER_INFO});
+#
+#   if (!$conf{BONUS_PAYMENTS}) {
+#     return '';
+#   }
+#   elsif (!$attr->{SUM}) {
+#     return '';
+#   }
+#
+#   my $score = 0;
+#   my %RESULT = ();
+#
+#   if (!defined($FORM{METHOD})) {
+#     $FORM{METHOD} = 2;
+#   }
+#   my $payment_method = $attr->{METHOD} || $FORM{METHOD};
+#
+#   my ($year, $month, $day) = split(/-/, $attr->{USER_INFO}->{REGISTRATION}, 3);
+#   my $seltime = POSIX::mktime(0, 0, 0, $day, ($month - 1), ($year - 1900));
+#   my $registration_days = int((time() - $seltime) / 86400);
+#
+#   $Bonus->user_info($user->{UID});
+#
+#   if (!$Bonus->{STATE} || !$Bonus->{ACCEPT_RULES}) {
+#     return '';
+#   }
+#
+#   my $list = $Bonus->service_discount_list(
+#     {
+#       REGISTRATION_DAYS => "<=$registration_days,>=0",
+#       PAGE_ROWS         => 20,
+#       SORT              => "registration_days DESC, 1 DESC, 2 DESC, pay_method DESC",
+#       COLS_NAME         => 1
+#     }
+#   );
+#
+#   if ($Bonus->{TOTAL} > 0) {
+#     foreach my $line (@$list) {
+#       if (in_array('-1', [ split(', ', $line->{pay_method}) ])
+#         || in_array($payment_method, [ split(', ', $line->{pay_method}) ])) {
+#         $RESULT{DISCOUNT} = $line->{discount};
+#         $RESULT{DISCOUNT_PERIOD} = $line->{discount_days};
+#         $RESULT{BONUS_SUM} = $line->{bonus_sum};
+#         $RESULT{BONUS_PERCENT} = $line->{bonus_percent};
+#         $RESULT{BONUS_EXT_ACCOUNT} = $line->{ext_account};
+#
+#         if ($RESULT{DISCOUNT_PERIOD} > 0) {
+#           $RESULT{DISCOUNT_PERIOD} = POSIX::strftime('%Y-%m-%d',
+#             localtime(time + 86400 * $RESULT{DISCOUNT_PERIOD}));
+#         }
+#
+#         if ($RESULT{BONUS_PERCENT}) {
+#           $score = $attr->{SUM} / 100 * $RESULT{BONUS_PERCENT};
+#         }
+#         last;
+#       }
+#     }
+#   }
+#
+#   if (!$attr->{QUITE}) {
+#     if ($attr->{SUM} > 0) {
+#       $html->message('info', $lang{BONUS}, "$lang{ADD} $lang{BONUS} " . sprintf('%.2f', $score));
+#     }
+#   }
+#
+#   $Bonus->accomulation_scores_add({
+#     UID   => $user->{UID},
+#     SCORE => $score
+#   });
+#
+#   return 1;
+# }
+
+#**********************************************************
+=head2 bonus_service_discount_client($attr)
+
+=cut
+#**********************************************************
+sub bonus_service_discount_client {
+  my ($attr) = @_;
+
+  my ($year, $month, $day, $seltime);
+  my $registration_days = 0;
+  if (defined $user->{REGISTRATION}) {
+    ($year, $month, $day) = split(/-/, $user->{REGISTRATION}, 3);
+    $seltime = POSIX::mktime(0, 0, 0, $day, ($month - 1), ($year - 1900));
+    $registration_days = int((time() - $seltime) / 86400);
+  }
+  my $payments_sum = 0;
+
+  my %RULES = ();
+  my $list = $Bonus->service_discount_list({ PAGE_ROWS => 1000, COLS_NAME => 1 });
+  foreach my $line (@{$list}) {
+    if ($line->{registration_days} > 0) {
+      $RULES{PERIOD} = 1;
+    }
+    elsif ($line->{total_payments_sum} > 0) {
+      $RULES{TOTAL_PAYMENT} = 1;
+    }
+  }
+
+  my %RESULT = ();
+  if ($RULES{TOTAL_PAYMENT} && $RULES{TOTAL_PAYMENT} > 0) {
+    $list = $Payments->list(
+      {
+        UID        => $user->{UID} || $FORM{UID},
+        TOTAL_ONLY => 1,
+        METHOD     => $conf{BONUS_SERVICE_EXCLUDE} || '!4',
+        COLS_NAME  => 1
+      }
+    );
+    $payments_sum = $list->[0]->{sum} || '0.00';
+    $RESULT{TOTAL_PAYMENT} = $html->b("$lang{TOTAL} $lang{PAYMENTS}: " . $payments_sum);
+  }
+  else {
+    $RESULT{TOTAL_PAYMENT} = '';
+  }
+
+  $list = $Bonus->service_discount_list(
+    {
+      REGISTRATION_DAYS  => "<=$registration_days,>=0",
+      TOTAL_PAYMENTS_SUM => $RULES{TOTAL_PAYMENT} ? "<=$payments_sum,>=0" : undef,
+      PAGE_ROWS          => 1,
+      SORT               => "1 DESC, 2 DESC, 3 DESC",
+      COLS_NAME          => 1
+    }
+  );
+
+  if ($Bonus->{TOTAL} > 0) {
+    $RESULT{DISCOUNT} = $list->[0]->{discount} || 0;
+    $RESULT{DISCOUNT_PERIOD} = $list->[0]->{discount_days} || 0;
+    $RESULT{BONUS_SUM} = $list->[0]->{bonus_sum} || 0;
+    $RESULT{BONUS_PERCENT} = $list->[0]->{bonus_percent} || 0;
+    $RESULT{BONUS_EXT_ACCOUNT} = $list->[0]->{ext_account} || 0;
+  }
+
+  my $service_info = $html->tpl_show(_include('bonus_service_discount_client', 'Bonus'),
+    { %{$Bonus}, %RESULT },
+    { OUTPUT2RETURN => ($user) ? 0 : 1,
+      ID => 'bonus_service_discount_client'
+    }
+  );
+
+  if ($attr->{PROFILE_MODE}) {
+    return '', $service_info;
+  }
+
+  if(! $user) {
+    print $service_info;
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 bonus_service_discount()
+
+=cut
+#**********************************************************
+sub bonus_service_discount {
+  my $REPORT = '';
+
+  $Bonus->{ACTION} = 'add';
+  $Bonus->{LNG_ACTION} = $lang{ADD};
+
+  if ($FORM{add}) {
+    $Bonus->service_discount_add({ %FORM });
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{ADDED});
+    }
+  }
+  elsif ($FORM{change}) {
+    $Bonus->service_discount_change({ %FORM });
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED} ID: $FORM{ID}");
+    }
+  }
+  elsif ($FORM{chg}) {
+    $Bonus->service_discount_info($FORM{chg});
+
+    $Bonus->{ACTION} = 'change';
+    $Bonus->{LNG_ACTION} = $lang{CHANGE};
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{CHANGING});
+    }
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Bonus->service_discount_del({ ID => $FORM{del} });
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED} ID: $FORM{del}");
+    }
+  }
+
+  _error_show($Bonus);
+
+  $Bonus->{EXT_ACCOUNT} = 'checked' if ($Bonus->{EXT_ACCOUNT});
+
+  my $PAYMENTS_METHODS = get_payment_methods();
+  $PAYMENTS_METHODS->{'-1'} = $lang{ALL};
+
+  $Bonus->{PAYMENT_TYPES_SEL} = $html->form_select(
+    'PAY_METHOD',
+    {
+      SELECTED  => $Bonus->{PAY_METHOD},
+      SEL_HASH  => $PAYMENTS_METHODS,
+      EX_PARAMS => 'multiple="multiple"'
+    }
+  );
+
+  if (in_array('Internet', \@MODULES)) {
+    if (! exists($INC{"Control/Services.pm"})) {
+      require Control::Services;
+    }
+
+
+    $Bonus->{SEL_TP} = sel_tp({
+      SELECT    => 'TP_ID',
+      EX_PARAMS => 'multiple="multiple"',
+      TP_ID     => ($Bonus->{TP_ID}) ? $Bonus->{TP_ID} : undef,
+      SHOW_ALL  => 1
+    });
+  }
+
+  $html->tpl_show(_include('bonus_service_discount', 'Bonus'), $Bonus);
+
+
+  result_former({
+    INPUT_DATA      => $Bonus,
+    FUNCTION        => 'service_discount_list',
+    HIDDEN_FIELDS   => 'ID',
+    BASE_FIELDS     => 10,
+    FUNCTION_FIELDS => 'change,del',
+    SKIP_USER_TITLE => 1,
+    EXT_TITLES      => {
+      name                => $lang{NAME},
+      service_period      => "$lang{SERVICE} $lang{PERIOD} ($lang{MONTH})",
+      registration_days   => "$lang{REGISTRATION} $lang{DAYS}",
+      total_payments_sum  => "$lang{TOTAL} $lang{PAYMENTS} ($lang{SUM})",
+      discount            => "$lang{REDUCTION} %",
+      discount_days       => "$lang{REDUCTION} $lang{DAYS}",
+      bonus_sum           => "$lang{BONUS} $lang{SUM}",
+      bonus_percent       => $lang{BONUS_PERCENT},
+      ext_account         => "$lang{EXTRA} $lang{ACCOUNT}",
+      pay_method          => "$lang{PAYMENTS} $lang{TYPE}",
+      id                  => "#",
+      onetime_payment_sum => $lang{ONETIME_PAYMENT_SUM},
+      tp_id               => $lang{TARIF_PLANS}
+    },
+    TABLE           => {
+      width   => '100%',
+      caption => "$lang{BONUS} $lang{SERVICE}",
+      qs      => $pages_qs,
+      ID      => 'BONUX_SERVICE_DISCOUNT',
+      MENU    => "$lang{ADD}:index=" . $index . ':add' . ";",
+      EXPORT  => 1,
+    },
+    SELECT_VALUE    => {
+      ext_account => {
+        0 => "$lang{NO}:text-danger",
+        1 => "$lang{YES}:text-primary"
+      },
+      pay_method  => $PAYMENTS_METHODS
+    },
+    MAKE_ROWS       => 1,
+    SEARCH_FORMER   => 1,
+    MODULE          => 'Bonus',
+    TOTAL           => 1
+  });
+
+  return $REPORT;
+}
+
+
+#**********************************************************
+=head2 bonus_turbo()
+
+  turbo mode  count
+  $conf{BONUS_TURBO}=1;
+
+=cut
+#**********************************************************
+sub bonus_turbo {
+  my $REPORT = '';
+
+  $Bonus->{ACTION} = 'add';
+  $Bonus->{LNG_ACTION} = $lang{ADD};
+
+  if ($FORM{add}) {
+    $Bonus->bonus_turbo_add({ %FORM });
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{ADDED}");
+    }
+  }
+  elsif ($FORM{change}) {
+    $Bonus->bonus_turbo_change({ %FORM });
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED} ID: $FORM{ID}");
+    }
+  }
+  elsif ($FORM{chg}) {
+    $Bonus->bonus_turbo_info($FORM{chg});
+
+    $Bonus->{ACTION} = 'change';
+    $Bonus->{LNG_ACTION} = $lang{CHANGE};
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGING}");
+    }
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Bonus->bonus_turbo_del({ ID => $FORM{del} });
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED} ID: $FORM{del}");
+    }
+  }
+
+  if ($Bonus->{errno}) {
+    $html->message('err', $lang{ERROR}, "[$Bonus->{errno}] $err_strs{$Bonus->{errno}}");
+  }
+
+  $html->tpl_show(_include('bonus_turbo', 'Bonus'), $Bonus);
+
+  my $list = $Bonus->bonus_turbo_list({ %LIST_PARAMS });
+
+  my $table = $html->table(
+    {
+      width   => '100%',
+      caption => "$lang{BONUS} Turbo",
+      title   => [ "$lang{SERVICE} $lang{PERIOD} ($lang{MONTH})", "$lang{REGISTRATION} $lang{DAYS}", "Turbo $lang{COUNT}", '-', '-' ],
+      qs      => $pages_qs,
+      pages   => $Bonus->{TOTAL},
+      ID      => 'BONUX_TURBO'
+    }
+  );
+
+  foreach my $line (@{$list}) {
+    my $delete = $html->button($lang{DEL}, "index=$index&del=$line->[3]",
+      { MESSAGE => "$lang{DEL} [$line->[0]] ?", class => 'del' });
+    $table->addrow($line->[0],
+      $line->[1],
+      $line->[2],
+      $html->button($lang{DEL}, "index=$index&chg=$line->[3]", { class => 'change' }),
+      $delete
+    );
+  }
+
+  print $table->show();
+  return $REPORT;
+}
+
+#**********************************************************
+=head2 bonus_users()
+
+=cut
+#**********************************************************
+sub bonus_users {
+  my ($attr) = @_;
+
+  return bonus_service_discount_client($attr);
+}
+
+#**********************************************************
+=head2 bonus_tp_accomulation()
+
+=cut
+#**********************************************************
+sub bonus_tp_accomulation {
+
+  if ($FORM{change}) {
+    $Bonus->accomulation_rule_change(\%FORM);
+
+    if (!_error_show($Bonus)) {
+      $html->message('info', $lang{BONUS}, $lang{CHANGED});
+    }
+  }
+
+  my $list = $Bonus->accomulation_rule_list({
+    %LIST_PARAMS,
+    TP_ID     => $FORM{TP_ID},
+    COLS_NAME => 1
+  });
+
+  my $table = $html->table(
+    {
+      caption => $lang{TARIF_PLANS},
+      title   => [ '#', $lang{NAME}, $lang{SCORES} ],
+      ID      => 'DV_TARIF_PLANS'
+    }
+  );
+
+  foreach my $line (@{$list}) {
+    $table->addrow(
+      $html->form_input('DV_TP_ID', $line->{dv_tp_id}, { TYPE => 'HIDDEN', OUTPUT2RETURN => 1 }) .
+        $html->b($line->{dv_tp_id}),
+      $line->{name},
+      $html->form_input("COST_" . $line->{dv_tp_id}, $line->{cost})
+    );
+  }
+
+  print $html->form_main(
+    {
+      CONTENT => $table->show(),
+      HIDDEN  => {
+        index        => $index,
+        TP_ID        => $FORM{TP_ID},
+        ACCOMULATION => 1,
+      },
+      SUBMIT  => {
+        change => $lang{CHANGE}
+      },
+      METHOD  => 'POST',
+      NAME    => 'bonus_tp_list'
+    }
+  );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 bonus_periodic_accomulation($attr)
+
+=cut
+#**********************************************************
+sub bonus_periodic_accomulation {
+  my ($attr) = @_;
+  my $debug = $attr->{DEBUG} || 0;
+  my $debug_output = '';
+
+  $debug_output .= "Bonus - Accoumulation\n" if ($debug > 1);
+
+  my $date = $DATE;
+
+  if ($attr->{DATE}) {
+    $date = $attr->{DATE};
+  }
+
+  my $D = (split(/-/, $date))[2];
+
+  if ($D != 1) {
+    $DEBUG .= $debug_output;
+    return $debug_output;
+  }
+
+  $LIST_PARAMS{LOGIN} = $attr->{LOGIN} if ($attr->{LOGIN});
+
+  $Bonus->{debug} = 1 if ($debug > 6);
+  my $tp_list = $Bonus->accomulation_rule_list({
+    COST      => '>0',
+    COLS_NAME => 1
+  });
+
+  foreach my $tp (@{$tp_list}) {
+    $debug_output .= "TP ID: $tp->{tp_id} DV TP: $tp->{dv_tp_id} COST: $tp->{cost}\n" if ($debug > 1);
+    my $list = $Bonus->user_list({
+      LOGIN     => '_SHOW',
+      DV_TP_ID  => $tp->{dv_tp_id},
+      TP_ID     => $tp->{tp_id},
+      COLS_NAME => 1,
+      DEPOSIT   => '>=0',
+      %LIST_PARAMS,
+      PAGE_ROWS => 1000000,
+    });
+
+    foreach my $user (@{$list}) {
+      $user->{cost} = 0 if (!$user->{cost});
+      $debug_output .= "$user->{login}:$user->{uid} SCORE: $user->{cost}  \n" if ($debug > 1);
+      if ($debug < 5) {
+        $Bonus->accomulation_scores_change({
+          UID      => $user->{uid},
+          SCORE    => $user->{cost} + $tp->{cost},
+          DV_TP_ID => 0
+        });
+      }
+    }
+  }
+
+  return $debug_output;
+}
+
+#**********************************************************
+=head2 bonus_accomulation_transfer()
+
+  $conf{BONUS_ACCOMULATION_TRANSFER_MIN}=1;
+  $conf{BONUS_ACCOMULATION_TRANSFER_PERCENT}=0;
+
+=cut
+#**********************************************************
+sub bonus_accomulation_transfer {
+  $conf{BONUS_ACCOMULATION_TRANSFER_MIN} = 1 if (!$conf{BONUS_ACCOMULATION_TRANSFER_MIN});
+  $conf{BONUS_ACCOMULATION_TRANSFER_PERCENT} = 0 if (!$conf{BONUS_ACCOMULATION_TRANSFER_PERCENT});
+
+  if ($FORM{transfer}) {
+    my $rechange_sum = $FORM{COST} || 0;
+    if ($Bonus->{COST} < $rechange_sum) {
+      $html->message('err', $lang{ERROR}, $lang{ERR_SMALL_SUM}, { ID => 1921 });
+    }
+    elsif ($conf{BONUS_ACCOMULATION_TRANSFER_MIN} > $rechange_sum) {
+      $html->message('err', $lang{ERROR}, $lang{ERR_SMALL_SUM} . "\n $lang{MIN}: $conf{BONUS_ACCOMULATION_TRANSFER_MIN} ", { ID => 1922 });
+    }
+    else {
+      if ($conf{BONUS_ACCOMULATION_TRANSFER_PERCENT}) {
+        $rechange_sum = $rechange_sum - ($rechange_sum / 100 * $conf{BONUS_ACCOMULATION_TRANSFER_PERCENT});
+      }
+
+      $Bonus->accomulation_scores_change({
+        UID      => $user->{UID} || $FORM{UID},
+        SCORE    => $Bonus->{COST} - $FORM{COST},
+        DV_TP_ID => 0
+      });
+
+      if (!$Bonus->{error}) {
+        if (!$user->{UID}) {
+          $user = $users->info($FORM{UID});
+        }
+
+        $Payments->add($user, {
+          SUM    => $rechange_sum,
+          METHOD => 4
+        });
+
+        $html->message('info', $lang{INFO}, "$lang{ADDED} $rechange_sum");
+        return '';
+      }
+    }
+  }
+
+  return  $html->tpl_show(_include('bonus_accomulation_transfer', 'Bonus'), $Bonus, { OUTPUT2RETURN => $user ? undef : 1 });
+}
+
+
+#**********************************************************
+=head2 bonus_tp_using_periodic($attr)
+
+=cut
+#**********************************************************
+sub bonus_tp_using_periodic {
+  my ($attr) = @_;
+
+  my $debug = $attr->{DEBUG} || 0;
+  my $debug_output = '';
+  $debug_output .= "Bonus - TP using\n" if ($debug > 1);
+
+  my $d = (split(/-/, $ADMIN_REPORT{DATE}, 3))[2];
+
+  if ($d != 1) {
+    $DEBUG .= $debug_output;
+    return $debug_output;
+  }
+
+
+  my $Internet;
+  if (in_array('Internet', \@MODULES)) {
+    require Internet;
+    Internet->import();
+    $Internet = Internet->new($db, $admin, \%conf);
+  }
+
+  my %LIST_PARAMS = (
+    LOGIN     => '_SHOW',
+    UID       => '_SHOW',
+    DEPOSIT   => '_SHOW',
+    TP_ID     => '_SHOW',
+    AGE       => '_SHOW',
+    CREDIT    => '_SHOW',
+    MONTH_FEE => '_SHOW'
+  );
+
+  $LIST_PARAMS{TP_ID} = $attr->{TP_ID} if ($attr->{TP_ID});
+  $LIST_PARAMS{GID} = $attr->{GID} if ($attr->{GID});
+  $LIST_PARAMS{LOGIN} = $attr->{LOGIN} if ($attr->{LOGIN});
+  $LIST_PARAMS{REGISTRATION} = "<$ADMIN_REPORT{DATE}";
+
+  $Bonus->{debug} = 1 if ($debug > 6);
+
+  my $list = $Bonus->tp_using_list({
+    %LIST_PARAMS,
+    COLS_NAME => 1
+  });
+
+  foreach my $line (@{$list}) {
+    $line->{age} = 0 if (!$line->{age});
+
+    if (($line->{age} && $line->{age} > $line->{period})
+      || ($line->{deposit} + $line->{credit} < ($line->{month_fee} || 0))
+    ) {
+      $debug_output .= "$line->{login} [$line->{uid}] $line->{tp_id_bonus} -> $line->{tp_id_main} AGE: $line->{age} DEPOSIT: $line->{deposit}\n" if ($debug > 0);
+      if ($debug < 6) {
+        $Internet->user_change({
+          UID   => $line->{uid},
+          TP_ID => $line->{tp_id_main}
+        });
+        if ($Internet->{errno}) {
+          print "[$Internet->{errno}] $Internet->{errstr}\n";
+        }
+      }
+    }
+  }
+
+  $DEBUG .= $debug_output;
+  return $debug_output;
+}
+
+#**********************************************************
+=head2 bonus_tp_using()
+
+=cut
+#**********************************************************
+sub bonus_tp_using {
+
+  $Bonus->{ACTION} = 'add';
+  $Bonus->{LNG_ACTION} = $lang{ADD};
+
+  if ($FORM{add}) {
+    $Bonus->tp_using_add({ %FORM });
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{ADDED});
+    }
+  }
+  elsif ($FORM{change}) {
+    $Bonus->tp_using_change({ %FORM });
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED} ID: " . ($FORM{ID} || q{}));
+    }
+  }
+  elsif ($FORM{chg}) {
+    $Bonus->tp_using_info($FORM{chg});
+
+    $Bonus->{ACTION} = 'change';
+    $Bonus->{LNG_ACTION} = $lang{CHANGE};
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{CHANGING});
+    }
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Bonus->tp_using_del({ ID => $FORM{del} });
+
+    if (!$Bonus->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED} ID: $FORM{del}");
+    }
+  }
+
+  _error_show($Bonus);
+
+    my $tp_list = $Tariffs->list({ MODULE => 'Dv;Internet', COLS_NAME => 1 }),
+    my %TPS_HASH = ();
+  my %TPS_HASH2 = ();
+  foreach my $line (@{$tp_list}) {
+    $TPS_HASH{($line->{tp_group_name} || '')}{ $line->{id} } = $line->{id} . ' ' . ($line->{name} || '');
+    $TPS_HASH2{$line->{id}} = $line->{name};
+  }
+
+  $Bonus->{TP_ID_MAIN_SEL} = $html->form_select(
+    'TP_ID_MAIN',
+    {
+      SELECTED          => $Bonus->{TP_ID_MAIN},
+      SEL_HASH          => \%TPS_HASH,
+      MULTI_ARRAY_KEY   => 0,
+      MULTI_ARRAY_VALUE => "0,1",
+      GROUP_COLOR       => 1,
+      MAIN_MENU         => ($permissions{0}{10}) ? get_function_index('dv_tp') : undef,
+      MAIN_MENU_ARGV    => "TP_ID=" . ($Bonus->{TP_ID_MAIN} || '')
+    }
+  );
+
+  $Bonus->{TP_ID_BONUS_SEL} = $html->form_select(
+    'TP_ID_BONUS',
+    {
+      SELECTED          => $Bonus->{TP_ID_BONUS},
+      SEL_HASH          => \%TPS_HASH,
+      MULTI_ARRAY_KEY   => 0,
+      MULTI_ARRAY_VALUE => "0,1",
+      GROUP_COLOR       => 1,
+      MAIN_MENU         => ($permissions{0}{10}) ? get_function_index('dv_tp') : undef,
+      MAIN_MENU_ARGV    => "TP_ID=" . ($Bonus->{TP_ID_BONUS} || '')
+    }
+  );
+
+  if ($FORM{TP_ID_BONUS}) {
+    $LIST_PARAMS{LOGIN} = '_SHOW';
+    $LIST_PARAMS{UID} = '_SHOW';
+    $LIST_PARAMS{DEPOSIT} = '_SHOW';
+    $LIST_PARAMS{CREDIT} = '_SHOW';
+    $LIST_PARAMS{TP_ID} = '_SHOW';
+    $LIST_PARAMS{AGE} = '_SHOW';
+    $LIST_PARAMS{MONTH_FEE} = '_SHOW';
+  }
+
+  $html->tpl_show(_include('bonus_tp_using', 'Bonus'), $Bonus);
+
+  result_former({
+    INPUT_DATA      => $Bonus,
+    FUNCTION        => 'tp_using_list',
+    BASE_FIELDS     => 5,
+    DEFAULT_FIELDS  => '#,BASE TP,BONUS TP,PERIOD',
+    FUNCTION_FIELDS => ':$lang{USERS}:tp_id_bonus,change,del',
+    EXT_TITLES      => {
+      tp_id_main  => "$lang{MAIN} $lang{TARIF_PLAN}",
+      tp_id_bonus => "$lang{BONUS} $lang{TARIF_PLAN}"
+    },
+    SELECT_VALUE    => {
+      tp_id_main  => \%TPS_HASH2,
+      tp_id_bonus => \%TPS_HASH2,
+    },
+    TABLE           => {
+      width   => '100%',
+      caption => $lang{BONUS_TP_USING},
+      qs      => $pages_qs,
+      ID      => 'BONUS_TP_USING',
+      EXPORT  => 1,
+      MENU    => "$lang{ADD}:index=" . $index . ':add' . ";",
+    },
+    MAKE_ROWS       => 1,
+    TOTAL           => 1
+  });
+
+  return 1;
+}
+
+
+#**********************************************************
+=head2 bonus_likes()
+
+=cut
+#**********************************************************
+sub bonus_likes {
+
+  require AXbills::Auth::Core;
+  AXbills::Auth::Core->import();
+  my $Auth = AXbills::Auth::Core->new({
+    CONF      => \%conf,
+    AUTH_TYPE => ucfirst('Facebook')
+  });
+
+  $html->tpl_show(_include('bonus_likes', 'Bonus'), $Bonus);
+
+  if ($FORM{post_url}) {
+    my $likers = $Auth->who_liked_it("$conf{FB_ADMIN_ID}_$FORM{post_url}");
+    _bp('', $likers);
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 bonus_multi_add($attr) - add bonus to user deposit
+
+  Arguments:
+    $attr -
+      IDS - Users IDS
+      BONUS - money sum
+
+  Returns:
+    True
+=cut
+#**********************************************************
+sub bonus_multi_add {
+  my ($attr) = @_;
+
+  if ($attr->{BONUS} && $attr->{BONUS} != 0) {
+    my @ids = split(/, /, $attr->{IDS});
+
+    foreach my $id (@ids) {
+      my $user = $users->info($id);
+
+      $Payments->add(
+        $user,
+        {
+          UID      => $id,
+          SUM      => $attr->{BONUS} || 0,
+          METHOD   => 4,
+          DESCRIBE => "$lang{BONUS} $lang{FOR} $lang{USER}: $user->{LOGIN}",
+        }
+      );
+      if (!$Payments->{errno}) {
+        $html->message('info', $lang{INFO}, "$lang{ADDED} $lang{BONUS} $lang{FOR} ID: $user->{LOGIN}");
+      }
+    }
+  }
+  else {
+    $html->message('err', $lang{ERROR}, "$lang{BONUS} $lang{ERR_WRONG_SUM}");
+  }
+
+  return 1;
+}
+
+1
+

@@ -1,0 +1,68 @@
+.comment-wrapper {
+    position: relative;
+    width: 100%;
+    padding: 8px;
+    float: left;
+    display: inline-block;
+    vertical-align: middle;
+    word-wrap: break-word;
+    font-size: 13px;
+    color: inherit;
+    text-align: left;
+    background-color: transparent;
+    -webkit-border-radius: 5px;
+    -moz-border-radius: 5px;
+    margin-bottom: 10px;
+    box-shadow: 0 0 1px rgb(0 0 0 / 13%), 0 1px 3px rgb(0 0 0 / 20%);
+    border-radius: .25rem;
+}
+
+.comment-text {
+    font-size: 1.2em;
+}
+
+.com_line {
+    height: 1px;
+    color: black;
+    background-color: darkgray;
+    border: none;
+    margin: 0 0 10px 0;
+}
+
+.fa {
+    cursor: pointer;
+}
+
+.info-images {
+    /* Masonry container */
+    -moz-column-count: 2;
+    -moz-column-gap: 1em;
+    -webkit-column-count: 2;
+    -webkit-column-gap: 1em;
+    column-count: 2;
+    column-gap: 1em;
+}
+
+.info-image {
+    /* Masonry bricks or child elements */
+    position: relative;
+    background-color: #eee;
+    display: inline-block;
+    margin: 0 0 1em;
+    width: 100%;
+
+    cursor: pointer;
+}
+
+.info-image .image-controls {
+    position: absolute;
+    right: 0.5em;
+    top: 0.5em;
+
+    font-size: 1.5em;
+    z-index: auto;
+}
+
+.info-image .image-controls:hover {
+    color: red;
+}

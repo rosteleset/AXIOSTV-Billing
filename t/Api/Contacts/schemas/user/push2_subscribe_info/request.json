@@ -1,0 +1,6 @@
+{
+  "name": "USER_PUSH_SUBSCRIBE_INFO",
+  "method": "GET",
+  "path": "user/:uid/contacts/push/subscribe/1/",
+  "params": {}
+}

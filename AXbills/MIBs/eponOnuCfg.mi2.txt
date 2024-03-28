@@ -1,0 +1,1098 @@
+
+EPON-ONU-CONFIG-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    IpAddress, Unsigned32, Integer32, Counter32, TimeTicks, Gauge32, Counter64,
+    MODULE-IDENTITY, OBJECT-IDENTITY, OBJECT-TYPE, enterprises     
+      FROM SNMPv2-SMI     
+    DateAndTime, MacAddress, TimeStamp, RowStatus, TruthValue, DisplayString, TEXTUAL-CONVENTION
+      FROM SNMPv2-TC
+    eponOnuCfg  FROM  EPON-CONFIG-MIB  ;
+      
+-----ONU INFO------------------------------------------------------- 
+      
+eponOnuInfoTable  OBJECT-TYPE
+   SYNTAX       SEQUENCE OF EponOnuInfoEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+   "onu info table"
+   ::= {eponOnuCfg 1}      
+      
+eponOnuInfoEntry   OBJECT-TYPE
+   SYNTAX       EponOnuInfoEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+   "onu info"
+   INDEX{eponOnuInfoCardIndex, eponOnuInfoPonIndex, eponOnuInfoOnuIndex}
+   ::= {eponOnuInfoTable 1}           
+      
+EponOnuInfoEntry ::= SEQUENCE{
+   eponOnuInfoCardIndex         INTEGER,
+   eponOnuInfoPonIndex          INTEGER,
+   eponOnuInfoOnuIndex          INTEGER,
+   eponOnuOperationStatus       INTEGER,
+   eponOnuName                  DisplayString,
+   eponOnuLlid                  INTEGER,
+   
+   eponOnuVendor                OCTET STRING,
+   eponOnuModel                 OCTET STRING,
+   eponOnuId                    MacAddress,
+   eponOnuSoftVersion           OCTET STRING,
+   eponOnuHwVersion             OCTET STRING,
+   
+   eponOnuchipVendor            OCTET STRING,
+   eponOnuchipModel             OCTET STRING,
+   eponOnuchipRev               OCTET STRING,
+   eponOnuchipIc                OCTET STRING,
+   eponOnuFirmWare              OCTET STRING,
+   eponOnuReset                 INTEGER,
+   eponOnuTestDistance          INTEGER,
+   eponOnuRegTime               OCTET STRING
+   }      
+      
+eponOnuInfoCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuInfoEntry 1}      
+      
+eponOnuInfoPonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuInfoEntry 2}         
+
+eponOnuInfoOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu index"
+   ::= {eponOnuInfoEntry 3}    
+
+eponOnuOperationStatus  OBJECT-TYPE
+   SYNTAX          INTEGER { up(1), down(0)}
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu reg status"
+   ::= {eponOnuInfoEntry 4}   
+   
+eponOnuName     OBJECT-TYPE
+   SYNTAX          DisplayString
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu description"
+   ::= {eponOnuInfoEntry 5}      
+   
+eponOnuLlid    OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu llid"
+   ::= {eponOnuInfoEntry 6}     
+   
+eponOnuVendor OBJECT-TYPE
+  SYNTAX      OCTET STRING (SIZE(4))
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "onu Vendor ID"
+  ::= {eponOnuInfoEntry 7}
+  
+eponOnuModel OBJECT-TYPE
+  SYNTAX      OCTET STRING (SIZE(4))
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "onu Model"
+  ::= {eponOnuInfoEntry 8}
+  
+eponOnuId OBJECT-TYPE
+  SYNTAX      MacAddress
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "onu mac"
+  ::= {eponOnuInfoEntry 9}
+  
+eponOnuSoftVersion  OBJECT-TYPE
+  SYNTAX      OCTET STRING (SIZE(16))
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "onu software version"
+  ::= {eponOnuInfoEntry 10}
+
+eponOnuHwVersion  OBJECT-TYPE
+  SYNTAX      OCTET STRING (SIZE(8))
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "onu hardware version"
+  ::= {eponOnuInfoEntry 11}
+
+eponOnuchipVendor OBJECT-TYPE
+  SYNTAX      OCTET STRING (SIZE(2))
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "onu chip Vendor"
+  ::= {eponOnuInfoEntry 12}
+  
+eponOnuchipModel OBJECT-TYPE
+  SYNTAX      OCTET STRING (SIZE(2))
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "onu chip Model"
+  ::= {eponOnuInfoEntry 13}
+  
+eponOnuchipRev  OBJECT-TYPE
+  SYNTAX      OCTET STRING (SIZE(1))
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "onu chip Revision"
+  ::= {eponOnuInfoEntry 14}
+  
+eponOnuchipIc   OBJECT-TYPE
+  SYNTAX      OCTET STRING (SIZE(3))
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "onu chip IC_Version/Date"
+  ::= {eponOnuInfoEntry 15}
+  
+eponOnuFirmWare   OBJECT-TYPE
+  SYNTAX      OCTET STRING
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "onu reset"
+  ::= {eponOnuInfoEntry 16} 
+  
+eponOnuReset    OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-write
+  STATUS      current
+  DESCRIPTION
+    "onu reset"
+  ::= {eponOnuInfoEntry 17}     
+  
+eponOnuTestDistance   OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "onu distance"
+  ::= {eponOnuInfoEntry 18}       
+
+eponOnuRegTime   OBJECT-TYPE
+  SYNTAX      OCTET STRING
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "onu reg time"
+  ::= {eponOnuInfoEntry 19}       
+     
+---------ONU IPADDRESS TABLE----------------------------------------------------
+
+eponOnuIpaddressTable  OBJECT-TYPE
+   SYNTAX       SEQUENCE OF EponOnuIpaddressEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+    "onu ip config table"
+   ::= {eponOnuCfg 2}
+
+eponOnuIpaddressEntry OBJECT-TYPE
+   SYNTAX       EponOnuIpaddressEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+    "onu ip config"
+   INDEX{eponOnuIpCardIndex, eponOnuIpPonIndex, eponOnuIpOnuIndex}
+   ::= {eponOnuIpaddressTable 1}
+   
+EponOnuIpaddressEntry ::= SEQUENCE{
+    eponOnuIpCardIndex     INTEGER,
+    eponOnuIpPonIndex      INTEGER,
+    eponOnuIpOnuIndex      INTEGER,
+    eponOnuIpAddress       IpAddress,
+    eponOnuIpMask          IpAddress,
+    eponOnuGateway         IpAddress,
+    eponOnuCvlan           INTEGER,
+    eponOnuSvlan           INTEGER,
+    eponOnuPri             INTEGER
+    }
+
+eponOnuIpCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuIpaddressEntry 1}      
+      
+eponOnuIpPonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuIpaddressEntry 2}         
+
+eponOnuIpOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu index"
+   ::= {eponOnuIpaddressEntry 3}   
+   
+eponOnuIpAddress  OBJECT-TYPE
+   SYNTAX          IpAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu IP "
+   ::= {eponOnuIpaddressEntry 4} 
+   
+eponOnuIpMask  OBJECT-TYPE
+   SYNTAX          IpAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu ipmask"
+   ::= {eponOnuIpaddressEntry 5} 
+   
+eponOnuGateway  OBJECT-TYPE
+   SYNTAX          IpAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu  gateway"
+   ::= {eponOnuIpaddressEntry 6} 
+   
+eponOnuCvlan  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu cvlan"
+   ::= {eponOnuIpaddressEntry 7}    
+   
+eponOnuSvlan  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-write
+   STATUS        current
+   DESCRIPTION
+   "onu svlan"
+   ::= {eponOnuIpaddressEntry 8}         
+   
+eponOnuPri  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-write
+   STATUS        current
+   DESCRIPTION
+   "onu priority"
+   ::= {eponOnuIpaddressEntry 9}       
+         
+--------ONU PONPORT OPM TABLE---------------------------------------------------
+
+eponOnuOpmTable  OBJECT-TYPE
+   SYNTAX       SEQUENCE OF EponOnuOpmEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+    "onu opm diagnosis"
+   ::= {eponOnuCfg 3}
+
+eponOnuOpmEntry OBJECT-TYPE
+   SYNTAX       EponOnuOpmEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+    "onu opm diagnosis "
+   INDEX{eponOnuOpmCardIndex, eponOnuOpmPonIndex, eponOnuOpmOnuIndex}
+   ::= {eponOnuOpmTable 1}
+   
+EponOnuOpmEntry ::= SEQUENCE{
+    eponOnuOpmCardIndex       INTEGER,
+    eponOnuOpmPonIndex        INTEGER,
+    eponOnuOpmOnuIndex        INTEGER,
+    eponOnuOpmTemperature     INTEGER,
+    eponOnuOpmVcc             INTEGER,
+    eponOnuOpmBias            INTEGER,
+    eponOnuOpmTXPower         INTEGER,
+    eponOnuOpmRxPower         INTEGER
+    }
+
+eponOnuOpmCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuOpmEntry 1}      
+      
+eponOnuOpmPonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuOpmEntry 2}         
+
+eponOnuOpmOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu index"
+   ::= {eponOnuOpmEntry 3}
+          
+eponOnuOpmTemperature   OBJECT-TYPE
+   SYNTAX       INTEGER
+   UNITS        "Centi-degree centigrade"
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "temperature , centi C"
+   ::= {eponOnuOpmEntry 4}
+   
+eponOnuOpmVcc   OBJECT-TYPE
+   SYNTAX       INTEGER
+   UNITS        "centi-V"
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "voltage , centi V"
+   ::= {eponOnuOpmEntry 5}      
+   
+eponOnuOpmBias   OBJECT-TYPE
+   SYNTAX       INTEGER
+   UNITS        "centi-mA"
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "basi , centi mA"
+   ::= {eponOnuOpmEntry 6}
+   
+eponOnuOpmTXPower   OBJECT-TYPE
+   SYNTAX       INTEGER
+   UNITS        "centi-mw"
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "tx power , centi mw"
+   ::= {eponOnuOpmEntry 7}
+   
+eponOnuOpmRxPower   OBJECT-TYPE
+   SYNTAX       INTEGER
+   UNITS        "centi-mw"
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "rx power , centi mw"
+   ::= {eponOnuOpmEntry 8}        
+       
+--------ONU  OPM THRESHOLD TABLE---------------------------------------------------
+
+eponOnuOpmThresholdTable  OBJECT-TYPE
+   SYNTAX       SEQUENCE OF EponOnuOpmThresholdEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+    "onu opm threshold"
+   ::= {eponOnuCfg 4}
+
+eponOnuOpmThresholdEntry OBJECT-TYPE
+   SYNTAX       EponOnuOpmThresholdEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+    "onu opm threshold"
+   INDEX{eponOnuOpmThresholdCardIndex, eponOnuOpmThresholdPonIndex, eponOnuOpmThresholdOnuIndex} 
+   ::= {eponOnuOpmThresholdTable 1}
+
+EponOnuOpmThresholdEntry ::= SEQUENCE{
+    eponOnuOpmThresholdCardIndex       INTEGER,
+    eponOnuOpmThresholdPonIndex        INTEGER,
+    eponOnuOpmThresholdOnuIndex        INTEGER,
+    }
+
+eponOnuOpmThresholdCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuOpmThresholdEntry 1}      
+      
+eponOnuOpmThresholdPonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuOpmThresholdEntry 2}         
+
+eponOnuOpmThresholdOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu index"
+   ::= {eponOnuOpmThresholdEntry 3}    
+   
+      
+-------ONU CAPABILITY TABLE-----------------------------------------------------
+
+eponOnuCapabilityTable  OBJECT-TYPE
+   SYNTAX        SEQUENCE OF EponOnuCapabilityEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+     "onu capability info"
+   ::= {eponOnuCfg 5}
+
+eponOnuCapabilityEntry OBJECT-TYPE
+   SYNTAX       EponOnuCapabilityEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+    "onu capability info"
+   INDEX{eponOnuCapabilityCardIndex, eponOnuCapabilityPonIndex, eponOnuCapabilityOnuIndex} 
+   ::= {eponOnuCapabilityTable 1}
+
+EponOnuCapabilityEntry ::= SEQUENCE{
+    eponOnuCapabilityCardIndex       INTEGER,
+    eponOnuCapabilityPonIndex        INTEGER,
+    eponOnuCapabilityOnuIndex        INTEGER,
+    eponOnuServicesupported          INTEGER,
+    eponOnuNumOfGe                   INTEGER,
+    eponOnuBitMapOfGe                Counter64,
+    eponOnuNumOfFe                   INTEGER,
+    eponOnuBitmapOfFe                Counter64,
+    eponOnuNumOfPots                 INTEGER,
+    eponOnuNumOfE1                   INTEGER,
+    eponOnuNumOfUsQueues             INTEGER,
+    eponOnuQueueMaxPerUsPort         INTEGER,
+    eponOnuNumOfDsQueues             INTEGER,
+    eponOnuQueueMaxPerDsPort         INTEGER,
+    eponOnuBatteryBackup             INTEGER,
+    }
+
+eponOnuCapabilityCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuCapabilityEntry 1}      
+      
+eponOnuCapabilityPonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuCapabilityEntry 2}         
+
+eponOnuCapabilityOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu index"
+   ::= {eponOnuCapabilityEntry 3}  
+
+eponOnuServicesupported  OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "onu Servicesupported
+    bit0£½1:support GE port; bit0£½0:not support
+    bit1£½1:support FE port; bit1£½0:not support
+    bit2£½1:support VoIP; bit2£½0:not support
+    bit3£½1:support TDM CES; bit3£½0:not support
+    "
+  ::= {eponOnuCapabilityEntry 4}
+
+eponOnuNumOfGe  OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "Number of GE Ports"
+  ::= {eponOnuCapabilityEntry 5}
+
+eponOnuBitMapOfGe OBJECT-TYPE
+  SYNTAX      Counter64
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "Bitmap of GE Ports "
+  ::= {eponOnuCapabilityEntry 6}    
+  
+eponOnuNumOfFe  OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "Number of FE Ports"
+  ::= {eponOnuCapabilityEntry 7}      
+  
+eponOnuBitmapOfFe  OBJECT-TYPE
+  SYNTAX      Counter64
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "Bitmap of FE Ports"
+  ::= {eponOnuCapabilityEntry 8}    
+  
+eponOnuNumOfPots  OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "Number of POTS ports"
+  ::= {eponOnuCapabilityEntry 9}     
+  
+eponOnuNumOfE1  OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "Number of E1 port"
+  ::= {eponOnuCapabilityEntry 10}     
+  
+eponOnuNumOfUsQueues  OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "Number of upstream queues"
+  ::= {eponOnuCapabilityEntry 11}    
+  
+eponOnuQueueMaxPerUsPort  OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "Maximum queues per Ethernet port upstream"
+  ::= {eponOnuCapabilityEntry 12}        
+  
+eponOnuNumOfDsQueues  OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "Number of downstream queues"
+  ::= {eponOnuCapabilityEntry 13}     
+  
+eponOnuQueueMaxPerDsPort  OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "Maximum queues per Ethernet port downstream"
+  ::= {eponOnuCapabilityEntry 14}     
+  
+eponOnuBatteryBackup  OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION
+    "0x00:no backup battery
+     0x01:have backup battery "
+  ::= {eponOnuCapabilityEntry 15}          
+     
+-------ONU CAPABILITY-2 TABLE-----------------------------------------------------
+eponOnuCapability2Group  OBJECT-IDENTITY
+   STATUS        current
+   DESCRIPTION
+   "onu capability2"
+   ::= {eponOnuCfg 6}
+
+eponOnuCapability2Table  OBJECT-TYPE
+   SYNTAX       SEQUENCE OF EponOnuCapability2Entry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+    "onu capability2 info"
+   ::= {eponOnuCapability2Group 1}
+   
+eponOnuCapability2Entry OBJECT-TYPE
+   SYNTAX       EponOnuCapability2Entry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+    "onu capability2 info"
+   INDEX{eponOnuCapability2CardIndex, eponOnuCapability2PonIndex, eponOnuCapability2OnuIndex} 
+   ::= {eponOnuCapability2Table 1}
+   
+EponOnuCapability2Entry ::= SEQUENCE{
+    eponOnuCapability2CardIndex       INTEGER,
+    eponOnuCapability2PonIndex        INTEGER,
+    eponOnuCapability2OnuIndex        INTEGER,
+    eponOnuCap2OnuType                INTEGER,
+    eponOnuCap2MultiLLID              INTEGER,
+    eponOnuCap2ProtectionType         INTEGER,
+    eponOnuCap2NumOfPon               INTEGER,
+    eponOnuCap2NumOfSlot              INTEGER,
+    eponOnuCap2NumOfInterfacetype     INTEGER,  
+    eponOnuCap2BatteryBackup          INTEGER,
+    }
+
+eponOnuCapability2CardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuCapability2Entry 1}      
+      
+eponOnuCapability2PonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuCapability2Entry 2}         
+
+eponOnuCapability2OnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu index"
+   ::= {eponOnuCapability2Entry 3}  
+       
+eponOnuCap2OnuType  OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION " onu type
+    0:SFU
+      1:HGU
+      2: SBU
+	  3: box MDU (broadband for the Ethernet interface)
+      4: small card type MDU (broadband for the Ethernet interface)
+      5: small card type MDU (broadband for the DSL interface)
+      6: medium card type MDU (broadband for the DSL interface)
+      7: mixed interface card MDU (support for Ethernet and DSL two broadband interface board mixed)
+      8:MTU "
+  ::= {eponOnuCapability2Entry 4}
+
+eponOnuCap2MultiLLID OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION "
+    0x00£ºInvalid value
+    0x01£ºOnly single LLID is supported
+      Other values indicate the number of LLIDs supported by the ONU "
+    ::= {eponOnuCapability2Entry 5}
+
+eponOnuCap2ProtectionType OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION "
+    0x00 means not supported
+????0x01 Indicates optical link protection that supports type c
+????0x02 indicates optical link protection that supports type d
+????Other to be determined "
+  ::= {eponOnuCapability2Entry 6}
+  
+eponOnuCap2NumOfPon OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION "
+	0x01 indicates that the number of PON ports is one
+    0x02 indicates that the number of PON ports is 2
+    Other to be determined "
+  ::= {eponOnuCapability2Entry 7}
+
+eponOnuCap2NumOfSlot  OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION "
+    number of slot "
+  ::= {eponOnuCapability2Entry 8}
+
+eponOnuCap2NumOfInterfacetype OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION "
+    number of interface"
+  ::= {eponOnuCapability2Entry 9}
+
+eponOnuCap2BatteryBackup  OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION " battery backup
+    0x00£ºno backup battery
+    0x01£ºhave backup battery"
+  ::= {eponOnuCapability2Entry 10}     
+  
+------------------------------------------------------------------------
+  
+eponOnuCap2InterfaceTypeTable    OBJECT-TYPE
+  SYNTAX       SEQUENCE OF EponOnuCap2InterfaceTypeEntry
+  MAX-ACCESS   not-accessible
+  STATUS       current
+  DESCRIPTION
+  "eponOnuCap2InterfaceType table"
+  ::= {eponOnuCapability2Group  2}
+  
+eponOnuCap2InterfaceTypeEntry   OBJECT-TYPE
+  SYNTAX       EponOnuCap2InterfaceTypeEntry
+  MAX-ACCESS   not-accessible
+  STATUS       current
+  DESCRIPTION
+  "eponOnuCap2InterfaceType table"
+  INDEX{eponOnuCap2InterfaceCardIndex, eponOnuCap2InterfacePonIndex, eponOnuCap2InterfaceOnuIndex, eponOnuCap2InterfaceTypeIndex} 
+  ::= {eponOnuCap2InterfaceTypeTable  1}
+  
+EponOnuCap2InterfaceTypeEntry ::= SEQUENCE{
+    eponOnuCap2InterfaceCardIndex       INTEGER,
+    eponOnuCap2InterfacePonIndex        INTEGER,
+    eponOnuCap2InterfaceOnuIndex        INTEGER,
+    eponOnuCap2InterfaceTypeIndex       INTEGER,
+    eponOnuCap2InterfaceType            INTEGER,     
+    eponOnuCap2NumOfPorts               INTEGER      
+    }
+
+eponOnuCap2InterfaceCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuCap2InterfaceTypeEntry 1}      
+      
+eponOnuCap2InterfacePonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuCap2InterfaceTypeEntry 2}         
+
+eponOnuCap2InterfaceOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu index"
+   ::= {eponOnuCap2InterfaceTypeEntry 3}  
+
+eponOnuCap2InterfaceTypeIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "interfaceType index"
+   ::= {eponOnuCap2InterfaceTypeEntry 4}  
+   
+eponOnuCap2InterfaceType  OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION " interface type
+	0x00000000 Indicates the Gigabit Ethernet GE interface
+    0x00000001 indicates the Fast Ethernet FE interface (maximum rate is 100M, without GE port)
+    0x00000002 Indicates the VoIP interface
+    0x00000003 Indicates that the TDM interface is supported
+    0x00000004 that support ADSL2 + interface
+    0x00000005 Indicates the VDSL2 interface
+    0x00000006 Indicates WLAN
+    0x00000007 indicates USB port
+    0x00000008 Indicates the CATV RF port
+    Other to be determined "
+  ::= {eponOnuCap2InterfaceTypeEntry 5}
+  
+eponOnuCap2NumOfPorts OBJECT-TYPE
+  SYNTAX      INTEGER
+  MAX-ACCESS  read-only
+  STATUS      current
+  DESCRIPTION 
+  "number of interface"
+  ::= {eponOnuCap2InterfaceTypeEntry 6}
+  
+---------------ONU BIND TABLE------------------------------------------
+
+eponOnuBindTable  OBJECT-TYPE
+   SYNTAX      SEQUENCE OF EponOnuBindEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION 
+     "onu bind table"
+   ::= {eponOnuCfg 7}    
+
+eponOnuBindEntry  OBJECT-TYPE
+   SYNTAX       EponOnuBindEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+    "onu sla table"
+   INDEX{eponOnuBindCardIndex, eponOnuBindPonIndex, eponOnuBindOnuIndex} 
+   ::= {eponOnuBindTable 1}
+
+EponOnuBindEntry ::= SEQUENCE{
+    eponOnuBindCardIndex    INTEGER,
+    eponOnuBindPonIndex     INTEGER,
+    eponOnuBindOnuIndex     INTEGER,
+    eponOnuBindMac          MacAddress,
+    eponOnuBindType         OCTET STRING,  
+    eponOnuBindRowStatus    RowStatus,
+    }    
+    
+eponOnuBindCardIndex    OBJECT-TYPE   
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION 
+     "olt slot index"
+   ::= {eponOnuBindEntry 1}
+
+eponOnuBindPonIndex    OBJECT-TYPE   
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION 
+     "pon index"
+   ::= {eponOnuBindEntry 2}
+
+eponOnuBindOnuIndex    OBJECT-TYPE   
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION 
+     "onu index"
+   ::= {eponOnuBindEntry 3} 
+   
+eponOnuBindMac    OBJECT-TYPE   
+   SYNTAX       MacAddress
+   MAX-ACCESS   read-write
+   STATUS       current
+   DESCRIPTION 
+     "bind mac"
+   ::= {eponOnuBindEntry 4}       
+
+eponOnuBindType    OBJECT-TYPE   
+   SYNTAX       OCTET STRING (SIZE(4))
+   MAX-ACCESS   read-write
+   STATUS       current
+   DESCRIPTION 
+     "bind type"
+   ::= {eponOnuBindEntry 5}   
+
+eponOnuBindRowStatus    OBJECT-TYPE   
+   SYNTAX       RowStatus
+   MAX-ACCESS   read-write
+   STATUS       current
+   DESCRIPTION 
+     "rowStatus"
+   ::= {eponOnuBindEntry 6}   
+        
+-------ONU SLA TABLE-----------------------------------------------------
+
+eponOnuSlaTable OBJECT-TYPE   
+   SYNTAX      SEQUENCE OF EponOnuSlaEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION 
+     "onu sla table"
+   ::= {eponOnuCfg 8}
+ 
+eponOnuSlaEntry OBJECT-TYPE
+   SYNTAX       EponOnuSlaEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+    "onu sla table"
+   INDEX{eponOnuSlaCardIndex, eponOnuSlaPonIndex, eponOnuSlaOnuIndex} 
+   ::= {eponOnuSlaTable 1}
+   
+EponOnuSlaEntry ::= SEQUENCE{
+     eponOnuSlaCardIndex       INTEGER,
+     eponOnuSlaPonIndex        INTEGER, 
+     eponOnuSlaOnuIndex        INTEGER,
+     eponOnuSlaUsFir           INTEGER,
+     eponOnuSlaUsCir           INTEGER,
+     eponOnuSlaUsPir           INTEGER,
+     eponOnuSlaDsFir           INTEGER,
+     eponOnuSlaDsCir           INTEGER,
+     eponOnuSlaDsPir           INTEGER,
+    }
+
+eponOnuSlaCardIndex    OBJECT-TYPE   
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION 
+     "olt slot index"
+   ::= {eponOnuSlaEntry 1}
+
+eponOnuSlaPonIndex    OBJECT-TYPE   
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION 
+     "pon index"
+   ::= {eponOnuSlaEntry 2}
+
+eponOnuSlaOnuIndex    OBJECT-TYPE   
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION 
+     "onu index"
+   ::= {eponOnuSlaEntry 3}
+
+eponOnuSlaUsFir    OBJECT-TYPE   
+   SYNTAX       INTEGER    
+   UNITS        "kbps"
+   MAX-ACCESS   read-write
+   STATUS       current
+   DESCRIPTION 
+     "Upstream sla FixedBW"
+   ::= {eponOnuSlaEntry 4}
+
+eponOnuSlaUsCir    OBJECT-TYPE   
+   SYNTAX       INTEGER  
+   UNITS        "kbps"
+   MAX-ACCESS   read-write
+   STATUS       current
+   DESCRIPTION 
+     "Upstream sla CommittedBW "
+   ::= {eponOnuSlaEntry 5}
+
+eponOnuSlaUsPir    OBJECT-TYPE   
+   SYNTAX       INTEGER  
+   UNITS        "kbps"
+   MAX-ACCESS   read-write
+   STATUS       current
+   DESCRIPTION 
+     "Upstream sla PeakBW"
+   ::= {eponOnuSlaEntry 6}
+
+eponOnuSlaDsFir    OBJECT-TYPE   
+   SYNTAX       INTEGER   
+   UNITS        "kbps"
+   MAX-ACCESS   read-write
+   STATUS       current
+   DESCRIPTION 
+     "Downstream sla FixedBW"
+   ::= {eponOnuSlaEntry 7}
+
+eponOnuSlaDsCir    OBJECT-TYPE   
+   SYNTAX       INTEGER 
+   UNITS        "kbps"
+   MAX-ACCESS   read-write
+   STATUS       current
+   DESCRIPTION 
+     "Downstream sla CommittedBW"
+   ::= {eponOnuSlaEntry 8}
+
+eponOnuSlaDsPir    OBJECT-TYPE   
+   SYNTAX       INTEGER  
+   UNITS        "kbps"
+   MAX-ACCESS   read-write
+   STATUS       current
+   DESCRIPTION 
+     "Downstream sla PeakBW"
+   ::= {eponOnuSlaEntry 9}
+
+     
+-----ONU CLASSIF TABLE----10---------------------------------------------------------
+
+eponOnuClassifTable   OBJECT-TYPE
+   SYNTAX         SEQUENCE OF EponOnuClassifEntry
+   MAX-ACCESS     not-accessible
+   STATUS         current
+   DESCRIPTION
+   "onu classification table"
+   ::= {eponOnuCfg 10 }      
+   
+eponOnuClassifEntry  OBJECT-TYPE
+   SYNTAX         EponOnuClassifEntry
+   MAX-ACCESS     not-accessible
+   STATUS         current
+   DESCRIPTION
+   "classification entry"
+   INDEX{eponOnuClassfCardIndex, eponOnuClassfPonIndex, eponOnuClassfOnuIndex, eponOnuClassfPortIndex, eponOnuClassfPrecedenceIndex}
+   ::= {eponOnuClassifTable 1}   
+
+EponOnuClassifEntry ::= SEQUENCE{
+    eponOnuClassfCardIndex           INTEGER,
+    eponOnuClassfPonIndex            INTEGER,
+    eponOnuClassfOnuIndex            INTEGER,
+    eponOnuClassfPortIndex           INTEGER,
+    eponOnuClassfPrecedenceIndex     INTEGER,
+    }   
+
+eponOnuClassfCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuClassifEntry 1}      
+      
+eponOnuClassfPonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuClassifEntry 2}         
+
+eponOnuClassfOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu index"
+   ::= {eponOnuClassifEntry 3} 
+
+eponOnuClassfPortIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "uni index"
+   ::= {eponOnuClassifEntry 4} 
+   
+eponOnuClassfPrecedenceIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "Number of rule precedence"
+   ::= {eponOnuClassifEntry 5} 
+
+             
+--
+-- END of EPON-ONU-CONFIG-MIB
+--      
+      
+END      

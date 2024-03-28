@@ -1,0 +1,28 @@
+#!/bin/sh
+#ABillS %DATE% %TIME%
+
+START=$(date +%s)
+
+IFNAME=$1
+REDIRECT_IP="172.16.250.1"
+AWK=/usr/bin/awk
+IPTABLES="/sbin/iptables"
+DEBUG=
+
+if [ -f /var/run/radattr.$IFNAME ]; then
+   FILTERS=`${AWK}  '/Filter-Id/ {print $2}'  /var/run/radattr.$IFNAME`
+   USER_NAME=`${AWK}  '/User-Name/ {print $2}'  /var/run/radattr.${IFNAME}`
+fi;
+
+#### Filters
+if [ w${FILTERS} = wNEG_DEPOSIT ] ; then
+   $IPTABLES -t nat -D PREROUTING -i ${IFNAME} -p tcp -m tcp --dport 80 -j DNAT --to-destination ${REDIRECT_IP}:80
+   $IPTABLES -D FORWARD -i ${IFNAME} -j DROP
+   if [ w${DEBUG} != w ] ; then
+     END=$(date +%s)
+     DIFF=$(( $END - $START ))
+
+     echo "Down neg filter User: ${USER_NAME} Filter: ${FILTERS} IF: ${IFNAME} Time: ${DIFF}" >> /tmp/neg
+   fi;
+   exit;
+fi;

@@ -1,0 +1,40 @@
+#!perl
+
+=head1 NAME
+
+  Speedtest
+
+=head2 SYNOPSIS
+
+  This package for measuring the speed of the Internet
+
+=head2 VERSION
+
+  VERSION: 1.00
+  REVISION: 22.07.2019
+
+=cut
+
+use strict;
+use warnings;
+
+our ($html, %FORM, $db, %conf, $admin, %lang, $index);
+
+#**********************************************************
+
+=head2 open_st() - SpeedTest
+
+=cut
+
+#**********************************************************
+sub open_st {
+
+  $html->tpl_show(_include('speedtest_main','Speedtest'),{
+    YOUR_IP   => $lang{YOUR_IP},
+    BTN_START => $lang{BTN_START},
+    BTN_STOP  => $lang{BTN_STOP},
+  });
+  return 1;
+}
+
+1;

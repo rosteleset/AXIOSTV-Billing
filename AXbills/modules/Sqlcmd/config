@@ -1,0 +1,15 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+  "01:0:SQL $lang{CONSOLE}:sqlcmd:"        => 5,
+  "02:1:$lang{TABLES}:sqlcmd_tables:"      => 5,
+  "03:1:$lang{TRIGGERS}:sqlcmd_triggers:"  => 5,
+  "04:1:$lang{INFO}:sqlcmd_info:"          => 5,
+  "05:1:$lang{PROCESSES}:sqlcmd_procs:"    => 5,
+);
+
+
+if ($conf{SQLCMD_CLUSTER_HOSTS}) {
+  $FUNCTIONS_LIST{"06:1:Cluster:sqlcmd_cluster:"} = 5;
+}
+
+1;

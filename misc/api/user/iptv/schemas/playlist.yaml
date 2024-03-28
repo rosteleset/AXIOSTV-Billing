@@ -1,0 +1,14 @@
+type: object
+properties:
+  link:
+    type: string
+    example: 'https://fcc3ddae59ed.us-west-2.playback.live-video.net/api/video/v1/us-west-2.893648527354.channel.DmumNckWFTqz.m3u8'
+  logo:
+    type: string
+    example: "https://upload.wikimedia.org/wikipedia/commons/thumb/9/92/1%2B1_logo.svg/338px-1%2B1_logo.svg.png"
+  name:
+    type: string
+    example: "1+1"
+  tvId:
+    type: number
+    example: 1

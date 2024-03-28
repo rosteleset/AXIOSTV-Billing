@@ -1,0 +1,5 @@
+{
+  "name": "USER_ABON_ACTIVATE",
+  "method": "POST",
+  "path": "user/:uid/abon/:id/"
+}

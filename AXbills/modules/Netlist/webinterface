@@ -1,0 +1,1348 @@
+#!perl
+
+=head1 NAME
+
+  Network managment
+  IPv4 and IPv6
+  IPAM
+  IP calc
+
+  Error ID: 23xx
+  2301: Wrong xml response
+=cut
+
+
+use strict;
+use warnings;
+use Netlist;
+use Nas;
+use Socket qw(inet_pton inet_aton AF_INET6 AF_INET);
+use AXbills::Filters;
+use AXbills::Base qw(int2ip ip2int in_array);
+use AXbills::Experimental;
+
+our (
+  $db,
+  $admin,
+  %conf,
+  %lang,
+  @status
+);
+
+our AXbills::HTML $html;
+my $Netlist = Netlist->new( $db, $admin, \%conf );
+my $Nas = Nas->new( $db, \%conf, $admin );
+
+my @status_colors = ('success', 'danger', 'warning', 'info');
+my @ipv6_prefixes = (
+  '1 (9,223,372,036,854,775,808 networks /64)',
+  '2 (4,611,686,018,427,387,904 networks /64)',
+  '3 (2,305,843,009,213,693,952 networks /64)',
+  '4 (1,152,921,504,606,846,976 networks /64)',
+  '5 (576,460,752,303,423,488 networks /64)',
+  '6 (288,230,376,151,711,744 networks /64)',
+  '7 (144,115,188,075,855,872 networks /64)',
+  '8 (72,057,594,037,927,936 networks /64)',
+  '9 (36,028,797,018,963,968 networks /64)',
+  '10 (18,014,398,509,481,984 networks /64)',
+  '11 (9,007,199,254,740,992 networks /64)',
+  '12 (4,503,599,627,370,496 networks /64)',
+  '13 (2,251,799,813,685,248 networks /64)',
+  '14 (1,125,899,906,842,624 networks /64)',
+  '15 (562,949,953,421,312 networks /64)',
+  '16 (281,474,976,710,656 networks /64)',
+  '17 (140,737,488,355,328 networks /64)',
+  '18 (70,368,744,177,664 networks /64)',
+  '19 (35,184,372,088,832 networks /64)',
+  '20 (17,592,186,044,416 networks /64)',
+  '21 (8,796,093,022,208 networks /64)',
+  '22 (4,398,046,511,104 networks /64)',
+  '23 (2,199,023,255,552 networks /64)',
+  '24 (1,099,511,627,776 networks /64)',
+  '25 (549,755,813,888 networks /64)',
+  '26 (274,877,906,944 networks /64)',
+  '27 (137,438,953,472 networks /64)',
+  '28 (68,719,476,736 networks /64)',
+  '29 (34,359,738,368 networks /64)',
+  '30 (17,179,869,184 networks /64)',
+  '31 (8,589,934,592 networks /64)',
+  '32 (4,294,967,296 networks /64)',
+  '33 (2,147,483,648 networks /64)',
+  '34 (1,073,741,824 networks /64)',
+  '35 (536,870,912 networks /64)',
+  '36 (268,435,456 networks /64)',
+  '37 (134,217,728 networks /64)',
+  '38 (67,108,864 networks /64)',
+  '39 (33,554,432 networks /64)',
+  '40 (16,777,216 networks /64)',
+  '41 (8,388,608 networks /64)',
+  '42 (4,194,304 networks /64)',
+  '43 (2,097,152 networks /64)',
+  '44 (1,048,576 networks /64)',
+  '45 (524,288 networks /64)',
+  '46 (262,144 networks /64)',
+  '47 (131,072 networks /64)',
+  '48 (65,536 networks /64)',
+  '49 (32,768 networks /64)',
+  '50 (16,384 networks /64)',
+  '51 (8,192 networks /64)',
+  '52 (4,096 networks /64)',
+  '53 (2,048 networks /64)',
+  '54 (1,024 networks /64)',
+  '55 (512 networks /64)',
+  '56 (256 networks /64)',
+  '57 (128 networks /64)',
+  '58 (64 networks /64)',
+  '59 (32 networks /64)',
+  '60 (16 networks /64)',
+  '61 (8 networks /64)',
+  '62 (4 networks /64)',
+  '63 (2 networks /64)',
+  '64 (18,446,744,073,709,551,616 addresses)',
+  '65 (9,223,372,036,854,775,808 addresses)',
+  '66 (4,611,686,018,427,387,904 addresses)',
+  '67 (2,305,843,009,213,693,952 addresses)',
+  '68 (1,152,921,504,606,846,976 addresses)',
+  '69 (576,460,752,303,423,488 addresses)',
+  '70 (288,230,376,151,711,744 addresses)',
+  '71 (144,115,188,075,855,872 addresses)',
+  '72 (72,057,594,037,927,936 addresses)',
+  '73 (36,028,797,018,963,968 addresses)',
+  '74 (18,014,398,509,481,984 addresses)',
+  '75 (9,007,199,254,740,992 addresses)',
+  '76 (4,503,599,627,370,496 addresses)',
+  '77 (2,251,799,813,685,248 addresses)',
+  '78 (1,125,899,906,842,624 addresses)',
+  '79 (562,949,953,421,312 addresses)',
+  '80 (281,474,976,710,656 addresses)',
+  '81 (140,737,488,355,328 addresses)',
+  '82 (70,368,744,177,664 addresses)',
+  '83 (35,184,372,088,832 addresses)',
+  '84 (17,592,186,044,416 addresses)',
+  '85 (8,796,093,022,208 addresses)',
+  '86 (4,398,046,511,104 addresses)',
+  '87 (2,199,023,255,552 addresses)',
+  '88 (1,099,511,627,776 addresses)',
+  '89 (549,755,813,888 addresses)',
+  '90 (274,877,906,944 addresses)',
+  '91 (137,438,953,472 addresses)',
+  '92 (68,719,476,736 addresses)',
+  '93 (34,359,738,368 addresses)',
+  '94 (17,179,869,184 addresses)',
+  '95 (8,589,934,592 addresses)',
+  '96 (4,294,967,296 addresses)',
+  '97 (2,147,483,648 addresses)',
+  '98 (1,073,741,824 addresses)',
+  '99 (536,870,912 addresses)',
+  '100 (268,435,456 addresses)',
+  '101 (134,217,728 addresses)',
+  '102 (67,108,864 addresses)',
+  '103 (33,554,432 addresses)',
+  '104 (16,777,216 addresses)',
+  '105 (8,388,608 addresses)',
+  '106 (4,194,304 addresses)',
+  '107 (2,097,152 addresses)',
+  '108 (1,048,576 addresses)',
+  '109 (524,288 addresses)',
+  '110 (262,144 addresses)',
+  '111 (131,072 addresses)',
+  '112 (65,536 addresses)',
+  '113 (32,768 addresses)',
+  '114 (16,384 addresses)',
+  '115 (8,192 addresses)',
+  '116 (4,096 addresses)',
+  '117 (2,048 addresses)',
+  '118 (1,024 addresses)',
+  '119 (512 addresses)',
+  '120 (256 addresses)',
+  '121 (128 addresses)',
+  '122 (64 addresses)',
+  '123 (32 addresses)',
+  '124 (16 addresses)',
+  '125 (8 addresses)',
+  '126 (4 addresses)',
+  '127 (2 addresses)',
+  '128 (1 address)'
+);
+
+#***************************************************************
+=head2 netlist_ip_calc() - Webinterface related logic
+
+
+=cut
+#***************************************************************
+sub netlist_ip_calc {
+
+  my $mask = 0b0000000000000000000000000000001;
+
+  if ( !$FORM{MASK} && $FORM{MASK_BITS} ) {
+    $FORM{MASK} = int2ip(4294967296 - sprintf("%d", $mask << (32 - $FORM{MASK_BITS})));
+  }
+
+  #my @SUBNET_NUMBER = ();
+  my @HOSTS_NUMBER = ();
+  my @MASK_BITS = ();
+
+  for ( my $i = 0; $i <= 24; $i++ ) {
+    push @MASK_BITS, 32 - $i;
+    push @HOSTS_NUMBER, sprintf("%d", ($mask << $i) - 2);
+  }
+
+  # This 2 selects are filled dynamically by JavaScript in netlist.js
+  $Netlist->{SUBNET_NUMBER_SEL} = $html->form_select( 'SUBNET_NUMBER', { } );
+  $Netlist->{HOSTS_NUMBER_SEL} = $html->form_select( 'HOSTS_NUMBER', { } );
+
+  $Netlist->{MASK_BITS_SEL} = $html->form_select(
+    'MASK_BITS',
+    {
+      SELECTED  => $FORM{MASK_BITS},
+      SEL_ARRAY => \@MASK_BITS
+    }
+  );
+
+  $html->tpl_show( _include('netlist_ip_calc', 'Netlist'), { %{$Netlist}, %FORM } );
+
+  if ( $FORM{SHOW} ) {
+    my $table = $html->table(
+      {
+        width  => '100%',
+        #          caption => "IP $lang{CALCULATOR}",
+        border => 0,
+        title  => [ '', $lang{SUBNET}, $lang{MASK}, $lang{SIZE}, $lang{HOSTS}, 'BROADCAST' ],
+        qs     => $pages_qs,
+        ID     => 'IP_CALC'
+      }
+    );
+
+    my $ip = "$FORM{IP_D1}\.$FORM{IP_D2}\.$FORM{IP_D3}\.$FORM{IP_D4}";
+
+    my $int = ip2int($ip);
+    my $mask_int = ip2int($FORM{MASK});
+
+    my $ip_prefix = int2ip($int & $mask_int);
+
+    my $addr_count = ip2int('255.255.255.255') - ip2int("$FORM{MASK}") - 1;
+    my $addr_per_network = ip2int('255.255.255.255') - ip2int("$FORM{SUBNET_MASK}") - 1;
+
+    for ( my $i = 0; $i < ($addr_count + 2) / ($addr_per_network + 2); $i++ ) {
+      my $ip_offset = ($addr_per_network + 2) * $i;
+      $int = ip2int("$ip_prefix") + $ip_offset;
+      $table->addrow(
+        $html->form_input( $i . "_POOL", int2ip($int), { TYPE => 'checkbox', EX_PARAMS => 'class="d-print-none"' } ),
+        int2ip($int), "$FORM{SUBNET_MASK}", $addr_per_network,
+        int2ip($int + 1) . " - " . int2ip($int + $addr_per_network), int2ip($int + $addr_per_network + 1) );
+    }
+
+    $Netlist->{EXPORT_TABLE} = $table->show();
+    $Netlist->{SUBMIT_BTN_NAME} = $lang{EXPORT};
+
+    $html->tpl_show( _include('netlist_ip_calc_export', 'Netlist'), { %{$Netlist}, %FORM } );
+  }
+  elsif ( $FORM{export_pools} && $FORM{export_pools} ne '' ) {
+
+    my $name_prefix = $FORM{NAME_PREFIX} . "_";
+    my $i = 0;
+
+    foreach my $key ( keys %FORM ) {
+      if ( $key =~ /_POOL$/ ) {
+        $i++;
+
+        my $ip = int2ip(ip2int($FORM{$key}) + 1);
+        my $hosts_count = $FORM{COUNTS};
+
+        $Nas->ip_pools_add( { NAME => "$name_prefix$i", IP => $ip, COUNTS => $hosts_count } );
+
+        if ( !$Nas->{errno} ) {
+          my $ip_pools_index = get_function_index('form_ip_pools');
+          my $ip_pools_button = $html->button( 'IP Pools', "index=$ip_pools_index", { class => 'btn btn-secondary' } );
+          $html->message( 'info', $lang{INFO}, "$lang{ADDED}: $ip $ip_pools_button" );
+        }
+        else {
+          $html->message( 'warning', $lang{ERROR}, "$lang{ERROR}: $ip; $Netlist->{errstr}" );
+        }
+      }
+    }
+  }
+  elsif ( $FORM{export_groups} && $FORM{export_groups} ne '' ) {
+    my $name_prefix = $FORM{NAME_PREFIX} . "_";
+    my $subnet_mask = $FORM{SUBNET_NETMASK};
+
+    my $i = 0;
+    foreach my $key ( keys %FORM ) {
+      if ( $key =~ /_POOL$/ ) {
+        $i++;
+
+        my $ip = int2ip(ip2int($FORM{$key}) + 1);
+        $FORM{IP} = $ip;
+        $FORM{NAME} = "$name_prefix$i";
+        $FORM{NETMASK} = $subnet_mask;
+        netlist_groups_add();
+      }
+    }
+  }
+  return 1;
+}
+
+#***************************************************************
+=head2 netlist_list() - Webinterface related logic
+
+=cut
+#***************************************************************
+sub netlist_list {
+  $Netlist->{ACTION} = 'add';
+  $Netlist->{ACTION_LNG} = $lang{ADD};
+
+  if ( $FORM{ping} ) {
+    host_diagnostic($FORM{ping});
+  }
+  elsif ( $FORM{add} ) {
+    if ( defined $FORM{IP} && netlist_validate_v6($FORM{IP}) ) {
+      $FORM{IPV6} = $FORM{IP};
+      undef $FORM{IP};
+    }
+
+    if ( !( defined $FORM{IP} || defined $FORM{IPV6} )) {
+      $html->message('err', $lang{ERR_WRONG_DATA}, $lang{IP_ADDRESS});
+    }
+    else {
+      $Netlist->ip_add( { %FORM } );
+      if ( !$Netlist->{errno} ) {
+        $html->message( 'info', $lang{INFO}, "$lang{ADDED}" );
+      }
+      %FORM = ();
+    }
+  }
+  elsif ( $FORM{change} ) {
+    $FORM{DATE} = $DATE;
+    $Netlist->ip_change( { %FORM } );
+    if ( !$Netlist->{errno} ) {
+      $html->message( 'info', $lang{INFO}, "$lang{CHANGED}" );
+    }
+    %FORM = ();
+  }
+  elsif ( defined($FORM{chg}) ) {
+    $Netlist->ip_info( $FORM{chg} );
+    if ( !$Netlist->{errno} ) {
+      $html->message( 'info', $lang{INFO}, "$lang{CHANGING}" );
+    }
+    $Netlist->{ACTION} = 'change';
+    $Netlist->{ACTION_LNG} = $lang{CHANGE};
+    $FORM{add_form} = 1;
+  }
+  elsif ( defined($FORM{del}) && $FORM{COMMENTS} ) {
+    $Netlist->ip_del( $FORM{del} );
+    if ( !$Netlist->{errno} ) {
+      $html->message( 'info', $lang{INFO}, "$lang{DELETED}" );
+    }
+  }
+
+  _error_show($Netlist);
+
+  $Netlist->{STATE_SEL} = $html->form_select(
+    'STATUS',
+    {
+      SELECTED     => $Netlist->{STATUS},
+      SEL_ARRAY    => \@status,
+      ARRAY_NUM_ID => 1
+    }
+  );
+
+  $Netlist->{GROUP_SEL} = $html->form_select(
+    'GID',
+    {
+      SELECTED    => $Netlist->{GID} || $FORM{GID},
+      SEL_LIST    => $Netlist->groups_list( { 
+        GID             => '_SHOW',
+        NAME            => '_SHOW',
+        DESCR           => '_SHOW',
+        ALLOW_CREDIT    => '_SHOW',
+        DISABLE_PAYSYS  => '_SHOW',
+        DISABLE_CHG_TP  => '_SHOW',
+        USERS_COUNT     => '_SHOW',
+        COLS_NAME => 1 
+      } ),
+      NO_ID       => 1,
+      MAIN_MENU   => get_function_index('netlist_groups'),
+      SEL_OPTIONS => { '' => '--' },
+    }
+  );
+
+  $Netlist->{STATE_SEL} = $html->form_select(
+    'STATUS',
+    {
+      SELECTED     => $Netlist->{STATUS},
+      SEL_ARRAY    => \@status,
+      ARRAY_NUM_ID => 1
+    }
+  );
+
+  $Netlist->{MAC_AUTO_DETECT} = 'checked' if ($Netlist->{MAC_AUTO_DETECT});
+
+  if ( $FORM{search_form} ) {
+    $html->tpl_show( _include('netlist_ip_search', 'Netlist'), { %{$Netlist}, %FORM } );
+  }
+  if ( $FORM{add_form} ) {
+    $Netlist->{IP_SCAN_INDEX} = get_function_index('netlist_ip_scan');
+    $html->tpl_show( _include('netlist_ip', 'Netlist'), $Netlist );
+  }
+
+  $pages_qs .= "&GID=$FORM{GID}" if ($FORM{GID});
+
+  my $list = $Netlist->ip_list( { %LIST_PARAMS, %FORM, COLS_NAME => 1 } );
+
+  if ( _error_show($Netlist) ) {
+    return 0;
+  }
+
+  my $table = $html->table(
+    {
+      width      => '100%',
+      caption    => "$lang{LIST} IP",
+      title      =>
+      [ '', 'ID', 'IP', 'NETMASK', 'HOSTNAME', $lang{DESCRIBE}, $lang{GROUP}, $lang{STATE}, $lang{CHANGE}, '-', '-',
+        '-' ],
+      cols_align =>
+      [ '', 'right', 'right', 'right', 'left', 'left', 'left', 'center', 'right', 'center:d-print-none', 'center:d-print-none',
+        'center:d-print-none' ],
+      qs         => $pages_qs,
+      pages      => $Netlist->{TOTAL},
+      ID         => 'NETLIST_LIST',
+      FIELDS_IDS => $Netlist->{COL_NAMES_ARR},
+      EXPORT     => 1,
+      MENU       =>
+      "$lang{ADD}:add_form=1&index=$index:add;$lang{SEARCH}:index=" . get_function_index('netlist_ip_scan') . ":search"
+    }
+  );
+
+  foreach my $line ( @{$list} ) {
+    my $delete = $html->button( $lang{DEL}, "index=$index&del=$line->{ip_id}",
+      { MESSAGE => "$lang{DEL} $line->{ip}?", class => 'del' } );
+    my $change = $html->button( $lang{INFO}, "index=$index&chg=$line->{ip_id}", { class => 'show' } );
+
+    $table->addrow(
+      $html->form_input( 'IDS', "$line->{ip_id}", { TYPE => 'checkbox', EX_PARAMS => 'class="d-print-none"' } ),
+      $line->{ip_id},
+        ($Netlist->db_version() < 5.6) ? "$line->{ip}" : $line->{ip},
+      $line->{netmask},
+      $line->{hostname},
+      $line->{descr},
+      $line->{name},
+      $html->color_mark( $status[ $line->{status} ], 'text-' . $status_colors[ $line->{status} ] ),
+      $line->{date}, $html->button( "P", "index=$index&ping=$line->{ip}$pages_qs", { TITLE => 'Ping', BUTTON => 1 } ),
+      $change, $delete
+    );
+  }
+
+  if ( $FORM{EXPORT_CONTENT} ) {
+    print $table->show();
+  }
+
+  my $table2 = $html->table(
+    {
+      width       => '100%',
+      class       => 'd-print-none',
+      title_plain => [ "$lang{GROUP}: " . $Netlist->{GROUP_SEL}, "$lang{STATUS}: " . $Netlist->{STATE_SEL},
+        "RESOLVE: " . $html->form_input( 'RESOLV', '1', { TYPE => 'checkbox' } ),
+        $html->form_input( 'change', $lang{CHANGE}, { TYPE => 'SUBMIT' } ) ]
+    }
+  );
+
+  my @rows = ("$lang{GROUP}: " . $Netlist->{GROUP_SEL}, "$lang{STATUS}: " . $Netlist->{STATE_SEL},
+    "RESOLVE: " . $html->form_input( 'RESOLV', '1', { TYPE => 'checkbox' } ),
+    $html->form_input( 'change', $lang{CHANGE}, { TYPE => 'SUBMIT' } ));
+
+  my $info = '';
+  foreach my $val ( @rows ) {
+    $info .= $html->element( 'div', $val, { class => 'form-group' } );
+  }
+
+  print $html->form_main(
+    {
+      CONTENT => $table->show()
+        . $html->element( 'div', $info, { class => 'navbar navbar-default form-inline' } ),
+      HIDDEN  => { index => $index },
+      class  => 'navbar-form form-inline',
+    }
+  );
+  #navbar-form navbar-right form-inline
+  $table = $html->table(
+    {
+      width      => '100%',
+      rows       => [ [ "$lang{TOTAL}:", $Netlist->{TOTAL} ] ]
+    }
+  );
+
+  print $table->show();
+
+  return 1;
+}
+
+#***************************************************************
+=head2 netlist_groups() -  Webinterface related logic
+
+=cut
+#***************************************************************
+sub netlist_groups {
+
+  $Netlist->{ACTION} = 'add';
+  $Netlist->{ACTION_LNG} = $lang{ADD};
+
+  if ( $FORM{add} ) {
+    netlist_groups_add();
+  }
+  elsif ( $FORM{change} ) {
+    $Netlist->group_change( { %FORM } );
+    if ( !$Netlist->{errno} ) {
+      $html->message( 'info', $lang{INFO}, "$lang{CHANGED}" );
+    }
+  }
+  elsif ( defined($FORM{chg}) ) {
+    $Netlist->group_info( $FORM{chg} );
+    if ( !$Netlist->{errno} ) {
+      $html->message( 'info', $lang{INFO}, "$lang{CHANGING}" );
+    }
+    $Netlist->{ACTION} = 'change';
+    $Netlist->{ACTION_LNG} = $lang{CHANGE};
+  }
+  elsif ( defined($FORM{del}) && $FORM{COMMENTS} ) {
+    $Netlist->group_del( $FORM{del} );
+    if ( !$Netlist->{errno} ) {
+      $html->message( 'info', $lang{INFO}, "$lang{DELETED}" );
+    }
+  }
+
+  _error_show($Netlist);
+
+  $Netlist->{NETMASK} = '255.255.255.0';
+
+  #$Netlist->{debug} =1;
+  $Netlist->{PARENT_SELECT} = $html->form_select(
+    'PARENT_ID',
+    {
+      SELECTED    => $Netlist->{PARENT_ID} || 0,
+      SEL_LIST    => $Netlist->groups_list( { 
+              GID             => '_SHOW',
+      NAME            => '_SHOW',
+      DESCR           => '_SHOW',
+      ALLOW_CREDIT    => '_SHOW',
+      DISABLE_PAYSYS  => '_SHOW',
+      DISABLE_CHG_TP  => '_SHOW',
+      USERS_COUNT     => '_SHOW',
+      NOT_PARENT_ID => 0, COLS_NAME => 1, PAGE_ROWS => 100000 } ),
+      NO_ID       => 1,
+      SEL_OPTIONS => { '0' => '--' },
+    }
+  );
+
+  $html->tpl_show( _include('netlist_group', 'Netlist'), $Netlist );
+
+  my ($table, $list) = result_former(
+    {
+      INPUT_DATA        => $Netlist,
+        FUNCTION        => 'groups_list',
+        BASE_FIELDS     => 4,
+        FUNCTION_FIELDS => 'netlist_list:IPs:gid:&VIEW=1&search=1&search_form=1,' . 'change,del',
+        SKIP_USER_TITLE => 1,
+        EXT_TITLES      => {
+        name        => $lang{NAME},
+        comments    => $lang{COMMENTS},
+        count       => $lang{COUNT},
+        parent_name => $lang{GROUP}
+      },
+        TABLE           => {
+        width   => '100%',
+        caption => "IP $lang{GROUPS}",
+        qs      => $pages_qs,
+        ID      => 'NETLIST_GROUPS',
+        EXPORT  => 1,
+      },
+        MAKE_ROWS       => 1,
+        SEARCH_FORMER   => 1,
+        TOTAL           => 1
+    }
+  );
+
+  return 1;
+}
+
+#***************************************************************
+=head2 netlist_groups_add
+
+  Adds group to `netlist_groups` and all of its ip addresses to `netlist_ips`
+
+=cut
+#***************************************************************
+sub netlist_groups_add {
+  $Netlist->group_add( { %FORM } );
+
+  if ( !$Netlist->{errno} ) {
+    $html->message( 'info', $lang{INFO}, "$lang{ADDED}" );
+  }
+
+  if ( $FORM{IP} ) {
+    if ( $FORM{IP} !~ /$IPV4/ ) {
+      $html->message( 'err', $lang{ERROR}, "$lang{ERR_WRONG_DATA} [$lang{IP_ADDRESS}]" );
+      return 0;
+    }
+    if ( $FORM{NETMASK} !~ /$IPV4/ ) {
+      $html->message( 'err', $lang{ERROR}, "$lang{ERR_WRONG_DATA} [$lang{SUBNET_MASK}]" );
+      return 0;
+    }
+    else {
+      my $ip_num = ip2int($FORM{IP});
+      my $ip_count = unpack("N", pack("C4", split(/\./, "255.255.255.255"))) - unpack("N",
+        pack("C4", split(/\./, "$FORM{NETMASK}")));
+
+      for ( my $i = 0; $i < $ip_count; $i++ ) {
+        my $ip = int2ip($ip_num + $i);
+        $Netlist->ip_add(
+          {
+            IP       => $ip,
+            NETMASK  => $FORM{NETMASK},
+            HOSTNAME => lookupaddress($ip),
+            GID      => $Netlist->{GID} || 0
+          }
+        );
+
+        if ( _error_show($Netlist) ) {
+          return 0;
+        }
+      }
+    }
+  }
+}
+
+#***************************************************************
+=head2
+
+  Get hostname for given ip_address
+    $hostname - IP address of host
+
+=cut
+#***************************************************************
+sub lookupaddress {
+  my ($hostname) = @_;
+
+  my $iaddr = inet_aton($hostname);            # or whatever address
+  my $name = gethostbyaddr($iaddr, AF_INET);
+
+  return $name;
+}
+
+#***************************************************************
+=head2 netlist_new
+
+  Webinterface related logic
+
+=cut
+#***************************************************************
+sub netlist_new {
+  my $table = $html->table(
+    {
+      width   => '100%',
+      caption => "$lang{GROUPS}",
+      title   => [ $lang{NAME}, $lang{COMMENTS}, 'IP', '-', '-' ],
+      qs      => $pages_qs,
+      pages   => $Netlist->{TOTAL}
+    }
+  );
+
+  print $table->show();
+
+  return 1;
+}
+
+#***************************************************************
+=head2 netlist_ipv6_calc() -  Webinterface related logic for ipv6_calc
+
+=cut
+#***************************************************************
+sub netlist_ipv6_calc {
+
+  if ( $FORM{IP} ) {
+    if ( netlist_validate_v6($FORM{IP}) ) {
+      print "Expanded: " . netlist_get_expanded_v6($FORM{IP}) . "<br>";
+      print "Shortened: " . netlist_get_short_v6($FORM{IP}) . "<br>";
+    }
+    else {
+      print $html->message( 'danger', 'Invalid IP' );
+    }
+  }
+  else {
+    $Netlist->{PREFIX_LENGTH_SELECT} = $html->form_select(
+      'MASK_BITS',
+      {
+        SELECTED     => $FORM{MASK_BITS} || $ipv6_prefixes[63],
+        SEL_ARRAY    => \@ipv6_prefixes,
+        ARRAY_NUM_ID => 1
+      }
+    );
+
+    $html->tpl_show( _include('netlist_ipv6_calc', 'Netlist'), $Netlist );
+  }
+  return 1;
+}
+
+#***************************************************************
+=head2 netlist_get_short_v6 ($ip)
+
+  ARGUMENTS
+    $ip - string representation of IPv6 in any form
+
+  RESULT
+    $shortened - string represantation of IPv6 in shortened form
+
+  SYNOPSIS
+    Shortening is defined by 2 rules
+
+  1. All trailing zeros in each hextet can be dropped
+
+    000A:0200:0000:0000:0000:0100:00f0:0001
+      -> 1:200:::100:f0:1
+
+  2. First group of 0-valued hextets(..:::::...) can be replaced by :: (...::...)
+
+    A:200:::100:f0:1
+      -> 1:200::100:f0:1
+
+=cut
+#***************************************************************
+sub netlist_get_short_v6 {
+  my ($ip) = @_;
+
+  #Normalize $ip
+  $ip = netlist_get_expanded_v6($ip);
+
+  my $short;
+
+  #1-st rule
+  my @hextets = split(':', $ip);
+  for ( my $i = 0; $i < 8; $i++ ) {
+    $hextets[$i] =~ s/^0*//g;
+  }
+  $short = join(":", @hextets);
+
+  #2-nd rule
+  $short =~ s/:{2,}/::/;
+
+  return $short;
+}
+
+#***************************************************************
+=head2 netlist_get_expanded_v6 ($ip) - Get extended form for ipv6 address
+
+  Get extended form for ipv6 address
+
+  Arguments:
+    $addr - Any type of annotation for IPv6 address
+
+  Returns:
+    string - full representation of IPv6 address
+
+=cut
+#***************************************************************
+sub netlist_get_expanded_v6 {
+  my ($addr) = @_;
+  return join(":", unpack("H4H4H4H4H4H4H4H4", inet_pton(AF_INET6, $addr)));
+}
+
+#***************************************************************
+=head2 netlist_validate_v6($ip) - Check if given IP is valid IPv6 address
+
+  Arguments:
+    $ip - Any type of annotation for IPv6 address
+
+  Returns:
+    boolean - valid or invalid
+
+=cut
+#***************************************************************
+sub netlist_validate_v6 {
+  my ($ip) = @_;
+
+  # From Regexp::IPv6 by Salvador Fandi;
+  my $IPv4 = "((25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2}))";
+  my $G = "[0-9a-fA-F]{1,4}";
+
+  my @tail = (
+    ":",
+    "(:($G)?|$IPv4)", # old form of IPv4
+    ":($IPv4|$G(:$G)?|)",
+    "(:$IPv4|:$G(:$IPv4|(:$G){0,2})|:)",
+    "((:$G){0,2}(:$IPv4|(:$G){1,2})|:)",
+    "((:$G){0,3}(:$IPv4|(:$G){1,2})|:)",
+    "((:$G){0,4}(:$IPv4|(:$G){1,2})|:)"
+  );
+
+  my $IPv6_re = $G;
+  $IPv6_re = "$G:($IPv6_re|$_)" for (@tail);
+  $IPv6_re = qq/:(:$G){0,5}((:$G){1,2}|:$IPv4)|$IPv6_re/;
+  $IPv6_re =~ s/\(/(?:/g;
+  $IPv6_re = qr/$IPv6_re/;
+  #
+
+  my $valid = $ip =~ /^$IPv6_re$/;
+
+  return $valid;
+}
+
+#***************************************************************
+=head2 netlist_validate_v4 ($ip) - Check if given IP is valid IPv4 address
+
+  Checks if given IP is valid IPv4 address
+
+  Arguments:
+    $ip - IPv4 address string
+
+  Returns:
+    boolean - valid or invalid
+=cut
+
+#***************************************************************
+sub netlist_validate_v4 {
+  my ($ip) = @_;
+  my $IPv4 = "((25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2})[.](25[0-5]|2[0-4][0-9]|[0-1]?[0-9]{1,2}))";
+
+  return $ip =~ /^$IPv4$/;
+}
+
+#***************************************************************
+=head2 netlist_validate_v4($attr) - Webinterface related logic
+
+  Webinterface related logic
+
+=cut
+#***************************************************************
+sub netlist_ip_scan {
+  my ($attr) = @_;
+
+  if ( my $error = load_pmodule("Nmap::Parser", { RETURN => 1 }) ) {
+    print $error;
+    return 0;
+  }
+
+  if ( $FORM{action} ) {
+    if ( $FORM{DO_SCAN} ) {
+      my $ip = $attr->{IP} || $FORM{IP};
+      # FIXME: split is obsolete, cause script will throw error later, when checking IP address
+      my $prefix = $attr->{MASK_BITS} || $FORM{MASK_BITS} || @{ split('/', $ip) }[1];
+
+      #Validate IP;
+      if ( !($ip) ) {
+        $html->message( 'danger', "ERROR", 'No IP address given' );
+      }
+      elsif ( !(netlist_validate_v4($ip) || netlist_validate_v6($ip)) ) {
+        $html->message( 'danger', "ERROR", "Invalid IP address given: $ip" );
+      }
+
+      #Validate prefix
+      if ( !($prefix) ) {
+        $html->message( 'danger', "ERROR", 'No prefix given' );
+      }
+      elsif ( !($prefix > 0 && $prefix <= 128) ) {
+        $html->message( 'danger', "ERROR", 'Invalid prefix' );
+      }
+
+      #start long operation
+      $html->message( 'info', $lang{SCAN},
+        "$ip/$prefix" );
+
+      #**
+      #* Do scan
+      #**
+      my $scan_results = netlist_ip_scan_exec({ IP => $ip, PREFIX => $prefix });
+
+      if ( $scan_results && ref $scan_results eq 'HASH' && scalar keys %{$scan_results} < 1 ) {
+        #TODO: localize
+        $html->message( 'err', 'Empty', 'No scan results' );
+        return 0;
+      }
+      elsif ( !$scan_results ) {
+        $html->message( 'err', 'Error', 'Error while scanning' );
+        return 0;
+      }
+
+      my $table = $html->table(
+        {
+          width       => '100%',
+          caption     => "$lang{LIST} IP",
+          title_plain => [ '', 'IP', 'MAC' ],
+          cols_align  => [ 'left', 'center', 'center' ],
+          ID          => 'NETLIST_IP_SCAN_LIST',
+          EXPORT      => 1,
+          TOTAL       => 1
+        }
+      );
+
+      my $i = 0;
+      while ( my ($ip_address, $host_info) = each %{$scan_results} ){
+        $table->addrow(
+          $html->form_input( $i++ . "_ADDRESS", $ip_address, { TYPE => 'checkbox', EX_PARAMS => 'class="d-print-none"' } ),
+          $ip_address,
+          $html->element( 'abbr', $host_info->{mac_addr}, { title => $host_info->{mac_vendor} || q{} } )
+        );
+      }
+      undef $i;
+
+      $Netlist->{SCAN_TABLE} = $table->show();
+
+      my @MASK_BITS = ();
+      for ( $i = 0; $i <= 24; $i++ ) {
+        push @MASK_BITS, 32 - $i;
+      }
+
+      $Netlist->{MASK_BITS_SEL} = $html->form_select(
+        'MASK_BITS',
+        {
+          SELECTED  => $FORM{PREFIX},
+          SEL_ARRAY => \@MASK_BITS
+        }
+      );
+
+      $html->tpl_show( _include('netlist_ip_scan_results', 'Netlist'), { %{$Netlist} } );
+
+    }
+    elsif ( $FORM{ADD} ) {
+      foreach my $key ( keys %FORM ) {
+        if ( $key =~ /_ADDRESS$/ ) {
+          my $ip = $FORM{$key};
+          my $prefix = $FORM{NETMASK} || '255.255.255.255';
+
+          $Netlist->ip_add( { IP => $ip, NETMASK => $prefix } );
+
+          if ( !$Netlist->{errno} ) {
+            $html->message( 'info', $lang{INFO}, "$lang{ADDED}: $ip" );
+          }
+          else {
+            $html->message( 'warning', $lang{ERROR}, "$lang{ERROR}: $ip; $Netlist->{errstr}" );
+          }
+        }
+      }
+    }
+  }
+
+  $html->tpl_show( _include('netlist_ip_scan', 'Netlist'), { $Netlist, \%FORM } );
+
+  return 1;
+}
+
+#***************************************************************
+=head2 netlist_ip_scan_exec($attr) - Wrapper for Nmap::Scanner
+
+  Arguments:
+    $attr - hash_ref
+      IP     - IP address of subnetwork to scan
+      PREFIX - Prefix length for subnetwork. Default is 32
+      DEBUG  - show debug info (boolean)
+
+  Returns:
+      Array of Nmap::Parser::Host where status is 'up'
+
+  Additional info about class here http://search.cpan.org/~apersaud/Nmap-Parser-1.31/Parser.pm#Nmap::Parser::Host
+  Additional info about class Nmap::Scanner http://search.cpan.org/~maxschube/Nmap-Scanner-1.0/lib/Nmap/Scanner.pm
+
+=cut
+#***************************************************************
+sub netlist_ip_scan_exec {
+  my ($attr) = @_;
+
+  my $ip = $attr->{IP};
+  my $prefix = $attr->{PREFIX} || 32;
+
+  #Validate IP;
+  if ( !($ip) ) {
+    return ({
+      "ERROR" => 'No IP address given'
+    });
+  }
+  elsif ( !(netlist_validate_v4($ip) || netlist_validate_v6($ip)) ) {
+    return ({
+      "ERROR" => "Invalid IP address given: $ip"
+    });
+  }
+
+  #Validate prefix
+  if ( !$prefix ) {
+    return ({
+      "ERROR" => 'No prefix given'
+    });
+  }
+  elsif ( !($prefix > 0 && $prefix <= 128) ) {
+    return ({
+      "ERROR" => 'Invalid prefix'
+    });
+  }
+
+  my $scanner;
+
+  if ( my $error = load_pmodule("Nmap::Parser", { RETURN => 1 }) ) {
+    $html->message( 'err', "Install Nmap::Parser", $error );
+    return 0;
+  }
+  else {
+    require Netlist::Scanner;
+    Netlist::Scanner->import();
+    $scanner = Netlist::Scanner->new( $db, $admin, \%conf );
+  }
+
+  if (!$scanner || $scanner->{errno}){
+
+    if (!$scanner->{errno}){
+      $scanner->{errno} = 0;
+      $scanner->{errstr} = 'Error loading Netlist::Scanner';
+  }
+
+    $html->message('err', $lang{ERROR}, "Error $scanner->{errstr} ($scanner->{errstr}) ");
+    return 0;
+  }
+
+  $scanner->set_timeout( '200' );
+  $scanner->set_target( "$ip/$prefix" );
+
+  #    $scanner->{debug} = 1;
+
+  my $results = $scanner->scan();
+  if ($results->{errno}){
+    _error_show($results, {MESSAGE => $results->{errstr}, ID => $results->{errno}});
+    return 0;
+  }
+
+  return $results;
+}
+
+#**********************************************************
+=head2 netlist_show_networks()
+
+=cut
+#**********************************************************
+sub netlist_show_networks {
+
+  my $ip_pools = $Nas->nas_ip_pools_list( {
+    NAS_ID           => '*',
+    SHOW_ALL_COLUMNS => 1,
+    COLS_NAME        => 1,
+    PAGE_ROWS        => 100000,
+  } );
+  _error_show($Nas);
+
+  my $info_index = get_function_index('netlist_network_info');
+
+  # Show networks defined in pools
+  my $ip_pools_table = $html->table( {
+      width   => '100%',
+      caption => 'IP Pools',
+      title   => [ '#', $lang{NAME}, $lang{BEGIN}, $lang{END}, $lang{INFO} ],
+      pages   => scalar @{$ip_pools},
+      qs      => $pages_qs,
+      ID      => 'NETLIST_IPPOOLS'
+    } );
+
+  foreach my $pool ( @{$ip_pools} ) {
+
+    my $info_button = $html->button( '', "index=$info_index&TYPE=IP_POOL&ID=$pool->{id}", { class => 'info' } );
+
+    $ip_pools_table->addrow(
+      $pool->{id},
+      $pool->{pool_name},
+      $pool->{first_ip},
+      $pool->{last_ip},
+      $info_button
+    );
+  }
+
+  print $ip_pools_table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 netlist_network_info()
+
+=cut
+#**********************************************************
+sub netlist_network_info {
+  return unless ($FORM{TYPE} && $FORM{ID});
+
+  my %network = ();
+
+  my @ip_addresses = ();
+  my @last_octets = ();
+  my $first_ip_num;
+  my $last_ip_num;
+
+  my %lookup_ip_info_table = ();
+  my %lookup_ip_uid_table = ();
+
+  if ( $FORM{TYPE} eq 'IP_POOL' ) {
+    # Need to count all ip addresses inside pool
+    my $network_list = $Nas->nas_ip_pools_list( {
+      NAS_ID           => '*',
+      SHOW_ALL_COLUMNS => 1,
+      COLS_NAME        => 1,
+      PAGE_ROWS        => 100000,
+    } );
+    return 0 if (_error_show($Nas));
+
+    if ($FORM{ID}){
+      my @networks = grep { $_->{id} == $FORM{ID} } @$network_list;
+      %network = %{ $networks[0] };
+    }
+    else {
+      %network = %{$network_list->[0]};
+    }
+
+    $first_ip_num = $network{ip};
+    $last_ip_num = $network{last_ip_num} + 1;
+
+    my $ips_from_module;
+    if (in_array('Internet', \@MODULES)){
+      $ips_from_module = _get_ips_info_for_internet($first_ip_num, $last_ip_num);
+    }
+
+    %lookup_ip_info_table = %{ $ips_from_module->{IP_INFO} };
+    %lookup_ip_uid_table = %{ $ips_from_module->{IP_UID} };
+  }
+  else {
+    $html->message( 'err', 'Error', 'Wrong parameter TYPE given' );
+  }
+
+  for ( my $ip_address_num = $first_ip_num; $ip_address_num <= $last_ip_num; $ip_address_num++ ) {
+    my $ip_str = int2ip($ip_address_num);
+    my ($last_octet) = $ip_str =~ /\.(\d{1,3})$/;
+
+    push @ip_addresses, $ip_str;
+    push @last_octets, $last_octet;
+  }
+
+  $html->message( 'info',
+    $network{name},
+    int2ip( $first_ip_num ) . ' - ' . int2ip($last_ip_num)
+      . $html->br . ($last_ip_num - $first_ip_num + 1) . $lang{HOSTS}
+  );
+
+  my %unique_uids_to_ip = reverse (%lookup_ip_uid_table);
+  my @uids = keys %unique_uids_to_ip;
+
+  our Users $users;
+  my $users_list = $users->list( {
+    UID        => join(',', @uids),
+    FIO        => '_SHOW',
+    PAGE_ROWS  => 10000000,
+    # Defines use OR in SQL query
+    _MULTI_HIT => 1,
+    COLS_NAME  => 1
+  } );
+  _error_show($users);
+
+  my $user_info_by_uid = sort_array_to_hash($users_list, 'uid');
+
+  my $netlist_defined_ips = $Netlist->ip_list( {
+    STATUS => '_SHOW',
+    COLS_NAME => 1,
+  } );
+
+  _error_show($Netlist);
+
+  foreach my $custom_watch_ip ( @$netlist_defined_ips ) {
+    $lookup_ip_info_table{$custom_watch_ip->{ip}}{netlist_status} = $custom_watch_ip->{status};
+  }
+
+  print _netlist_make_ip_table(
+    \@last_octets,
+    sub {
+      my $ip_index = shift;
+      my $ip = $ip_addresses[$ip_index];
+
+      if ($lookup_ip_info_table{$ip}) {
+        if ($lookup_ip_info_table{$ip}{uid} && $user_info_by_uid->{$lookup_ip_info_table{$ip}{uid}}) {
+
+          my $user_info = $user_info_by_uid->{$lookup_ip_info_table{$ip}{uid}};
+
+          $lookup_ip_info_table{$ip}{ip} = $ip;
+          $lookup_ip_info_table{$ip}{login} = $user_info->{login};
+          $lookup_ip_info_table{$ip}{fio} = $user_info->{fio};
+        }
+
+        return _netlist_make_user_info_popover($lookup_ip_info_table{$ip}, $last_octets[$ip_index])
+      }
+
+      return $last_octets[$ip_index];
+    },
+    \@ip_addresses
+  );
+
+}
+
+#**********************************************************
+=head2 _netlist_make_ip_table(\@last_octets, $filter) - builds table for /24 network
+
+  \@last_octets - octets that will be returned to $filter function
+  $filter       - coderef which applies custom html styles to <td>
+
+=cut
+#**********************************************************
+sub _netlist_make_ip_table {
+  my ($last_octets, $filter, $ips) = @_;
+
+  $filter ||= sub { shift };
+  my $last_index = scalar @{$last_octets};
+
+  my $columns_count = 16;
+  my $rows_count = int( $last_index / $columns_count ) + 1;
+
+  my $table = $html->table({
+    border => 1
+  });
+
+  my $ip_index = 0;
+  for ( my $row_num = 0; $row_num < $rows_count; $row_num++ ) {
+    my @row = ();
+
+    for ( my $col_num = 0; $col_num < $columns_count; $col_num++ ) {
+      #my $index = ($row_num * $columns_count) + $col_num;
+
+      if ($ip_index >= $last_index) {
+        last;
+      }
+
+      my $cell = $filter->( $ip_index );
+      push(@row, $cell);
+      if ($cell eq '0') {
+        pop @row;
+        $table->addrow(@row);
+        @row = ();
+        push(@row, $html->b($ips->[$ip_index]));
+        $table->addrow(@row);
+        @row = ();
+      }
+
+      $ip_index++;
+    }
+
+    $table->addrow(@row);
+  }
+
+
+  return $table->show();
+}
+
+#**********************************************************
+=head2 _netlist_make_user_info_popover()
+
+=cut
+#**********************************************************
+sub _netlist_make_user_info_popover {
+  my ($user_info_hash, $last_octet) = @_;
+
+  my $online = $user_info_hash->{online};
+  my $class = $online ? 'success' : 'info';
+
+  if (my $status_num = $user_info_hash->{ netlist_status }) {
+    $last_octet = $html->color_mark( $last_octet, 'text-' . $status_colors[ $status_num ] );
+    $last_octet =~ s/'/"/g;
+  }
+
+  if ( !exists $user_info_hash->{uid} ) {
+    return qq{ $last_octet }
+  }
+
+  my $tooltip_table = $html->table();
+
+  $tooltip_table->addrow('IP', $user_info_hash->{ip});
+  $tooltip_table->addrow('Login', $user_info_hash->{login});
+  $tooltip_table->addrow('FIO', $user_info_hash->{fio});
+  $tooltip_table->addrow('UID', $user_info_hash->{uid});
+
+  my $info = qq{$lang{LOGIN}:  }. $html->button($user_info_hash->{login}, "index=11&UID=$user_info_hash->{uid}")
+    . $html->br(). qq{$lang{FIO}: $user_info_hash->{fio} }
+  ;
+
+  my $tooltip_table_html = $info; #$html->link_former($tooltip_table->show({ OUTPUT2RETURN => 1 }), { SKIP_SPACE => 1 });
+
+  return $html->button(
+      $last_octet,
+      'index=15&UID='.$user_info_hash->{uid},
+      {
+        ADD_ICON  => 'fas fa-user-alt',
+        TITLE     => $user_info_hash->{ip},
+        ID        => "netlist-info-td-$last_octet",
+        ex_params => "data-tooltip-position='top' data-tooltip='$tooltip_table_html'",
+        class     => "text-$class"
+      }
+    );
+}
+
+#**********************************************************
+=head2 _get_ips_info_for_internet($first_ip_num, $last_ip_num)
+
+=cut
+#**********************************************************
+sub _get_ips_info_for_internet {
+  my ($first_ip_num, $last_ip_num) = @_;
+
+  my %ip_info_table = ();
+  my %ip_uid_table = ();
+
+  require Internet;
+  Internet->import();
+  my $Internet = Internet->new($db, $admin, \%conf);
+
+  require Internet::Sessions;
+  Internet::Sessions->import();
+  my $Sessions = Internet::Sessions->new($db, $admin, \%conf);
+
+  # Get info from internet_main
+  if ($FORM{DEBUG}) {
+    $Internet->{debug}=1;
+  }
+  my $users_list = $Internet->user_list({
+    UID       => '_SHOW',
+    ONLINE    => '_SHOW',
+    PAGE_ROWS => 10000000,
+    IP        => '>=' . int2ip($first_ip_num) . ';<=' . int2ip($last_ip_num),
+    GROUP_BY => 'id',
+    COLS_NAME => 1
+  });
+  _error_show($Internet);
+
+
+
+  foreach my $user (@{$users_list}) {
+    my $ip = $user->{ip} || int2ip($user->{ip_num});
+
+    $ip_uid_table{$ip} = $user->{uid};
+    $ip_info_table{$ip} = $user;
+  }
+
+  # Get info from internet_online
+  my $online_list = $Sessions->online({
+    LOGIN         => '_SHOW',
+    CLIENT_IP_NUM => ">=$first_ip_num;<=$last_ip_num",
+    DURATION      => '_SHOW',
+    COLS_NAME     => 1,
+    GROUP_BY      => 'service_id',
+    PAGE_ROWS     => 1000000,
+  });
+  _error_show($Sessions);
+
+  foreach my $online_row (@{$online_list}) {
+    my $ip = $online_row->{framed_ip_address};
+
+    # TODO: check if uids are equal
+    $ip_uid_table{$ip} = $online_row->{uid} unless (exists $ip_uid_table{$ip});
+
+    if (exists $ip_info_table{$ip}) {
+      $ip_info_table{$ip}->{online} = 1;
+    }
+    else {
+      $ip_info_table{$ip}->{unknown} = 1;
+    }
+  }
+
+  return {
+    IP_UID  => \%ip_uid_table,
+    IP_INFO => \%ip_info_table
+  };
+}
+
+1

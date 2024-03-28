@@ -1,0 +1,356 @@
+--  *****************************************************************
+--  DLINKPV2-SURVEILLANCE-VLAN-MIB.mib : Surveillance VLAN MIB
+--
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKPV2-SURVEILLANCE-VLAN-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE,Unsigned32
+            FROM SNMPv2-SMI
+        MODULE-COMPLIANCE, OBJECT-GROUP
+            FROM SNMPv2-CONF
+        MacAddress, TruthValue, RowStatus, DateAndTime, TEXTUAL-CONVENTION
+            FROM SNMPv2-TC
+        PortList, VlanIdOrNone
+            FROM Q-BRIDGE-MIB
+        InterfaceIndex
+            FROM IF-MIB
+        SnmpAdminString
+            FROM SNMP-FRAMEWORK-MIB
+        dlinkDGS1100CommonV2
+            FROM DGS1100SERMGMT-MIB;
+
+
+    primeV2SurveillanceVlanMIB MODULE-IDENTITY
+        LAST-UPDATED "201404260000Z"
+        ORGANIZATION "D-Link Corp."
+            CONTACT-INFO
+                "       D-Link Corporation
+
+                 Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                         Taipei City 114, Taiwan, R.O.C
+                 Tel:    +886-2-66000123
+                 E-mail: tsd@dlink.com.tw
+                "
+        DESCRIPTION
+            "The MIB module for managing surveillance VLAN feature."
+        REVISION    "201404260000Z"
+        DESCRIPTION
+            "Initial version of this MIB module."
+        ::= { dlinkDGS1100CommonV2 19 }
+
+    OuiComponentType ::= TEXTUAL-CONVENTION
+        STATUS          current
+        DESCRIPTION
+            "Represents an OUI component type.
+            Note: The component type 'dlink' indicates default OUI and is not
+            used for setting.
+            " 
+        SYNTAX       INTEGER {
+            other(1),
+            dlink(2),
+            vms(3),
+            vmsClient(4),
+            videoEncoder(5),
+            networkStorage(6)      
+        }
+
+-- -----------------------------------------------------------------------------
+-- Node definitions
+-- -----------------------------------------------------------------------------
+
+    v2svMIBNotifications   OBJECT IDENTIFIER ::= { primeV2SurveillanceVlanMIB 0 }
+    v2svMIBObjects         OBJECT IDENTIFIER ::= { primeV2SurveillanceVlanMIB 1 }
+    v2svMIBConformance     OBJECT IDENTIFIER ::= { primeV2SurveillanceVlanMIB 2 }
+
+-- -----------------------------------------------------------------------------
+    v2svGlobal OBJECT IDENTIFIER ::= { v2svMIBObjects 1 }
+
+	v2svEnabled OBJECT-TYPE
+	SYNTAX          TruthValue
+	MAX-ACCESS      read-write
+	STATUS          current
+	DESCRIPTION
+		"This object enables or disables surveillance VLAN feature."
+	::= { v2svGlobal 1 }
+		
+    v2svVlanId OBJECT-TYPE
+        SYNTAX          VlanIdOrNone
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "The object specifies the surveillance VLAN on a switch.
+            A value of zero indicates that no surveillance VLAN has been
+            configured.
+            It is required to configure the global v2svVlanId and enable
+            v2svEnabled to start the surveillance VLAN function."
+        DEFVAL  { 0 }
+        ::= { v2svGlobal 2 }
+
+    v2svQos OBJECT-TYPE
+        SYNTAX          Unsigned32 (0..7)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "The priority for the surveillance VLAN, which is used to distinguish
+            the QoS of the surveillance traffic from data traffic."
+        DEFVAL  { 5 }
+        ::= { v2svGlobal 3 }
+
+    v2svAgingTime OBJECT-TYPE
+        SYNTAX          Unsigned32 (1..65535)
+        UNITS           "minutes"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "The aging time for the surveillance VLAN, for aging out the surveillance
+            device and the surveillance VLAN automatically learned member ports.
+            "
+        DEFVAL  { 720 }
+        ::= { v2svGlobal 4 }
+
+-- -----------------------------------------------------------------------------
+    v2svOuiTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2svOuiEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table contains a list of the surveillance VLAN OUI configuration."
+        ::= { v2svGlobal 5 }
+
+    v2svOuiEntry OBJECT-TYPE
+        SYNTAX          V2svOuiEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry indicates an OUI information, which is used to classify
+            surveillance traffic into the surveillance VLAN. If the source MAC addresses of
+            the received packet matches any of the OUI pattern, the received
+            packet is determined as surveillance packet. "
+        INDEX { 
+            v2svOuiAddr, 
+            v2svOuiMask
+        }
+        ::= { v2svOuiTable 1 }
+
+    V2svOuiEntry ::=
+        SEQUENCE {
+            v2svOuiAddr            MacAddress,
+            v2svOuiMask            MacAddress,
+            v2svOuiComponentType   OuiComponentType,
+            v2svOuiDescription     SnmpAdminString,
+            v2svOuiRowStatus       RowStatus
+        }
+
+    v2svOuiAddr OBJECT-TYPE
+        SYNTAX          MacAddress
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The MAC address of the OUI referring to this entry."
+        ::= { v2svOuiEntry 1 }
+
+    v2svOuiMask OBJECT-TYPE
+        SYNTAX          MacAddress
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Indicates the OUI MAC address matching bitmask."
+        ::= { v2svOuiEntry 2 }
+
+    v2svOuiComponentType OBJECT-TYPE
+        SYNTAX          OuiComponentType
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "The Component type of the OUI.
+             Note: The component type 'dlink' is not allowed to set."
+        ::= { v2svOuiEntry 3 }
+
+    v2svOuiDescription OBJECT-TYPE
+        SYNTAX          SnmpAdminString (SIZE (0..32))
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "The description of the OUI. A zero length string of this object indicates
+            there is no description for this OUI."
+        ::= { v2svOuiEntry 4 }
+
+    v2svOuiRowStatus   OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the status of this entry."
+        ::= { v2svOuiEntry 5 }
+
+-- -----------------------------------------------------------------------------
+    v2svInfo OBJECT IDENTIFIER ::= { v2svMIBObjects 2 }
+
+    v2svMemberPorts OBJECT-TYPE
+        SYNTAX          PortList
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "The surveillance VLAN's member ports, includes the dynamically
+            learned ports."
+        ::= { v2svInfo 1 }
+
+    v2svDynamicPorts OBJECT-TYPE
+        SYNTAX          PortList
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "The dynamically learned member ports of the surveillance VLAN."
+        ::= { v2svInfo 2 }
+
+    v2svDeviceTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2svDeviceEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table contains the information about the learned surveillance devices."
+        ::= { v2svInfo 3 }
+
+    v2svDeviceEntry OBJECT-TYPE
+        SYNTAX          V2svDeviceEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Indicates the information of the connected surveillance device."
+        INDEX {
+            v2svDevicePortIfIdx,
+            v2svDeviceAddr 
+        }
+        ::= { v2svDeviceTable 1 }
+
+    V2svDeviceEntry ::=
+        SEQUENCE {
+            v2svDevicePortIfIdx      InterfaceIndex,
+            v2svDeviceAddr           MacAddress,
+            v2svDeviceCompType       OuiComponentType,
+            v2svDeviceDescr          SnmpAdminString,
+            v2svDeviceStartTime      DateAndTime,
+            v2svDeviceStatus         INTEGER
+        }
+
+    v2svDevicePortIfIdx OBJECT-TYPE
+        SYNTAX          InterfaceIndex
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Indicates the ifIndex of the port to which the surveillance device connects."
+        ::= { v2svDeviceEntry 1 }
+
+    v2svDeviceAddr OBJECT-TYPE
+        SYNTAX          MacAddress
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Indicates the MAC address of the surveillance device."
+        ::= { v2svDeviceEntry 2 }            
+        
+    v2svDeviceCompType OBJECT-TYPE
+        SYNTAX          OuiComponentType
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "The component type of the surveillance device."
+        ::= { v2svDeviceEntry 3 }
+
+    v2svDeviceDescr OBJECT-TYPE
+        SYNTAX          SnmpAdminString (SIZE (0..32))
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "The description of the surveillance device. A zero length string
+            of this object indicates there is no description for this OUI."
+        ::= { v2svDeviceEntry 4 }
+
+     v2svDeviceStartTime OBJECT-TYPE
+        SYNTAX          DateAndTime
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Indicates the start time of the connected surveillance device."
+        ::= { v2svDeviceEntry 5 }
+
+    v2svDeviceStatus OBJECT-TYPE
+        SYNTAX          INTEGER {
+            active(1),
+            aging(2)
+        }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Indicates the status of the connected surveillance device."
+        ::= { v2svDeviceEntry 6 }
+
+-- -----------------------------------------------------------------------------
+-- MIB Conformance statements
+-- -----------------------------------------------------------------------------
+    v2svMIBCompliances OBJECT IDENTIFIER
+        ::= { v2svMIBConformance 1 }
+
+    v2svMIBGroups  OBJECT IDENTIFIER
+        ::= { v2svMIBConformance 2 }
+
+    v2svMIBCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION
+            "The compliance statement for entities which implement the
+            DLINKPV2-SURVEILLANCE-VLAN-MIB."
+        MODULE          -- this module
+        MANDATORY-GROUPS    { v2svBasicGroup }
+
+        GROUP v2svOUICfgGroup
+        DESCRIPTION
+            "This group is required for entities that implement classifying
+            surveillance traffic based on OUI patterns." 
+            
+        GROUP v2svDeviceInfoGroup
+        DESCRIPTION
+            "This group is required for entities that display surveillance
+             vlan device infomation."
+        ::= { v2svMIBCompliances 1 }
+
+    v2svBasicGroup OBJECT-GROUP
+        OBJECTS {
+			v2svEnabled,
+            v2svVlanId,
+            v2svQos,
+            v2svAgingTime,            
+            v2svMemberPorts,
+            v2svDynamicPorts 
+        }
+        STATUS current
+        DESCRIPTION
+            "A collection of objects to configure or display the status
+            of surveillance VLAN feature."
+        ::= { v2svMIBGroups 1 }
+
+    v2svOUICfgGroup OBJECT-GROUP
+        OBJECTS {
+            v2svOuiComponentType,
+            v2svOuiDescription,
+            v2svOuiRowStatus 
+        }
+        STATUS current
+        DESCRIPTION
+            "A collection of objects to configure surveillance device OUI(s)."
+        ::= { v2svMIBGroups 2 }   
+        
+	v2svDeviceInfoGroup OBJECT-GROUP
+        OBJECTS {
+            v2svDeviceCompType,
+            v2svDeviceDescr,
+            v2svDeviceStartTime,
+            v2svDeviceStatus
+        }
+        STATUS current
+        DESCRIPTION
+            "A collection of objects to display surveillance device(s)."
+        ::= { v2svMIBGroups 3 }
+END

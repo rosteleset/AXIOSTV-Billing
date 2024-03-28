@@ -1,0 +1,24 @@
+{
+  "definitions": {},
+  "type": "object",
+  "title": "The Root Schema",
+  "required": [
+    "version",
+    "apiVersion",
+    "billing"
+  ],
+  "properties": {
+    "version": {
+      "$id": "#/properties/version",
+      "type": "string"
+    },
+    "apiVersion": {
+      "$id": "#/properties/apiVersion",
+      "type": "number"
+    },
+    "billing": {
+      "$id": "#/properties/billing",
+      "type": "string"
+    }
+  }
+}

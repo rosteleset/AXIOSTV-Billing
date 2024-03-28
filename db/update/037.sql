@@ -1,0 +1,14 @@
+ALTER TABLE `users_contacts` ADD COLUMN `comments` TEXT NOT NULL;
+ALTER TABLE `billd_plugins` ADD COLUMN  `last_end` DATETIME NOT NULL;
+
+CREATE TABLE IF NOT EXISTS `equipment_tr_069_settings` (
+  `id` INT UNSIGNED NOT NULL AUTO_INCREMENT,
+  `onu_id` INT(11) UNSIGNED NOT NULL DEFAULT '0',
+  `updatetime` DATETIME NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+  `changetime` DATETIME NOT NULL  DEFAULT CURRENT_TIMESTAMP,
+  `settings` TEXT,
+  PRIMARY KEY (`id`)
+)   COMMENT='Equipment TR-069 Settings';
+
+ALTER TABLE `builds` ADD COLUMN `schema` VARCHAR(150) NOT NULL DEFAULT '';
+

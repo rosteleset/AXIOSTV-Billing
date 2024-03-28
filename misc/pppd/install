@@ -1,0 +1,34 @@
+:DEFAULT:RADIUS_AUTH_SERVER=127.0.0.1:Radius auth server ip
+:DEFAULT:RADIUS_AUTH_PORT=1812:Radius auth port
+:DEFAULT:RADIUS_ACCT_SERVER=127.0.0.1:Radius accounting ip
+:DEFAULT:RADIUS_ACCT_PORT=1813:Radius accounting port
+:DEFAULT:PPPOE_INTERFACE=eth0:PPPoE Interface
+:DEFAULT:LOCAL_PPPOE_IP=:LOcal PPPoE IP Address
+:DEFAULT:PPPOE_ENABLE=n:Enable PPPPoE
+:DEFAULT:DAE_HOST=127.0.0.1:PoD/CoA host
+:DEFAULT:DAE_PASSWORD=secretpass:POD and CoA password
+:DEFAULT:DAE_PORT=3799:PoD/CoA Port
+:DEFAULT:PPP_VERSION=4:pppd version 2.4.4
+
+#:DEFAULT:PPP_CONTROL_PASSWORD=secret:PPP control password 
+#
+ip-up.local        > [/etc/ppp]/ip-up
+ip-down        > [/etc/ppp]/ip-down
+pptpd.conf         > [/etc]/pptpd.conf
+pptpd.options      > [/etc/ppp]/pptpd.options
+dictionary.microsoft >> [/etc/radiusclient]/dictionary   
+pppd.dictionary      >> [/etc/radiusclient]/dictionary
+#PPPoE Section
+pppoe-server-options > [/etc/ppp]/pppoe-server-options
+#:PPPOE_ENABLE=y:/sbin/modprobe pppoe >> /etc/rc.local
+#:PPPOE_ENABLE=y:/usr/sbin/pppoe-server -k -N 500 -I %PPPOE_INTERFACE% -L %LOCAL_PPPOE_IP% -O /etc/ppp/pppoe-server-options >> /etc/rc.local
+
+:PPPOE=1:FILE=pppoe > [/etc]/init.d/pppoe
+:PPPOE=1:exec: chmod +x /etc/init.d/pppoe
+:PPPOE=1:exec: update-rc.d pppoe start 70 2 3 4 5 . stop 20 0 1 6 .
+:PPPOE=1:exec: /etc/init.d/pppoe start
+
+#Patch for gigawords
+PPP_VERSION=4:exec:mkdir ~/src/ && cd ~/src && wget ftp://ftp.samba.org/pub/ppp/ppp-2.4.4.tar.gz && wget http://bugs.gentoo.org/attachment.cgi?id=102981 -O radius-gigawords.patch
+PPP_VERSION=4:exec:tar zxvf ppp-2.4.4.tar.gz && cd ppp-2.4.4 && patch -p1 -l < ../radius-gigawords.patch && ./configure --prefix=/usr && make && make install
+

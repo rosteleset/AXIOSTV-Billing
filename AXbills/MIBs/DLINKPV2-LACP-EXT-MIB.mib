@@ -1,0 +1,174 @@
+-- *****************************************************************
+-- DLINKPV2-LACP-EXT-MIB.mib : D-Link Link Aggregation Control Extenstions MIB
+--
+-- Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--   
+-- *****************************************************************    
+
+DLINKPV2-LACP-EXT-MIB DEFINITIONS ::= BEGIN    
+
+	IMPORTS
+        MODULE-IDENTITY , OBJECT-TYPE, Integer32, Unsigned32	
+        	FROM SNMPv2-SMI    	
+       	RowStatus           
+       		FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP
+		    FROM SNMPv2-CONF
+       	InterfaceIndex
+            FROM IF-MIB  
+       	PortList
+            FROM Q-BRIDGE-MIB	
+	    dlinkDGS1100CommonV2
+        	FROM DGS1100SERMGMT-MIB;    
+        	
+	primeV2LacpExtMIB MODULE-IDENTITY
+        LAST-UPDATED "201404260000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+             Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "The MIB module for managing D-Link LACP extensions which are
+            not covered by standard MIBs."
+        REVISION	"201404260000Z"
+        DESCRIPTION
+        	"Initial revision of this MIB module."
+    ::= { dlinkDGS1100CommonV2 6 }
+ 
+-- 
+--	MIB OBJECTS     
+--      
+    v2LacpExtMIBObjects 	    OBJECT IDENTIFIER ::= { primeV2LacpExtMIB 1 }	 
+    v2LacpExtMIBConformance 	OBJECT IDENTIFIER ::= { primeV2LacpExtMIB 2 }
+
+-----------------------------------------------
+--	Lacp Objects
+-----------------------------------------------
+    v2LacpExtSystemPriority OBJECT-TYPE
+        SYNTAX          Unsigned32 (1 .. 65535) 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+             "This object indicates the system priority. "    
+        DEFVAL  { 32768 }
+        ::= { v2LacpExtMIBObjects 1 }
+        
+    v2LacpExtLoadBanlance OBJECT-TYPE
+        SYNTAX  INTEGER {              
+            src_mac(1),
+            dst_mac(2),
+            src_dst_mac(3),
+            src_ip(4),
+            dst_ip(5),
+            src_dst_ip(6),
+            src_l4_port(7),
+            dst_l4_port(8),
+            src_dst_l4_port(9)
+        }
+       	MAX-ACCESS       read-write
+        STATUS           current
+        DESCRIPTION
+            "This object indicates load banlance algorithm. "
+        ::= { v2LacpExtMIBObjects 2 }
+          
+    v2LacpExtGroupTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2LacpExtGroupEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table consists of a list of channel group information."
+        ::= { v2LacpExtMIBObjects 3 }
+
+    v2LacpExtGroupEntry OBJECT-TYPE
+        SYNTAX          V2LacpExtGroupEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry presents a channel group information, which is not 
+            covered by standard MIB(s)."
+        INDEX  { v2LacpExtGroupChannelNo }
+        ::= { v2LacpExtGroupTable 1 }
+
+    V2LacpExtGroupEntry ::=
+        SEQUENCE {
+            v2LacpExtGroupChannelNo          Integer32,
+            v2LacpExtGroupType               INTEGER,
+            v2LacpExtGroupMemberPorts        PortList,            
+            v2LacpExtGroupRowStatus          RowStatus
+        }
+
+    v2LacpExtGroupChannelNo OBJECT-TYPE
+        SYNTAX          Integer32 (1 .. 7)  
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the channel group ID. "
+        ::= { v2LacpExtGroupEntry 1 }
+           
+    v2LacpExtGroupType OBJECT-TYPE
+        SYNTAX  INTEGER {              
+            static_on(1),
+            lacp_active(2),
+            lacp_passive(3)
+        }
+       	MAX-ACCESS  read-create
+        STATUS  current
+        DESCRIPTION
+            "This object indicates the type of channel group.
+            "
+        ::= { v2LacpExtGroupEntry 2 }    
+
+    v2LacpExtGroupMemberPorts OBJECT-TYPE
+        SYNTAX          PortList
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the ports which are grouped into this
+            channel group.
+	        "
+        ::= { v2LacpExtGroupEntry 3 }
+     
+    v2LacpExtGroupRowStatus OBJECT-TYPE
+        SYNTAX          RowStatus
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the status of this entry."
+        ::= { v2LacpExtGroupEntry 4 }
+                              
+-----------------------------------------------
+--	Lacp Conformance
+-----------------------------------------------
+    v2LacpExtCompliances   	OBJECT IDENTIFIER ::= { v2LacpExtMIBConformance 1 }
+	 
+	
+    v2LacpExtCompliance MODULE-COMPLIANCE
+    	STATUS current
+    	DESCRIPTION
+        	"The compliance statement for entities which implement the 
+			DLINKPV2-LACP-EXT-MIB."      		 
+        MODULE
+	    MANDATORY-GROUPS {
+		    v2LacpExtChannelGrpInfoGroup
+		}
+	    ::= { v2LacpExtCompliances 1 }
+	
+	v2LacpExtGroups   		OBJECT IDENTIFIER ::= { v2LacpExtMIBConformance 2 }      
+	       
+    v2LacpExtChannelGrpInfoGroup OBJECT-GROUP
+  		OBJECTS {	   
+          v2LacpExtGroupType,        
+          v2LacpExtGroupMemberPorts,
+          v2LacpExtGroupRowStatus   
+        }
+	    STATUS current
+	    DESCRIPTION
+	        "A collection of objects providing configuration of channel groups."
+	    ::= { v2LacpExtGroups 1 }
+
+            
+END

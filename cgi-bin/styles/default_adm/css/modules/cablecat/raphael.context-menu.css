@@ -1,0 +1,61 @@
+/***********************************************************************
+Context Menu
+***********************************************************************/
+.contextMenu {
+    position: absolute;
+    width: 150px;
+    z-index: 99999;
+    border: solid 1px #CCC;
+    background: #EEE;
+    padding: 0;
+    margin: 0;
+    display: none;
+}
+
+.contextMenu LI {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.contextMenu A {
+    color: #333;
+    text-decoration: none;
+    display: block;
+    line-height: 20px;
+    height: 20px;
+    background: no-repeat 6px center;
+    outline: none;
+    padding: 1px 5px 1px 28px;
+}
+
+.contextMenu LI.hover A {
+    color: #FFF;
+    background-color: #3399FF;
+}
+
+.contextMenu LI.disabled A {
+    color: #AAA;
+    cursor: default;
+}
+
+.contextMenu LI.hover.disabled A {
+    background-color: transparent;
+}
+
+.contextMenu LI.separator {
+    border-top: solid 1px #CCC;
+}
+
+/***********************************************************************
+Context Menu Icons
+***********************************************************************/
+
+.contextMenu LI.checked A {
+    background-image: url(/styles/default_adm/img/modules/cablecat/ICON_OK.png);
+}
+
+/***********************************************************************
+Zoom plugin
+***********************************************************************/
+.grabbing { cursor: url(closedhand.cur), pointer !important; }

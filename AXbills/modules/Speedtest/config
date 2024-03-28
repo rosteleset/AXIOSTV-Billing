@@ -1,0 +1,4 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%USER_FUNCTION_LIST = (
+  "01:0:$lang{SPEEDTEST}:open_st:"               => 0,
+);

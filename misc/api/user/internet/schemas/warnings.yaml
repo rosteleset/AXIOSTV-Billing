@@ -1,0 +1,17 @@
+type: object
+properties:
+  messageType:
+    type: string
+    example: success
+  warning:
+    type: string
+    example: next fee in 7 days
+  daysToFee:
+    type: integer
+    example: 2
+  sum:
+    type: integer
+    example: 150
+  abonDate:
+    type: string
+    example: "2023-01-01"

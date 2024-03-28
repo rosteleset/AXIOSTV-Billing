@@ -1,0 +1,31 @@
+200:
+  description: Успешное выполнение
+  content:
+    application/json:
+      schema:
+        $ref: "../schemas/registrationResponse200.yaml"
+      examples:
+        Registration:
+          summary:
+            Регистрация пользователя
+          value:
+            result: "Successfully created user with uid: 49"
+        RegistrationConfirmResponse:
+          summary:
+            Регистрация пользователя с подтверждением
+          value:
+            result: "Successfully send pin to email admin@gmail.com"
+            sendPin: 1
+400:
+  description: Пользователь существует
+  content:
+    application/json:
+      schema:
+        type: object
+        properties:
+          errno:
+            type: integer
+            example: 10209
+          errstr:
+            type: string
+            example: User already exist

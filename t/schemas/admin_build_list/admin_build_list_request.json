@@ -1,0 +1,6 @@
+{
+  "name": "ADMIN_BUILD_LIST",
+  "method": "GET",
+  "path": "builds/",
+  "params": {}
+}

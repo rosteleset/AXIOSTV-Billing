@@ -1,0 +1,13 @@
+get:
+  tags:
+    - user
+  summary: Информация о пользователе
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/user.yaml"
+  security:
+    - USERSID: [ ]

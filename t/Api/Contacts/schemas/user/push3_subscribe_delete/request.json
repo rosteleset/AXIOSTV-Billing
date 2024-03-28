@@ -1,0 +1,5 @@
+{
+  "name": "USER_PUSH_SUBSCRIBE_DELETE",
+  "method": "DELETE",
+  "path": "user/:uid/contacts/push/subscribe/1/"
+}

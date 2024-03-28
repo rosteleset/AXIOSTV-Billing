@@ -1,0 +1,23 @@
+[Unit]
+Description=FreeRADIUS Server
+After=network.target
+After=mysql.service
+Requires=mysql.service
+
+[Service]
+Type=forking
+
+PIDFile=/var/run/radiusd/radiusd.pid
+ExecStartPre=/usr/bin/touch /usr/local/freeradius/var/log/radius.log
+ExecStartPre=/usr/bin/chown freerad:freerad /usr/local/freeradius/var/log/radius.log
+ExecStartPre=/usr/bin/mkdir -p /var/run/radiusd
+ExecStartPre=/usr/bin/chown -R freerad:freerad /var/run/radiusd
+ExecStartPre=/usr/local/freeradius/sbin/radiusd -C
+
+ExecStart=/usr/local/freeradius/sbin/radiusd -d /usr/local/freeradius/etc/raddb
+
+ExecReload=/usr/local/freeradius/sbin/radiusd -C
+ExecReload=/bin/kill -HUP $MAINPID
+
+[Install]
+WantedBy=multi-user.target

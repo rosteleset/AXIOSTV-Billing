@@ -1,0 +1,54 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+  "required": [
+    "tpId",
+    "price",
+    "name",
+    "nextAbonDate",
+    "userCount",
+    "feesType",
+    "period",
+    "description",
+    "userPortal"
+  ],
+  "properties": {
+    "tpId": {
+      "$id": "#/properties/tpId",
+      "type": "number"
+    },
+    "price": {
+      "$id": "#/properties/price",
+      "type": "number"
+    },
+    "name": {
+      "$id": "#/properties/numbenamer",
+      "type": "string"
+    },
+    "nextAbonDate": {
+      "$id": "#/properties/nextAbonDate",
+      "type": "string"
+    },
+    "userCount": {
+      "$id": "#/properties/nextAbonDate",
+      "type": "number"
+    },
+    "feesType": {
+      "$id": "#/properties/nextAbonDate",
+      "type": "number"
+    },
+    "period": {
+      "$id": "#/properties/nextAbonDate",
+      "type": "number"
+    },
+    "description": {
+      "$id": "#/properties/nextAbonDate",
+      "type": "string"
+    },
+    "userPortal": {
+      "$id": "#/properties/nextAbonDate",
+      "type": "number"
+    }
+  }
+}

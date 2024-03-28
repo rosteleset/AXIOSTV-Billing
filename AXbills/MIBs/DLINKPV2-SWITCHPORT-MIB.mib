@@ -1,0 +1,128 @@
+--  *****************************************************************
+--  DLINKPV2-SWITCHPORT-MIB.mib : Switch Port MIB
+--
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKPV2-SWITCHPORT-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,
+        OBJECT-TYPE,
+        Unsigned32
+                FROM SNMPv2-SMI
+        TruthValue
+                FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP 
+                FROM SNMPv2-CONF
+        ifIndex
+                FROM IF-MIB
+        dlinkDGS1100CommonV2
+                FROM DGS1100SERMGMT-MIB;
+                
+    primeV2SwitchPortMIB MODULE-IDENTITY    
+        LAST-UPDATED "201405070000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for per-port configuration which 
+            are not covered by standard MIB(s)."
+	
+        REVISION "201405070000Z"
+        DESCRIPTION
+            " This is the first version of the MIB file
+            "
+        ::= { dlinkDGS1100CommonV2 20 }
+
+-- -----------------------------------------------------------------------------
+    v2SwPortNotifications    OBJECT IDENTIFIER ::= { primeV2SwitchPortMIB 0 }
+    v2SwPortObjects          OBJECT IDENTIFIER ::= { primeV2SwitchPortMIB 1 }
+    v2SwPortConformance      OBJECT IDENTIFIER ::= { primeV2SwitchPortMIB 2 }
+
+
+-- -----------------------------------------------------------------------------
+-- Objects
+-- -----------------------------------------------------------------------------  
+	v2SwPortGblMgmt	OBJECT IDENTIFIER ::= { v2SwPortObjects 1 }
+	
+	v2SwJumboFrameEnable OBJECT-TYPE
+	    SYNTAX		    TruthValue
+	    MAX-ACCESS	    read-write
+	    STATUS		    current
+	    DESCRIPTION
+			"A Boolean value represents the Jumbo Frame is Enabled or Disabled."
+		DEFVAL      { true }	
+	    ::= { v2SwPortGblMgmt 1 }	
+       
+    v2SwPortIfTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2SwPortIfEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A list of physical port interface entries."
+        ::= { v2SwPortObjects 2 }
+        
+    v2SwPortIfEntry OBJECT-TYPE
+	    SYNTAX          V2SwPortIfEntry
+	    MAX-ACCESS      not-accessible
+	    STATUS          current
+	    DESCRIPTION 
+	        "An entry in v2SwPortIfTable contains port-specific configuration
+		    which cannot be covered by standard MIBs (EtherLike or MAU-MIB)."
+	    INDEX       { ifIndex }
+	    ::= { v2SwPortIfTable 1 } 
+	    
+    V2SwPortIfEntry ::= SEQUENCE {            
+        v2SwPortIfMdix               INTEGER
+    }
+   
+    v2SwPortIfMdix OBJECT-TYPE
+        SYNTAX      INTEGER { 
+            auto(1), 
+            normal(2), 
+            cross(3) 
+        }
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION   
+            "Uses the object to configure the state of Media-Dependent Interface
+            Crossover (MDIX) of the port."
+        DEFVAL      { auto }
+        ::= { v2SwPortIfEntry 1 }	
+   
+-- -----------------------------------------------------------------------------
+-- Conformance
+-- -----------------------------------------------------------------------------
+    v2SwPortCompliances OBJECT IDENTIFIER ::= { v2SwPortConformance 1 }
+		
+	v2SwPortCompliance MODULE-COMPLIANCE
+		STATUS          current
+		DESCRIPTION 
+			"The compliance statement for entities which implement the 
+			DLINKPV2-SWITCHPORT-MIB."
+		MODULE -- this module
+		MANDATORY-GROUPS { 
+		    v2SwPortBasicGroup
+		}		
+	    ::= { v2SwPortCompliances 1 }
+		
+	v2SwPortGroups OBJECT IDENTIFIER ::= { v2SwPortConformance 2 }
+		
+    v2SwPortBasicGroup OBJECT-GROUP
+		OBJECTS { 
+		    v2SwPortIfMdix
+		}
+		STATUS current
+		DESCRIPTION 
+			"This group contains the collection of fundamental port configuration
+			objects which are not covered by standard MIBs."						
+		::= { v2SwPortGroups 1 }
+	
+END

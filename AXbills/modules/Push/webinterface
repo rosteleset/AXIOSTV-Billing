@@ -1,0 +1,69 @@
+#!/usr/bin/perl
+=head1 NAME
+
+ Push report log
+
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+use Contacts;
+
+our (
+  $db,
+  $admin,
+  %conf,
+  %lang
+);
+
+my $Contacts = Contacts->new($db, $admin, \%conf);
+
+#**********************************************************
+=head2 push_log()
+
+  Print logs of Push
+
+=cut
+#**********************************************************
+sub push_log {
+  my ($table, undef) = result_former({
+    INPUT_DATA      => $Contacts,
+    FUNCTION        => 'push_messages_list',
+    BASE_FIELDS     => 0,
+    DEFAULT_FIELDS  => 'ID,TYPE_ID,TITLE,MESSAGE,CREATED,UID,AID,STATUS',
+    SELECT_VALUE    => {
+      status => {
+        0 => $lang{SUCCESS},
+        1 => $lang{ERROR},
+      }
+    },
+    EXT_TITLES      => {
+      id       => 'id',
+      type_id  => 'type_id',
+      title    => $lang{TITLE},
+      message  => $lang{MESSAGE},
+      request  => $lang{REQUEST},
+      response => $lang{RESPONSE},
+      created  => $lang{DATE},
+      status   => $lang{STATUS},
+      uid      => 'UID',
+      aid      => 'AID',
+    },
+    SKIP_USER_TITLE => 1,
+    TABLE           => {
+      width   => '100%',
+      caption => $lang{PUSH_LOG},
+      qs      => $pages_qs,
+      ID      => 'PUSH_LOG',
+      pages   => $Contacts->{TOTAL},
+      MENU    => "$lang{SEARCH}:index=$index&search_form=1:search;",
+      EXPORT  => 1,
+    },
+    MAKE_ROWS       => 1,
+    MODULE          => 'Contacts'
+  });
+
+  return print $table->show();
+}
+
+1;

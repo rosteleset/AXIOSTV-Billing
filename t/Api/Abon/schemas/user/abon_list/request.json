@@ -1,0 +1,5 @@
+{
+  "name": "USER_ABON_ALL",
+  "method": "GET",
+  "path": "user/:uid/abon/"
+}

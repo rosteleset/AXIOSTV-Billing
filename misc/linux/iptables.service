@@ -1,0 +1,13 @@
+[Unit]
+Description=AXbills Shaper
+After=network.target
+
+[Service]
+Type=oneshot
+ExecStart=/usr/local/sbin/shaper_start.sh start
+ExecStop=/usr/local/sbin/shaper_start.sh stop
+ExecReload=/usr/local/sbin/shaper_start.sh restart
+RemainAfterExit=yes
+
+[Install]
+WantedBy=multi-user.target

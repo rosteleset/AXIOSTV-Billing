@@ -1,0 +1,201 @@
+#!perl
+
+=head1 NAME
+
+  Vlans
+
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+use Data::Dumper;
+use Sorm::Sorm;
+use Nas;
+
+our(
+  $db,
+  $admin,
+  $html,
+  %conf,
+  %lang,
+  %err_strs,
+  @bool_vals,
+  @status,
+  %permissions,
+  $base_dir,
+  $IFCONFIG
+);
+
+my $Sorm = Sorm->new($db, $admin, \%conf);
+my $Nas = Nas->new($db, $admin, \%conf);
+
+#**********************************************************
+=head2 IP_PLAN Webform
+
+=cut
+#**********************************************************
+sub ip_pools {
+
+  my $self = shift;
+
+  if (!$permissions{4}{0}) {
+    $html->message( 'err', $lang{ERROR}, "$lang{ERR_ACCESS_DENY}" );
+    return 0;
+  }
+
+#Форма добавления
+  if ($FORM{add_form} ) {
+    if(!$permissions{4}{1}) {
+        $html->message( 'err', $lang{ERROR}, "$lang{ERR_ACCESS_DENY}" );
+        return 0;
+    }
+      pool_add_form();
+      return 0;
+  }
+
+#Удаление
+  if ($FORM{del}) {
+    if(!$permissions{4}{3}) {
+        $html->message( 'err', $lang{ERROR}, "$lang{ERR_ACCESS_DENY}" );
+        return 0;
+    }
+      $Sorm->_del('SORM_IP_PLAN', \%FORM);
+      $html->message('INFO', $lang{INFO},"$lang{DELETED}");
+      return 0;
+  }
+
+#Экспорт
+  if ($FORM{export}) {
+    if(!$permissions{4}{3}) {
+        $html->message( 'err', $lang{ERROR}, "$lang{ERR_ACCESS_DENY}" );
+        return 0;
+    }
+      $Sorm->_export('SORM_IP_PLAN', \%FORM);
+      $html->message('INFO', $lang{INFO},"$lang{SUCCESS}");
+      return 0;
+  }
+
+#Форма изменения
+  if ($FORM{chg}) {
+    if(!$permissions{4}{2}) {
+        $html->message( 'err', $lang{ERROR}, "$lang{ERR_ACCESS_DENY}" );
+        return 0;
+    }
+      pool_change_form($FORM{chg});
+      return 0;
+  }
+
+#Синхронизация. Нужны права на удалене, создание, изменение одновременно
+  if ($FORM{sync} && $FORM{COMMENTS} eq 'YES!') {
+    if($permissions{4}{1} && $permissions{4}{2} && $permissions{4}{3}) {
+      $Sorm->pool_sync();
+      $html->message('INFO', $lang{INFO},"$lang{ADDED}");
+      return 0;
+    } else {
+        $html->message( 'err', $lang{ERROR}, "$lang{ERR_ACCESS_DENY}" );
+        return 0;
+    }
+  }
+
+#submit
+  if ($FORM{add}) {
+    if (!$permissions{4}{1}) {
+	$html->message( 'err', $lang{ERROR}, "$lang{ERR_ACCESS_DENY}" );
+	return 0;
+    }
+        $Sorm->_add('SORM_IP_PLAN', \%FORM);
+	$html->message('INFO', $lang{INFO},"$lang{ADDED}");
+  } 
+
+  if ($FORM{change}) {
+    if (!$permissions{4}{2}) {
+        $html->message( 'err', $lang{ERROR}, "$lang{ERR_ACCESS_DENY}" );
+        return 0;
+    }
+	my @conf_params = ('id', 'DESCRIPTION', 'IP_TYPE', 'IPV4_START', 'IPV4_END', 'BEGIN_TIME', 'END_TIME');
+	$Sorm->_change('SORM_IP_PLAN', \%FORM, \@conf_params);
+	$html->message('INFO', $lang{INFO},"$lang{CHANGED}");
+  }
+
+  my $list = $Sorm->_list('SORM_IP_PLAN');
+
+#Кнопки в верхней части
+  my $add_button = $html->button($lang{ADD}, "index=$index&add_form=1", { BUTTON => 1 });
+  my $import_from_nas_button = $html->button('Загрузить из настроек', "index=$index&sync=1", { MESSAGE => 'Данные будут перезаписаны!!! Вы уверены? Напишите "YES!"', BUTTON => 1 });
+  my $export_button = $html->button('Экспорт в комплекс', "index=$index&export=1", { MESSAGE => 'Сформировать и выгрузить справочник?', BUTTON => 1 });
+
+#Таблица с пулами
+  my $table = $html->table(
+    {
+      width      => '100%',
+      caption    => "IP_PLAN $add_button $import_from_nas_button $export_button",
+      title      => [ 'Название', 'Начало диапазона IPv4', 'Конец диапазона IPv4', 'Актуально от', 'Актуально до', 'Action' ],
+      cols_align => [ 'left', 'left', 'right', 'right', 'right' , 'right' ],
+      qs         => $pages_qs,
+      ID         => 'SPAM_AWL'
+    }
+  );
+
+#Заполнение таблицы с пулами
+  foreach my $pool (@{$list}) { 
+	$table->addrow($pool->{DESCRIPTION}, $pool->{IPV4_START}, $pool->{IPV4_END},
+		$pool->{BEGIN_TIME}, $pool->{END_TIME},
+		$html->button('Удалить', "index=$index&del=$pool->{id}",{ MESSAGE => "удалить $pool->{DESCRIPTION}?", BUTTON => 1 }), 
+		$html->button('Изменить', "index=$index&chg=$pool->{id}",{ BUTTON => 1 }));
+	}
+
+  print $table->show();
+
+  return 1;
+}
+
+#Форма добавления пула
+sub pool_add_form {
+
+  my $self=shift;
+  my $action = 'add';
+  my $action_lang = "$lang{ADD}";
+
+            $html->tpl_show(
+              _include('sorm_pool_change', 'Sorm'),
+                {
+                ACTION          => $action,
+                ACTION_LANG     => $action_lang
+                }
+            );
+}
+
+#Форма изменения пула
+sub pool_change_form {
+
+  my $self=shift;
+  my $pool_nr = $self;
+  my $action = 'change';
+  my $action_lang = "$lang{CHANGE}";
+  my %SORM_DICTIONARIES = ();
+
+  if ($FORM{'chg'} && $pool_nr > '0') {
+	my $list = $Sorm->_info('SORM_IP_PLAN', $pool_nr);
+
+  	if ($list->{id}) {
+	    $html->tpl_show(
+	      _include('sorm_pool_change', 'Sorm'),
+      		{
+        	ID		=> $list->{id},
+        	DESCRIPTION	=> $list->{DESCRIPTION},
+		IPV4_START	=> $list->{IPV4_START},
+		IPV4_MASK	=> $list->{IPV4_MASK},
+		IPV4_END	=> $list->{IPV4_END},
+		BEGIN_TIME	=> $list->{BEGIN_TIME},
+		END_TIME	=> $list->{END_TIME},
+		ACTION		=> $action,
+		ACTION_LANG	=> $action_lang
+      		}
+    	    );
+         }
+   }
+}
+
+
+1
+

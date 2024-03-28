@@ -1,0 +1,126 @@
+##Iner_ID : Main or Sub or if -1 user menu func list
+our %FUNCTIONS_LIST = (
+  "01:0:$lang{INTERNET}:internet_users_list:"                 => 11,
+  "02:0:$lang{INTERNET}:internet_user:UID"                    => 20,
+  "03:2:$lang{TARIF_PLANS}:internet_chg_tp:UID"               => 11,
+  "04:2:$lang{STATS}:internet_stats:UID"                      => 11,
+  "05:4:IPoE $lang{STATS}:ipoe_sessions:UID"                  => 11,
+  "07:2:$lang{LAST_LOGIN}:internet_error_user:UID"            => 11,
+  "08:2:$lang{SHEDULE}:internet_form_shedule:UID"             => 11,
+  "10:0:$lang{INTERNET}:null:"                                => 5,
+  "11:10:$lang{TARIF_PLANS}:internet_tp:"                     => 5,
+  "39:10:$lang{FILTERS_LOG}:internet_filters:"                => 5,
+  "12:11:$lang{ADD}:internet_tp:"                             => 5,
+  "13:11:$lang{INTERVALS}:form_intervals:TP_ID"               => 5,
+  "14:11:$lang{NASS}:form_nas_allow:TP_ID"                    => 5,
+  "15:11:$lang{USERS}:internet_users_list:TP_ID"              => 5,
+  "17:11:$lang{GROUPS}:form_tp_groups:"                       => 5,
+  "18:11:$lang{TRAFFIC_CLASS}:internet_traffic_classes:"      => 5,
+  "19:0:$lang{INTERNET}:null:"                                => 4,
+  "22:19:$lang{LAST_LOGIN}:internet_error:"                   => 4,
+  "23:19:$lang{SESSIONS}:internet_sessions:"                  => 4,
+  "28:19:$lang{USED}:internet_report_use:"                    => 4,
+  "25:24:$lang{MONTH}:internet_use_allmonthes:"               => 4,
+  "26:19:$lang{DEBETORS}:internet_report_debetors:"           => 4,
+  "27:19:$lang{TARIF_PLANS}:internet_report_tp:"              => 4,
+  "38:19:$lang{USERS_OUTFLOW}:internet_user_outflow:"         => 4,
+  "39:19:$lang{DEVELOPMENT_REPORT}:users_development_report:" => 4,
+  "36:0:$lang{INTERNET}:internet_online:"                     => 6,
+  "37:0:$lang{BUILDS}:internet_online_builds:"                => 6,
+  "30:19:$lang{IP_POOLS}:internet_pools_report:"              => 4,
+  "31:17:$lang{GEOLOCATION_TP}:geolocation_group_tp:ID"       => 5,
+  "32:17:$lang{USERS} $lang{GROUPS}:group_tp_user_groups:ID"  => 5,
+  "69:0::internet_tp_clone:AJAX"                              => 5,
+  "79:0::tp_radius_pairs_save:AJAX:"                          => 5,
+  "80:0::internet_ip_pool_check:AJAX:"                        => 5,
+);
+if ($conf{INTERNET_USERS_POOL}) {
+  $FUNCTIONS_LIST{"68:2:$lang{NETWORKS}:internet_users_pools:UID"} = 11;
+}
+if ($permissions{0}) {
+  if ($permissions{0}{1}) {
+    #$FUNCTIONS_LIST{"20:1:$lang{USERS} $lang{ADD}:dv_wizard_user:"} = 11;
+    if (in_array('Cards', \@MODULES)) {
+      $FUNCTIONS_LIST{"21:1:$lang{ICARDS}:internet_cards:"} = 11;
+    }
+  }
+  if ($permissions{0}{16}) {
+    $FUNCTIONS_LIST{"07:2:$lang{COMPENSATION}:internet_compensation:UID"} = 11;
+  }
+}
+
+if ($conf{INTERNET_TURBO_MODE}) {
+  $FUNCTIONS_LIST{"26:0:$lang{TURBO}:internet_turbo_mode:"} = 6;
+  $FUNCTIONS_LIST{"29:19:$lang{TURBO}:internet_turbo_mode_report:"} = 4;
+}
+
+if ($conf{INTERNET_TRAFFIC_DETAIL}) {
+  $FUNCTIONS_LIST{"61:4:$lang{DETAIL}:traffic_detail:UID"} = 20;
+  $FUNCTIONS_LIST{"62:19:$lang{DETAIL}:traffic_detail:"} = 4;
+  $FUNCTIONS_LIST{"63:62:$lang{DETAIL} $lang{PORT}:traffic_detail_ports:"} = 4;
+}
+
+$FUNCTIONS_LIST{"64:19:$lang{UNKNOWN} IPs:ipoe_unknow_ips:"} = 4;
+$FUNCTIONS_LIST{"66:19:$lang{FT_QUEUS}:ipoe_ft_queue:"} = 4;
+$FUNCTIONS_LIST{"67:19:IPoE $lang{STATS}:ipoe_use"} = 11;
+
+if ($conf{INTERNET_DAY_QUOTA}) {
+  $FUNCTIONS_LIST{"41:2:$lang{QUOTA}:internet_quota_users:UID"} = 11;
+  $FUNCTIONS_LIST{"42:10:$lang{QUOTA}:internet_quota_configure:"} = 5;
+  $FUNCTIONS_LIST{"43:19:$lang{QUOTA}:internet_quota_reports:"} = 4;
+}
+
+our %USER_FUNCTION_LIST = (
+  "01:0:$lang{INTERNET}:internet_user_info:" => 0
+);
+
+if ($conf{INTERNET_USER_IPOE_STATS}) {
+  $USER_FUNCTION_LIST{"03:1:IPoE $lang{STATS}:ipoe_sessions:"} = 0;
+}
+else {
+  $USER_FUNCTION_LIST{"03:1:$lang{STATS}:internet_user_stats:"} = 0;
+}
+
+if ($conf{INTERNET_ISG}) {
+  delete $USER_FUNCTION_LIST{"01:0:$lang{INTERNET}:internet_user_info:"};
+  $USER_FUNCTION_LIST{"01:0:$lang{INTERNET}:internet_user_info:defaultindex"} = 0;
+}
+elsif ($conf{INTERNET_IP_DISCOVERY}) {
+  delete $USER_FUNCTION_LIST{"01:0:$lang{INTERNET}:internet_user_info:"};
+  $USER_FUNCTION_LIST{"01:0:$lang{INTERNET}:internet_user_info:defaultindex"} = 0;
+}
+
+if ($conf{RADIUS_TEST_IP}) {
+  $FUNCTIONS_LIST{"08:2:$lang{TEST}:internet_test:UID"} = 11;
+}
+
+$USER_FUNCTION_LIST{"04:1:$lang{TARIF_PLAN}:internet_user_chg_tp:"} = 0 if ($conf{INTERNET_USER_CHG_TP});
+
+our %PERIODIC = (
+  daily   => [
+    'internet_daily_fees',
+    'internet_users_warning_messages',
+    'internet_holdup_fees'
+  ],
+  monthly => [
+    'internet_monthly_fees',
+    'internet_periodic_logrotate',
+    'ipoe_detail_rotate',
+    'ipoe_periodic_session_restart',
+    'ipoe_start_active'
+  ],
+  report  => [
+    'internet_report'
+  ]
+);
+
+#if ($conf{INTERNET_BONUS}) {
+#  $FUNCTIONS_LIST{"16:11:$lang{BONUS}:internet_rating_tp:TP_ID"} = 5;
+#  $FUNCTIONS_LIST{"8:2:$lang{BONUS}:internet_rating_user:UID"} = 11;
+#
+#  $USER_FUNCTION_LIST{"05:1:Bonus:internet_rating_user:"} = 0;
+#
+#  $PERIODIC{daily} = [ @{ $PERIODIC{daily} }, 'internet_rating_periodic' ];
+#}
+
+1

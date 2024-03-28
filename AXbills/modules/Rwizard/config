@@ -1,0 +1,8 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+    "01:0:$lang{REPORTS_WIZARD}:rwizard:"        => 4,
+    "02:0:$lang{REPORTS_WIZARD}:rwizard_config:" => 5,
+    "03:2:$lang{GROUPS}:rwizard_groups:" => 5,
+                   );
+
+1

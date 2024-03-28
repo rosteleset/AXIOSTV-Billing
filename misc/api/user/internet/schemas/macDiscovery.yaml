@@ -1,0 +1,10 @@
+type: object
+properties:
+  cid:
+    type: string
+    example: "10:fe:ed:43:8f:36"
+    description: мак адрес, на который нужно изменить
+  id:
+    type: number
+    example: 10
+    description: ID услуги интернет

@@ -1,0 +1,34 @@
+post:
+  tags:
+    - user
+  summary: Регистрация пользователя сервиса
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: "../schemas/registrationRequest.yaml"
+        examples:
+          RegistrationByEmail:
+            summary:
+              Регистрация пользователя по email
+            value:
+              email: test@gmail.com
+              fio: Test User tester
+              login: testuser
+          RegistrationByPhone:
+            summary:
+              Регистрация пользователя по телефону
+            value:
+              email: test@gmail.com
+              phone: 0509999991
+              fio: Test User tester
+              login: testuser
+          RegistrationSocialNetwork:
+            summary:
+              Регистрация пользователя через социальную сеть
+            value:
+              socialNetwork: facebook
+              token: ya29.a0123GB123y890m2fRmDPn_GQYu8kIHraA1Y123Fc9JBi6oJe4RLPQ8CuPR6tIsGH0KINFpPcAiVBx7yap_Jdclgm5vHsvwSMBQZOqYFP3j3R-pUnJPiMa4rO37kq4dXxUcIbXX7DHfRbqmIJV9QDSXvNSU_Y1wwaCgYK123SARASFQHUCsbCxVyg37kTJkIPWDW_KDE84Q0165
+    required: true
+  responses:
+    $ref: "../schemas/registrationResponse.yaml"

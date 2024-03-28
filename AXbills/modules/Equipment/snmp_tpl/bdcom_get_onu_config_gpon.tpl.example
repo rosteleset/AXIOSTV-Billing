@@ -1,0 +1,2 @@
+enable
+show running-config interface GPON %BRANCH%:%ONU_ID%

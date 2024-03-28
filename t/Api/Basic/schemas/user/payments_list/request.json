@@ -1,0 +1,6 @@
+{
+  "name": "USER_PAYMENTS_LIST",
+  "method": "GET",
+  "path": "user/:uid/payments/",
+  "params": {}
+}

@@ -1,0 +1,1343 @@
+
+EPON-PON-CONFIG-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    IpAddress, Unsigned32, Integer32, Counter32, TimeTicks, Gauge32, Counter64,
+    MODULE-IDENTITY, OBJECT-IDENTITY, OBJECT-TYPE, enterprises     
+      FROM SNMPv2-SMI     
+    DateAndTime, MacAddress, TimeStamp, RowStatus, TruthValue, DisplayString, TEXTUAL-CONVENTION
+      FROM SNMPv2-TC
+    eponPonCfg  FROM  EPON-CONFIG-MIB  ;
+
+--------------------------------------------------------------------------------
+--  ponCfg[PONPORT属性管理项](1.3.6.1.4.1.27514.1.10.2)
+-------------------------------------------------------------------------------- 
+
+eponPonInfoTable  OBJECT-TYPE
+	SYNTAX      SEQUENCE OF EponPonInfoEntry
+	MAX-ACCESS  not-accessible
+	STATUS      current
+	DESCRIPTION
+		"pon info table"
+	::= {eponPonCfg 1}
+
+eponPonInfoEntry	OBJECT-TYPE
+	SYNTAX	 	  EponPonInfoEntry
+	MAX-ACCESS  not-accessible
+	STATUS		  current
+	DESCRIPTION
+		"PonInfoEntry table"
+	INDEX	{ eponPonCardIndex, eponPonPortIndex }
+	::= {eponPonInfoTable 1}
+
+EponPonInfoEntry ::= SEQUENCE{ 
+   eponPonCardIndex         INTEGER,
+   eponPonPortIndex         INTEGER,
+   eponPonAdminStatus       INTEGER,
+   eponPonOperationStatus   INTEGER,
+   eponPonAuthenMode        INTEGER,
+   eponPonLaoDetedtMode     INTEGER
+  }
+  
+eponPonCardIndex   OBJECT-TYPE
+   SYNTAX      INTEGER
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION
+   " slot index"
+   ::= {eponPonInfoEntry 1}
+   
+eponPonPortIndex   OBJECT-TYPE
+   SYNTAX      INTEGER
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION
+   "pon port index"
+   ::= {eponPonInfoEntry 2}
+   
+eponPonAdminStatus   OBJECT-TYPE
+   SYNTAX      INTEGER
+   {
+       disable(1),
+       enable(2)
+   }
+   MAX-ACCESS  read-write
+   STATUS      current
+   DESCRIPTION
+   "pon admin status"
+   ::= {eponPonInfoEntry 3}
+
+eponPonOperationStatus   OBJECT-TYPE
+   SYNTAX      INTEGER
+   {
+       linkdown(1),
+       linkup(2)
+   }
+   MAX-ACCESS  read-only
+   STATUS      current
+   DESCRIPTION
+   "pon link status"
+   ::= {eponPonInfoEntry 4}  
+   
+eponPonAuthenMode   OBJECT-TYPE
+   SYNTAX      INTEGER
+   {
+      disable(0),
+      whiteListAuth(1),
+      blackListAuth(2),
+      loidAuth(3),
+      hybridAuth(4)
+   }
+   MAX-ACCESS  read-write
+   STATUS      current
+   DESCRIPTION
+   "onu auth mode"
+   ::= {eponPonInfoEntry 5}  
+
+eponPonLaoDetedtMode  OBJECT-TYPE
+   SYNTAX      INTEGER
+   {
+       disable(1),
+       enable(2)
+   }
+   MAX-ACCESS  read-write
+   STATUS      current
+   DESCRIPTION
+   "laser always on detect mode"
+   ::= {eponPonInfoEntry 6} 
+   
+----PON OPM TABLE--------------------------------------------------------------------------
+eponPonOpmTable OBJECT-TYPE
+   SYNTAX   SEQUENCE OF EponPonOpmEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "pon opm info"
+   ::= {eponPonCfg 2}
+   
+eponPonOpmEntry OBJECT-TYPE
+   SYNTAX      EponPonOpmEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "pon opm info"
+   INDEX{eponPonOpmCardIndex, eponPonOpmPortIndex}
+   ::= {eponPonOpmTable 1}
+
+EponPonOpmEntry ::= SEQUENCE{
+   eponPonOpmCardIndex      INTEGER,
+   eponPonOpmPortIndex      INTEGER,
+   eponPonOpmTemperature    OCTET STRING,
+   eponPonOpmVcc            OCTET STRING,
+   eponPonOpmBias           OCTET STRING,
+   eponPonOpmTXPower        OCTET STRING,
+   eponPonOpmRxPower        OCTET STRING,
+   eponPonOpmRefresh        INTEGER
+  }       
+
+eponPonOpmCardIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "slot index"
+   ::= {eponPonOpmEntry 1}
+   
+eponPonOpmPortIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "pon port index"
+   ::= {eponPonOpmEntry 2}
+   
+eponPonOpmTemperature   OBJECT-TYPE
+   SYNTAX       OCTET STRING
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "temperature , centi C"
+   ::= {eponPonOpmEntry 3}
+   
+eponPonOpmVcc   OBJECT-TYPE
+   SYNTAX       OCTET STRING
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "voltage , centi V"
+   ::= {eponPonOpmEntry 4}      
+   
+eponPonOpmBias   OBJECT-TYPE
+   SYNTAX       OCTET STRING
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "basi , centi mA"
+   ::= {eponPonOpmEntry 5}
+   
+eponPonOpmTXPower   OBJECT-TYPE
+   SYNTAX       OCTET STRING
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "tx power , centi mw"
+   ::= {eponPonOpmEntry 6}
+   
+eponPonOpmRxPower   OBJECT-TYPE
+   SYNTAX       OCTET STRING
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "rx power , centi mw"
+   ::= {eponPonOpmEntry 7}
+
+eponPonOpmRefresh   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-write
+   STATUS       current
+   DESCRIPTION
+   "refresh opm"
+   ::= {eponPonOpmEntry 8}  
+   
+---ONU AUTHENCATION WHITELIST----------------------------------------------------------  
+
+eponPonAuthGroup OBJECT-IDENTITY
+   STATUS current
+   DESCRIPTION 
+     "ONU auth group"
+   ::= { eponPonCfg 3 }
+   
+eponPonWhiteListTable  OBJECT-TYPE
+   SYNTAX      SEQUENCE OF EponPonWhiteListEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "white list"
+   ::= {eponPonAuthGroup 1}
+
+eponPonWhiteListEntry  OBJECT-TYPE
+   SYNTAX       EponPonWhiteListEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+   ""
+   INDEX{eponPonWhiteListCardIndex, eponPonWhiteListPortIndex, eponPonWhiteListEntryIndex}
+   ::={eponPonWhiteListTable 1}
+
+EponPonWhiteListEntry ::= SEQUENCE{
+   eponPonWhiteListCardIndex     INTEGER,
+   eponPonWhiteListPortIndex     INTEGER,
+   eponPonWhiteListEntryIndex    INTEGER,
+   eponPonWhiteListMac           MacAddress,
+   eponPonWhiteListRowStatus     RowStatus,
+   }
+
+eponPonWhiteListCardIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "slot index"
+   ::={eponPonWhiteListEntry 1}
+
+eponPonWhiteListPortIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "pon index"
+   ::={eponPonWhiteListEntry 2}
+
+eponPonWhiteListEntryIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "white list index"
+   ::={eponPonWhiteListEntry 3}
+
+eponPonWhiteListMac  OBJECT-TYPE
+   SYNTAX       MacAddress
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "white list macAddress"
+   ::={eponPonWhiteListEntry 4}
+
+eponPonWhiteListRowStatus  OBJECT-TYPE
+   SYNTAX       RowStatus
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "rowStatus"
+   ::={eponPonWhiteListEntry 5}
+   
+--------BLACK LIST-------------------------------------------------------------------
+eponPonBlackListTable  OBJECT-TYPE
+   SYNTAX      SEQUENCE OF EponPonBlackListEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "black list"
+   ::= {eponPonAuthGroup 2}
+
+eponPonBlackListEntry  OBJECT-TYPE
+   SYNTAX       EponPonBlackListEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+   "black entry"
+   INDEX{eponPonBlackListCardIndex, eponPonBlackListPortIndex, eponPonBlackListEntryIndex}
+   ::={eponPonBlackListTable 1}
+
+EponPonBlackListEntry ::= SEQUENCE{
+   eponPonBlackListCardIndex     INTEGER,
+   eponPonBlackListPortIndex     INTEGER,
+   eponPonBlackListEntryIndex    INTEGER,
+   eponPonBlackListMac           MacAddress,
+   eponPonBlackListRowStatus     RowStatus,
+   }
+
+eponPonBlackListCardIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "slot index"
+   ::={eponPonBlackListEntry 1}
+
+eponPonBlackListPortIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "pon index"
+   ::={eponPonBlackListEntry 2}
+
+eponPonBlackListEntryIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "black list index"
+   ::={eponPonBlackListEntry 3}
+
+eponPonBlackListMac  OBJECT-TYPE
+   SYNTAX       MacAddress
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "black list mac"
+   ::={eponPonBlackListEntry 4}
+
+eponPonBlackListRowStatus  OBJECT-TYPE
+   SYNTAX       RowStatus
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "rowStatus"
+   ::={eponPonBlackListEntry 5}
+   
+---LOID LIST--------------------------------------------------------------------
+
+eponPonLoidListTable  OBJECT-TYPE
+   SYNTAX      SEQUENCE OF EponPonLoidListEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "loid list"
+   ::= {eponPonAuthGroup 3}
+
+eponPonLoidListEntry  OBJECT-TYPE
+   SYNTAX       EponPonLoidListEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+   "loid entry"
+   INDEX{eponPonLoidListCardIndex, eponPonLoidListPortIndex, eponPonLoidListEntryIndex}
+   ::={eponPonLoidListTable 1}
+
+EponPonLoidListEntry ::= SEQUENCE{
+   eponPonLoidListCardIndex     INTEGER,
+   eponPonLoidListPortIndex     INTEGER,
+   eponPonLoidListEntryIndex    INTEGER,
+   eponPonLoidListId            DisplayString,
+   eponPonLoidListPwd           DisplayString,
+   eponPonLoidListRowStatus     RowStatus,
+   }
+
+eponPonLoidListCardIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "slot index"
+   ::={eponPonLoidListEntry 1}
+
+eponPonLoidListPortIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "pon index"
+   ::={eponPonLoidListEntry 2}
+
+eponPonLoidListEntryIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "loid entry index"
+   ::={eponPonLoidListEntry 3}
+
+eponPonLoidListId  OBJECT-TYPE
+   SYNTAX       DisplayString(SIZE(0..25))
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "loid ID"
+   ::={eponPonLoidListEntry 4}
+   
+eponPonLoidListPwd  OBJECT-TYPE
+   SYNTAX       DisplayString(SIZE(0..13))
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "password"
+   ::={eponPonLoidListEntry 5}
+
+eponPonLoidListRowStatus  OBJECT-TYPE
+   SYNTAX       RowStatus
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "rowstatus"
+   ::={eponPonLoidListEntry 6}
+   
+--------------hybrid mac entry--------------------------  
+
+eponPonHybridMacTable OBJECT-TYPE
+   SYNTAX      SEQUENCE OF EponPonHybridMacEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "hybrid mac table"
+   ::= {eponPonAuthGroup 4} 
+   
+eponPonHybridMacEntry  OBJECT-TYPE
+   SYNTAX       EponPonHybridMacEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+   "black entry"
+   INDEX{eponPonHybridMacListCardIndex, eponPonHybridMacListPortIndex, eponPonHybridMacListEntryIndex}
+   ::={eponPonHybridMacTable 1}
+
+EponPonHybridMacEntry ::= SEQUENCE{
+   eponPonHybridMacListCardIndex     INTEGER,
+   eponPonHybridMacListPortIndex     INTEGER,
+   eponPonHybridMacListEntryIndex    INTEGER,
+   eponPonHybridMac                  MacAddress,
+   eponPonHybridMacRowStatus         RowStatus,
+   }
+
+eponPonHybridMacListCardIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "slot index"
+   ::={eponPonHybridMacEntry 1}
+
+eponPonHybridMacListPortIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "pon index"
+   ::={eponPonHybridMacEntry 2}
+
+eponPonHybridMacListEntryIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "hybrid mac list index"
+   ::={eponPonHybridMacEntry 3}
+
+eponPonHybridMac  OBJECT-TYPE
+   SYNTAX       MacAddress
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "hybrid mac"
+   ::={eponPonHybridMacEntry 4}
+
+eponPonHybridMacRowStatus  OBJECT-TYPE
+   SYNTAX       RowStatus
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "rowStatus"
+   ::={eponPonHybridMacEntry 5}
+      
+--------------classifcation entry--------------------------  
+eponPonClsTable  OBJECT-TYPE
+	SYNTAX      SEQUENCE OF EponPonClsEntry
+	MAX-ACCESS  not-accessible
+	STATUS      current
+	DESCRIPTION
+		"classification info table"
+	::= {eponPonCfg 4}
+
+eponPonClsEntry	OBJECT-TYPE
+	SYNTAX	 	  EponPonClsEntry
+	MAX-ACCESS  not-accessible
+	STATUS		  current
+	DESCRIPTION
+		"PonClsEntry table"
+	INDEX	{ eponPonClsCardIndex, eponPonClsPortIndex, eponPonClsRuleIndex, eponPonClsPortType }
+	::= {eponPonClsTable 1}
+
+EponPonClsEntry ::= SEQUENCE{ 
+   eponPonClsCardIndex         INTEGER,
+   eponPonClsPortIndex         INTEGER,
+   eponPonClsRuleIndex         INTEGER,
+   eponPonClsPortType          INTEGER,
+   eponPonClsRuleOpr           INTEGER,
+   eponPonClsPermit            INTEGER,
+   eponPonClsMatchMac          INTEGER,
+   eponPonClsDstMac            MacAddress,
+   eponPonClsSrcMac            MacAddress,
+   eponPonClsMatchVlan         INTEGER,
+   eponPonClsTVid              INTEGER,
+   eponPonClsIVid              INTEGER,
+   eponPonClsTop8021p          INTEGER,
+   eponPonClsMatch8021p        INTEGER,
+   eponPonClsInner8021p        INTEGER,
+   eponPonClsMatchEthType      INTEGER,
+   eponPonClsMatchDscp         INTEGER,
+   eponPonClsMatchIP           INTEGER,
+   eponPonClsDstIP             IpAddress,       
+   eponPonClsSrcIP             IpAddress,
+   eponPonClsMatchProtocol     INTEGER,
+   eponPonClsMatchL4port       INTEGER,
+   eponPonClsDstL4porthi       INTEGER, 
+   eponPonClsDstL4portlo       INTEGER,
+   eponPonClsSrcL4porthi       INTEGER, 
+   eponPonClsSrcL4portlo       INTEGER,
+   eponPonClsActTVlan          INTEGER,
+   eponPonClsActIVlan          INTEGER,
+   eponPonClsActVid            INTEGER,
+   eponPonClsActDscp           INTEGER,    
+   eponPonClsAct8021P          INTEGER,
+   eponPonClsActCos            INTEGER,
+   eponPonClsRowStatus         INTEGER
+  }
+  
+eponPonClsCardIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "slot index"
+   ::={eponPonClsEntry 1}
+
+eponPonClsPortIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "pon index"
+   ::={eponPonClsEntry 2}
+
+eponPonClsRuleIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "cls rule index:1-32"
+   ::={eponPonClsEntry 3}
+
+eponPonClsPortType  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "0:Pon 1:Nni"
+   ::={eponPonClsEntry 4} 
+
+eponPonClsRuleOpr  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "0:AND 1:OR"
+   ::={eponPonClsEntry 5} 
+         
+eponPonClsPermit  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "permit=1 or deny=0"
+   ::={eponPonClsEntry 6}     
+   
+eponPonClsMatchMac  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "Mac-Match mode:
+   0--->src-mac + dst-mac
+   1--->dst-mac range:dst-mac for higher,src-mac for lower
+   2--->src-mac range:dst-mac for higher,src-mac for lower"
+   ::={eponPonClsEntry 7}
+   
+eponPonClsDstMac  OBJECT-TYPE
+   SYNTAX       MacAddress
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "destination mac"
+   ::={eponPonClsEntry 8}
+
+eponPonClsSrcMac  OBJECT-TYPE
+   SYNTAX       MacAddress
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "source mac"
+   ::={eponPonClsEntry 9}
+
+eponPonClsMatchVlan  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "0--->top vid + inner vid
+    1--->top vid range:top-vlan for higher,inner for lower
+    2--->inner vid range:top-vlan for higher,inner for lower"
+   ::={eponPonClsEntry 10}
+
+eponPonClsTVid  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "top vlan id:1-4094"
+   ::={eponPonClsEntry 11} 
+   
+eponPonClsIVid  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "inner vlan id:1-4094"
+   ::={eponPonClsEntry 12}
+
+eponPonClsMatch8021p  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "0--->top-dot1p + inner-dot1p
+    1--->top-dot1p range:top-dot1p for higher,inner-dot1p for lower
+    2--->inner-dot1p range:top-dot1p for higher,inner-dot1p for lower" 
+   ::={eponPonClsEntry 13}
+
+eponPonClsTop8021p  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "top 8021p id:0-7"
+   ::={eponPonClsEntry 14}
+
+eponPonClsInner8021p  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "inner 8021p id:0-7"
+   ::={eponPonClsEntry 15}
+  
+eponPonClsMatchEthType  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "ethernet type:HEX<1-FFFF>"
+   ::={eponPonClsEntry 16}
+   
+eponPonClsMatchDscp  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "dscp:0-0xff"
+   ::={eponPonClsEntry 17}
+
+eponPonClsMatchIP  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "0--->src-ip + dst-ip
+    1--->dst-ip range:dst-ip for higher,src-ip for lower
+    2--->src-ip range:dst-ip for higher,src-ip for lower"
+   ::={eponPonClsEntry 18}
+  
+eponPonClsDstIP  OBJECT-TYPE
+   SYNTAX       IpAddress
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "destination ip address"
+   ::={eponPonClsEntry 19}
+
+eponPonClsSrcIP  OBJECT-TYPE
+   SYNTAX       IpAddress
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "source ip address"
+   ::={eponPonClsEntry 20}
+
+eponPonClsMatchProtocol  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "l3 protocal:0-0xff"
+   ::={eponPonClsEntry 21}           
+
+eponPonClsMatchL4port  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "0--->src-port + dst-port
+    1--->dst-port range:dst-port for higher,src-port for lower
+    2--->src-port range:dst-port for higher,src-port for lower"
+   ::={eponPonClsEntry 22}
+  
+eponPonClsDstL4porthi  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "high L4 destination port:0-65535"
+   ::={eponPonClsEntry 23}
+ 
+ eponPonClsDstL4portlo  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "low L4 destination port:0-65535"
+   ::={eponPonClsEntry 24}
+
+eponPonClsSrcL4porthi  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "high L4 source port:0-65535"
+   ::={eponPonClsEntry 25}
+
+eponPonClsSrcL4portlo  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "low L4 source port:0-65535"
+   ::={eponPonClsEntry 26}
+
+eponPonClsActTVlan  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "top vlan action: push=1 pop=2 swap=3"
+   ::={eponPonClsEntry 27}
+      
+eponPonClsActIVlan  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "inner vlan action: push=1 pop=2 swap=3"
+   ::={eponPonClsEntry 28} 
+
+eponPonClsActVid  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "vlan id(action): 1-4094"
+   ::={eponPonClsEntry 29}
+        
+eponPonClsActDscp  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "dscp action:0-63"
+   ::={eponPonClsEntry 30}       
+
+eponPonClsAct8021P  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "8021p(action): 0-7"
+   ::={eponPonClsEntry 31} 
+   
+eponPonClsActCos  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "cos(action): 0-7"
+   ::={eponPonClsEntry 32} 
+      
+eponPonClsRowStatus       OBJECT-TYPE
+   SYNTAX       RowStatus
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "rowStatus"
+   ::={eponPonClsEntry 33}      
+      
+
+----PON VLAN SWAP TABLE--------------------------------------------------------------------------
+eponPonVlanSwapTable OBJECT-TYPE
+   SYNTAX   SEQUENCE OF EponPonVlanSwapEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "pon vlan swap info"
+   ::= {eponPonCfg 5}
+   
+eponPonVlanSwapEntry OBJECT-TYPE
+   SYNTAX      EponPonVlanSwapEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "pon opm info"
+   INDEX{eponPonVlanSwapCardIndex, eponPonVlanSwapPortIndex, eponPonVlanSwapOnuIndex, eponPonVlanSwapRuleIndex}
+   ::= {eponPonVlanSwapTable 1}
+
+EponPonVlanSwapEntry ::= SEQUENCE{
+   eponPonVlanSwapCardIndex      INTEGER,
+   eponPonVlanSwapPortIndex      INTEGER,
+   eponPonVlanSwapOnuIndex       INTEGER,
+   eponPonVlanSwapRuleIndex      INTEGER,
+   eponPonVlanSwapSVlan          INTEGER,
+   eponPonVlanSwapEVlan          INTEGER,
+   eponPonVlanSwapNVlan          INTEGER,
+   eponPonVlanSwapActoin         INTEGER,
+   eponPonVlanSwapIngressVlan    INTEGER,
+   eponPonVlanSwapEgressVlan     INTEGER,
+   eponPonVlanSwapRowStatus      INTEGER
+  }       
+
+eponPonVlanSwapCardIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "slot index"
+   ::= {eponPonVlanSwapEntry 1}
+   
+eponPonVlanSwapPortIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "pon port index"
+   ::= {eponPonVlanSwapEntry 2}
+   
+eponPonVlanSwapOnuIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "onu index"
+   ::= {eponPonVlanSwapEntry 3}
+   
+eponPonVlanSwapRuleIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "rule index: 1-16"
+   ::= {eponPonVlanSwapEntry 4}      
+   
+eponPonVlanSwapSVlan   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "start vlan"
+   ::= {eponPonVlanSwapEntry 5}
+   
+eponPonVlanSwapEVlan   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "end vlan"
+   ::= {eponPonVlanSwapEntry 6}
+   
+eponPonVlanSwapNVlan   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "swap vlan"
+   ::= {eponPonVlanSwapEntry 7}
+
+eponPonVlanSwapActoin       OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "action 1:push 2:pop 3:swap"
+   ::={eponPonVlanSwapEntry 8} 
+
+eponPonVlanSwapIngressVlan       OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "0:inner vlan 1: top vlan"
+   ::={eponPonVlanSwapEntry 9} 
+
+eponPonVlanSwapEgressVlan       OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "0:inner vlan 1: top vlan"
+   ::={eponPonVlanSwapEntry 10} 
+      
+eponPonVlanSwapRowStatus       OBJECT-TYPE
+   SYNTAX       RowStatus
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "rowStatus"
+   ::={eponPonVlanSwapEntry 11}      
+----------------------------psg---------------------------------
+eponPsgTable OBJECT-TYPE
+   SYNTAX      SEQUENCE OF EponPsgEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "psg table"
+   ::= {eponPonCfg 6} 
+   
+eponPsgEntry  OBJECT-TYPE
+   SYNTAX       EponPsgEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+   "psg entry"
+   INDEX{eponPsgCardIndex, eponPsgIndex}
+   ::={eponPsgTable 1}
+
+EponPsgEntry ::= SEQUENCE{
+   eponPsgCardIndex     INTEGER,
+   eponPsgIndex         INTEGER,
+   eponPsgActivePon     INTEGER,
+   eponPsgStanbyPon     INTEGER,
+   eponPsgRowStatus     RowStatus,
+   eponPsgRestore       INTEGER
+   }
+
+eponPsgCardIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "slot index"
+   ::={eponPsgEntry 1}
+
+eponPsgIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "psg index"
+   ::={eponPsgEntry 2}     
+   
+eponPsgActivePon  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "active pon"
+   ::={eponPsgEntry 3} 
+   
+eponPsgStanbyPon  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "stanby pon"
+   ::={eponPsgEntry 4}   
+   
+eponPsgRowStatus  OBJECT-TYPE
+   SYNTAX       RowStatus
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "psg rowstatus"
+   ::={eponPsgEntry 5}    
+   
+eponPsgRestore  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-write
+   STATUS       current
+   DESCRIPTION
+   "psg restore"
+   ::={eponPsgEntry 6}              
+   
+----------------------------encrpy---------------------------------
+eponPonEncryptTable OBJECT-TYPE
+   SYNTAX      SEQUENCE OF EponPonEncryptEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "encrypt table"
+   ::= {eponPonCfg 8} 
+   
+eponPonEncryptEntry  OBJECT-TYPE
+   SYNTAX       EponPonEncryptEntry
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+   "encrypt entry"
+   INDEX{eponPonEncryptCardIndex, eponPonEncryptPortIndex}
+   ::={eponPonEncryptTable 1}
+
+EponPonEncryptEntry ::= SEQUENCE{
+   eponPonEncryptCardIndex     INTEGER,
+   eponPonEncryptPortIndex     INTEGER,
+   eponPonEncryptMode          INTEGER,
+   eponPonEncryptKeyTimer      INTEGER   
+   }
+
+eponPonEncryptCardIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "slot index"
+   ::={eponPonEncryptEntry 1}
+
+eponPonEncryptPortIndex  OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "pon index"
+   ::={eponPonEncryptEntry 2}
+
+eponPonEncryptMode  OBJECT-TYPE
+   SYNTAX       INTEGER
+   {
+          disable(0), 
+          hwCTC(1),
+          hwAES32(2),
+          hwAES48(3),
+          hw_single_churning(4),
+          hwRES(5),
+          swRES(6), 
+          swAES32(7),
+          swAES48(8)   
+    }
+   MAX-ACCESS   read-write
+   STATUS       current
+   DESCRIPTION
+   "encrypt mode"
+   ::={eponPonEncryptEntry 3}
+
+eponPonEncryptKeyTimer  OBJECT-TYPE
+   SYNTAX       INTEGER(774..786426)     
+   MAX-ACCESS   read-write
+   STATUS       current
+   DESCRIPTION
+   "key exchange timer  ms"
+   ::={eponPonEncryptEntry 4}
+   
+
+------------------------------------------------------------
+-------------  auth find manage
+------------------------------------------------------------
+eponPonAuthFindTable  OBJECT IDENTIFIER  ::=  { eponPonCfg 10 }
+
+---------------------find func------------------------------
+eponPonAuthFindFuncTable  OBJECT-TYPE
+    SYNTAX      SEQUENCE OF EponPonAuthFindFuncEntry
+	  MAX-ACCESS  not-accessible
+	  STATUS      current
+	  DESCRIPTION
+		"
+		    pon auth find table
+		"
+	  ::= {eponPonAuthFindTable 1}
+
+eponPonAuthFindFuncEntry	OBJECT-TYPE
+	  SYNTAX	 	  EponPonAuthFindFuncEntry
+	  MAX-ACCESS  not-accessible
+	  STATUS		  current
+	  DESCRIPTION
+		"
+		    eponPonAuthFindEntry table
+		"
+	  INDEX	{ eponPonAuthFindFuncCardIndex, eponPonAuthFindFuncPortIndex }
+	  ::= {eponPonAuthFindFuncTable 1}
+
+EponPonAuthFindFuncEntry  ::=  SEQUENCE
+    { 
+        eponPonAuthFindFuncCardIndex            INTEGER,
+        eponPonAuthFindFuncPortIndex            INTEGER,
+        eponPonAuthFindFuncEnable               INTEGER,
+        eponPonAuthFindFuncAgingEnable          INTEGER,
+        eponPonAuthFindFuncAgingTime            INTEGER,
+    }
+
+eponPonAuthFindFuncCardIndex  OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+    "
+        slot index
+    "
+    ::= {eponPonAuthFindFuncEntry 1}
+
+eponPonAuthFindFuncPortIndex  OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+    "
+        pon index
+    "
+    ::= {eponPonAuthFindFuncEntry 2}
+
+eponPonAuthFindFuncEnable  OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+        disable(0),
+        enable(1)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        auth find enable
+    "
+    ::= {eponPonAuthFindFuncEntry 3}
+
+eponPonAuthFindFuncAgingEnable  OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+        disable(0),
+        enable(1)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        auth find aging
+    "
+    ::= {eponPonAuthFindFuncEntry 4}
+
+eponPonAuthFindFuncAgingTime  OBJECT-TYPE
+    SYNTAX      INTEGER(60..3600)
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        auth find aging time, default: 300(s)
+    "
+    ::= {eponPonAuthFindFuncEntry 5}
+
+-------------------find list------------------------
+eponPonAuthFindListTable  OBJECT-TYPE
+    SYNTAX      SEQUENCE OF EponPonAuthFindListEntry
+	  MAX-ACCESS  not-accessible
+	  STATUS      current
+	  DESCRIPTION
+		"
+		    pon auth find table
+		"
+	  ::= {eponPonAuthFindTable 2}
+
+eponPonAuthFindListEntry	OBJECT-TYPE
+	  SYNTAX	 	  EponPonAuthFindListEntry
+	  MAX-ACCESS  not-accessible
+	  STATUS		  current
+	  DESCRIPTION
+		"
+		    eponPonAuthFindListEntry table
+		"
+	  INDEX	{ eponPonAuthFindListCardIndex, eponPonAuthFindListPortIndex, eponPonAuthFindListIndex }
+	  ::= {eponPonAuthFindListTable 1}
+
+EponPonAuthFindListEntry  ::=  SEQUENCE
+    {
+        eponPonAuthFindListCardIndex            INTEGER,
+        eponPonAuthFindListPortIndex            INTEGER,
+        eponPonAuthFindListIndex                INTEGER,
+        eponPonAuthFindListDevMac               MacAddress,
+        eponPonAuthFindListLoid                 OCTET STRING,
+        eponPonAuthFindListLoidPwd              OCTET STRING,
+        eponPonAuthFindListDevType              OCTET STRING,
+        eponPonAuthFindListSwVersion            OCTET STRING,
+        eponPonAuthFindListHwVersion            OCTET STRING,
+        eponPonAuthFindListFirstTime						OCTET STRING,
+        eponPonAuthFindListLastTime 						OCTET STRING,
+        eponPonAuthFindListCount     						INTEGER,
+        eponPonAuthFindListReason   						INTEGER
+    }
+
+eponPonAuthFindListCardIndex  OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+    "
+        slot index
+    "
+    ::= {eponPonAuthFindListEntry 1}
+
+eponPonAuthFindListPortIndex  OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+    "
+        pon index
+    "
+    ::= {eponPonAuthFindListEntry 2}
+
+eponPonAuthFindListIndex  OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+    "
+        find list index
+    "
+    ::= {eponPonAuthFindListEntry 3}
+
+eponPonAuthFindListDevMac  OBJECT-TYPE
+    SYNTAX       MacAddress
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+    "
+        Ont Device Mac
+    "
+    ::= {eponPonAuthFindListEntry 4}
+
+eponPonAuthFindListLoid  OBJECT-TYPE
+    SYNTAX       OCTET STRING (SIZE(1..24))
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+    "
+        Ont Device Loid
+    "
+    ::= {eponPonAuthFindListEntry 5}
+
+eponPonAuthFindListLoidPwd  OBJECT-TYPE
+    SYNTAX       OCTET STRING (SIZE(1..12))
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+    "
+        Ont Device Loid Pwd
+    "
+    ::= {eponPonAuthFindListEntry 6}
+
+eponPonAuthFindListDevType  OBJECT-TYPE
+    SYNTAX       OCTET STRING (SIZE(1..10))
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+    "
+        Ont Device Type
+    "
+    ::= {eponPonAuthFindListEntry 7}
+
+eponPonAuthFindListSwVersion  OBJECT-TYPE
+    SYNTAX       OCTET STRING (SIZE(1..16))
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+    "
+        Ont Device SW Version
+    "
+    ::= {eponPonAuthFindListEntry 8}
+
+eponPonAuthFindListHwVersion  OBJECT-TYPE
+    SYNTAX       OCTET STRING (SIZE(1..8))
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+    "
+        Ont Device HW Version
+    "
+    ::= {eponPonAuthFindListEntry 9}
+
+eponPonAuthFindListFirstTime  OBJECT-TYPE
+    SYNTAX       OCTET STRING
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+    "
+        Ont Device find first time
+    "
+    ::= {eponPonAuthFindListEntry 10}
+
+eponPonAuthFindListLastTime  OBJECT-TYPE
+    SYNTAX       OCTET STRING
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+    "
+        Ont Device find last time
+    "
+    ::= {eponPonAuthFindListEntry 11}
+
+eponPonAuthFindListCount  OBJECT-TYPE
+    SYNTAX       INTEGER
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+    "
+        Ont Device find Count
+    "
+    ::= {eponPonAuthFindListEntry 12}
+
+eponPonAuthFindListReason  OBJECT-TYPE
+    SYNTAX       INTEGER
+    MAX-ACCESS   read-only
+    STATUS       current
+    DESCRIPTION
+    "
+        Ont Device find reason
+    "
+    ::= {eponPonAuthFindListEntry 13}
+
+--
+-- END of EPON-PON-MIB 
+--      
+END

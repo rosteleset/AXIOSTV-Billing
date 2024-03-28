@@ -1,0 +1,6 @@
+our %FUNCTIONS_LIST = (
+  "01:0:$lang{BILLING_API}:null"      => 4,
+  "02:1:$lang{API_LOGS}:api_log_list" => 4,
+);
+
+1;

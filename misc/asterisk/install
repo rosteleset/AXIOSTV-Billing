@@ -1,0 +1,13 @@
+:DEFAULT:USER=www:Operation system
+:OS=FREEBSD:FILE=extensions.conf    > [/usr/local/etc/asterisk]/extensions.conf
+:OS=FREEBSD:FILE=sip.conf           > [/usr/local/etc/asterisk]/sip.conf
+:OS=FREEBSD:exec:touch /usr/local/etc/asterisk/axbills_sip.conf
+:OS=FREEBSD;USER=www:exec:chown /usr/local/etc/asterisk/axbills_sip.conf
+:OS=LINUX:FILE=extensions.conf    > [/etc/asterisk]/extensions.conf
+:OS=LINUX:FILE=sip.conf           > [/etc/asterisk]/sip.conf
+:OS=LINUX:exec:touch /etc/asterisk/axbills_sip.conf
+:OS=LINUX;USER=www:exec:chown /etc/asterisk/axbills_sip.conf
+:OS=LINUX:REMOTE_NAS=1:exec adduser
+:OS=LINUX:REMOTE_NAS=1:exec:chown axbills_admin /etc/asterisk/axbills_sip.conf
+#Get Perl AGI
+:exec:if [ w`uname` = wLinux ]; then cmd=wget; else cmd=fetch; fi; $cmd http://asterisk.gnuinter.net/files/asterisk-perl-1.01.tar.gz; tar zxvf asterisk-perl-1.01.tar.gz; cd asterisk-perl-1.01; perl Makefile.PL; make ; make test; make install

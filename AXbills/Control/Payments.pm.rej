@@ -1,0 +1,290 @@
+--- usr/axbills_test/AXbills/Control/Payments.pm	2023-01-23 20:21:02.433804494 +0300
++++ usr/axbills/AXbills/Control/Payments.pm	2022-08-23 20:42:37.956001712 +0300
+@@ -23,6 +23,7 @@
+   @state_colors,
+   @service_status_colors,
+   @service_status,
++  @reduction_payment,
+ );
+ 
+ my $Payments = Finance->payments($db, $admin, \%conf);
+@@ -79,15 +80,17 @@
+   }
+ 
+   if (($FORM{search_form} || $FORM{search}) && $index != 7) {
+-    form_search({
+-      HIDDEN_FIELDS => {
+-        subf       => ($FORM{subf}) ? $FORM{subf} : undef,
+-        COMPANY_ID => $FORM{COMPANY_ID},
+-        LEAD_ID    => $FORM{LEAD_ID}
+-      },
+-      ID            => 'SEARCH_PAYMENTS',
+-      CONTROL_FORM  => 1
+-    });
++    form_search(
++      {
++        HIDDEN_FIELDS => {
++          subf       => ($FORM{subf}) ? $FORM{subf} : undef,
++          COMPANY_ID => $FORM{COMPANY_ID},
++          LEAD_ID    => $FORM{LEAD_ID}
++        },
++        ID            => 'SEARCH_PAYMENTS',
++        CONTROL_FORM  => 1
++      }
++    );
+   }
+ 
+   if ($attr->{USER_INFO}) {
+@@ -199,45 +202,51 @@
+   }
+ 
+   if ($Payments->{TOTAL} > 0) {
+-    $Payments->{SEL_ER} = $html->form_select('ER', {
+-      SELECTED       => $FORM{ER_ID} || $FORM{ER},
+-      SEL_LIST       => $er_list,
+-      SEL_KEY        => 'id',
+-      SEL_VALUE      => 'money,rate',
+-      NO_ID          => 1,
+-      MAIN_MENU      => get_function_index('form_exchange_rate'),
+-      MAIN_MENU_ARGV => "chg=" . ($FORM{ER} || ''),
+-      SEL_OPTIONS    => { '' => '' }
+-    });
++    $Payments->{SEL_ER} = $html->form_select(
++      'ER',
++      {
++        SELECTED      => $FORM{ER_ID} || $FORM{ER},
++        SEL_LIST      => $er_list,
++        SEL_KEY       => 'id',
++        SEL_VALUE     => 'money,rate',
++        NO_ID         => 1,
++        MAIN_MENU     => get_function_index('form_exchange_rate'),
++        MAIN_MENU_ARGV=> "chg=". ($FORM{ER} || ''),
++        SEL_OPTIONS   => { '' => '' }
++      }
++    );
+ 
+     $Payments->{ER_FORM} = $html->tpl_show(templates('form_row'), {
+-      ID         => '',
+-      NAME       => "$lang{CURRENCY} : $lang{EXCHANGE_RATE}",
+-      VALUE      => $Payments->{SEL_ER},
+-      COLS_LEFT  => 'col-md-3',
+-      COLS_RIGHT => 'col-md-9',
+-    }, { OUTPUT2RETURN => 1 });
+-  }
+-
+-  $Payments->{SEL_METHOD} = $html->form_select('METHOD', {
+-    SELECTED => (defined($FORM{METHOD}) && $FORM{METHOD} ne '') ? $FORM{METHOD} : ($attr->{DEFAULT_ID} || 0),
+-    SEL_HASH => $PAYMENTS_METHODS,
+-    NO_ID    => 1,
+-  });
++        ID          => '',
++        NAME        => "$lang{CURRENCY} : $lang{EXCHANGE_RATE}",
++        VALUE       => $Payments->{SEL_ER},
++        COLS_LEFT   => 'col-md-3',
++        COLS_RIGHT  => 'col-md-9', },
++      { OUTPUT2RETURN => 1 });
++  }
++
++  $Payments->{SEL_METHOD} = $html->form_select(
++    'METHOD',
++    {
++      SELECTED => (defined($FORM{METHOD}) && $FORM{METHOD} ne '') ? $FORM{METHOD} : ($attr->{DEFAULT_ID} || 0),
++      SEL_HASH => $PAYMENTS_METHODS,
++      NO_ID    => 1,
++    }
++  );
+ 
+   if ($permissions{1} && $permissions{1}{1}) {
+     $Payments->{OP_SID} = ($FORM{OP_SID}) ? $FORM{OP_SID} : mk_unique_value(16);
+ 
+     if ($conf{EXT_BILL_ACCOUNT}) {
+-      $Payments->{EXT_DATA_FORM} = $html->tpl_show(templates('form_row'), {
+-        ID    => 'BILL_ID',
+-        NAME  => $lang{BILL},
+-        VALUE => $html->form_select('BILL_ID', {
+-          SELECTED => $FORM{BILL_ID} || $attr->{USER_INFO}->{BILL_ID},
+-          SEL_HASH => \%BILL_ACCOUNTS,
+-          NO_ID    => 1
+-        })
+-      }, { OUTPUT2RETURN => 1 });
++      $Payments->{EXT_DATA_FORM}=$html->tpl_show(templates('form_row'), {
++          ID    => 'BILL_ID',
++          NAME  => $lang{BILL},
++          VALUE => $html->form_select('BILL_ID',
++            {
++              SELECTED => $FORM{BILL_ID} || $attr->{USER_INFO}->{BILL_ID},
++              SEL_HASH => \%BILL_ACCOUNTS,
++              NO_ID    => 1
++            }) }, { OUTPUT2RETURN => 1 });
+     }
+ 
+     if ($permissions{1}{4}) {
+@@ -300,29 +309,24 @@
+       }
+       my $employees_cash = $Employees->employees_payments_cashbox({ COLS_NAME => 1, AID => $admin_cash});
+ 
+-      #  get default cash for current admin
+-      my $cashbox_id = '';
+-      for my $key (@$employees_cash){
+-        if ($key->{aid_default} == $admin_cash){
+-          $cashbox_id = $key->{id};
+-        }
+-      }
+-
+       my %params = ("" => "");
+ 
+       if ($Employees->{TOTAL} == 1) {
+         %params = (REQUIRED => 1);
+       }
+ 
+-      $attr->{CASHBOX_SELECT} = $html->form_select('CASHBOX_ID', {
+-        SELECTED  => $conf{EMPLOYEES_DEFAULT_CASHBOX} || $FORM{CASHBOX_ID} || $attr->{CASHBOX_ID} || $cashbox_id,
+-        SEL_LIST  => $employees_cash_all || $employees_cash,
+-        SEL_KEY   => 'id',
+-        SEL_VALUE => 'name',
+-        NO_ID     => 1,
+-        MAIN_MENU => get_function_index('employees_cashbox_main'),
+-        %params
+-      });
++      $attr->{CASHBOX_SELECT} = $html->form_select(
++        'CASHBOX_ID',
++        {
++          SELECTED    => $conf{EMPLOYEES_DEFAULT_CASHBOX} || $FORM{CASHBOX_ID} || $attr->{CASHBOX_ID},
++          SEL_LIST    => $employees_cash_all || $employees_cash,
++          SEL_KEY     => 'id',
++          SEL_VALUE   => 'name',
++          NO_ID       => 1,
++          MAIN_MENU   => get_function_index('employees_cashbox_main'),
++          %params
++        }
++      );
+     }
+     else {
+       $attr->{CASHBOX_HIDDEN} = 'hidden'
+@@ -335,18 +339,13 @@
+     }
+ 
+     $Payments->{ADMIN_PAY} = $lang{ADMIN_PAY};
+-    $Payments->table_info('payments');
+-
+-    $attr->{MAX_PAYMENT} = $conf{MAX_ADMIN_PAYMENT} || 99999999;
+-    if ($attr->{EXT_HTML}) {
+-      my $payment_template = $html->tpl_show(templates('form_payments'),
+-        { %FORM, %{$attr}, %{$Payments} }, { ID => 'form_payments', OUTPUT2RETURN => 1 }
+-      );
++    if($attr->{EXT_HTML}){
+       print "<div class='row'><div class='col-md-6'>" . $attr->{EXT_HTML} . "</div>";
+-      print "<div class='col-md-6'>" . $payment_template . "</div></div>";
++      print "<div class='col-md-6'>" . $html->tpl_show(templates('form_payments'),
++        { %FORM, %$attr, %$Payments }, { ID => 'form_payments', OUTPUT2RETURN => 1  }) . "</div></div>";
+     }
+     else {
+-      $html->tpl_show(templates('form_payments'), { %FORM, %{$attr}, %{$Payments} }, { ID => 'form_payments'  });
++      $html->tpl_show(templates('form_payments'), { %FORM, %$attr, %$Payments }, { ID => 'form_payments'  });
+     }
+   }
+ 
+@@ -417,7 +416,6 @@
+   my $user = $attr->{USER_INFO};
+   #$Payments->{AUTOFOCUS}  = '';
+   $FORM{SUM} =~ s/,/\./g;
+-
+   $db->{TRANSACTION}=1;
+   my DBI $db_ = $db->{db};
+   $db_->{AutoCommit} = 0;
+@@ -427,23 +425,19 @@
+     return 0 if ($attr->{REGISTRATION});
+   }
+   else {
+-    my $max_payment = $conf{MAX_ADMIN_PAYMENT} || 99999999;
+-    if ($FORM{SUM} > $max_payment) {
+-      $html->message('err', "$lang{PAYMENTS}: $lang{ERR_WRONG_SUM}", "$lang{ALLOW} $lang{SUM}: < $max_payment \n$lang{PAYMENTS} $lang{SUM}: $FORM{SUM}");
+-      return 0;
+-    }
+-
+     $FORM{CURRENCY} = $conf{SYSTEM_CURRENCY};
+ 
+     if ($FORM{ER}) {
+       if ($FORM{DATE}) {
+-        my $list = $Payments->exchange_log_list({
+-          DATE      => "<=$FORM{DATE}",
+-          ID        => $FORM{ER},
+-          SORT      => 'date',
+-          DESC      => 'desc',
+-          PAGE_ROWS => 1
+-        });
++        my $list = $Payments->exchange_log_list(
++          {
++            DATE      => "<=$FORM{DATE}",
++            ID        => $FORM{ER},
++            SORT      => 'date',
++            DESC      => 'desc',
++            PAGE_ROWS => 1
++          }
++        );
+         $FORM{ER_ID}    = $FORM{ER};
+         $FORM{ER}       = $list->[0]->[2] || 1;
+         $FORM{CURRENCY} = $list->[0]->[4] || 0;
+@@ -467,12 +461,46 @@
+     my $uid = $user->{UID};
+     #Make pre payments functions in all modules
+     cross_modules('pre_payment', { %$attr, FORM => \%FORM });
+-
++    # cross_modules_call('_pre_payment', { %$attr });
+     if (!$conf{PAYMENTS_NOT_CHECK_INVOICE_SUM} && ($FORM{INVOICE_SUM} && $FORM{INVOICE_SUM} != $FORM{PAYMENT_SUM})) {
+       $html->message( 'err', "$lang{PAYMENTS}: $lang{ERR_WRONG_SUM}",
+-        " $lang{INVOICE} $lang{SUM}: " . ($Docs->{TOTAL_SUM} || 0) . "\n $lang{PAYMENTS} $lang{SUM}: $FORM{SUM}" );
++        " $lang{INVOICE} $lang{SUM}: $Docs->{TOTAL_SUM}\n $lang{PAYMENTS} $lang{SUM}: $FORM{SUM}" );
+     }
+     else {
++#myth
++                #Форма оплат
++
++#Получаем из модуля Internet стоимость тарифного плана пользователя
++    require Internet;
++    Internet->import();
++    my $test;
++    my $Internet = Internet->new($db, $admin, \%conf);
++    $Internet = $Internet->user_info($LIST_PARAMS{UID});
++
++#Обработка скидок из конфига
++     if (@reduction_payment) {
++        #@reduction_payment = (sort {$b cmp $a} @reduction_payment); #Сортировка массива по убыванию
++        foreach $test (@reduction_payment) {
++                my ($c, $proc) = split (":", $test);
++
++#Скидка, если платеж ровный
++               if (defined ($Internet->{MONTH_ABON})&& $Internet->{MONTH_ABON} > 0) {
++                        if ($FORM{PAYMENT_SUM} >= ($Internet->{MONTH_ABON} * $c) - ($Internet->{MONTH_ABON} * $c * ($proc/100))) {
++
++                              $Payments->add(
++                                $user,
++                                {
++                                  SUM          => ($Internet->{MONTH_ABON} * $c * ($proc/100)),
++                                  DESCRIBE     => "Бонус $proc% за оплату на $c месяца(ев)",
++                                  METHOD       => '4',
++                                }
++                              );
++                last;
++                       }
++               }
++       }
++       }
++
+       $user->{UID} = $uid;
+       $Payments->add($user, { %FORM, INNER_DESCRIBE => ($FORM{INNER_DESCRIBE} || q{})
+         . (($FORM{DATE} && $COOKIES{hold_date}) ? " $DATE $TIME" : '') });
+@@ -703,7 +731,7 @@
+           if ($i2p_hash{$line->{id}}) {
+             foreach my $val ( @{ $i2p_hash{$line->{id}} }  ) {
+               my ($invoice_id, $invoiced_sum, $invoice_num)=split(/:/, $val);
+-              $i2p .= "$lang{PAID}: $invoiced_sum $lang{INVOICE} #" . $html->button( $invoice_num,
++              $i2p .= $invoiced_sum . " $lang{PAID} $lang{INVOICE} #" . $html->button( $invoice_num,
+                 "index=" . get_function_index( 'docs_invoices_list' ) . "&ID=$invoice_id&search=1" ) . $html->br();
+               $payment_sum -= $invoiced_sum;
+             }
+@@ -745,4 +773,4 @@
+   return 1;
+ }
+ 
+-1;+1;

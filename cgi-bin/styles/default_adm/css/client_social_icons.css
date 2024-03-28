@@ -1,0 +1,109 @@
+
+/* footer social icons */
+ul.social-network {
+    list-style: none;
+    display: inline;
+    margin-left:0 !important;
+    padding: 0;
+}
+ul.social-network li {
+    display: inline;
+    margin: 0 5px;
+}
+
+
+/* footer social icons */
+.social-network a.icon-vk:hover, a.icon-vk.icon-registered {
+    background-color: #0590B8;
+}
+.social-network a.icon-facebook:hover, a.icon-facebook.icon-registered {
+    background-color:#3B5998;
+}
+.social-network a.icon-twitter:hover, a.icon-twitter.icon-registered {
+    background-color:#33ccff;
+}
+.social-network a.icon-google:hover, a.icon-google.icon-registered {
+    background-color:#BD3518;
+}
+.social-network a.icon-instagram:hover, a.icon-instagram.icon-registered {
+    background-color:#517fa4;
+}
+/*
+.social-network a.icon-linkedin:hover {
+    background-color:#007bb7;
+}*/
+.social-network a.icon-vk:hover i,
+.social-network a.icon-facebook:hover i,
+.social-network a.icon-twitter:hover i,
+.social-network a.icon-google:hover i,
+.social-network a.icon-instagram:hover i,
+.social-network a.icon-linkedin:hover i {
+    color:#fff;
+}
+a.socialIcon:hover {
+    color:#44BCDD;
+}
+
+.social-circle li a {
+    display:inline-block;
+    position:relative;
+    margin:0 auto 0 auto;
+    -moz-border-radius:50%;
+    -webkit-border-radius:50%;
+    border-radius:50%;
+    text-align:center;
+    width: 50px;
+    height: 50px;
+    font-size:20px;
+}
+.social-circle li i {
+    margin:0;
+    line-height:50px;
+    text-align: center;
+}
+
+.social-circle li a:hover span {
+    -moz-transform: rotate(360deg);
+    -webkit-transform: rotate(360deg);
+    -ms--transform: rotate(360deg);
+    transform: rotate(360deg);
+    -webkit-transition: all 0.2s;
+    -moz-transition: all 0.2s;
+    -o-transition: all 0.2s;
+    -ms-transition: all 0.2s;
+    transition: all 0.2s;
+}
+.social-circle i, .social-circle span {
+    color: #fff;
+    padding: 12px;
+    font-size: 24px;
+    -webkit-transition: all 0.8s;
+    -moz-transition: all 0.8s;
+    -o-transition: all 0.8s;
+    -ms-transition: all 0.8s;
+    transition: all 0.8s;
+}
+
+.social-network a {
+    background-color: #a7a7a7;
+}
+
+.icon-unreg {
+    width: 20px !important;
+    height: 20px !important;
+}
+
+.social-circle li a+.icon-unreg {
+    -moz-border-radius:0 !important;
+    -webkit-border-radius:0 !important;
+    border-radius:0 !important;
+    background: 0 !important;
+}
+
+.icon-unreg i{
+    font-size:15px !important;
+    /*line-height: 20px !important;*/
+    vertical-align: bottom;
+    color: black !important;
+
+}

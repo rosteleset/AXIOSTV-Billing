@@ -1,0 +1,110 @@
+--  *****************************************************************
+--  DLINKPV2-TRAFFIC-SEGMENT-MIB.mib : Traffic Segmentation MIB
+-- 
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+
+    DLINKPV2-TRAFFIC-SEGMENT-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE     FROM SNMPv2-SMI
+        ifIndex,
+        InterfaceIndex                  FROM IF-MIB
+        MODULE-COMPLIANCE,
+        OBJECT-GROUP                    FROM SNMPv2-CONF
+        PortList                        FROM Q-BRIDGE-MIB
+        dlinkDGS1100CommonV2            FROM DGS1100SERMGMT-MIB;
+
+
+    primeV2TrafficSegMIB MODULE-IDENTITY
+        LAST-UPDATED "201404260000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for Traffic Segmentation."            
+            
+        REVISION     "201404260000Z"
+        DESCRIPTION 
+            "This is the first version of the MIB file."    
+        ::= { dlinkDGS1100CommonV2 25 }
+  
+
+-- ---------------------------------------------------------------------------------------------
+    v2TrafficSegNotifications    OBJECT IDENTIFIER ::= { primeV2TrafficSegMIB 0 }
+    v2TrafficSegObjects          OBJECT IDENTIFIER ::= { primeV2TrafficSegMIB 1 }
+    v2TrafficSegConformance      OBJECT IDENTIFIER ::= { primeV2TrafficSegMIB 2 }
+
+-- ---------------------------------------------------------------------------------------------
+    v2TrafficSegForwardDomainTable    OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2TrafficSegForwardDomainEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current   
+        DESCRIPTION            
+            "A list of specification of forwarding domains for Traffic Segmentation."            
+    ::= { v2TrafficSegObjects 1 }
+
+    v2TrafficSegForwardDomainEntry    OBJECT-TYPE
+        SYNTAX          V2TrafficSegForwardDomainEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current   
+        DESCRIPTION            
+            "An entry indicates the setting of forwarding domain on an interface."
+        INDEX  { ifIndex }
+        ::= { v2TrafficSegForwardDomainTable 1 }
+
+    V2TrafficSegForwardDomainEntry ::= SEQUENCE
+    {
+        v2TrafficSegForwardPorts    PortList
+    }
+
+    v2TrafficSegForwardPorts    OBJECT-TYPE
+        SYNTAX                 PortList
+        MAX-ACCESS             read-write
+        STATUS                 current
+        DESCRIPTION
+            "This object indicates the forward domain (a set of ports) on the
+            interface."
+        ::= { v2TrafficSegForwardDomainEntry 1 }
+
+-- -----------------------------------------------------------------------------
+-- MIB Conformance statements
+-- -----------------------------------------------------------------------------
+    v2TrafficSegMIBCompliances    OBJECT IDENTIFIER
+        ::= { v2TrafficSegConformance 1 }
+
+    v2TrafficSegMIBGroups    OBJECT IDENTIFIER
+        ::= { v2TrafficSegConformance 2 } 
+    
+    v2TrafficSegMIBCompliance    MODULE-COMPLIANCE
+        STATUS                  current
+        DESCRIPTION
+            "The compliance statement for entities which implement the 
+            DLINKPV2-TRAFFIC-SEGMENT-MIB."
+        MODULE          -- this module
+        MANDATORY-GROUPS
+        {   
+            v2TrafficSegIfCfgGroup           
+        }                 
+        ::= { v2TrafficSegMIBCompliances 1 }
+
+-- -----------------------------------------------------------------------------        
+    v2TrafficSegIfCfgGroup    OBJECT-GROUP
+        OBJECTS
+        { 
+            v2TrafficSegForwardPorts
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing management of the Traffic
+            Segmentation feature."
+        ::= { v2TrafficSegMIBGroups 1 }
+  
+END

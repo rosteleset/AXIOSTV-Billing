@@ -1,0 +1,64 @@
+%FUNCTIONS_LIST = (
+  # Configure 1-20
+  "01:0:$lang{PAYSYS}:null"                                          => 5,
+  "06:1:$lang{EXTERNAL_COMMAND}:paysys_configure_external_commands:" => 5,
+  "80:2:Paysys_Test:paysys_main_test:MODULE,PAYSYSTEM_ID"            => 5,
+  "81:80:Paysys_Test:paysys_test:AJAX"                               => 5,
+  # Reports 21-40
+  "21:0:$lang{PAYSYS}:paysys_log"                                    => 4,
+  "22:21:$lang{INTERNAL_REPORTS}:paysys_reports"                     => 4,
+  "23:21:$lang{SUBSCRIBES}:paysys_users"                             => 4,
+  # Import Fees 60-70
+  "60:0:$lang{IMPORT}:paysys_import_fees_new:"                       => 3
+);
+
+if ($conf{PAYSYS_LOG}) {
+  $FUNCTIONS_LIST{"24:21:$lang{LOG_REQUESTS}:paysys_request_log"} = 4;
+}
+
+if ($conf{PAYSYS_NEW_SETTINGS}) {
+  $FUNCTIONS_LIST{"02:1:$lang{SETTINGS}:paysys_configure_main:"}                            = 5;
+  $FUNCTIONS_LIST{"04:1:$lang{PAYSYS_SETTINGS_FOR_MERCHANTS}:paysys_add_configure_groups:"} = 5;
+  $FUNCTIONS_LIST{"10:1:PAYSYS_SETTINGS_FOR_GROUPS:paysys_configure_groups:AJAX"}           = 5;
+}
+else {
+  $FUNCTIONS_LIST{"02:1:$lang{SETTINGS}:paysys_configure_main:"} = 5;
+}
+
+if (!$conf{PAYMENT_HIDE_USER_MENU}) {
+  if (defined $user->{GID}) {
+    my $group_info = $user->group_info($user->{GID});
+    if ((exists $group_info->{DISABLE_PAYSYS} && $group_info->{DISABLE_PAYSYS} == 0) || !$user->{TOTAL}) {
+      %USER_FUNCTION_LIST = (
+        "01:0:$lang{BALANCE_RECHARCHE}:paysys_payment:" => 40,
+        "02:1:$lang{LOG}:paysys_user_log:"              => 40,
+        "02:1:$lang{TOKEN_PAYMENTS}:paysys_subscribe:"  => 40
+      );
+    }
+    else {
+      %USER_FUNCTION_LIST = (
+        "01:0:$lang{LOG}:paysys_user_log:" => 40
+      );
+    }
+  }
+
+  if ($conf{PAYSYS_RECURRENT_PAYMENT}) {
+    $USER_FUNCTION_LIST{"03:1:$lang{RECURRENT_PAYMENT}:paysys_recurrent_payment:"} = 40;
+  }
+}
+
+if ($conf{PAYSYS_TERMINALS_ADD}) {
+  $FUNCTIONS_LIST{"07:1:$lang{TERMINALS}:paysys_configure_terminals:"}            = 5;
+  $FUNCTIONS_LIST{"08:7:$lang{ADD} $lang{TYPE}:paysys_configure_terminals_type:"} = 5;
+}
+
+%PERIODIC = (
+  daily   => [ 'paysys_periodic_new' ],
+  monthly => [ 'paysys_monthly_new' ]
+);
+
+if ($permissions{1} && $permissions{1}{5}) {
+  $FUNCTIONS_LIST{"05:0:$lang{IMPORT}:paysys_import_payments_new:"} = 2;
+}
+
+1;

@@ -1,0 +1,179 @@
+# CISCO IOS basic OIDs
+# oid_pick (...,"mib1","mib2",...)
+# poll each of the oids specified until it is successful or has run out of oids
+
+$head_lines .= <<ECHO;
+#-----------------------------------------------------------------
+#	[$sysname] [$router_name] [$sysdescr] Average 5m CPU Usage
+#-----------------------------------------------------------------
+ECHO
+
+# 
+
+my $cpu_oid = oid_pick($router_connect,$v3opt,"1.3.6.1.4.1.9.2.1.58.0","1.3.6.1.4.1.9.9.109.1.1.1.1.3.9");
+if ($cpu_oid){
+  my $target_name = $router_name . ".cpu";
+  my $dir = '';
+  $dir = "Directory[$target_name]: $directory_name" if $directory_name;
+  $target_lines .= <<ECHO;
+
+$dir
+YLegend[$target_name]: CPU use in %
+ShortLegend[$target_name]: %
+Legend1[$target_name]: CPU use in %
+Legend3[$target_name]: Max Observed CPU use
+LegendI[$target_name]: &nbsp;CPU use:
+WithPeak[$target_name]: ywm
+MaxBytes[$target_name]: 100
+Options[$target_name]: growright, gauge, nopercent, noo
+Title[$target_name]: $sysname $router_name CPU usage
+Target[$target_name]: $cpu_oid&PseudoZero:$router_connect
+PageTop[$target_name]: <h1>$sysname $router_name CPU use</h1>
+ <div><table>
+ <tr><td>System:</td>     <td>$sysname $router_name</td></tr>
+ <tr><td>Maintainer:</td> <td>$html_syscontact</td></tr>
+ <tr><td>Description:</td><td>$html_sysdescr</td></tr>
+ <tr><td>Resource:</td>   <td>5 Minute Average CPU busy ($cpu_oid)</td></tr>
+ </table></div>
+ECHO
+}
+
+my $mem_oid = oid_pick($router_connect,$v3opt,"1.3.6.1.4.1.9.2.1.8.0","1.3.6.1.4.1.9.9.48.1.1.1.6.1");
+if ($mem_oid) {
+  my $target_name = $router_name . ".mem";
+  my $dir = '';
+  $dir = "Directory[$target_name]: $directory_name" if $directory_name;
+  $target_lines .= <<ECHO;
+#-----------------------------------------------------------------
+#	[$sysname] [$router_name] [$sysdescr] Free CPU Pool Memory
+#-----------------------------------------------------------------
+$dir
+YLegend[$target_name]: Free Memory  
+ShortLegend[$target_name]: Bytes  
+Legend1[$target_name]: Free Memory  
+Legend3[$target_name]: Max Free Memory  
+LegendI[$target_name]: &nbsp;Free Memory:  
+WithPeak[$target_name]: ywm  
+MaxBytes[$target_name]: 10000000000
+Options[$target_name]: growright, gauge, nopercent, noo  
+Title[$target_name]: $sysname $router_name Free Memory  
+Target[$target_name]: $mem_oid&PseudoZero:$router_connect
+PageTop[$target_name]: <h1>$sysname $router_name Free Memory</h1>  
+ <div><table>
+ <tr><td>System:</td>     <td>$sysname $router_name</td></tr>
+ <tr><td>Maintainer:</td> <td>$html_syscontact</td></tr>
+ <tr><td>Description:</td><td>$html_sysdescr</td></tr>  
+ <tr><td>Resource:</td>   <td>Free CPU Pool Memory ($mem_oid)</td></tr>
+ </table></div>
+ECHO
+}
+
+my $memio_oid = oid_pick($router_connect,$v3opt,".1.3.6.1.4.1.9.9.48.1.1.1.6.2","1.3.6.1.4.1.9.9.48.1.1.1.5.2");
+if ($memio_oid) {
+  my $target_name = $router_name . ".memio";
+  my $dir = '';
+  $dir = "Directory[$target_name]: $directory_name" if $directory_name;
+  $target_lines .= <<ECHO;
+#-----------------------------------------------------------------
+#	[$sysname] [$router_name] [$sysdescr] Free IO Pool Memory
+#-----------------------------------------------------------------
+$dir
+YLegend[$target_name]: Free IO Memory  
+ShortLegend[$target_name]: Bytes  
+Legend1[$target_name]: Free IO Memory  
+Legend3[$target_name]: Max Free IO Memory  
+LegendI[$target_name]: &nbsp;Free IO Memory:  
+WithPeak[$target_name]: ywm  
+MaxBytes[$target_name]: 10000000000
+Options[$target_name]: growright, gauge, nopercent, noo  
+Title[$target_name]: $sysname $router_name Free IO Memory  
+Target[$target_name]: $memio_oid&PseudoZero:$router_connect
+PageTop[$target_name]: <h1>$sysname $router_name Free IO Memory</h1>  
+ <div><table>
+ <tr><td>System:</td>     <td>$sysname $router_name</td></tr>
+ <tr><td>Maintainer:</td> <td>$html_syscontact</td></tr>
+ <tr><td>Description:</td><td>$html_sysdescr</td></tr>  
+ <tr><td>Resource:</td>   <td>Free IO Pool Memory ($memio_oid)</td></tr>
+ </table></div>
+ECHO
+}
+
+# SYS Temperature
+my $temperature_oid = oid_pick($router_connect,$v3opt,"1.3.6.1.4.1.9.9.13.1.3.1.3.1","1.3.6.1.4.1.9.9.13.1.3.1.3.1");
+if ($temperature_oid) {
+  my $target_name = $router_name . ".temperature";
+  my $dir = '';
+  $dir = "Directory[$target_name]: $directory_name" if $directory_name;
+  $target_lines .= <<ECHO;
+#-----------------------------------------------------------------
+# [$sysname] [$router_name] [$sysdescr] SYS Temperature
+#-----------------------------------------------------------------
+Target[$target_name]: $temperature_oid:$router_connect / 10
+Options[$target_name]: gauge, growright, nopercent, noinfo
+MaxBytes[$target_name]: 100
+#Colours[$target_name]: RED#ff4f27,Y#fffb15,RED#ff4f27,RED#fffb15
+Unscaled[$target_name]: dwmy
+YLegend[$target_name]: CPU Temperature
+Title[$target_name]: $sysname $router_name SYS Temperature
+PageTop[$target_name]: <H1>$sysname $router_name SYS Temperature</H1>
+ShortLegend[$target_name]: c
+LegendI[$target_name]:
+LegendO[$target_name]: SYS Temp
+Legend1[$target_name]: SYS Temperature
+Legend2[$target_name]: SYS Temperature
+ <div><table>
+ <tr><td>System:</td>     <td>$sysname $router_name</td></tr>
+ <tr><td>Maintainer:</td> <td>$html_syscontact</td></tr>
+ <tr><td>Description:</td><td>$html_sysdescr</td></tr>  
+ <tr><td>Resource:</td>   <td>SYS Temperature ($temperature_oid)</td></tr>
+ </table></div>
+ECHO
+}
+
+my $interfaces_num = (snmpget($router, $v3opt, "1.3.6.1.2.1.2.1.0"));
+my @interface_ips = (snmpwalk($router, $v3opt, "iso.3.6.1.2.1.4.20.1.2"));
+
+for (my $interface_id = 1 ; $interface_id <= $interfaces_num ; $interface_id++) {
+  my $interface_type = (snmpget($router, $v3opt, "1.3.6.1.2.1.2.2.1.3.$interface_id"));
+  if ( $interface_type == 6 ) {
+  my $interface_name  = (snmpget($router, $v3opt, "1.3.6.1.2.1.31.1.1.1.1.$interface_id"));
+  my $interface_speed_bps = (snmpget($router, $v3opt, "1.3.6.1.2.1.2.2.1.5.$interface_id"));
+  my $interface_spd_maxgraph = 1.25 * $interface_speed_bps;
+  my $interface_spd_mbps = $interface_speed_bps / 1000000;
+  my ($zindex) = grep { ($interface_ips[$_] =~ /:$interface_id/) } (0 .. @interface_ips-1);
+  my $interface_ip = $interface_ips[$zindex];
+  $interface_ip =~ s/\:.*//;
+  $target_lines .= <<ECHO;
+
+#----------------------------------------------------------------------
+# [$sysname = $router_name] [$interface_name] [$interface_ip] Traffic
+#----------------------------------------------------------------------
+Target[$router_name-$interface_name]: $interface_id:$router_connect
+SetEnv[$router_name-$interface_name]: MRTG_INT_IP="$interface_ip" MRTG_INT_DESCR="$interface_name $interface_ip"
+MaxBytes[$router_name-$interface_name]: $interface_spd_maxgraph
+Options[$router_name-$interface_name]: gauge, growright, nopercent, noinfo
+Title[$router_name-$interface_name]: Traffic Analysis [ $interface_name ]
+PageTop[$router_name-$interface_name]: <h1>Traffic [$sysname - $router_name] $interface_name=$interface_ip</h1>
+      <div id="sysdetails">
+      <table>
+          <tr>
+              <td>System: $sysname - $router_name</td>
+          </tr>
+          <tr>
+          <td>ifType: ethernetCsmacd (6)</td>
+          </tr>
+          <tr>
+              <td>ifName: $interface_name</td>
+          </tr>
+          <tr>
+              <td>Max speed: $interface_spd_mbps MBytes/s</td>
+          </tr>
+          <tr>
+              <td>Interface IP: $interface_ip</td>
+          </tr>
+      </table>
+      </div>
+ECHO
+;
+      }
+    }

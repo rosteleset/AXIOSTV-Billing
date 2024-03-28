@@ -1,0 +1,29 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+  "required": [
+    "id",
+    "type",
+    "streetId",
+    "streetName"
+  ],
+  "properties": {
+    "id": {
+      "$id": "#/properties/id",
+      "type": "number"
+    },
+    "type": {
+      "$id": "#/properties/type",
+      "type": "number"
+    },
+    "streetName": {
+      "$id": "#/properties/streetName",
+      "type": "string"
+    },
+    "streetId": {
+      "$id": "#/properties/streetId",
+      "type": "number"
+    }
+  }
+}

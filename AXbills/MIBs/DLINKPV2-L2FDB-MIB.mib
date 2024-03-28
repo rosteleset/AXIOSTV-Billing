@@ -1,0 +1,323 @@
+--  *****************************************************************
+--  DLINKPV2-L2FDB-MIB.mib : L2 FDB MIB
+--
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKPV2-L2FDB-MIB DEFINITIONS ::= BEGIN
+
+	IMPORTS
+   		MODULE-IDENTITY, OBJECT-TYPE, NOTIFICATION-TYPE,Unsigned32,
+   		Integer32
+       		FROM SNMPv2-SMI
+   		RowStatus,DisplayString,TruthValue,MacAddress
+       		FROM SNMPv2-TC
+   		MODULE-COMPLIANCE, OBJECT-GROUP, NOTIFICATION-GROUP
+       		FROM SNMPv2-CONF
+       	ifIndex, InterfaceIndex, InterfaceIndexOrZero
+            FROM IF-MIB  
+        dot1qFdbId, dot1qStaticUnicastAddress, 
+        VlanId, PortList			
+    		FROM Q-BRIDGE-MIB    		
+        dlinkDGS1100CommonV2		
+            FROM DGS1100SERMGMT-MIB;
+   
+    primeV2L2FdbMIB	MODULE-IDENTITY
+   		LAST-UPDATED "201404260000Z"
+   		ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for L2FDB."
+            
+        REVISION "201404260000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file for 'L2FDB'
+            functionality."
+      ::= { dlinkDGS1100CommonV2 5 } 
+
+-- 
+--	MIB OBJECTS     
+--      
+	v2L2FdbMIBNotifications		OBJECT IDENTIFIER ::= { primeV2L2FdbMIB 0 }
+	v2L2FdbMIBObjects 		    OBJECT IDENTIFIER ::= { primeV2L2FdbMIB 1 }
+	v2L2FdbMIBConformance		OBJECT IDENTIFIER ::= { primeV2L2FdbMIB 2 }
+
+
+-- -----------------------------------------------------------------------------     
+    v2L2FdbGblCtrl			OBJECT IDENTIFIER ::= { v2L2FdbMIBObjects 1 }
+    
+    v2L2FdbClearCtrl		OBJECT IDENTIFIER ::= { v2L2FdbGblCtrl 1 }
+ 
+    v2L2FdbClearAllMacAddr OBJECT-TYPE
+        SYNTAX  INTEGER {
+                clear(1),
+                noOp(2)
+        }
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object clears all of the dynamic FDB entries, when set to 'clear'. 
+            No action is taken if this object is set to 'noOp'.
+            When read, the value 'noOp' is returned."
+        ::= { v2L2FdbClearCtrl 1 }  
+                         	    
+    v2L2FdbAgingTime		OBJECT-TYPE
+    	SYNTAX			    Unsigned32 ( 0 | 10..1000000 )
+    	UNITS				"second"
+    	MAX-ACCESS			read-write
+    	STATUS				current
+    	DESCRIPTION
+    		"Specify the aging time in seconds. 
+    		 The valid range is 10 to 1000000 seconds.
+    		 The special valie of 0 indicates the ging out function is disabled.
+    		 "
+    	DEFVAL { 300 }
+    	::= {  v2L2FdbGblCtrl 2 }    	    
+  
+-- -----------------------------------------------------------------------------  	
+	v2L2FdbStaticUnicastTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2L2FdbStaticUnicastEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table contains a list of configuration for 
+            static unicast MAC addresses."
+        ::= { v2L2FdbMIBObjects 2 }
+
+    v2L2FdbStaticUnicastEntry OBJECT-TYPE
+        SYNTAX          V2L2FdbStaticUnicastEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table entry represents configuration for a static
+            unicast MAC address information."
+        INDEX    {         
+            v2L2FdbStaticUnicastVlanID,
+            v2L2FdbStaticUnicastMacAddr                             
+        }
+        ::= { v2L2FdbStaticUnicastTable 1 }
+
+    V2L2FdbStaticUnicastEntry ::= SEQUENCE {        
+        v2L2FdbStaticUnicastVlanID       VlanId,
+        v2L2FdbStaticUnicastMacAddr      MacAddress,                       
+        v2L2FdbStaticUnicastPortNum      Integer32,
+        v2L2FdbStaticUnicastRowStatus    RowStatus
+    }
+                                            
+    v2L2FdbStaticUnicastVlanID           OBJECT-TYPE
+        SYNTAX          VlanId
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+                "The VLAN ID of the entry."
+        ::= { v2L2FdbStaticUnicastEntry 1 }
+                        
+    v2L2FdbStaticUnicastMacAddr            OBJECT-TYPE
+        SYNTAX          MacAddress 
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The MAC address of the entry."
+        ::= { v2L2FdbStaticUnicastEntry 2 }  
+                
+    v2L2FdbStaticUnicastPortNum            OBJECT-TYPE
+        SYNTAX          Integer32 
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "The port number of the static unicast address. 
+            The value of 0 indicates the CPU port.
+            The value of -1 indicates mac filter entry with permanentDrop type."
+        ::= { v2L2FdbStaticUnicastEntry 3 }
+            
+    v2L2FdbStaticUnicastRowStatus            OBJECT-TYPE
+        SYNTAX          RowStatus 
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the RowStatus of this entry."
+        ::= { v2L2FdbStaticUnicastEntry 4 }
+
+-- -----------------------------------------------------------------------------  	
+	v2L2FdbStaticMulticastTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2L2FdbStaticMulticastEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table contains a list of configuration for 
+            static multicast MAC addresses."
+        ::= { v2L2FdbMIBObjects 3 }
+
+    v2L2FdbStaticMulticastEntry OBJECT-TYPE
+        SYNTAX          V2L2FdbStaticMulticastEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table entry represents configuration for a static
+            multicast MAC address information."
+        INDEX    {         
+            v2L2FdbStaticMulticastVlanID,
+            v2L2FdbStaticMulticastMacAddr                             
+        }
+        ::= { v2L2FdbStaticMulticastTable 1 }
+
+    V2L2FdbStaticMulticastEntry ::= SEQUENCE {        
+        v2L2FdbStaticMulticastVlanID       VlanId,
+        v2L2FdbStaticMulticastMacAddr      MacAddress,                       
+        v2L2FdbStaticMulticastEgressPorts  PortList,
+        v2L2FdbStaticMulticastRowStatus    RowStatus
+    }
+                                            
+    v2L2FdbStaticMulticastVlanID           OBJECT-TYPE
+        SYNTAX          VlanId
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+                "The VLAN ID of the entry."
+        ::= { v2L2FdbStaticMulticastEntry 1 }
+                        
+    v2L2FdbStaticMulticastMacAddr            OBJECT-TYPE
+        SYNTAX          MacAddress 
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The MAC address of the entry."
+        ::= { v2L2FdbStaticMulticastEntry 2 }  
+                
+    v2L2FdbStaticMulticastEgressPorts          OBJECT-TYPE
+        SYNTAX          PortList 
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "The port number of the static multicast address." 
+        ::= { v2L2FdbStaticMulticastEntry 3 }
+            
+    v2L2FdbStaticMulticastRowStatus            OBJECT-TYPE
+        SYNTAX          RowStatus 
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the RowStatus of this entry."
+        ::= { v2L2FdbStaticMulticastEntry 4 }
+                       	   		
+-- -----------------------------------------------------------------------------
+	v2L2FdbIfCtrlTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2L2FdbIfCtrlEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table contains a list of interface-specific configuration for 
+            L2 FDB."
+        ::= { v2L2FdbMIBObjects 4 }
+
+    v2L2FdbIfCtrlEntry OBJECT-TYPE
+        SYNTAX          V2L2FdbIfCtrlEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry represents interface L2 FDB configuration."
+        INDEX    { ifIndex }
+        ::= { v2L2FdbIfCtrlTable 1 }
+
+    V2L2FdbIfCtrlEntry ::= SEQUENCE {                             
+        v2L2FdbIfMacLearningEnabled      TruthValue               
+    }
+            
+      
+	v2L2FdbIfMacLearningEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write 
+        STATUS          current
+        DESCRIPTION
+            "This object indicates whether the MAC-address learning is enabled or not
+            on the physical interface."
+        ::= { v2L2FdbIfCtrlEntry 1 }        
+                
+
+-- -----------------------------------------------------------------------------         	
+	v2L2FdbMcastFilterMode OBJECT-TYPE
+        SYNTAX      INTEGER {
+             forwardUnregistered(1),
+             filterUnregistered(2)
+        }
+        MAX-ACCESS      read-write 
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the handling method for multicast packets 
+            on the corresponding interface."
+        ::= { v2L2FdbMIBObjects 5 }        
+                
+
+   
+--  ***************************************************************************	
+--  Conformance
+--  ***************************************************************************			   		
+	v2L2FdbCompliances OBJECT IDENTIFIER ::= { v2L2FdbMIBConformance 1 }
+		
+	v2L2FdbCompliance MODULE-COMPLIANCE
+		STATUS current
+		DESCRIPTION 
+			"The compliance statement for entities which implement the 
+			DLINKPV2-L2FDB-MIB."
+		MODULE -- this module
+		MANDATORY-GROUPS { 
+		    v2L2FdbGlobalGroup,
+		    v2L2FdbMacAddrTableGroup, 
+		    v2L2FdbInterfaceGroup,
+		    v2L2FdbMcastFilterModeCfgGroup		   
+		}
+		::= { v2L2FdbCompliances 1 }
+		
+	v2L2FdbGroups OBJECT IDENTIFIER ::= { v2L2FdbMIBConformance 2 }
+		
+	v2L2FdbGlobalGroup OBJECT-GROUP
+		OBJECTS {
+		    v2L2FdbClearAllMacAddr, 
+		    v2L2FdbAgingTime
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing the gloal configuration for L2FDB"
+		::= { v2L2FdbGroups 1 }
+
+	v2L2FdbMacAddrTableGroup OBJECT-GROUP
+		OBJECTS {
+		    v2L2FdbStaticUnicastPortNum,
+		    v2L2FdbStaticUnicastRowStatus		   		     	   
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing the information of MAC-Address-Table for L2FDB"
+		::= { v2L2FdbGroups 2 }
+	        
+	v2L2FdbInterfaceGroup OBJECT-GROUP
+		OBJECTS {		        
+		        v2L2FdbIfMacLearningEnabled  		        		        		        		        
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing the information of Interface Table for L2FDB"
+		::= { v2L2FdbGroups 3 }	        
+		
+		
+	v2L2FdbMcastFilterModeCfgGroup OBJECT-GROUP
+		OBJECTS {   
+		    v2L2FdbMcastFilterMode
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects about the configuration for multicast
+			filter mode. 
+			"
+		::= { v2L2FdbGroups 4 }
+			
+        	
+END
+

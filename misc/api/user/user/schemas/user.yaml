@@ -1,0 +1,39 @@
+type: object
+properties:
+  activate:
+    type: string
+    example: "0000-00-00"
+  billId:
+    type: number
+    example: 201009
+  billOwner:
+    type: number
+    example: 0
+  credit:
+    type: number
+    example: 0
+  creditDate:
+    type: string
+    example: "0000-00-00"
+  deposit:
+    type: number
+    example: 8229.65
+  domainId:
+    type: number
+    example: 0
+  expire:
+    type: string
+    example: "0000-00-00"
+  extBillId:
+    type: number
+    example: 0
+  login:
+    type: string
+    example: test123
+  registration:
+    type: string
+    format: date
+    example: "2022-11-14"
+  uid:
+    type: number
+    example: 103214

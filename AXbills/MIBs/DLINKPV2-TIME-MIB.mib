@@ -1,0 +1,314 @@
+--  *****************************************************************
+--  DLINKPV2-TIME-MIB.mib : D-Link Time MIB
+--
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKPV2-TIME-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE, IpAddress,
+        Unsigned32                  FROM SNMPv2-SMI
+        OBJECT-GROUP,MODULE-COMPLIANCE			
+                                    FROM SNMPv2-CONF
+        TEXTUAL-CONVENTION,DateAndTime,
+        TruthValue,DisplayString,
+        RowStatus                   FROM SNMPv2-TC      
+        InterfaceIndexOrZero        FROM IF-MIB    
+        InetAddressType,InetAddress FROM INET-ADDRESS-MIB       
+        dlinkDGS1100CommonV2        FROM DGS1100SERMGMT-MIB;
+
+
+    primeV2TimeMIB MODULE-IDENTITY
+        LAST-UPDATED "201404260000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for Time and Simple Network Time
+            Protocol (SNTP)."
+        REVISION "201404260000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file. 
+            "
+    ::= { dlinkDGS1100CommonV2 23 }
+
+    DlinkTimeSummerTimeValue ::= TEXTUAL-CONVENTION
+        DISPLAY-HINT "2d-1d-1d,1d:1d"
+        STATUS       current
+        DESCRIPTION
+            "Denotes Summer Time starts or ends time.
+            This value is always interpreted within the context of a 
+            v2TimeSummerTimeAutoSwitchMode value.
+            When v2TimeSummerTimeAutoSwitchMode is disable(1), this value is not
+            meaningful.
+        
+            When v2TimeSummerTimeAutoSwitchMode is date(2), the format is defined as follows:    
+        
+            octets    contents    range
+            ------    --------    -----------
+               1-2        year    2000..2037
+                 3        date    1..31
+                 4       month    1..12 where January = 1 December = 12
+                 5        hour    0..23
+                 6      minute    0..59
+             
+             For example, the first Feb 2000 at 13:30pm should be given as 07 d0 01 02 0d 1e
+             For the first May 2000 at 1:20am should be given as 07 d0 01 05 01 14                     
+         "
+    SYNTAX       OCTET STRING (SIZE (6))
+
+-- -----------------------------------------------------------------------------
+    v2TimeMIBNotifications     OBJECT IDENTIFIER ::= { primeV2TimeMIB 0 }
+    v2TimeMIBObjects           OBJECT IDENTIFIER ::= { primeV2TimeMIB 1 }
+    v2TimeMIBConformance       OBJECT IDENTIFIER ::= { primeV2TimeMIB 2 }
+    
+-- -----------------------------------------------------------------------------
+    v2TimeGeneral         OBJECT IDENTIFIER ::= { v2TimeMIBObjects 1 }
+
+    v2TimeSntpEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the state of SNTP function.
+            Setting this object to 'true' will enable SNTP function.
+            "
+        ::= { v2TimeGeneral 1 }
+    
+    v2TimeSntpPollInterval OBJECT-TYPE
+        SYNTAX          Unsigned32 (64..1024)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION 
+            "This object indicates the interval for the SNTP client to
+            synchronize its clock with server."
+        DEFVAL      { 1000 }
+        ::= { v2TimeGeneral 2 }
+            
+-- -----------------------------------------------------------------------------
+    v2TimeClock                   OBJECT IDENTIFIER ::= { v2TimeMIBObjects 2 }    
+
+    v2TimeManagedClock OBJECT-TYPE
+        SYNTAX          DateAndTime
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Use the object to manually set the system clock."
+        ::= { v2TimeClock 1 }
+
+    v2TimeCurrentTimeSource OBJECT-TYPE
+        SYNTAX          INTEGER { 
+            sntp(1), 
+            noTimeSource(2)
+        }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "The object indicates the clock source."
+        ::= { v2TimeClock 2 }
+
+    v2TimeCurrentTime  OBJECT-TYPE
+        SYNTAX          DateAndTime
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the current system time. System time can
+            be disciplined or adjusted by RTC, SNTP, or configured by user.
+            "
+        ::= { v2TimeClock 3 }
+
+-- -----------------------------------------------------------------------------    
+
+    v2TimeSummerTime         OBJECT IDENTIFIER ::= { v2TimeClock 4 }
+
+    v2TimeSummerTimeAutoSwitchMode OBJECT-TYPE
+        SYNTAX          INTEGER  { 
+            disable(1), 
+            date(2) 
+        }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the mode of the system to automatically
+            switch to Summer Time (Daylight Saving Time).
+            disable(1) - The Daylight Saving Time feature is disabled.
+            date(2) - The Daylight Saving Time feature is enabled. 
+                      The Summer Time should start and end on the specified date
+                      of the specified month.  
+            "
+        DEFVAL { disable }
+        ::= { v2TimeSummerTime 1 }
+        
+    v2TimeSummerTimeTimeZone OBJECT-TYPE
+        SYNTAX          INTEGER (-779..839)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION 
+            "Local time offset in minutes from GMT."          
+        ::= { v2TimeSummerTime 2 }
+        
+    v2TimeSummerTimeStart OBJECT-TYPE
+        SYNTAX          DlinkTimeSummerTimeValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION 
+            "This object indicates when the Summer Time starts.
+            This value is always interpreted within the context of a 
+            v2TimeSummerTimeAutoSwitchMode value.             
+            "             
+        ::= { v2TimeSummerTime 3 }
+        
+    v2TimeSummerTimeEnd OBJECT-TYPE
+        SYNTAX          DlinkTimeSummerTimeValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates when the Summer Time ends.
+            This value is always interpreted within the context of a 
+            v2TimeSummerTimeAutoSwitchMode value.
+            "  
+        ::= { v2TimeSummerTime 4 }
+  
+    v2TimeSummerTimeOffset  OBJECT-TYPE
+        SYNTAX      INTEGER (30|60|90|120)
+        UNITS       "Minutes"
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "The value of this object indicates number of minutes to add
+            or to subtract during Summer Time. This object is not meaningful
+            when v2TimeSummerTimeAutoSwitchMode object is 'disable'."
+        DEFVAL { 60 }
+        ::= { v2TimeSummerTime 5 }
+
+-- -----------------------------------------------------------------------------
+    v2TimeServer                  OBJECT IDENTIFIER ::= { v2TimeMIBObjects 3 }
+    
+    v2TimeSntpServerAddr  OBJECT-TYPE
+        SYNTAX          IpAddress
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "IP address of the time server which provides the clock
+             synchronization."
+        ::= { v2TimeServer 1 }
+        
+    v2TimeSntpServerStratum  OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the SNTP server stratum."
+        ::= { v2TimeServer 2 }
+        
+    v2TimeSntpServerVersion  OBJECT-TYPE
+        SYNTAX          Unsigned32
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the SNTP server version."
+        ::= { v2TimeServer 3 }
+        
+    v2TimeSntpServerLastReceive OBJECT-TYPE
+        SYNTAX          Unsigned32
+        UNITS           "seconds"
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the elapsed time that the SNTP time has
+            been synchronized.             
+            "
+        ::= { v2TimeServer 4 }
+
+
+--  ***************************************************************************	
+--  Conformance
+--  ***************************************************************************			   		
+	v2TimeCompliances OBJECT IDENTIFIER ::= { v2TimeMIBConformance 1 }
+		
+	v2TimeCompliance MODULE-COMPLIANCE
+		STATUS current
+		DESCRIPTION 
+			"The compliance statement for entities which implement the 
+			DLINKPV2-TIME-MIB."
+		MODULE -- this module
+		MANDATORY-GROUPS { 
+		    v2TimeSysInfoGroup	   		   
+		}
+				
+		GROUP    v2TimeClockGroup 
+        DESCRIPTION
+           "This group is conditionally mandatory and must be implemented by
+		    the agent only if system clock can be manually configured."
+		   		   
+		GROUP    v2TimeSntpGroup 
+        DESCRIPTION
+           "This group is conditionally mandatory and must be implemented by
+		    the agent only if SNTP feature is supported."
+		        		        
+        GROUP    v2TimeSummerTimeCfgGroup 
+        DESCRIPTION
+           "This group is conditionally mandatory and must be implemented by
+		   the agent only if Daylight Saving Time feature is supported.
+		   "
+		::= { v2TimeCompliances 1 }
+
+-- units of conformance		
+	v2TimeGroups OBJECT IDENTIFIER ::= { v2TimeMIBConformance 2 }
+		
+	v2TimeSysInfoGroup OBJECT-GROUP
+		OBJECTS { 		    
+		    v2TimeCurrentTimeSource,
+		    v2TimeCurrentTime	    
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects provides the information for system time."
+		::= { v2TimeGroups 1 }
+	
+	v2TimeClockGroup OBJECT-GROUP
+		OBJECTS { 		    
+		    v2TimeManagedClock
+     	}
+		STATUS          current
+		DESCRIPTION 
+			"A collection of objects provides configuration for system time."
+		::= { v2TimeGroups 2 }
+			
+	v2TimeSntpGroup OBJECT-GROUP
+		OBJECTS { 
+		   	v2TimeSntpEnabled,
+		    v2TimeSntpPollInterval,
+		    v2TimeSntpServerAddr,
+		   	v2TimeSntpServerStratum,
+		   	v2TimeSntpServerVersion,
+		   	v2TimeSntpServerLastReceive
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects provides configuration for SNTP."
+			::= { v2TimeGroups 3 }
+	
+	v2TimeSummerTimeCfgGroup OBJECT-GROUP
+		OBJECTS { 		    		    
+		    v2TimeSummerTimeAutoSwitchMode,
+		    v2TimeSummerTimeTimeZone,
+		    v2TimeSummerTimeStart,
+		    v2TimeSummerTimeEnd,
+		    v2TimeSummerTimeOffset
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects provides configuration for Daylight
+			Saving Time feature."
+		::= { v2TimeGroups 4 }
+	
+	
+END

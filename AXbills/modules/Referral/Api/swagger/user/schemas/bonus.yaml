@@ -1,0 +1,8 @@
+type: object
+properties:
+  result:
+    type: string
+    example: "Successfully get bonus - 20"
+  bonusSum:
+    type: number
+    example: 20

@@ -1,0 +1,16 @@
+.colored-block {
+    display: inline-block;
+    border: 1px solid black;
+    min-width: 15px;
+    opacity: 1;
+    margin-right: 1px
+}
+
+.module-color {
+    /*border-right : none;*/
+}
+
+.fiber-color {
+    /*border-left : none;*/
+    margin-right: 15px;
+}

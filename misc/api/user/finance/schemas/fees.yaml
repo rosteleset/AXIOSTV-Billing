@@ -1,0 +1,17 @@
+type: object
+properties:
+  datetime:
+    type: string
+    example: "2021-10-06 00:00:00"
+  dsc:
+    type: string
+    example: 'Internet: М/А test (111)(2021-10-01-2021-10-31)'
+  id:
+    type: number
+    example: 3190
+  sum:
+    type: number
+    example: 10
+  uid:
+    type: number
+    example: 6550

@@ -1,0 +1,12 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+
+%FUNCTIONS_LIST = (
+  "01:0:$lang{TIMETRACKER}:timetracker:"         =>  4,
+  "02:0:$lang{FILLING_TIMETRACKER}:add_time:"    =>  9,
+  "03:0:$lang{DECOMPOSITION}:decomposition:"     =>  8,
+  "04:0:$lang{ADDING_TIMETRACKER}:add_item:"     =>  5,
+  "05:1:$lang{TASK_EXECUTION}:get_ticket_work"   =>  4,
+  "06:1:$lang{REPORTS_HEADER}:all_report_time"   =>  4,
+  "07:1:$lang{SPRINT_REPORT}:report_sprint"      =>  4,
+
+);

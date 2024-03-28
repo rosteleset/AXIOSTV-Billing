@@ -1,0 +1,6 @@
+our %FUNCTIONS_LIST = (
+  "01:0:Push:null"                => 4,
+  "02:1:$lang{PUSH_LOG}:push_log" => 4,
+);
+
+1;

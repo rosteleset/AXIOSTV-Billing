@@ -1,0 +1,14 @@
+type: object
+properties:
+  duration:
+    type: number
+    example: 10782
+  input:
+    type: number
+    example: 366270859
+  ip:
+    type: string
+    example: 192.168.50.156
+  output:
+    type: number
+    example: 73249353

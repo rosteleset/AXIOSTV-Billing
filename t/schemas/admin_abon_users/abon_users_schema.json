@@ -1,0 +1,69 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+  "required": [
+    "uid",
+    "period",
+    "comments",
+    "nextAbon",
+    "manualFee",
+    "tpId",
+    "fio",
+    "login",
+    "tpName",
+    "date",
+    "serviceCount",
+    "price"
+  ],
+  "properties": {
+    "uid": {
+      "$id": "#/properties/uid",
+      "type": "number"
+    },
+    "period": {
+      "$id": "#/properties/period",
+      "type": "number"
+    },
+    "comments": {
+      "$id": "#/properties/comments",
+      "type": "string"
+    },
+    "nextAbon": {
+      "$id": "#/properties/nextAbon",
+      "type": "string"
+    },
+    "manualFee": {
+      "$id": "#/properties/manualFee",
+      "type": "number"
+    },
+    "tpId": {
+      "$id": "#/properties/tpId",
+      "type": "number"
+    },
+    "fio": {
+      "$id": "#/properties/fio",
+      "type": "string"
+    },
+    "login": {
+      "$id": "#/properties/login",
+      "type": "string"
+    },
+    "tpName": {
+      "$id": "#/properties/tpName",
+      "type": "string"
+    },
+    "date": {
+      "$id": "#/properties/date",
+      "type": "string"
+    },
+    "serviceCount": {
+      "$id": "#/properties/serviceCount",
+      "type": "number"
+    },
+    "price": {
+      "$id": "#/properties/price",
+      "type": "number"
+    }
+  }
+}

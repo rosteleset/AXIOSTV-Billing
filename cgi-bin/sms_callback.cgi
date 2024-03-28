@@ -1,0 +1,1 @@
+../AXbills/modules/Sms/sms_callback.cgi

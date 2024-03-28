@@ -1,0 +1,43 @@
+put:
+  tags:
+    - referral
+  summary: Изменить реферала
+  parameters:
+    - name: ID
+      in: path
+      description: ID реферала
+      required: true
+      schema:
+        type: number
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: "../schemas/referralAdd.yaml"
+    required: true
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              result:
+                type: string
+                example: Successfully changed
+    400:
+      description: Нет поля fio или number
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              errno:
+                type: integer
+                example: 41003
+              errstr:
+                type: string
+                example: No fields fio or number
+  security:
+    - USERSID: [ ]

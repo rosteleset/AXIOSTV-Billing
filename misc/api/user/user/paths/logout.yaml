@@ -1,0 +1,17 @@
+delete:
+  tags:
+    - user
+  summary: Выход пользователя
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              result:
+                type: string
+                example: Success logout
+  security:
+    - USERSID: [ ]

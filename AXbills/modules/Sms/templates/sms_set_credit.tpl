@@ -1,0 +1,1 @@
+"Credit for %CREDIT% LYD is activated and valid until %EXPIRE_DATE%"

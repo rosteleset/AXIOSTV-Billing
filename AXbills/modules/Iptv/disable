@@ -1,0 +1,30 @@
+#!/usr/local/bin/expect
+# NAS_IP PORT_ID TP_ID LOGIN PASSWORD
+set SWITCH [lindex $argv 0]
+set PORT [lindex $argv 1]
+set TP_ID [lindex $argv 2]
+
+# must be loginable to swithches (local or tacacs)
+set name [lindex $argv 3]
+set password [lindex $argv 4]
+
+
+spawn ssh $SWITCH
+expect yes/no)? {send "yes\r"}
+expect Name: {send "$name\r"}
+expect assword: {send "$password\r"}
+
+if { $TP_ID == 71 } {
+
+expect "#" {send "conf
+      bridge multicast filtering
+      !
+      no ip access-list yaltatv
+      !
+      end
+      !
+      copy run start
+      exit\r"}
+expect oef
+
+}

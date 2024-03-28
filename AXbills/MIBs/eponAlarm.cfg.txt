@@ -1,0 +1,10 @@
+#include "ccdgenKeywords.h"
+
+Begin: eponAlarm.mi2 eponAlarmMgmt
+       IncludeFile: $GBN_DIR/tools/mibs
+       SupportPath: $GBN_DIR/tools/mibs
+	     SupportMibs: eponRoot.mi2
+       GroupList: eponAlarmMgmt
+    /* HideFromSNMP: true */
+
+End:

@@ -1,0 +1,285 @@
+--  *****************************************************************
+--  DLINKPV2-SYSLOG-MIB.mib : Syslog MIB
+--
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKPV2-SYSLOG-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-IDENTITY, OBJECT-TYPE, Unsigned32,
+        Integer32, IpAddress
+            FROM SNMPv2-SMI
+        RowStatus, TruthValue, DateAndTime, DisplayString
+            FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP
+		    FROM SNMPv2-CONF         
+        InterfaceIndexOrZero
+                FROM IF-MIB                        
+        InetAddressType, InetAddress
+            FROM INET-ADDRESS-MIB
+        ifIndex	        			
+            FROM IF-MIB
+        dlinkDGS1100CommonV2           
+            FROM DGS1100SERMGMT-MIB;
+
+    primeV2SyslogMIB MODULE-IDENTITY
+        LAST-UPDATED "201404260000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for system log function."
+        REVISION "201404260000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file.
+            "
+        ::= { dlinkDGS1100CommonV2 21 }
+
+-- -----------------------------------------------------------------------------
+    v2SyslogMIBNotifications    OBJECT IDENTIFIER ::= { primeV2SyslogMIB 0 }
+    v2SyslogMIBObjects          OBJECT IDENTIFIER ::= { primeV2SyslogMIB 1 }
+    v2SyslogMIBConformance      OBJECT IDENTIFIER ::= { primeV2SyslogMIB 2 }
+
+-- -----------------------------------------------------------------------------   
+    v2SyslogGeneral             OBJECT IDENTIFIER ::= { v2SyslogMIBObjects 1 }
+		    
+	v2SyslogLogOnEnabled  OBJECT-TYPE
+		SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object enables or disables the System Log function
+            during system runtime."
+        ::= { v2SyslogGeneral 1 }
+    
+-- -----------------------------------------------------------------------------
+    v2SyslogLogbuffer OBJECT-IDENTITY
+        STATUS          current
+        DESCRIPTION
+            "This object identifier represents the group of objects that are 
+            related to the logging system message to local buffer.
+            "
+        ::= { v2SyslogMIBObjects 2 } 
+ 
+    v2SyslogClearLogBuffer OBJECT-TYPE
+        SYNTAX	    INTEGER {
+            clear(1),
+            noOp(2)                    
+        }
+	    MAX-ACCESS      read-write
+	    STATUS	        current
+	    DESCRIPTION		    
+        	"This object is used to clear log messages at logging buffer when set
+        	to 'clear'.
+            No action is taken if this object is set to 'noOp'.
+            When read, the value 'noOp' is returned."           
+        ::= { v2SyslogLogbuffer 1 }
+
+    v2SyslogLogBufferEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the state of logging system messages to the
+            local buffer.
+            Messages must enter the local message buffer first before it can
+            be further dispatched to other destinations.
+            "      
+        ::= { v2SyslogLogbuffer 2 }
+
+-- -----------------------------------------------------------------------------
+    v2SyslogServer                  OBJECT IDENTIFIER ::= { v2SyslogMIBObjects 3 }
+
+    v2SyslogServerAddress OBJECT-TYPE
+        SYNTAX          IpAddress
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the IPv4 address of the SYSLOG server."
+        ::= { v2SyslogServer 1 }
+		
+    v2SyslogServerPort OBJECT-TYPE
+        SYNTAX          Unsigned32 (514 | 1024..65535)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the UDP port number to be used for the
+            SYSLOG server.
+            "
+        DEFVAL      { 514 }
+        ::= { v2SyslogServer 2 }
+
+    v2SyslogServerSeverity OBJECT-TYPE
+        SYNTAX  INTEGER {
+            warning(1),
+            informational(2),
+            all(3)               
+        }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the severity of log messages that will be
+            sent to the server."
+        DEFVAL      { warning }
+        ::= { v2SyslogServer 3 }
+
+    v2SyslogServerFacility OBJECT-TYPE
+        SYNTAX  INTEGER {
+            local_0(0),
+            local_1(1),
+            local_2(2),
+            local_3(3),
+            local_4(4),
+            local_5(5),
+            local_6(6),
+            local_7(7)               
+        }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "Specifies the logging facility of the log host.
+            "
+        DEFVAL      { local_7 }
+        ::= { v2SyslogServer 4 }
+   
+-- -----------------------------------------------------------------------------
+    v2SyslogBufferTableNum  OBJECT-TYPE
+        SYNTAX      Unsigned32
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+            "This object indicates the number of entries presented in the 
+            v2SyslogBufferTable."
+        ::= { v2SyslogMIBObjects 4 }
+
+    v2SyslogBufferTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2SyslogBufferEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table consists of a list of system log messages."
+        ::= { v2SyslogMIBObjects 5 }
+
+    v2SyslogBufferEntry OBJECT-TYPE
+        SYNTAX          V2SyslogBufferEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION     
+            "An entry defines a log message."
+        INDEX           { ifIndex }
+        ::= { v2SyslogBufferTable 1 }
+
+    V2SyslogBufferEntry ::= SEQUENCE {
+        v2SyslogBufferLevel          DisplayString,
+        v2SyslogBufferDateAndTime    DisplayString,
+        v2SyslogBufferDescription    DisplayString
+    }
+
+    v2SyslogBufferLevel OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "An index that uniquely identifies the message."
+        ::= { v2SyslogBufferEntry 1 }
+
+    v2SyslogBufferDateAndTime OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "The date and time when the message is logged."
+        ::= { v2SyslogBufferEntry 2 }
+
+    v2SyslogBufferDescription OBJECT-TYPE
+        SYNTAX          DisplayString
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "The content of the log message."
+        ::= { v2SyslogBufferEntry 3 }
+
+
+-- -----------------------------------------------------------------------------
+
+--****************************************************************************
+-- Conformance
+--****************************************************************************
+  
+    v2SyslogMIBCompliances OBJECT IDENTIFIER ::= { v2SyslogMIBConformance 1 }
+
+
+-- compliance statements
+
+    v2SyslogMIBCompliance MODULE-COMPLIANCE
+        STATUS      current
+        DESCRIPTION
+            "The compliance statement for entities which
+             implement the DLINKPV2-SYSLOG-MIB."
+        MODULE      -- this module
+        MANDATORY-GROUPS       {
+            v2SyslogGeneralGroup          
+        }        
+              
+        GROUP           v2SyslogLogServerGroup
+        DESCRIPTION
+            "Implementation of this group is optional."
+
+        OBJECT          v2SyslogServerDiscriminator        
+        MIN-ACCESS      read-only
+        DESCRIPTION
+            "It is compliant to implement this object as
+            read-only. The write-access is only required
+            when discriminator feature is supported."
+
+        OBJECT          v2SyslogServerVrfName        
+        MIN-ACCESS      read-only
+        DESCRIPTION
+            "It is compliant to implement this object as
+            read-only. The write-access is only required
+            when VRF feature is supported."
+               
+        ::= { v2SyslogMIBCompliances 1 }
+
+-- units of conformance
+
+    v2SyslogMIBGroups      OBJECT IDENTIFIER ::=  { v2SyslogMIBCompliances 2 }
+
+    v2SyslogGeneralGroup OBJECT-GROUP
+        OBJECTS {                       
+            v2SyslogClearLogBuffer,
+            v2SyslogLogBufferEnabled,
+            v2SyslogBufferTableNum,
+            v2SyslogBufferDateAndTime,
+            v2SyslogBufferDescription,
+			v2SyslogLogOnEnabled	
+        }
+        STATUS      current
+        DESCRIPTION
+            "A collection of objects provides basic configuration of
+            SYSLOG feature.
+            "
+        ::= { v2SyslogMIBGroups 1 }
+
+   v2SyslogLogServerGroup OBJECT-GROUP
+        OBJECTS {
+           v2SyslogServerPort,
+           v2SyslogServerSeverity,
+           v2SyslogServerFacility
+        }
+        STATUS  current
+        DESCRIPTION
+            "A collection of objects provides configurations that are related
+            to the logging system messages to the SYSLOG servers.
+            "
+        ::= { v2SyslogMIBGroups 2 } 
+
+END
+

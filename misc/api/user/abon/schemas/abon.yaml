@@ -1,0 +1,39 @@
+type: array
+items:
+  type: object
+  properties:
+    id:
+      type: integer
+      example: 2
+    name:
+      type: string
+      example: Test abon TP
+    price:
+      type: integer
+      example: 100
+    period:
+      type: string
+      example: "month"
+    nextAbon:
+      type: string
+      example: "2021-09-01"
+    comments:
+      type: string
+    description:
+      type: string
+      example: Test description
+    personalDescription:
+      type: string
+      example: Your test code is
+    serviceImg:
+      type: string
+      example: https://demo.axbills.net.ua/9443/images/attach/abon
+    serviceLink:
+      type: string
+      example: Скачати|https://sourceforge.net/projects/axbills/
+    tpReductionFee:
+      type: number
+      example: 1
+    originalPrice:
+      type: number
+      example: 90

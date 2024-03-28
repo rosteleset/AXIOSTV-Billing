@@ -1,0 +1,260 @@
+-- *****************************************************************
+-- DLINKPV2-QOS-MIB.mib : D-Link QoS MIB
+--
+-- Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--   
+-- *****************************************************************
+
+DLINKPV2-QOS-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE,Integer32,Unsigned32
+            FROM SNMPv2-SMI   
+        RowStatus, DisplayString,TruthValue,TEXTUAL-CONVENTION    
+            FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP
+		    FROM SNMPv2-CONF        
+        dot1dBasePort
+            FROM BRIDGE-MIB
+        dlinkDGS1100CommonV2	
+            FROM DGS1100SERMGMT-MIB;
+		
+   	
+    primeV2QosMIB MODULE-IDENTITY
+        LAST-UPDATED "201404260000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "         D-Link Corporation
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:    +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+		    "The Structure of QoS Infomation for the 
+		     proprietary enterprise."
+        REVISION "201404260000Z"
+        DESCRIPTION
+            "Initial version of this MIB module."   
+        ::= { dlinkDGS1100CommonV2 13 }
+ 
+-- -----------------------------------------------------------------------------
+    v2QosMIBObjects     		OBJECT IDENTIFIER ::= { primeV2QosMIB 1 }
+    v2QosMIBConformance			OBJECT IDENTIFIER ::= { primeV2QosMIB 2 }
+
+-- -----------------------------------------------------------------------------
+	v2QosScheduling   	   	    OBJECT IDENTIFIER ::= { v2QosMIBObjects 1 }
+	v2QosBandwidthCtrl          OBJECT IDENTIFIER ::= { v2QosMIBObjects 2 }
+	v2QosCosCfg                 OBJECT IDENTIFIER ::= { v2QosMIBObjects 3 }
+	
+-- -----------------------------------------------------------------------------   	
+  v2QosSchedulingModeTable OBJECT-TYPE
+		SYNTAX          SEQUENCE OF V2QosSchedulingModeEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current                                          		
+		DESCRIPTION
+		    "This table consists of a list of scheduling mechanism configurations
+            for ports."
+		::= { v2QosScheduling 1 }
+
+	v2QosSchedulingModeEntry OBJECT-TYPE
+		SYNTAX          V2QosSchedulingModeEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		      "An entry configures the scheduling mode on an interface."
+		INDEX   { dot1dBasePort }
+		::= { v2QosSchedulingModeTable 1 }
+
+	V2QosSchedulingModeEntry ::= 		SEQUENCE {		  
+		  v2QosSchedulingMode      INTEGER
+	  }
+	    
+  v2QosSchedulingMode OBJECT-TYPE
+		SYNTAX	INTEGER {
+            sp(1),
+            wrr(2)
+    }
+		MAX-ACCESS      read-write
+		STATUS          current
+		DESCRIPTION
+		   "This object indicates the mechanism of QoS scheduling on the interface.
+		   "
+		::= { v2QosSchedulingModeEntry 1 }
+
+-- -----------------------------------------------------------------------------
+	v2QosBandwidthCtrlTable OBJECT-TYPE
+		SYNTAX          SEQUENCE OF V2QosBandwidthCtrlEntry
+		MAX-ACCESS      not-accessible
+		STATUS  current
+		DESCRIPTION
+		    "A table consists of a list of configurations for bandwidth control 
+            on interfaces."
+		::= { v2QosBandwidthCtrl 1 }
+	
+	v2QosBandwidthCtrlEntry OBJECT-TYPE
+		SYNTAX          V2QosBandwidthCtrlEntry
+		MAX-ACCESS      not-accessible
+		STATUS  current
+		DESCRIPTION
+		    "An entry configures the bandwidth on an interface.
+            An entry will exist for every applicable port.
+            "
+		INDEX   { dot1dBasePort }
+		::= { v2QosBandwidthCtrlTable 1 }
+	
+	V2QosBandwidthCtrlEntry ::=		SEQUENCE {		
+		  v2QosBandwidthRxRate	    INTEGER,   
+		  v2QosBandwidthTxRate	    INTEGER
+		}
+			
+	v2QosBandwidthRxRate OBJECT-TYPE
+		SYNTAX	INTEGER {
+            noLimit(1),
+            limit_16Kbps(3),
+            limit_32Kbps(4),
+            limit_64Kbps(5),
+            limit_128Kbps(6),
+            limit_256Kbps(7),
+            limit_512Kbps(8),
+            limit_1Mbps(9),
+            limit_2Mbps(10),
+            limit_4Mbps(11),
+            limit_8Mbps(12),
+            limit_16Mbps(13),
+            limit_32Mbps(14),
+            limit_64Mbps(15),
+            limit_128Mbps(16),
+            limit_256Mbps(17),
+            limit_512Mbps(18)
+		}
+		MAX-ACCESS      read-write
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates Rx Rate of the specified port. 
+		    The special value of 0 indicates there is no bandwidth 
+		    limit for ingress packets.    
+            "
+		::= { v2QosBandwidthCtrlEntry 1 }    
+		
+	v2QosBandwidthTxRate OBJECT-TYPE
+		SYNTAX	INTEGER {
+            noLimit(1),
+            limit_16Kbps(3),
+            limit_32Kbps(4),
+            limit_64Kbps(5),
+            limit_128Kbps(6),
+            limit_256Kbps(7),
+            limit_512Kbps(8),
+            limit_1Mbps(9),
+            limit_2Mbps(10),
+            limit_4Mbps(11),
+            limit_8Mbps(12),
+            limit_16Mbps(13),
+            limit_32Mbps(14),
+            limit_64Mbps(15),
+            limit_128Mbps(16),
+            limit_256Mbps(17),
+            limit_512Mbps(18)
+	  }		
+		MAX-ACCESS      read-write
+		STATUS          current
+		DESCRIPTION
+		    "This object indicates Tx Rate of the specified port. 
+		    The special value of 0 indicates there is no bandwidth 
+		    limit for egress packets."
+		::= { v2QosBandwidthCtrlEntry 2 }	      
+
+-- -----------------------------------------------------------------------------     
+  v2QosCosCfgTable OBJECT-TYPE
+		SYNTAX          SEQUENCE OF V2QosCosCfgEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current                                          		
+		DESCRIPTION
+		    "This table consists of a list of CoS configurations
+            for ports."
+		::= { v2QosCosCfg 1 }
+
+  v2QosCosCfgEntry OBJECT-TYPE
+		SYNTAX          V2QosCosCfgEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		      "An entry configures the CoS on an interface."
+		INDEX   { dot1dBasePort }
+		::= { v2QosCosCfgTable 1 }
+
+	V2QosCosCfgEntry ::= 		SEQUENCE {		  
+		v2QosCfgSetCos      INTEGER
+	  }
+	    
+  v2QosCfgSetCos OBJECT-TYPE
+		SYNTAX	INTEGER (0..7)
+		MAX-ACCESS      read-write
+		STATUS          current
+		DESCRIPTION
+		   "This object indicates the CoS on the interface.
+		   "
+		::= { v2QosCosCfgEntry 1 }
+
+-- -----------------------------------------------------------------------------     
+--  ***************************************************************************	
+--  Conformance
+--  ***************************************************************************			   		
+	v2QosCompliances OBJECT IDENTIFIER ::= { v2QosMIBConformance 1 }
+		
+	v2QosCompliance MODULE-COMPLIANCE
+		STATUS current
+		DESCRIPTION 
+			"The compliance statement for entities which implement the 
+			DLINKPV2-QOS-MIB."
+		MODULE -- this module
+		
+		GROUP       v2QosSchedulingGroup 
+           DESCRIPTION 
+              "This group is required only if QoS scheduling feature
+              is implemented by the agent."
+		
+		GROUP       v2QosPortBandwidthCtrlGroup 
+           DESCRIPTION 
+              "This group is required only if port-specific bandwidth control feature is
+              implemented by the agent."
+
+		GROUP       v2QosCoSGroup 
+           DESCRIPTION 
+              "This group is required only if CoS feature
+              is implemented by the agent."
+
+		::= { v2QosCompliances 1 }
+		
+	v2QosGroups OBJECT IDENTIFIER ::= { v2QosMIBConformance 2 }
+	
+	v2QosSchedulingGroup OBJECT-GROUP
+		OBJECTS { 
+		   	v2QosSchedulingMode
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing QoS scheduling configuration."
+		::= { v2QosGroups 1 }
+				
+	v2QosPortBandwidthCtrlGroup OBJECT-GROUP
+		OBJECTS { 
+		    v2QosBandwidthRxRate,
+            v2QosBandwidthTxRate
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing bandwidth configuration for ports."
+		::= { v2QosGroups 2 }
+
+	v2QosCoSGroup OBJECT-GROUP
+		OBJECTS { 
+		    v2QosCfgSetCos
+		}
+		STATUS current
+		DESCRIPTION 
+			"A collection of objects providing CoS configuration for ports."
+		::= { v2QosGroups 3 }
+
+END

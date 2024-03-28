@@ -1,0 +1,22 @@
+type: array
+items:
+  type: object
+  properties:
+    address:
+      type: string
+      example: 'Київ, вулиця Альбертовича, 7а'
+    comments:
+      type: string
+      example: 'Хороший друг, хоче класний інтернет'
+    date:
+      type: string
+      example: '2023-04-07 00:21:20'
+    fio:
+      type: string
+      example: 'Іванович Іван Іванович'
+    id:
+      type: number
+      example: 107
+    sum:
+      type: number
+      example: 50

@@ -1,0 +1,13 @@
+get:
+  tags:
+    - msgs
+  summary: Список разделов заявок пользователя
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/chapters.yaml"
+  security:
+    - USERSID: [ ]

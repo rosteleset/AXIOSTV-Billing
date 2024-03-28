@@ -1,0 +1,1360 @@
+#!perl
+
+=head2 NAME
+
+  Mail web interface functions
+
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+use Mail;
+use AXbills::Base qw(in_array sendmail mk_unique_value cmd);
+
+our ($db,
+  $admin,
+  %conf,
+  %lang,
+  $html,
+  %err_strs,
+  @status,
+  @bool_vals,
+  %permissions
+);
+
+my $Mail = Mail->new($db, $admin, \%conf);
+
+$Mail->{ACTION}     = 'add';
+$Mail->{LNG_ACTION} = $lang{ADD};
+
+#*******************************************************************
+=head2 mail_user_del($uid) - Delete user from module
+
+=cut
+#*******************************************************************
+sub mail_user_del {
+  my ($uid) = @_;
+
+  $Mail->{UID} = $uid;
+  $Mail->mbox_del(undef, { UID => $uid, FULL_DELETE => 1 });
+
+  return 0;
+}
+
+#**********************************************************
+#  Global spamassassin configuration
+#**********************************************************
+sub mail_spam_awl {
+
+  if ($FORM{del}) {
+    $Mail->spam_awl_del({%FORM});
+
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED}");
+    }
+    elsif ($Mail->{errno}) {
+      $html->message('err', $lang{ERROR}, "[$Mail->{errno}] $err_strs{$Mail->{errno}}");
+    }
+  }
+
+  form_search({ SEARCH_FORM => $html->tpl_show(_include('mail_spam_awl_search', 'Mail'), { %$Mail, %FORM }, { notprint => 1 }) });
+
+  my $list  = $Mail->spam_awl_list({%LIST_PARAMS});
+  my $table = $html->table(
+    {
+      width      => '100%',
+      caption    => "Spam AWL",
+      title      => [ $lang{USER}, "E-Mail", "IP", "$lang{COUNT}", "$lang{SCORE}" ],
+      cols_align => [ 'left', 'left', 'right', 'right', 'right' ],
+      qs         => $pages_qs,
+      pages      => $Mail->{TOTAL},
+      ID         => 'SPAM_AWL'
+    }
+  );
+
+  foreach my $line (@$list) {
+
+    $table->addrow($html->form_input("IDS", "$line->[0]|$line->[1]", { TYPE => 'checkbox' }) . $line->[0], "$line->[1]", "$line->[2]", "$line->[3]", "$line->[4]");
+  }
+  my $table2 = $html->table(
+    {
+      width      => '100%',
+      cols_align => [ 'right', 'right' ],
+      rows       => [ [ "$lang{TOTAL}:", $html->b($Mail->{TOTAL}) ] ]
+    }
+  );
+
+  $table->addtd(
+    $table->td(
+      "$lang{TYPE}:"
+      . $html->form_select(
+        "TYPE",
+        {
+          SELECTED => $FORM{TYPE},
+          SEL_HASH => {
+            ''    => $lang{SELECTED},
+            USER  => $lang{USER},
+            EMAIL => "E-Mail",
+            IP    => "IP",
+            COUNT => $lang{COUNT},
+            SCORE => $lang{SCORE}
+          },
+          NO_ID => 1,
+        }
+      )
+      . "$lang{VALUE} (<,>,*):"
+      . $html->form_input('VALUE', $FORM{VALUE})
+      . $html->form_input('del', $lang{DEL}, { TYPE => 'submit' }),
+      { colspan => 5, bgcolor => $_COLORS[0], align => 'right' }
+    )
+  );
+
+  print $html->form_main(
+    {
+      CONTENT => $table->show() . $table2->show(),
+      HIDDEN  => { index => "$index" },
+      METHOD  => 'POST',
+    }
+  );
+
+  return 1;
+}
+
+#**********************************************************
+#  Global spamassassin configuration
+#**********************************************************
+sub mail_spam_whitelist {
+  mail_spam_lists({ WHITE => 1 });
+
+}
+
+#**********************************************************
+#  Global spamassassin configuration
+#**********************************************************
+sub mail_spam_blacklist {
+  mail_spam_lists({ BLACK => 1 });
+
+}
+
+#**********************************************************
+#  Global spamassassin configuration
+#**********************************************************
+sub mail_spam_lists {
+  my ($attr) = @_;
+
+  my $CAPTION = "$lang{BLACK_LIST}";
+
+  if ($attr->{WHITE}) {
+    $LIST_PARAMS{PREFERENCE} = 'whitelist_from';
+    $CAPTION = $lang{WHITE_LIST};
+  }
+  else {
+    $LIST_PARAMS{PREFERENCE} = 'blacklist_from';
+  }
+
+  if ($FORM{add}) {
+    $Mail->spam_add(
+      {
+        USER_NAME  => '$GLOBAL',
+        PREFERENCE => $LIST_PARAMS{PREFERENCE},
+        VALUE      => $FORM{VALUE}
+      }
+    );
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{ADDED});
+    }
+  }
+  elsif ($FORM{change}) {
+    $Mail->spam_change({%FORM});
+
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+  elsif ($FORM{chg}) {
+    $Mail->spam_info({ ID => $FORM{chg}, %FORM });
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGING}");
+    }
+    $Mail->{ACTION}     = 'change';
+    $Mail->{LNG_ACTION} = $lang{CHANGE};
+  }
+  elsif ($FORM{del}) {
+    $Mail->spam_del($FORM{del});
+
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED}");
+    }
+  }
+
+  print $html->form_main(
+    {
+      CONTENT => "$lang{ADDRESS}: " . $html->form_input('VALUE', $Mail->{VALUE}),
+      HIDDEN  => {
+        index => $index,
+        ID    => $FORM{chg}
+      },
+      SUBMIT => { $Mail->{ACTION} => $Mail->{LNG_ACTION} }
+    }
+  );
+
+  my $list  = $Mail->spam_list({%LIST_PARAMS});
+  my $table = $html->table(
+    {
+      width      => '100%',
+      caption    => "$CAPTION",
+      title      => [ $lang{USER}, "$lang{OPTIONS}", "$lang{VALUE}", "$lang{COMMENTS}", $lang{CHANGE}, '-', '-' ],
+      cols_align => [ 'left', 'left', 'left', 'left', 'left', 'right', 'center', 'center' ],
+      qs         => $pages_qs,
+      pages      => $Mail->{TOTAL}
+    }
+  );
+
+  foreach my $line (@$list) {
+    my $delete = $html->button($lang{DEL}, "index=$index&del=$line->[5]", { MESSAGE => "$lang{DEL} '$line->[0]' ?", class => 'del' });
+
+    $table->addrow($line->[0], "$line->[1]", "$line->[2]", "$line->[3]", "$line->[4]", $html->button($lang{CHANGE}, "index=$index&chg=$line->[5]", { class => 'change' }), $delete);
+  }
+  print $table->show();
+
+  $table = $html->table(
+    {
+      width      => '100%',
+      cols_align => [ 'right', 'right' ],
+      rows       => [ [ "$lang{TOTAL}:", $html->b($Mail->{TOTAL}) ] ]
+    }
+  );
+  print $table->show();
+
+}
+
+#**********************************************************
+#  Global spamassassin configuration
+#**********************************************************
+sub mail_spamassassin_conf {
+
+  if ($FORM{add}) {
+    $Mail->spam_add({%FORM});
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{ADDED}");
+    }
+  }
+  elsif ($FORM{change}) {
+    $Mail->spam_change({%FORM});
+
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+  elsif ($FORM{chg}) {
+    $Mail->spam_info({ ID => $FORM{chg}, %FORM });
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGING}");
+    }
+    $Mail->{ACTION}     = 'change';
+    $Mail->{LNG_ACTION} = $lang{CHANGE};
+  }
+  elsif ($FORM{del}) {
+    $Mail->spam_del($FORM{del});
+
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED} [$FORM{del}]");
+    }
+  }
+
+  _error_show($Mail);
+
+  form_search({ SEARCH_FORM => $html->tpl_show(_include('mail_spam_search', 'Mail'), { %$Mail, %FORM }, { notprint => 1 }) });
+
+  my $list  = $Mail->spam_list({%LIST_PARAMS});
+  my $table = $html->table(
+    {
+      width      => '100%',
+      caption    => 'Spam filter',
+      title      => [ $lang{USER}, "$lang{OPTIONS}", "$lang{VALUE}", "$lang{COMMENTS}", $lang{CHANGE}, '-', '-' ],
+      cols_align => [ 'left', 'left', 'left', 'left', 'left', 'right', 'center', 'center' ],
+      qs         => $pages_qs,
+      pages      => $Mail->{TOTAL}
+    }
+  );
+
+  foreach my $line (@$list) {
+    my $delete = $html->button($lang{DEL}, "index=$index&del=$line->[5]", { MESSAGE => "$lang{DEL} \"$line->[0]\"?", class => 'del' });
+    $table->addrow("$line->[0]", "$line->[1]", "$line->[2]", "$line->[3]", "$line->[4]", $html->button($lang{CHANGE}, "index=$index&chg=$line->[5]", { class => 'change' }), $delete);
+  }
+  print $table->show();
+
+  $table = $html->table(
+    {
+      width      => '100%',
+      cols_align => [ 'right', 'right' ],
+      rows       => [ [ "$lang{TOTAL}:", $html->b($Mail->{TOTAL}) ] ]
+    }
+  );
+  print $table->show();
+
+  $html->tpl_show(_include('mail_spam_conf', 'Mail'), $Mail);
+
+  return 1;
+}
+
+#**********************************************************
+#  Global spamassassin configuration
+#**********************************************************
+sub mail_spamassassin {
+
+#  my %SpamAssasin_defaults = (
+#    'SKIP_RBL_CHECKS'                    => 1,
+#    'RBL_TIMEOUT'                        => 30,
+#    'DNS_AVAILABLE'                      => 'no',
+#    'BAYES_AUTO_LEARN_THRESHOLD_NONSPAM' => 0.1,
+#    'BAYES_AUTO_LEARN_THRESHOLD_SPAM'    => 12,
+#    'USE_AUTO_WHITELIST'                 => 1,
+#    'AUTO_WHITELIST_FACTOR'              => 0.5,
+#    'REQUIRED_SCORE'                     => 5,
+#    'REWRITE_HEADER'                     => 'Subject	*** SPAM: _HITS_ ***',
+#    'REPORT_SAFE'                        => 1,
+#    'USER_IN_WHITELIST'                  => -50,
+#    'USER_IN_BLACKLIST'                  => 50,
+#    'BAYES_AUTO_LEARN'                   => 1,
+#    'OK_LOCALES'                         => 'all',
+#    'USE_BAYES'                          => 1,
+#    'USE_RAZOR2'                         => 1,
+#    'USE_DCC'                            => 1,
+#    'USE_PYZOR'                          => 1
+#  );
+
+  my %SpamAssasin_params = (
+    SKIP_RBL_CHECKS => 'skip_rbl_checks',
+    RBL_TIMEOUT     => 'rbl_timeout',
+
+    #   DNS_AVAILABLE     => 'dns_available',
+    BAYES_AUTO_LEARN_THRESHOLD_NONSPAM => 'bayes_auto_learn_threshold_nonspam',
+    BAYES_AUTO_LEARN_THRESHOLD_SPAM    => 'bayes_auto_learn_threshold_spam',
+    USE_AUTO_WHITELIST                 => 'use_auto_whitelist',
+    AUTO_WHITELIST_FACTOR              => 'auto_whitelist_factor',
+    REQUIRED_SCORE                     => 'required_score',
+    REWRITE_HEADER                     => 'rewrite_header Subject',
+    REPORT_SAFE                        => 'report_safe',
+    USER_IN_WHITELIST                  => 'score USER_IN_WHITELIST',
+    USER_IN_BLACKLIST                  => 'score USER_IN_BLACKLIST',
+    BAYES_AUTO_LEARN                   => 'bayes_auto_learn',
+    OK_LOCALES                         => 'ok_locales',
+    USE_BAYES                          => 'use_bayes',
+    USE_RAZOR2                         => 'use_razor2',
+    USE_DCC                            => 'use_dcc',
+    USE_PYZOR                          => 'use_pyzor'
+  );
+
+  $Mail->{ACTION}     = 'change';
+  $Mail->{LNG_ACTION} = $lang{CHANGE};
+
+  if ($FORM{change}) {
+
+    while (my ($key, $value) = each %SpamAssasin_params) {
+      $Mail->spam_replace(
+        {
+          USER_NAME  => '$GLOBAL',
+          PREFERENCE => $value,
+          VALUE      => $FORM{$key} || 0
+        }
+      );
+    }
+
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+  elsif ($FORM{chg}) {
+    $Mail->spam_info({ ID => $FORM{chg}, %FORM });
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGING}");
+    }
+
+    #    $Mail->{ACTION}='set';
+    #	  $Mail->{LNG_ACTION}=$lang{CHANGE};
+  }
+  elsif ($FORM{del}) {
+    $Mail->spam_del($FORM{del});
+
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+
+  # form_search({ SEARCH_FORM => $html->tpl_show(_include('mail_spam_search', 'Mail'),
+  #  	                                  { %$Mail, %FORM },
+  #  	                                  { notprint => 1 })
+  #	            });
+
+  $LIST_PARAMS{USER_NAME} = '$Global';
+  my $list = $Mail->spam_list({%LIST_PARAMS});
+  #  my $table = $html->table( { width      => '100%',
+  #                              caption    => 'Spam filter',
+    #                              title      => [$lang{USER}, "$lang{OPTIONS}", "$lang{VALUE}", "$lang{COMMENTS}", $lang{CHANGE},  '-', '-'],
+  #                              cols_align => ['left', 'left', 'left', 'left', 'left',  'right', 'center', 'center'],
+  #                              qs         => $pages_qs,
+  #                              pages      => $Mail->{TOTAL}
+  #                          } );
+  my %db_hash                = ();
+  my %SpamAssasin_params_rev = reverse %SpamAssasin_params;
+  foreach my $line (@$list) {
+    my $ID = ($line->[1] && $SpamAssasin_params_rev{$line->[1]}) ? $SpamAssasin_params_rev{$line->[1]} :  '';
+    $db_hash{$ID} = $line->[2];
+    #$delete = $html->button($lang{DEL}, "index=$index&del=$line->[5]", { MESSAGE => "$lang{DEL} \"$line->[0]\"?" });
+    #$table->addrow("$line->[0]",
+    # "$line->[1]",
+    # "$line->[2]",
+    # "$line->[3]",
+    # "$line->[4]",
+    # $html->button($lang{CHANGE}, "index=$index&chg=$line->[5]"),
+    # $delete);
+  }
+
+  #print $table->show();
+
+  #  $table = $html->table( { width      => '100%',
+  #                           cols_align => ['right', 'right'],
+  #                           rows       => [ [ "$lang{TOTAL}:", $html->b($Mail->{TOTAL}) ] ]
+  #                       } );
+  #  print $table->show();
+
+  #rating
+  my @ten_arr = ();
+  for (my $i = 0.1 ; $i <= 10 ; $i += 0.1) {
+    push @ten_arr, sprintf("%.1f", $i);
+  }
+
+  $db_hash{DISABLE}            = ' checked' if ($db_hash{DISABLE} && $db_hash{DISABLE} == 1);
+  $db_hash{SKIP_RBL_CHECKS}    = ' checked' if ($db_hash{SKIP_RBL_CHECKS} && $db_hash{SKIP_RBL_CHECKS} == 1);
+  $db_hash{USE_AUTO_WHITELIST} = ' checked' if ($db_hash{USE_AUTO_WHITELIST} && $db_hash{USE_AUTO_WHITELIST} == 1);
+  $db_hash{BAYES_AUTO_LEARN}   = ' checked' if ($db_hash{BAYES_AUTO_LEARN} && $db_hash{BAYES_AUTO_LEARN} == 1);
+  $db_hash{USE_BAYES}          = ' checked' if ($db_hash{USE_BAYES} && $db_hash{USE_BAYES} == 1);
+  $db_hash{USE_RAZOR2}         = ' checked' if ($db_hash{USE_RAZOR2} && $db_hash{USE_RAZOR2} == 1);
+  $db_hash{USE_DCC}            = ' checked' if ($db_hash{USE_DCC} && $db_hash{USE_DCC} == 1);
+  $db_hash{USE_PYZOR}          = ' checked' if ($db_hash{USE_PYZOR} && $db_hash{USE_PYZOR} == 1);
+
+  $Mail->{REPORT_SAFE_SEL} = $html->form_select(
+    'REPORT_SAFE',
+    {
+      SELECTED => $db_hash{REPORT_SAFE},
+      SEL_HASH => {
+        1 => 'As an attachment',
+        2 => 'Text/Plain',
+        0 => 'Do not modify'
+      },
+      NO_ID => 1
+    }
+  );
+
+  $Mail->{REQUIRED_SCORE_SEL} = $html->form_select(
+    'REQUIRED_SCORE',
+    {
+      SELECTED  => $db_hash{REQUIRED_SCORE},
+      SEL_ARRAY => \@ten_arr,
+      NO_ID     => 1
+    }
+  );
+
+  $Mail->{BAYES_AUTO_LEARN_THRESHOLD_NONSPAM_SEL} = $html->form_select(
+    'BAYES_AUTO_LEARN_THRESHOLD_NONSPAM',
+    {
+      SELECTED  => $db_hash{BAYES_AUTO_LEARN_THRESHOLD_NONSPAM},
+      SEL_ARRAY => \@ten_arr,
+      NO_ID     => 1
+    }
+  );
+
+  for (my $i = $ten_arr[$#ten_arr] ; $i <= 30 ; $i += 0.1) {
+    push @ten_arr, sprintf("%.1f", $i);
+  }
+
+  $Mail->{BAYES_AUTO_LEARN_THRESHOLD_SPAM_SEL} = $html->form_select(
+    'BAYES_AUTO_LEARN_THRESHOLD_SPAM',
+    {
+      SELECTED  => $db_hash{BAYES_AUTO_LEARN_THRESHOLD_SPAM},
+      SEL_ARRAY => \@ten_arr,
+      NO_ID     => 1
+    }
+  );
+  @ten_arr = ();
+  for (my $i = 0.1 ; $i <= 1.0 ; $i += 0.1) {
+    push @ten_arr, sprintf("%.1f", $i);
+  }
+
+  $Mail->{AUTO_WHITELIST_FACTOR_SEL} = $html->form_select(
+    'AUTO_WHITELIST_FACTOR',
+    {
+      SELECTED  => $db_hash{BAYES_AUTO_LEARN_THRESHOLD_NONSPAM},
+      SEL_ARRAY => \@ten_arr,
+      NO_ID     => 1
+    }
+  );
+
+  $html->tpl_show(_include('mail_spam', 'Mail'), { %$Mail, %db_hash });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 mail_users_list()
+
+=cut
+#**********************************************************
+sub mail_users_list {
+
+  if ( ! $FORM{UID} && ! $user->{UID} ) {
+    #print $html->letters_list();
+    if ($FORM{letter}) {
+      $LIST_PARAMS{LOGIN} = $FORM{letter};
+      $pages_qs          .= "&letter=$FORM{letter}";
+    }
+  }
+  elsif(! $user->{UID}) {
+    mail_user_boxes();
+  }
+
+  if ($FORM{del} && $FORM{COMMENTS} && !$user->{UID} ) {
+    $Mail->mbox_del($FORM{del}, {UID => $user->{UID}});
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED}");
+    }
+  }
+
+  my $list = $Mail->mbox_list({%LIST_PARAMS, COLS_NAME => 1 });
+
+  if (_error_show($Mail)) {
+    return 0;
+  }
+  elsif ($Mail->{TOTAL} == 1) {
+    #mail_user_boxes();
+    #return 0;
+  }
+
+  if ($FORM{newpassword} && !$FORM{add}) {
+    if ($FORM{newpassword} eq $FORM{confirm}) {
+      my %change_params = ();
+      $change_params{PASSWORD} = $FORM{newpassword};
+      $change_params{UID}      = $user->{UID};
+      $change_params{MBOX_ID}  = $FORM{MBOX_ID};
+      $Mail->mbox_change({%change_params});
+      if (!$Mail->{errno}) {
+        $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+      }
+    }
+    else {
+      $html->message('err', $lang{ERROR}, $err_strs{5});
+    }
+  }
+  elsif ($FORM{MBOX_ID} && $FORM{UID} && $user->{UID} && $FORM{UID} == $user->{UID}) {
+    $Mail->mbox_info({%FORM});
+    my %password_form = ();
+    $password_form{PW_CHARS}      = $conf{PASSWD_SYMBOLS};
+    $password_form{PW_LENGTH}     = $conf{PASSWD_LENGTH} || 6;
+    $password_form{ACTION}        = 'change';
+    $password_form{LNG_ACTION}    = $lang{CHANGE};
+    $password_form{HIDDDEN_INPUT} = $html->form_input('MBOX_ID', $FORM{MBOX_ID}, {TYPE => 'hidden', OUTPUT2RETURN => 1});
+    $password_form{HIDDDEN_INPUT} .= $html->form_input('UID', $FORM{UID}, {TYPE => 'hidden', OUTPUT2RETURN => 1});
+    $password_form{ID}            = join('@', ($Mail->{USERNAME}, $Mail->{DOMAIN}));;
+
+    $html->tpl_show(templates('form_password'), \%password_form);
+  }
+
+  my $table = $html->table({
+    width      => '100%',
+    caption    => 'E-mail',
+    title      => [ $lang{LOGIN}, $lang{USER}, $lang{DOMAIN}, $lang{COMMENTS},
+          "$lang{LIMIT} $lang{COUNT}", "$lang{LIMIT} $lang{SIZE}", $lang{ANTIVIRUS}, $lang{ANTISPAM}, $lang{STATUS}, '-' ],
+    qs         => $pages_qs,
+    pages      => $Mail->{TOTAL},
+    ID         => 'MAIL_BOXES'
+  });
+
+  my $delete = '';
+
+  foreach my $line (@$list) {
+    if ($conf{MAIL_USER_FULL_CONTROL} || ! $user->{UID}) {
+      $delete = $html->button($lang{DEL}, "index=$index&del=$line->{id}&UID=". ($line->{uid} || q{}),
+          { MESSAGE => "$lang{DEL} $line->{username}\@". ($line->{domain} || q{}) ."?", class => 'del' });
+    }
+
+    $table->addrow(
+      $html->button($line->{username}, "index=$index&MBOX_ID=$line->{id}&UID=$line->{uid}"),
+      $line->{username},
+      $html->button($line->{domain}, "index=11&UID=$line->{uid}&MODULE=Mail"),
+      $line->{descr},
+      $line->{mails_limit},
+      $line->{box_size},
+      $status[$line->{antivirus}],
+      $status[$line->{antispam}],
+      $status[$line->{status}],
+      $html->button($lang{CHANGE}, "index=$index&MBOX_ID=$line->{id}&UID=$line->{uid}", { class => 'change' })
+      .' '. $delete
+    );
+  }
+
+  print $table->show();
+
+  $table = $html->table({
+    width      => '100%',
+    rows       => [ [ "$lang{TOTAL}:", $html->b($Mail->{TOTAL}) ] ],
+    ID         => 'MAIL_BOXES_TOTAL'
+  });
+
+  print $table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 mail_user_boxes($attr) - Manage user mailboxes
+
+=cut
+#**********************************************************
+sub mail_user_boxes {
+  my ($attr)=@_;
+
+  $Mail->{UID} = $FORM{UID};
+
+  $Mail->defaults();
+  $Mail->{ACTION}     = 'add';
+  $Mail->{LNG_ACTION} = $lang{ADD};
+  $Mail->{SEND_MAIL}  = 'checked';
+
+  if ($FORM{add}) {
+    $Mail->mbox_add({ %FORM, PASSWORD => $FORM{newpassword} });
+    if (!$Mail->{errno}) {
+
+      #Send test mail
+      if ($FORM{SEND_MAIL}) {
+        my $message = $html->tpl_show(_include('mail_test_msg', 'Mail'), $Mail, { notprint => 1, ID => 'mail_test_msg' });
+        sendmail("$conf{ADMIN_MAIL}", "$Mail->{USER_EMAIL}", "Test mail", "$message", "$conf{MAIL_CHARSET}", "");
+      }
+
+      $users->pi({ UID => $FORM{UID} });
+      if ($users->{EMAIL} eq '') {
+        $users->pi_change({
+          UID   => $users->{UID},
+          EMAIL => $Mail->{USER_EMAIL}
+        });
+      }
+
+      $html->message('info', $lang{INFO}, "$lang{ADDED}");
+    }
+  }
+  elsif ($FORM{set}) {
+    #password section
+    if ($FORM{newpassword}) {
+      if (length($FORM{newpassword}) < $conf{PASSWD_LENGTH}) {
+        $html->message('err', $lang{ERROR}, "$lang{ERR_SHORT_PASSWD}");
+      }
+      elsif ($FORM{newpassword} eq $FORM{confirm}) {
+        $FORM{PASSWORD} = $FORM{newpassword};
+      }
+      elsif ($FORM{newpassword} ne $FORM{confirm}) {
+        $html->message('err', $lang{ERROR}, $err_strs{5});
+      }
+    }
+
+    $Mail->mbox_change({%FORM});
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Mail->mbox_del($FORM{del}, {%LIST_PARAMS});
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+
+  if ($FORM{MBOX_ID}) {
+    $Mail->mbox_info({%FORM});
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGING}");
+    }
+    $FORM{UID}          = $Mail->{UID};
+    $Mail->{ACTION}     = 'set';
+    $Mail->{LNG_ACTION} = $lang{CHANGE};
+    $Mail->{SEND_MAIL}  = undef;
+  }
+
+  if (_error_show($Mail)) {
+    return 0;
+  }
+
+  #elsif(! $FORM{MBOX_ID}) {
+  #  mail_users_list();
+  # }
+
+  $Mail->{ANTIVIRUS} = ' checked' if (defined($Mail->{ANTIVIRUS}) && $Mail->{ANTIVIRUS} =~ /\d+/ && $Mail->{ANTIVIRUS} == 0);
+  $Mail->{ANTISPAM}  = ' checked' if (defined($Mail->{ANTISPAM}) && $Mail->{ANTISPAM} ne '' && $Mail->{ANTISPAM} == 0);
+  $Mail->{DISABLE}   = ' checked' if ($Mail->{DISABLE});
+
+  $Mail->{DOMAINS_SEL} = $html->form_select(
+    'MAIL_DOMAIN_ID',
+    {
+      SELECTED       => $Mail->{DOMAIN_ID},
+      SEL_LIST       => $Mail->domain_list({ BACKUP_MX => 0, COLS_NAME => 1, PAGE_ROWS => 10000 }),
+      SEL_KEY        => 'id',
+      SEL_VALUE      => 'domain',
+      NO_ID          => 1,
+      MAIN_MENU      => get_function_index('mail_domains'),
+      MAIN_MENU_ARGV => "chg=". ($Mail->{DOMAIN_ID} || q{})
+    }
+  );
+
+  $Mail->{PASSWORD} = $html->tpl_show(_include('mail_password', 'Mail'),
+    { %{($attr) ? $attr : {}}, %$Mail },
+    { OUTPUT2RETURN => 1, ID => 'mail_password' }
+  );
+
+  if (!$user->{UID}) {
+    $html->tpl_show(_include('mail_box', 'Mail'), { %{ ($attr) ? $attr : {} }, %$Mail }, { ID => 'mail_box' });
+  }
+  else {
+    print $html->form_main(
+      {
+        CONTENT => "<table>
+  	                    <tr bgcolor='$_COLORS[2]'><td>E-Mail:</td><td>$Mail->{USERNAME}\@$Mail->{DOMAIN}</td></tr>
+  	                    $Mail->{PASSWORD}</table>",
+        HIDDEN => {
+          index   => "$index",
+          UID     => "$user->{UID}",
+          MBOX_ID => $Mail->{MBOX_ID}
+        },
+        SUBMIT => { set => "$lang{CHANGE}" }
+      }
+    );
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 mail_domains()
+
+=cut
+#**********************************************************
+sub mail_domains {
+
+  $Mail->{ACTION}     = 'add';
+  $Mail->{LNG_ACTION} = $lang{ADD};
+
+  if ($FORM{add}) {
+    $Mail->domain_add({%FORM});
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{ADDED}");
+    }
+  }
+  elsif ($FORM{set}) {
+    $Mail->domain_change({%FORM});
+
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+  elsif ($FORM{MAIL_DOMAIN_ID}) {
+    $Mail->domain_info({%FORM});
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGING}");
+    }
+
+    $Mail->{ACTION}     = 'set';
+    $Mail->{LNG_ACTION} = $lang{CHANGE};
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Mail->domain_del($FORM{del});
+
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+
+  my $list = $Mail->domain_list({ %LIST_PARAMS, %FORM });
+  my $table = $html->table({
+    caption    => "E-mail $lang{DOMAINS}",
+    width      => '100%',
+    title      => [ $lang{DOMAIN}, $lang{DESC}, $lang{STATUS}, 'Backup_MX', $lang{TRANSPORT}, $lang{CREATE}, $lang{CHANGE}, '-', '-' ],
+    cols_align => [ 'left', 'left', 'center', 'right', 'right', 'center', 'center' ],
+    qs         => $pages_qs,
+    pages      => $Mail->{TOTAL},
+    ID         => 'MAIL_DOMAINS'
+  });
+
+  foreach my $line (@$list) {
+    my $delete = $html->button($lang{DEL}, "index=$index&del=$line->[8]", { MESSAGE => "$lang{DEL} '$line->[0]'?", class => 'del' });
+    $table->addrow($html->b($line->[0]),
+      "$line->[1]",
+      "$status[$line->[2]]",
+      "$bool_vals[$line->[3]]",
+      "$line->[4]",
+      "$line->[5]",
+      "$line->[6]",
+      $html->button($lang{CHANGE}, "index=$index&MAIL_DOMAIN_ID=$line->[8]", { class => 'change' }),
+      $delete
+    );
+  }
+  print $table->show();
+
+  $table = $html->table({
+    width      => '100%',
+    cols_align => [ 'right', 'right' ],
+    rows       => [ [ "$lang{TOTAL}:", $html->b($Mail->{TOTAL}) ] ]
+  });
+
+  print $table->show();
+
+  $Mail->{DISABLE}   = ' checked' if ($Mail->{DISABL} && $Mail->{DISABL} == 1);
+  $Mail->{BACKUP_MX} = ' checked' if ($Mail->{DISABL} && $Mail->{BACKUP_MX} == 1);
+
+  $Mail->{TRANSPORT_SEL} = $html->form_select(
+    'TRANSPORT',
+    {
+      SELECTED => $Mail->{TRANSPORT} || '',
+      SEL_ARRAY => [ 'virtual:', 'maildrop:', 'local:', 'relay:' ],
+    }
+  );
+
+  $html->tpl_show(_include('mail_domain', 'Mail'), $Mail);
+
+  return 1;
+}
+
+#**********************************************************
+# mail_alias
+#**********************************************************
+sub mail_aliases {
+
+  $Mail->{ACTION}     = 'add';
+  $Mail->{LNG_ACTION} = $lang{ADD};
+
+  if ($FORM{add}) {
+    $Mail->alias_add({ %FORM, STATUS => !$FORM{DISABLE} ? 0 : 1 });
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{ADDED}");
+    }
+  }
+  elsif ($FORM{set}) {
+    $Mail->alias_change({%FORM});
+
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+  elsif ($FORM{MAIL_ALIAS_ID}) {
+    $Mail->alias_info({%FORM});
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGING}");
+    }
+
+    $Mail->{ACTION}     = 'set';
+    $Mail->{LNG_ACTION} = $lang{CHANGE};
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Mail->alias_del($FORM{del});
+
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+
+  my $list  = $Mail->alias_list({ %FORM, %LIST_PARAMS });
+
+  my $table = $html->table({
+    width      => '100%',
+    caption    => $lang{ALIASES},
+    title      => [ $lang{ADDRESS}, "$lang{TO}", "$lang{COMMENTS}", $lang{STATUS}, $lang{CREATE}, $lang{CHANGE}, '-', '-' ],
+    cols_align => [ 'left', 'left', 'center', 'right', 'right', 'center', 'center' ],
+    qs         => $pages_qs,
+    pages      => $Mail->{TOTAL}
+  });
+
+  foreach my $line (@$list) {
+    my $delete = $html->button($lang{DEL}, "index=$index&del=$line->[6]", { MESSAGE => "$lang{DEL} '$line->[0]'?", class => 'del' });
+    $table->addrow(
+      "$line->[0]",
+      "$line->[1]",
+      "$line->[2]",
+      "$status[$line->[3]]",
+      "$line->[4]",
+      "$line->[5]",
+      $html->button($lang{CHANGE}, "index=$index&MAIL_ALIAS_ID=$line->[6]", { class => 'change' }),
+      $delete
+    );
+  }
+
+  print $table->show();
+
+  $table = $html->table({
+    width      => '100%',
+    cols_align => [ 'right', 'right' ],
+    rows       => [ [ "$lang{TOTAL}:", $html->b($Mail->{TOTAL}) ] ]
+  });
+
+  print $table->show();
+
+  $Mail->{DISABLE} = ' checked' if ($Mail->{DISABLE} && $Mail->{DISABLE} == 1);
+  $html->tpl_show(_include('mail_alias', 'Mail'), $Mail);
+
+  return 1;
+}
+
+#**********************************************************
+# mail_transport
+#**********************************************************
+sub mail_transport {
+
+  if ($FORM{add}) {
+    $Mail->transport_add({%FORM});
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{ADDED}");
+    }
+  }
+  elsif ($FORM{set}) {
+    $Mail->transport_change({%FORM});
+
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+  elsif ($FORM{MAIL_TRANSPORT_ID}) {
+    $Mail->transport_info({%FORM});
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGING}");
+    }
+
+    $Mail->{ACTION}     = 'set';
+    $Mail->{LNG_ACTION} = $lang{CHANGE};
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Mail->transport_del($FORM{del});
+
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+
+  _error_show($Mail);
+
+  my $list  = $Mail->transport_list({%FORM});
+  my $table = $html->table(
+    {
+      width  => '100%',
+      title  => [ $lang{ADDRESS}, "$lang{TO}", "$lang{COMMENTS}", $lang{CHANGE}, '-', '-' ],
+      cols_align => [ 'left', 'left', 'left', 'center', 'center' ],
+      qs         => $pages_qs,
+      pages      => $Mail->{TOTAL}
+    }
+  );
+
+  foreach my $line (@$list) {
+    my $delete = $html->button($lang{DEL}, "index=$index&del=$line->[4]", { MESSAGE => "$lang{DEL} '$line->[0]'?", class => 'del' });
+    $table->addrow(
+      "$line->[0]",
+      "$line->[1]",
+      "$line->[2]",
+      "$line->[3]",
+      $html->button($lang{CHANGE}, "index=$index&MAIL_TRANSPORT_ID=$line->[4]", { class => 'change' }),
+      $delete
+    );
+  }
+  print $table->show();
+
+  $table = $html->table(
+    {
+      width      => '100%',
+      cols_align => [ 'right', 'right' ],
+      rows       => [ [ "$lang{TOTAL}:", $html->b($Mail->{TOTAL}) ] ]
+    }
+  );
+  print $table->show();
+
+  $Mail->{DISABLE} = ' checked' if ($Mail->{DISABLE} == 1);
+  $html->tpl_show(_include('mail_transport', 'Mail'), $Mail);
+
+  return 1;
+}
+
+#**********************************************************
+=head2 mail_access()
+
+=cut
+#**********************************************************
+sub mail_access {
+
+  $Mail->{ACTION}     = 'add';
+  $Mail->{LNG_ACTION} = $lang{ADD};
+
+  if ($FORM{add}) {
+    $Mail->access_add({%FORM});
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{ADDED}");
+    }
+  }
+  elsif ($FORM{set}) {
+    $Mail->access_change({%FORM});
+
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+  elsif ($FORM{MAIL_ACCESS_ID}) {
+    $Mail->access_info({%FORM});
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGING}");
+    }
+
+    $Mail->{ACTION}     = 'set';
+    $Mail->{LNG_ACTION} = $lang{CHANGE};
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Mail->access_del($FORM{del});
+
+    if (!$Mail->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+
+  my $list  = $Mail->access_list({%FORM});
+  my $table = $html->table({
+    width      => '100%',
+    caption    => "E-mail $lang{ACCESS}",
+    title      => [ $lang{VALUE}, "$lang{PARAMS}", "$lang{COMMENTS}", $lang{CHANGE}, '-', '-' ],
+    cols_align => [ 'left', 'left', 'left', 'center', 'center' ],
+    qs         => $pages_qs,
+    pages      => $Mail->{TOTAL},
+    ID         => 'MAIL_ACCESS'
+  });
+
+  foreach my $line (@$list) {
+    my $delete = $html->button($lang{DEL}, "index=$index&del=$line->[5]", { MESSAGE => "$lang{DEL} '$line->[0]'?", class => 'del' });
+    $table->addrow(
+      "$line->[0]",
+      "$line->[1]",
+      "$line->[2]",
+      "$line->[3]",
+      $html->button($lang{CHANGE}, "index=$index&MAIL_ACCESS_ID=$line->[5]", { class => 'change' }),
+      $delete
+    );
+  }
+  print $table->show();
+
+  $table = $html->table({
+    width      => '100%',
+    cols_align => [ 'right', 'right' ],
+    rows       => [ [ "$lang{TOTAL}:", $html->b($Mail->{TOTAL}) ] ]
+  });
+  print $table->show();
+
+  my ($faction, $code, $message) = ('', '', '');
+  if($Mail->{FACTION}){
+    ($faction, $code, $message) = split( /:| /, $Mail->{FACTION}, 3 );
+  }
+
+  print "$faction, $code, $message-";
+  my @access_actions = ();
+
+  my $i = 0;
+  foreach my $t (@access_actions) {
+    $Mail->{ACCESS_ACTIONS} .= "<br><input type=radio name=MACTION value=$i";
+    $Mail->{ACCESS_ACTIONS} .= " checked" if ($t eq $faction);
+    $Mail->{ACCESS_ACTIONS} .= "> $t\n";
+    $i++;
+  }
+
+  $Mail->{DISABLE} = ' checked' if ($Mail->{DISABLE} && $Mail->{DISABLE} == 1);
+  $html->tpl_show(_include('mail_access', 'Mail'), $Mail);
+
+  return 1;
+}
+
+#**********************************************************
+=head2 mail_wizard() - Create mail account wizard
+
+=cut
+#**********************************************************
+sub mail_wizard {
+  my ($attr) = @_;
+
+  if (!$permissions{0}{1}) {
+    $html->message('err', $lang{ERROR}, $lang{ERR_ACCESS_DENY});
+    return 0;
+  }
+
+  my $fees = Finance->fees($db, $admin, \%conf);
+  my $payments = Finance->payments($db, $admin, \%conf);
+  my $users = Users->new($db, $admin, \%conf);
+
+  my %add_values = ();
+
+  if ($FORM{add}) {
+
+    foreach my $k (sort keys %FORM) {
+      if ($k =~ m/^[0-9]+\.[_a-zA-Z0-9]+$/) {
+        $k =~ s/%22//g;
+        my ($id, $main_key) = split(/\./, $k, 2);
+        $add_values{$id}{$main_key} = defined($FORM{$k}) ? $FORM{$k} : q{};
+      }
+    }
+
+    #print $table->show();
+    # Password
+
+    if (! $add_values{1}) {
+      $html->message('err', $lang{ERROR}, "User not defined");
+      return 1;
+    }
+
+    $add_values{1}{GID} = $admin->{GID} if ($admin->{GID});
+    $users->add({ %{ $add_values{1} } });
+    my $message = '';
+    if (!$users->{errno}) {
+      my $uid  = $users->{UID};
+      $users->info($uid);
+
+      #2
+      if (defined($FORM{'2.newpassword'}) && $FORM{'2.newpassword'} ne '') {
+        if (length($FORM{'2.newpassword'}) < $conf{PASSWD_LENGTH}) {
+          $html->message('err', "$lang{PASSWD} : $lang{ERROR}", "$err_strs{6}");
+        }
+        elsif ($FORM{'2.newpassword'} eq $FORM{'2.confirm'}) {
+          $add_values{2}{PASSWORD} = $FORM{'2.newpassword'};
+          $add_values{2}{UID}      = $uid;
+          $add_values{2}{DISABLE}  = $FORM{'1.DISABLE'};
+        }
+        elsif ($FORM{'2.newpassword'} ne $FORM{'2.confirm'}) {
+          $html->message('err', "$lang{PASSWD} : $lang{ERROR}", "$err_strs{5}");
+        }
+
+        $users->change($uid, { %{ $add_values{2} } });
+
+        if ($conf{external_useradd}) {
+          if (!_external($conf{external_useradd}, { LOGIN => $add_values{1}{LOGIN}, %{ $add_values{2} } })) {
+            return 0;
+          }
+        }
+      }
+
+      #3 personal info
+      $users->pi_add({ UID => "$uid", %{ $add_values{3} } });
+
+      #5 Payments section
+      if ($FORM{'5.SUM'}) {
+        if ($FORM{'5.SUM'} + 0 > 0) {
+          my $er = ($FORM{'5.ER'}) ? $payments->exchange_info($FORM{'5.ER'}) : { ER_RATE => 1 };
+          $payments->add($users, { %{ $add_values{5} }, ER => $er->{ER_RATE} });
+          if ($payments->{errno}) {
+            $html->message('err', "-- $lang{PAYMENTS} : $lang{ERROR}", "[$payments->{errno}] $err_strs{$payments->{errno}}");
+            return 0;
+          }
+          else {
+            $message = "$lang{SUM}: $FORM{'5.SUM'} $er->{ER_SHORT_NAME}";
+          }
+        }
+        elsif ($FORM{'5.SUM'} + 0 < 0) {
+          my $er = ($FORM{'5.ER'}) ? $payments->exchange_info($FORM{'5.ER'}) : { ER_RATE => 1 };
+
+          $fees->take($users, abs($FORM{'5.SUM'}), { DESCRIBE => 'MIGRATION', ER => $er->{ER_RATE} });
+
+          if ($fees->{errno}) {
+            $html->message('err', "$lang{ERROR} : $lang{FEES}", "[$fees->{errno}] $err_strs{$fees->{errno}}");
+            return 0;
+          }
+          else {
+            $message = "$lang{SUM}: $FORM{'5.SUM'} $er->{ER_SHORT_NAME}";
+          }
+        }
+      }
+
+      $FORM{'6.newpassword'} = $FORM{'6.PASSWORD'} if ($FORM{'6.PASSWORD'});
+
+      $Mail->mbox_add(
+        {
+          UID => $uid,
+          %{ $add_values{6} },
+          PASSWORD => $FORM{'6.newpassword'}
+        }
+      );
+
+      if ($Mail->{errno}) {
+        $html->message('err', "E-MAIL : $lang{ERROR}", "[$Mail->{errno}] $err_strs{$Mail->{errno}}");
+        return 0;
+      }
+      else {
+        $Mail->{EMAIL_ADDR} = $Mail->{USERNAME} . '@' . $Mail->{DOMAIN};
+        $Mail->{PASSWORD}   = $FORM{'6.newpassword'};
+      }
+
+      #}
+
+      # Info
+      my $pi = $users->pi({ UID => $uid });
+      $users               = $users->info($uid);
+      $Mail               = $Mail->mbox_info({ MBOX_ID => $Mail->{MBOX_ID} });
+      $Mail->{EMAIL_ADDR} = $Mail->{USERNAME} . '@' . $Mail->{DOMAIN};
+
+      if (!$attr->{SHORT_REPORT}) {
+        $FORM{ex_message} = $message;
+        $html->message('info', $lang{ADDED}, "LOGIN: $add_values{1}{LOGIN} UID: $uid  $message");
+        $html->tpl_show(templates('form_user_info'), { %$users, %$pi });
+        $html->tpl_show(_include('mail_user_info', 'Mail'), $Mail);
+      }
+
+      return $uid;
+    }
+    else {
+      $html->message('err', "[$users->{errno}] $err_strs{$users->{errno}}", "$lang{LOGIN}: '$add_values{1}{LOGIN}'");
+      return 0 if ($attr->{SHORT_REPORT});
+    }
+
+  }
+
+  my $users_defaults = undef;
+
+  $users_defaults->{GID} = sel_groups();
+  if (!$attr->{NO_EXTRADATA}) {
+    $attr->{EXT_BILL_ACCOUNT} = 'none' unless ($conf{EXT_BILL_ACCOUNT});
+    $users_defaults->{EXDATA} = $user->{EXDATA} .= $html->tpl_show(templates('form_user_exdata_add'), { CREATE_BILL => ' checked' }, { notprint => 1 });
+  }
+
+  $payments->{SEL_METHOD} = $html->form_select(
+    'METHOD',
+    {
+      SELECTED => $FORM{METHOD} || undef,
+      SEL_HASH => get_payment_methods(),
+    }
+  );
+  $payments->{SUM} = '0.00';
+
+  my $er = $payments->exchange_list();
+  $payments->{SEL_ER} = "<select name=ER>\n";
+  $payments->{SEL_ER} .= "<option value=''>\n";
+  foreach my $line (@$er) {
+    $payments->{SEL_ER} .= "<option value=$line->[4]";
+    $payments->{SEL_ER} .= ">$line->[1] : $line->[2]\n";
+  }
+  $payments->{SEL_ER} .= "</select>\n";
+  my %pi_form = ( INFO_FIELDS => form_info_field_tpl() );
+
+  my %tpls = (
+    "01:".$lang{LOGIN}."::"  => $html->tpl_show(templates('form_user'),     { %$users_defaults, %FORM }, { OUTPUT2RETURN => 1, ID => 'FORM_USER' }),
+    "02:".$lang{PASSWD}."::" => $html->tpl_show(templates('form_password'), { %FORM }, { OUTPUT2RETURN => 1, ID => 'FORM_PASSWORD' }),
+    "03:".$lang{INFO}."::"   => $html->tpl_show(templates('form_pi'),       { %pi_form,         %FORM }, { OUTPUT2RETURN => 1, ID => 'FORM_PI' }),
+    "5:$lang{PAYMENTS}::" => $html->tpl_show(templates('form_payments'), $payments,       { notprint => 1 }),
+  );
+
+  #If mail module added
+  if (in_array('Mail', \@MODULES)) {
+    $Mail->{PASSWORD} =  $html->tpl_show(_include('mail_password', 'Mail'), {
+      %$attr,
+      %$Mail,
+    },
+    { OUTPUT2RETURN => 1, ID => 'mail_password' });
+
+    $Mail->{DOMAINS_SEL} = $html->form_select(
+      'DOMAIN_ID',
+      {
+        SELECTED    => $Mail->{DOMAIN_ID},
+        SEL_LIST    => $Mail->domain_list({ COLS_NAME => 1 }),
+        SEL_VALUE   => 'domain',
+        SEL_OPTIONS => { 0 => '-N/S-' },
+        NO_ID       => 1
+      }
+    );
+
+    $Mail->{SEND_MAIL} = 1;
+
+    $tpls{"6:E-Mail::"} = $html->tpl_show(_include('mail_box', 'Mail'), $Mail, { notprint => 1, ID => 'mail_box' });
+  }
+
+  if ($attr->{TPLS}) {
+    while (my ($k, $v) = each %{ $attr->{TPLS} }) {
+      $tpls{$k} = $v;
+    }
+  }
+
+  my $wizard;
+
+  my $template         = '';
+  my @sorted_templates = sort keys %tpls;
+
+  foreach my $key (@sorted_templates) {
+    my ($n, $descr, undef, undef) = split(/:/, $key, 4);
+
+    #$template .= "<tr bgcolor=\"$_COLORS[0]\"><th>$descr</th></tr>\n";
+
+    #$wizard = $pre;
+    my $sub_tpl .= $html->tpl_show($tpls{"$key"}, $wizard, { notprint => 1 });
+    $sub_tpl =~ s/(<input .*?UID.*?>)//gi;
+    $sub_tpl =~ s/(<input .*?index.*?>)//gi;
+    $sub_tpl =~ s/name=([A-Z_]+)/name=$n.$1/gi;
+    $sub_tpl =~ s/name="([A-Z_]+)"/name=$n.$1/gi;
+    $sub_tpl =~ s/name='([A-Z_]+)'/name=$n.$1/gi;
+
+    $template .= $sub_tpl;
+  }
+
+  $template =~ s/(<form .*?>)//gi;
+  $template =~ s/<\/form>//ig;
+  $template =~ s/(<input .*?type=submit.*?>)//gi;
+  $template =~ s/<hr>//gi;
+
+#  $template = "<table width=\"100%\">$template</table>\n";
+  if ($attr->{OUTPUT2RETURN}) {
+    return $template;
+  }
+
+  print $html->form_main(
+    {
+      class   => 'form-horizontal',
+      CONTENT => $template,
+      HIDDEN  => { index => "$index" },
+      SUBMIT  => { add => "$lang{ADD}" }
+    }
+  );
+
+  return 1;
+}
+
+#***************************************************************
+=head2 mail_start_page($attr) - Start page summary
+
+=cut
+#***************************************************************
+sub mail_start_page {
+
+  my %START_PAGE_F = (
+    'mail_sp_spool' => "Mail Spool",
+  );
+
+  return \%START_PAGE_F;
+}
+
+#***************************************************************
+=head2 mail_sp_spool($attr) - Spool
+
+=cut
+#***************************************************************
+sub mail_sp_spool {
+  #my ($attr)=@_;
+
+  my @rows = ();
+
+  cmd("sudo postqueue -p");
+
+  my $table = $html->table(
+    {
+      width      => '100%',
+      caption    => "E-mail spool",
+      ID         => 'EMAIL_SPEEL',
+      rows       => \@rows
+    }
+  );
+
+  my $reports = $table->show();
+
+  return $reports;
+}
+
+1

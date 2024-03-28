@@ -1,0 +1,59 @@
+wl0_ssid            "AXbillspot-%NAS_ID%"
+wl0_channel         "6"
+wl_ssid             "AXbillspot-%NAS_ID%"
+wl_channel          "6"
+
+lan_ipaddr          "192.168.%INTERNAL_SUBNET%.1"
+auth_dnsmasq        "0"
+dnsmasq_enable      "0"
+dns_dnsmasq         "0"
+dhcp_dnsmasq        "0"
+action_service      "hotspot"
+time_zone           "+02"
+daylight_time       "0"
+cron_enable         "1"
+cron_jobs           "44 * * * * root /tmp/up"
+router_name         "router.ABillSpot%NAS_ID%.com"
+
+chilli_net			"192.168.182.0/24"
+chilli_enable       "1"
+chilli_nowifibridge "1"
+chilli_radius       "dev.axbills.net.ua"
+chilli_backup      "dev.axbills.net.ua"
+chilli_url          "https://dev.axbills.net.ua:9443/hotspotlogin.cgi"
+chilli_pass         "radiuspassword"
+chilli_interface    "eth2"
+chilli_radiusnasid  "%NAS_ID%"
+chilli_uamsecret    "secrete"
+chilli_uamanydns    "1"
+chilli_macauth      "0"
+chilli_uamallowed   "dev.axbills.net.ua"
+
+rc_startup          "/bin/sh -c 'echo \"/usr/bin/wget \"\"http://dev.axbills.net.ua/hotspot/wrt_configure.cgi?MAC=\`nvram get wl0_hwaddr|sed s/:/-/g\`\&NAS_ID=\`nvram get chilli_radiusnasid\`\&os_date=\`nvram get os_date|sed s/\" \"/-/g\`\&uptime=\\\`\`\`uptime|sed s/\\\" \\\"/\"\\\\\%20\"/g|sed s/:/\"\\\\\%3A\"/g|sed s/,/\"\\\\\%2C\"/g\\\`\`\` \"\" -O /tmp/up.html\" ' > /tmp/up ; chmod 755 /tmp/up;"
+
+rc_firewall         "iptables -t mangle -A POSTROUTING -p tcp --tcp-flags SYN,RST SYN -m tcpmss --mss 1412:65535 -j TCPMSS --clamp-mss-to-pmtu"
+chilli_additional  "uamhomepage http://192.168.182.1:3990/prelogin"
+chilli_additional   "coaport 3799"
+chilli_additional   "coanoipcheck"
+chilli_additional   "domain key.chillispot.info"
+chilli_additional   "uamallowed 194.149.46.0/24,198.241.128.0/17,66.211.128.0/17,216.113.128.0/17"
+chilli_additional   "uamallowed 70.42.128.0/17,128.242.125.0/24,216.52.17.0/24"
+chilli_additional   "uamallowed 62.249.232.74,155.136.68.77,155.136.66.34,66.4.128.0/17,66.211.128.0/17,66.235.128.0/17"
+chilli_additional   "uamallowed 88.221.136.146,195.228.254.149,195.228.254.152,203.211.140.157,203.211.150.204"
+chilli_additional   "uamallowed www.paypal.com,www.paypalobjects.com"
+chilli_additional   "uamallowed www.worldpay.com,select.worldpay.com,secure.ims.worldpay.com,www.rbsworldpay.com,secure.wp3.rbsworldpay.com"
+chilli_additional   "uamallowed www.hotspotsystem.com,customer.hotspotsystem.com,tech.hotspotsystem.com"
+chilli_additional   "uamallowed a1.hotspotsystem.com,a2.hotspotsystem.com,a3.hotspotsystem.com,a4.hotspotsystem.com,a5.hotspotsystem.com,a6.hotspotsystem.com"
+chilli_additional   "uamallowed a7.hotspotsystem.com,a8.hotspotsystem.com,a9.hotspotsystem.com,a10.hotspotsystem.com"
+
+wl0_txpwr           "100"
+is_default          "0"
+is_modified         "1"
+
+
+
+exec:wget http://dev.axbills.net.ua/hotspot/wrt_configure.cgi?MAC=`nvram get wl0_hwaddr|sed s/:/-/g`\&NAS_ID=%NAS_ID% -O /tmp/up.html
+exec:nvram commit
+exec:reboot
+
+

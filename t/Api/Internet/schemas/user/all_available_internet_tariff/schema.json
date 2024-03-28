@@ -1,0 +1,45 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+
+  "required": [],
+  "properties": {
+    "outSpeed": {
+      "$id": "#/properties/outSpeed",
+      "type": "number"
+    },
+    "inSpeed": {
+      "$id": "#/properties/inSpeed",
+      "type": "number"
+    },
+    "tpId": {
+      "$id": "#/properties/tpId",
+      "type": "number"
+    },
+    "comments": {
+      "$id": "#/properties/comments",
+      "type": "string"
+    },
+    "monthFee": {
+      "$id": "#/properties/monthFee",
+      "type": "number"
+    },
+    "serviceId": {
+      "$id": "#/properties/serviceId",
+      "type": "number"
+    },
+    "id": {
+      "$id": "#/properties/id",
+      "type": "number"
+    },
+    "name": {
+      "$id": "#/properties/name",
+      "type": "string"
+    },
+    "dayFee": {
+      "$id": "#/properties/dayFee",
+      "type": "number"
+    }
+  }
+}

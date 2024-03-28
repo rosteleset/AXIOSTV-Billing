@@ -1,0 +1,69 @@
+post:
+  tags:
+    - internet
+  summary: Приостановление услуги Интернет УДАЛЕНО В ВЕРСИИ 1.0
+  deprecated: true
+  parameters:
+    - name: ID
+      in: path
+      description: ID услуги Интернет
+      required: true
+      schema:
+        type: number
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: "../schemas/holdupRequest.yaml"
+    required: true
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/holdupResponse.yaml"
+  security:
+    - USERSID: [ ]
+delete:
+  tags:
+    - internet
+  summary: Удаление рассписания на приостановление услуги Интернет УДАЛЕНО В ВЕРСИИ 1.0
+  deprecated: true
+  parameters:
+    - name: ID
+      in: path
+      description: ID услуги Интернет
+      required: true
+      schema:
+        type: number
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/holdupResponse.yaml"
+  security:
+    - USERSID: [ ]
+get:
+  tags:
+    - internet
+  summary: Инфомация о приостановлении услуги Интернет УДАЛЕНО В ВЕРСИИ 1.0
+  deprecated: true
+  parameters:
+    - name: ID
+      in: path
+      description: ID услуги Интернет
+      required: true
+      schema:
+        type: number
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/holdupInfo.yaml"
+  security:
+    - USERSID: [ ]

@@ -1,0 +1,10 @@
+$lang{REQUEST_DATE}='Дата звароту';
+$lang{LOCATION}='Сегмент';
+$lang{ENTRANCE}="Пад\'езд";
+$lang{FLOR}='Паверх';
+$lang{LAST_PAYMENT}='Апошняя аплата';
+$lang{PAYMENT_TO_DATE}='Аплачана да даты';
+$lang{DEBTS_DAYS}='Запазычанасць дзён';
+$lang{FORUM_ACTIVITY}='актыўнасць у форуме';
+$lang{PRE_TP}='Вядомы Тарыфны план';
+$lang{LAST_FEES_DATE}='Дата апошняга налічэння';

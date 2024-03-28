@@ -1,0 +1,7 @@
+%FUNCTIONS_LIST = (
+  "16:13::weather_today_actions:AJAX" => 5,
+  "10:0:$lang{WEATHER}:weather_map:"  => 8,
+  "11:0:$lang{LIGHTNING_MAP}:weather_lightning_map:" => 8,
+);
+
+1;

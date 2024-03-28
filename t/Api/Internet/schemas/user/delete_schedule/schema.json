@@ -1,0 +1,16 @@
+{
+  "definitions": {},
+  "type": "object",
+  "title": "The Root Schema",
+  "required": ["uid", "success"],
+  "properties": {
+    "uid": {
+      "$id": "#/properties/uid",
+      "type": "number"
+    },
+    "success": {
+      "$id": "#/properties/id",
+      "type": "number"
+    }
+  }
+}

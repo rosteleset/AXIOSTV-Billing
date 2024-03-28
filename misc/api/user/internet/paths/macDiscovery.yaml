@@ -1,0 +1,40 @@
+post:
+  tags:
+    - internet
+  summary: Смена мак адреса пользователем
+  description: Для работы с данным путём необходимо включить опцию `$conf{INTERNET_MAC_DICOVERY}=1;`
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: "../schemas/macDiscovery.yaml"
+    required: true
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              result:
+                type: string
+                example: Hangup is done
+    400:
+      description: Мак адресов уже привязан к другому пользователю
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              errno:
+                type: integer
+                example: 10126
+              errstr:
+                type: string
+                example: This mac address already set for another user
+              cid:
+                type: string
+                example: "10:fe:ed:43:8f:36"
+  security:
+    - USERSID: [ ]

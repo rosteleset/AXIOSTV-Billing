@@ -1,0 +1,12 @@
+%FUNCTIONS_LIST = (
+  "1:0:Netlist:netlist_list:"                                   => 5,
+  "2:1:$lang{GROUPS}:netlist_groups:"                           => 5,
+  "3:1:$lang{LIST}:netlist_list:"                               => 5,
+  "4:1:$lang{SCAN}:netlist_ip_scan:"                            => 5,
+  "5:0:IPv4 Calc:netlist_ip_calc:"                              => 8,
+  "6:0:IPv6 Calc:netlist_ipv6_calc:"                            => 8,
+  "7:1:$lang{NETWORKS}:netlist_show_networks:"                  => 5,
+  "8:1:$lang{NETWORK} $lang{INFO}:netlist_network_info:TYPE,ID" => 5,
+);
+
+1

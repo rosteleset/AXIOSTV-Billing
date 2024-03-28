@@ -1,0 +1,11 @@
+type: object
+properties:
+  operationId:
+    type: string
+    example: 123456789
+  transactionId:
+    type: string
+    example: Liqpay:123456789
+  url:
+    type: string
+    example: https://www.liqpay.ua/api/3/checkout?data=123456789&signature=123456789

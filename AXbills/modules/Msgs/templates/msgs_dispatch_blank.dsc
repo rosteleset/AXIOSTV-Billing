@@ -1,0 +1,45 @@
+CREATED:дата:russian:(x=467;y=713;font_size=11;font_color=black)
+
+ORGANIZATION_NAME:Название организации:russian:(x=92;y=809;font_size=11;font_color=black)
+ORGANIZATION_MAIL:Почта организации:russian:(x=127;y=792;font_size=11;font_color=black)
+ORGANIZATION_ADDRESS:Адрес организации:russian:(x=76;y=776;font_size=11;font_color=black)
+ORGANIZATION_FAX:Факс организации:russian:(x=447;y=792;font_size=11;font_color=black)
+ORGANIZATION_PHONE:Телефон организации:russian:(x=467;y=776;font_size=11;font_color=black)
+
+
+ORDER_PERSONAL_INFO_LOGIN_1:Логин:russian:(x=42;y=647;font_size=11;font_color=black)
+ORDER_PERSONAL_INFO_FIO_1:ФИО:russian:(x=93;y=658;font_size=9;font_color=black)
+ORDER_PERSONAL_INFO_ADDRESS_1:Адрес подключения-регистрации:russian:(x=93;y=647;font_size=9;font_color=black)
+ORDER_PERSONAL_INFO_PHONE_1:телефон:russian:(x=93;y=634;font_size=9;font_color=black)
+ORDER_SUBJECT_1:телефон:russian:(x=247;y=658;font_size=9;font_color=black)
+ORDER_JOB_1:коментарий:russian:(x=354;y=647;font_size=8;font_color=black)
+PLAN_DATE_1:дата планируемого выполнения :russian:(x=354;y=636;font_size=8;font_color=black)
+COMMENTS: коментарий :russian:(x=42;y=713;font_size=12;font_color=black; font_color=black)
+
+ORDER_PERSONAL_INFO_LOGIN_2:Логин:russian:(x=42;y=609;font_size=11;font_color=black)
+ORDER_PERSONAL_INFO_FIO_2:ФИО:russian:(x=93;y=620;font_size=9;font_color=black)
+ORDER_PERSONAL_INFO_ADDRESS_2:Адрес подключения-регистрации:russian:(x=93;y=609;font_size=9;font_color=black)
+ORDER_PERSONAL_INFO_PHONE_2:телефон:russian:(x=93;y=596;font_size=9;font_color=black)
+ORDER_SUBJECT_2:телефон:russian:(x=247;y=620;font_size=9;font_color=black)
+ORDER_JOB_2:коментарий:russian:(x=354;y=609;font_size=8;font_color=black)
+PLAN_DATE_2:дата планируемого выполнения :russian:(x=354;y=598;font_size=8;font_color=black)
+
+ORDER_PERSONAL_INFO_LOGIN_3:Логин:russian:(x=42;y=563;font_size=11;font_color=black)
+ORDER_PERSONAL_INFO_FIO_3:ФИО:russian:(x=93;y=574;font_size=9;font_color=black)
+ORDER_PERSONAL_INFO_ADDRESS_3:Адрес подключения-регистрации:russian:(x=93;y=563;font_size=9;font_color=black)
+ORDER_PERSONAL_INFO_PHONE_3:телефон:russian:(x=93;y=550;font_size=9;font_color=black)
+ORDER_SUBJECT_3:телефон:russian:(x=247;y=574;font_size=9;font_color=black)
+ORDER_JOB_3:коментарий:russian:(x=354;y=563;font_size=8;font_color=black)
+PLAN_DATE_3:дата планируемого выполнения :russian:(x=354;y=552;font_size=8;font_color=black)
+
+
+ORDER_PERSONAL_INFO_LOGIN_4:Логин:russian:(x=42;y=517;font_size=11;font_color=black)
+ORDER_PERSONAL_INFO_FIO_4:ФИО:russian:(x=93;y=528;font_size=9;font_color=black)
+ORDER_PERSONAL_INFO_ADDRESS_4:Адрес подключения-регистрации:russian:(x=93;y=517;font_size=9;font_color=black)
+ORDER_PERSONAL_INFO_PHONE_4:телефон:russian:(x=93;y=504;font_size=9;font_color=black)
+ORDER_SUBJECT_4:телефон:russian:(x=247;y=528;font_size=9;font_color=black)
+ORDER_JOB_4:коментарий:russian:(x=354;y=517;font_size=8;font_color=black)
+PLAN_DATE_4:дата планируемого выполнения :russian:(x=354;y=552;font_size=8;font_color=black)
+
+ADMIN_FIO:ФИО Администратора:russian:(x=93;y=141;font_size=8;font_color=black)
+RESPOSIBLE_FIO:ФИО ответственного за наряд:russian:(x=112;y=135;font_size=11)

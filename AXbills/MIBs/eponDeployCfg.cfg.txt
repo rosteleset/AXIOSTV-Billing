@@ -1,0 +1,10 @@
+#include "ccdgenKeywords.h"
+
+Begin: eponDeployCfg.mi2 eponDeployCfg
+       IncludeFile: $GBN_DIR/tools/mibs
+       SupportPath: $GBN_DIR/tools/mibs
+       SupportMibs: eponRoot.mi2
+       GroupList: eponDeployCfg
+    /* HideFromSNMP: true */
+
+End:

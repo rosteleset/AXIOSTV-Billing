@@ -1,0 +1,19 @@
+type: array
+items:
+  type: object
+  properties:
+    uid:
+      type: integer
+      example: 0
+    aid:
+      type: integer
+      example: 2
+    id:
+      type: integer
+      example: 54
+    text:
+      type: string
+      example: some reply text
+    datetime:
+      type: string
+      example: "2021-09-02 12:50:47"

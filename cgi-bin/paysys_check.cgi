@@ -1,0 +1,1 @@
+../AXbills/modules/Paysys/paysys_check.cgi

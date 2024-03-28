@@ -1,0 +1,86 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+  "required": [
+    "authType",
+    "descr",
+    "extAcct",
+    "id",
+    "mac",
+    "nasAlive",
+    "nasDisable",
+    "nasGroupName",
+    "nasId",
+    "nasIdentifier",
+    "nasIp",
+    "nasMngIpPort",
+    "nasMngPassword",
+    "nasMngUser",
+    "nasName",
+    "nasRadPairs",
+    "nasType"
+  ],
+  "properties": {
+    "authType": {
+      "$id": "#/properties/authType",
+      "type": "number"
+    },
+    "descr": {
+      "$id": "#/properties/descr",
+      "type": "string"
+    },
+    "extAcct": {
+      "$id": "#/properties/extAcct",
+      "type": "number"
+    },
+    "id": {
+      "$id": "#/properties/id",
+      "type": "number"
+    },
+    "nasAlive": {
+      "$id": "#/properties/nasAlive",
+      "type": "number"
+    },
+    "nasDisable": {
+      "$id": "#/properties/nasDisable",
+      "type": "number"
+    },
+    "nasGroupName": {
+      "$id": "#/properties/nasGroupName",
+      "type": "string"
+    },
+    "nasId": {
+      "$id": "#/properties/nasId",
+      "type": "number"
+    },
+    "nasIdentifier": {
+      "$id": "#/properties/nasIdentifier",
+      "type": "string"
+    },
+    "nasIp": {
+      "$id": "#/properties/nasIp",
+      "type": "string"
+    },
+    "nasMngIpPort": {
+      "$id": "#/properties/nasMngIpPort",
+      "type": "string"
+    },
+    "nasMngUser": {
+      "$id": "#/properties/nasMngUser",
+      "type": "string"
+    },
+    "nasName": {
+      "$id": "#/properties/nasName",
+      "type": "string"
+    },
+    "nasRadPairs": {
+      "$id": "#/properties/nasRadPairs",
+      "type": "string"
+    },
+    "nasType": {
+      "$id": "#/properties/nasType",
+      "type": "string"
+    }
+  }
+}

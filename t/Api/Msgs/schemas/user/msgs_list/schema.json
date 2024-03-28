@@ -1,0 +1,49 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+  "required": [
+    "chapterName",
+    "chapterId",
+    "id",
+    "message",
+    "subject",
+    "uid",
+    "state",
+    "stateId"
+  ],
+  "properties": {
+    "id": {
+      "$id": "#/properties/id",
+      "type": "number"
+    },
+    "message": {
+      "$id": "#/properties/message",
+      "type": "string"
+    },
+    "chapterName": {
+      "$id": "#/properties/chapterName",
+      "type": "string"
+    },
+    "chapterId": {
+      "$id": "#/properties/chapterId",
+      "type": "number"
+    },
+    "uid": {
+      "$id": "#/properties/uid",
+      "type": "number"
+    },
+    "stateId": {
+      "$id": "#/properties/stateId",
+      "type": "number"
+    },
+    "state": {
+      "$id": "#/properties/state",
+      "type": "number"
+    },
+    "subject": {
+      "$id": "#/properties/subject",
+      "type": "string"
+    }
+  }
+}

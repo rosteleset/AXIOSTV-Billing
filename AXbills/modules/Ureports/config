@@ -1,0 +1,25 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+our %FUNCTIONS_LIST = (
+  "01:0:$lang{NOTIFICATIONS}:ureports_users_list:"      => 11,
+  "02:0:$lang{NOTIFICATIONS}:ureports_user:UID"         => 20,
+  #"03:2:$lang{TARIF_PLANS}:ureports_chg_tp:UID"        => 11,
+  "04:2:$lang{STATS}:ureports_stats:UID"                => 11,
+  "06:0:$lang{NOTIFICATIONS}:null:"                     => 5,
+  "07:6:$lang{TARIF_PLANS}:ureports_tp:"                => 5,
+  "09:7:$lang{REPORTS}:ureports_tp_reports:TP_ID:"       => 5,
+  "11:7:$lang{USERS}:ureports_users_list"               => 5,
+  "12:8:$lang{NOTIFICATIONS}:ureports_multiuser_sel:TP_ID" => 5,
+  "13:0:$lang{NOTIFICATIONS}:ureports_stats:"          => 4,
+);
+
+our %USER_FUNCTION_LIST = (
+  "01:0:$lang{NOTIFICATIONS}:ureports_user_info:" => 0,
+  "03:1:$lang{STATS}:ureports_stats:"             => 0
+);
+
+our %PERIODIC = (
+  daily   => [ 'ureports_daily_resets' ],
+  monthly => [ 'ureports_monthly_periodic' ]
+);
+
+1

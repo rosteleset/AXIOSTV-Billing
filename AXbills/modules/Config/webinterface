@@ -1,0 +1,1183 @@
+#!perl
+
+=head1 NAME
+
+  Config web management
+
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+use Conf;
+use AXbills::Base qw(vars2lang is_number json_former);
+use AXbills::Fetcher qw/web_request/;
+
+our ($db, $admin, %conf, %lang, @bool_vals);
+our AXbills::HTML $html;
+
+my $Config = Conf->new($db, $admin, \%conf, { SKIP_CONF => 1 });
+my $debug = $FORM{DEBUG} || 0;
+
+$Config->{ACTION}     = 'add';
+$Config->{LNG_ACTION} = $lang{ADD};
+
+my @denied_variables = (
+  'dbhost',
+  'dbname',
+  'dbuser',
+  'dbpasswd',
+  'dbtype',
+  'dbcharset',
+  'secretkey'
+);
+
+#**********************************************************
+=head2 config_main($attr) - main config parameters
+
+=cut
+#**********************************************************
+sub config_main {
+
+  #Modules
+  my @header_arr = ("$lang{MAIN}:index=$index&MODULE=main");
+  foreach my $module (@MODULES) {
+    next if ($module eq 'Config');
+    push @header_arr, "$module:index=$index&MODULE=$module";
+  }
+
+  my $module_title = $FORM{MODULE}
+    ? $FORM{MODULE} eq 'main'
+      ? $lang{MAIN}
+      : $FORM{MODULE}
+    : '';
+
+  print $html->table_header(\@header_arr, { TABS => 1, FORCED_CHECK_NAME => $module_title, class => 'mb-2' });
+
+  if ($FORM{MODULE} && $FORM{MODULE} ne 'main') {
+    $LIST_PARAMS{PARAM} = uc($FORM{MODULE}) . '_*';
+    $pages_qs .= "&MODULE=$FORM{MODULE}";
+  }
+
+  my $to_change_list = '';
+  my $showable_value = '';
+  my $probably_name = $FORM{PARAM} || $FORM{chg} || $FORM{del} || '';
+
+  if ($probably_name && grep { $_ eq $probably_name } @denied_variables) {
+    $html->message('err', $lang{ERR_ACCESS_DENY});
+    return 0;
+  }
+
+  if ($FORM{change} && !$conf{PUBLIC_MODE}) {
+    my %pre_conf  = ();
+    my %post_conf = ();
+    $to_change_list      = $Config->list({ PARAM => $FORM{PARAM}, COLS_NAME => 1 });
+
+    if (_error_show($Config)) { return 0 }
+
+    foreach my $line (@{$to_change_list}) {
+      $pre_conf{ $line->{param} } = $line->{type};
+    }
+
+    foreach my $p (sort keys %FORM) {
+      if (defined($pre_conf{$p})) {
+        if (defined($FORM{$p}) && $FORM{$p} eq 'subparams') {
+          my @params_val = ();
+          my $i          = 0;
+          while (defined($FORM{ $p . '_' . $i })) {
+            push @params_val, $FORM{ $p . '_' . $i };
+            $i++;
+          }
+
+          $post_conf{$p} = join(':', @params_val);
+        }
+        elsif (defined($FORM{$p}) && $FORM{$p} eq 'subsubparams') {
+          my @params_val = ();
+          my $i          = 0;
+          my $in         = 0;
+
+          while (defined($FORM{ $p . '_' . $in . '_' . $i })) {
+            my @param_inside = ();
+            $i = 0;
+            while (defined($FORM{ $p . '_' . $in . '_' . $i })) {
+              push @param_inside, $FORM{ $p . '_' . $in . '_' . $i };
+              $i++;
+            }
+            $i--;
+            push @params_val, [@param_inside];
+            $in++;
+          }
+
+          $post_conf{$p} = join(';', map { join(':', @$_) } @params_val);
+        }
+        else {
+          $post_conf{$p} = $FORM{$p};
+        }
+      }
+    }
+
+    my $message_desc = '';
+    my $can_change = 0;
+    my @banned_for_regex = (1, 3, 4);
+
+    my $probably_item = $to_change_list->[0] // {};
+    foreach my $p (sort keys %post_conf) {
+      my $value = $post_conf{$p};
+
+      my $is_banned = grep { ($_ || 0) == $probably_item->{type} } @banned_for_regex;
+
+      if ($is_banned) {
+        $can_change = 1;
+      } elsif (!$probably_item->{regex}) {
+        $can_change = 1;
+      } elsif ($value =~ /$probably_item->{regex}/) {
+        $can_change = 1;
+      }
+      $showable_value = is_number($value)
+        ? defined($bool_vals[$value])
+          ? $bool_vals[$value]
+          : $value
+        : $value || q{};
+
+
+      if ($can_change == 1) {
+        $message_desc .= vars2lang($lang{VARIABLE_CHANGED_TO}, {
+          VARIABLE => $html->b($p),
+          VALUE => $html->b($showable_value)
+        });
+
+        $Config->config_add({
+          PARAM   => $p,
+          VALUE   => $value,
+          REPLACE => 1
+        });
+      } else {
+        $message_desc = vars2lang($lang{INVALID_CONFIG}, {
+          PARAM      => $html->b($probably_item->{param}),
+          INVALID_VALUE => $html->b($value),
+          TRUE_VALUE => $html->b($probably_item->{value}),
+          REGEXP     => $html->b($probably_item->{regex} || "$lang{NOT_EXIST}")
+        });
+      }
+    }
+
+    if ($can_change == 1) {
+      if (!_error_show($Config)) {
+        $html->message('info', $lang{CHANGED}, $message_desc);
+      }
+    } else {
+      $html->message('err',
+        $lang{ERROR},
+        $message_desc
+      );
+    }
+  }
+  elsif ($FORM{change} && $conf{PUBLIC_MODE}) {
+    $html->message('err', $lang{ERROR}, $lang{ERROR_PUBLIC_MODE});
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Config->config_del($FORM{del});
+    if (!_error_show($Config)) {
+      $html->message('info', $lang{DELETED}, "$lang{VARIABLE} $FORM{del} $lang{DELETED}");
+    }
+  }
+
+  if ($FORM{chg} || $FORM{change}) {
+    # Replace config after change
+    Conf->new($db, $admin, \%conf);
+    $to_change_list = $Config->list({ PARAM => $FORM{chg} || $FORM{PARAM}, PG => 0, PAGE_ROWS => 999999, SORT => 1, COLS_NAME => 1 });
+
+    my $item = $to_change_list->[0];
+    if (!$item) {
+      print $html->message('err', 'CONFIG_NOT_EXIST', { ID => 500 });
+    } else {
+      my $value = _config_parse_change_variable($item, $showable_value);
+      my $template_by_config = _include('config_change_value_' . $item->{type}, 'Config', { CHECK_WITH_VALUE => 1 });
+      if ($template_by_config) {
+        $template_by_config = _include('config_change_value_default', 'Config');
+      }
+
+      $value = $html->tpl_show($template_by_config, { VALUE => $value }, { OUTPUT2RETURN => 1 });
+      my $comments = $item->{comments} // q{};
+      my $br = $html->br() || "\n";
+      if (defined $comments) {
+        $comments =~ s/\n/$br/g;
+      }
+      $html->tpl_show(_include('config_change', 'Config'),
+        {
+          CONFIG_VARIABLE => $FORM{chg} || $FORM{PARAM},
+          VALUE => $value,
+          COMMENTS => $comments,
+          MODULE => $FORM{MODULE}
+        }
+      );
+    }
+  }
+
+  my %local_conf = _config_variables_from_config_pl();
+  my %db_conf = _config_variables_from_db();
+
+  my $list = $Config->list({ PARAM => $LIST_PARAMS{PARAM}, PG => 0, PAGE_ROWS => 999999, SORT => 1, COLS_NAME => 1 });
+
+  if (_error_show($Config)) { return 0 }
+
+  my $table = $html->table({
+    width   => '100%',
+    caption => "$lang{CONFIGURATION} $module_title",
+    title   => [ $lang{PARAM}, $lang{VALUE}, '', '' ],
+    qs      => $pages_qs,
+    DATA_TABLE => { lengthMenu => [ [ 50, 100, -1 ], [ 50, 100, $lang{ALL} ] ] },
+    ID      => 'CONFIG'
+  });
+
+  my $not_exist = $html->color_mark($lang{NOT_EXIST}, 'text-gray');
+  my $probably_module = $FORM{MODULE} || 'main';
+
+  foreach my $line (@{$list}) {
+    my ($value, $is_error, $is_empty) = _config_parse_variable($line);
+
+    if ($is_empty == 0 && $is_error == 1) {
+      my $message = vars2lang($lang{INVALID_CONFIG}, {
+        PARAM      => $html->b($line->{param}),
+        INVALID_VALUE => $html->b($value),
+        TRUE_VALUE => $html->b($line->{value}),
+        REGEXP     => $html->b($line->{regex} || "$lang{NOT_EXIST}")
+      });
+      $html->message('err', $lang{ERROR}, $message);
+    }
+    my $br = $html->br() || "\n";
+    if (defined $line->{comments}) {
+      $line->{comments} =~ s/\n/$br/g;
+    }
+
+    my $search_color_mark;
+    if ($FORM{COMMENTS}) {
+      my $text = $FORM{COMMENTS};
+      $text =~ s/\*//g;
+      $search_color_mark = $html->color_mark($text, $_COLORS[6]);
+      if ($line->{comments}) {
+        $line->{comments} =~ s/(.*)$text(.*)/$1$search_color_mark$2/;
+      }
+    }
+
+    my $param = _config_change_param_display($line->{param}, \%local_conf, \%db_conf);
+
+    $table->addrow(
+      $param . ($line->{comments} || q{}),
+      $is_empty ? $not_exist : $value,
+      $html->button($lang{CHANGE}, "index=$index&MODULE=$probably_module&chg=$line->{param}", { class => 'change' }),
+      $html->button($lang{DEL}, "index=$index&MODULE=$probably_module&del=$line->{param}",
+        { MESSAGE => "$lang{DEL} '$line->{param}' ?", class => 'del' }
+      )
+    );
+  }
+
+  $conf{VERSION} = get_version();
+  print $table->show();
+  $html->tpl_show(_include('config_docs_update', 'Config'),
+    {
+      UPDATE_DATE         => $conf{CONFIG_DOCS_UPDATE} || $lang{NEVER},
+      VERSION_DOCS_UPDATE => $conf{VERSION_DOCS_UPDATE} || '',
+      VERSION             => $conf{VERSION}
+    }
+  );
+  return 1;
+}
+
+#**********************************************************
+=head2 config_manage() Main config parameters
+
+=cut
+#**********************************************************
+sub config_manage {
+  my @types = ('STRING', 'BOOL', 'INT', 'MULTIVAL', 'MULTI-MULTIVAL', 'SELECT', 'MULTISTR');
+
+  my $probably_name = $FORM{PARAM} || $FORM{chg} || $FORM{del} || '';
+
+  if ($probably_name && grep { $_ eq $probably_name } @denied_variables) {
+    $html->message('err', $lang{ERR_ACCESS_DENY});
+    return 0;
+  }
+
+  my $item = undef;
+  if ($conf{PUBLIC_MODE} && ($FORM{add} || $FORM{change} || $FORM{del})) {
+    $html->message('err', $lang{ERROR}, $lang{ERROR_PUBLIC_MODE});
+  }
+  elsif ($FORM{add}) {
+    $Config->add({%FORM});
+
+    if (!_error_show($Config)) {
+      $html->message('info', $lang{INFO}, "$lang{ADDED}");
+    }
+  }
+  elsif ($FORM{change}) {
+    my $can_change = 0;
+    my $edited_regex = $FORM{REGEX} ? $FORM{REGEX} : '';
+    $edited_regex  =~ s/\\(?:(?=\\))//gm;
+
+    if ($edited_regex) {
+      # TODO: recheck select, multivalue with regex after rebuilding concept
+      my @banned_for_regex = (1, 3, 4);
+
+      my $is_banned = grep { $_ == $FORM{TYPE} } @banned_for_regex;
+
+      if ($is_banned) {
+        $can_change = 1;
+      }
+      elsif ($FORM{VALUE} =~ /$edited_regex/) {
+        $can_change = 1;
+      }
+    } else {
+      $can_change = 1;
+    }
+
+    if ($can_change == 1) {
+      $Config->change({ %FORM, REGEX => $edited_regex });
+      if (!_error_show($Config)) {
+        $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+      }
+    } else {
+      $html->message('err', $lang{ERROR}, $lang{REGEX_NOT_TO_VALUE});
+    }
+    my $on_change = $Config->list({ PARAM => $FORM{PARAM}, COLS_NAME => 1 });
+    _error_show($Config);
+    $item = $on_change->[0] // {};
+
+    if ($item && scalar keys %{$item} > 0) {
+      $Config->{VALUE_INPUT} = _config_manage_parse_change_variable($item, $item->{param});
+      $Config->{ACTION} = 'change';
+      $Config->{LNG_ACTION} = $lang{CHANGE};
+    }
+  }
+  elsif ($FORM{chg}) {
+    my $on_change = $Config->list({ PARAM => $FORM{chg}, COLS_NAME => 1 });
+    _error_show($Config);
+    $item = $on_change->[0] // {};
+
+    if ($item && scalar keys %{$item} > 0) {
+      $Config->{VALUE_INPUT} = _config_manage_parse_change_variable($item, $item->{param});
+      $Config->{ACTION} = 'change';
+      $Config->{LNG_ACTION} = $lang{CHANGE};
+    }
+  }
+  elsif ($FORM{del}) {
+    $Config->del($FORM{del});
+
+    if (!_error_show($Config)) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED} [$FORM{del}]");
+    }
+  }
+
+  $Config->{TYPE_SEL} = $html->form_select(
+    'TYPE',
+    {
+      SELECTED     => $item->{type} // $FORM{TYPE},
+      SEL_ARRAY    => \@types,
+      ARRAY_NUM_ID => 1
+    }
+  );
+
+  my $ex_params = '';
+  if ($item->{regex}) {
+    $ex_params .= " pattern='$item->{regex}'"
+  }
+  $Config->{VALUE_INPUT} //= $html->form_textarea('VALUE', '', { ROWS => 3, EX_PARAMS => $ex_params });
+
+  $html->tpl_show(_include('config_manage', 'Config'),
+    {
+      %FORM,
+      %{$Config},
+      %{($item) ? {
+        PARAM       => $item->{param},
+        COMMENTS    => $item->{comments},
+        REGEX       => $item->{regex},
+        REGEX_IS_DISABLED => $item->{type} && $item->{type} == 1 ? 'disabled' : '',
+      } : {}},
+    }
+  );
+
+  my $list = $Config->list({ SORT => 1, PG => 0, PAGE_ROWS => 999999, COLS_NAME => 1 });
+
+  if (_error_show($Config)) { return 0 }
+
+  my $table = $html->table({
+    width   => '100%',
+    caption => $lang{OPTIONS},
+    title   => [ $lang{PARAM}, $lang{VALUE}, $lang{TYPE}, "-", "-" ],
+    qs      => $pages_qs,
+    DATA_TABLE => { lengthMenu => [ [ 50, 100, -1 ], [ 50, 100, $lang{ALL} ] ] },
+    ID      => 'CONFIG_OPTIONS'
+  });
+
+  foreach my $line (@{$list}) {
+    my $showable_type = defined($types[$line->{type}]) ? $types[$line->{type}] : $line->{type};
+    $table->addrow($line->{param},
+      $line->{value},
+      $showable_type,
+      $html->button($lang{CHANGE}, "index=$index&chg=$line->{param}", { class => 'change' }),
+      $html->button($lang{DEL}, "index=$index&del=$line->{param}", { MESSAGE => "$lang{DEL} '$line->{param}' ?", class => 'del' }));
+  }
+
+  print $table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 config_update_docs() - update local config docs from documentation
+
+=cut
+#**********************************************************
+sub config_update_docs {
+  $conf{VERSION} = get_version();
+
+  my $date_when_updated = $conf{CONFIG_DOCS_UPDATE};
+  my $version_when_updated = $conf{VERSION_DOCS_UPDATE};
+
+  if (!$FORM{FORCE}
+    && $date_when_updated && $date_when_updated eq $DATE
+    && $version_when_updated && $version_when_updated eq $conf{VERSION}) {
+    print json_former({ ok => 1, status => 1, msg => "Already updated." });
+    return;
+  }
+
+  my $base_site = 'http://axbills.net.ua';
+  my $base_docu_link = "$base_site/wiki";
+  my $doc_id = "113745617";
+
+  my $doc_url = "$base_docu_link/rest/api/content/:id?expand=body.view";
+  my $main_link = _replace_link_id($doc_url, $doc_id);
+  my $value = web_request($main_link,
+    {
+      CURL        => 1,
+      JSON_RETURN => 1,
+    }
+  );
+
+  if ($@ || !$value) {
+    print json_former({ error => "Error during request" });
+    return 0;
+  }
+
+  my $body = $value->{body}{view}{value};
+  my @ids = ($body =~ /<li>.+?pageId=(.+?)\".+?<\/li>/gm);
+
+  my $i = 0;
+  my @results = ();
+
+  for my $id (@ids) {
+    $i++;
+    my $page_link = _replace_link_id($doc_url, $id);
+    my $page = web_request($page_link,
+      {
+        CURL        => 1,
+        JSON_RETURN => 1,
+      }
+    );
+
+    my $page_body = $page->{body}{view}{value};
+    if (!$page_body) {
+      next;
+    }
+    my @headers = ($page_body =~ /<th .+?confluenceTh\".+?<strong>(.+?)<\/strong>.+?<\/th>/gm);
+    my @descs = ($page_body =~ /<td .+?confluenceTd\">(.+?)<\/td>/gm);
+    # Fix urls with base
+    @descs = map { $_ =~ s/(href=\"|src=\")()/$1$base_site/gr } @descs;
+    @descs = map { $_ =~ s/content-wrapper//gr } @descs;
+
+    push @results, [\@headers, \@descs];
+  }
+
+  for my $from (@results) {
+    my @heads = @{$from->[0]};
+    my @descs = @{$from->[1]};
+
+    for my $idx (0..$#heads) {
+      my $param = $heads[$idx];
+      my $desc = $descs[$idx];
+
+      $desc = Encode::decode_utf8($desc);
+
+      if ($desc) {
+        $Config->change({ PARAM => $param, COMMENTS => $desc });
+      }
+    }
+  }
+
+  if ($date_when_updated) {
+    $Config->config_change('', { PARAM => 'CONFIG_DOCS_UPDATE', VALUE => $DATE });
+  } else {
+    $Config->config_add({ PARAM => 'CONFIG_DOCS_UPDATE', VALUE => $DATE });
+  }
+
+  if ($version_when_updated) {
+    $Config->config_change('', { PARAM => 'VERSION_DOCS_UPDATE', VALUE => $conf{VERSION} });
+  } else {
+    $Config->config_add({ PARAM => 'VERSION_DOCS_UPDATE', VALUE => $conf{VERSION} });
+  }
+
+  print json_former({ ok => 1, status => 2 });
+}
+
+#**********************************************************
+=head2 config_password_generator() - configuration for passwords generator
+
+=cut
+#**********************************************************
+sub config_password_generator {
+
+#  use AXbills::Base qw/_bp/;
+#  _bp('', $conf{CONFIG_PASSWORD});
+  
+  if ($FORM{action}) {
+    $FORM{CASE}  //= 0;
+    $FORM{CHARS} //= 0;
+
+    my $new_config_string = join(':', $FORM{CASE}, $FORM{CHARS});
+
+    $Config->config_add({
+      PARAM   => 'CONFIG_PASSWORD',
+      VALUE   => $new_config_string,
+      REPLACE => 1
+    });
+
+    $Config->config_add({
+      PARAM   => 'PASSWD_LENGTH',
+      VALUE   => ($FORM{SYMBOLS_COUNT} || $conf{PASSWD_LENGTH}),
+      REPLACE => 1
+    });
+
+    if (!_error_show($Config)) {
+      $conf{CONFIG_PASSWORD} = $new_config_string;
+      $conf{PASSWD_LENGTH}   = $FORM{SYMBOLS_COUNT};
+    }
+  }
+  elsif ($FORM{reset}){
+    my $error = 0;
+    $Config->config_del('CONFIG_PASSWORD');
+    $error = _error_show($Config);
+    
+    $Config->config_del('PASSWD_LENGTH');
+    $error ||= _error_show($Config);
+    
+    if (!$error){
+      $html->message('info', $lang{DELETED});
+      $html->redirect("$SELF_URL?index=$index")
+    };
+  }
+  
+  my $config_string = $conf{CONFIG_PASSWORD} || '0:0';
+  my $count = $conf{PASSWD_LENGTH} // 6;
+  my ($case, $chars) = split(':', $config_string);
+  
+  $case = 0 if ($case > 3);
+  $chars = 0 if ($chars !~ /^\d+$/ || $chars > 3);
+
+  $html->tpl_show(
+    _include('config_password', 'Config'),
+    {
+      MIN_LENGTH => ($count < 6) ? $count : 6,
+      MAX_LENGTH => 32,
+
+      SYMBOLS_COUNT           => $count,
+      "CASE_$case\_CHECKED"   => 'checked="checked"',
+      "CHARS_$chars\_CHECKED" => 'checked="checked"'
+    }
+  );
+}
+
+#**********************************************************
+
+=head2 config_get_password_constraints($config_string)
+
+=cut
+
+#**********************************************************
+sub config_get_password_constraints {
+  my ($config_string) = @_;
+
+  my $length = $conf{PASSWD_LENGTH};
+  my ($case, $special_chars) = split(':', $config_string);
+
+  if ($case > 3) {
+    $case = 1;
+  }
+
+  if ($special_chars > 3) {
+    $special_chars = 3;
+  }
+  my $lang_case = '';
+  if ($case == 0) {
+    $lang_case = $lang{UPPERCASE};
+  }
+  elsif ($case == 1) {
+    $lang_case = $lang{LOWERCASE};
+  }
+  elsif ($case == 2) {
+    $lang_case = $lang{UPPERCASE} . ', ' . $lang{LOWERCASE};
+  }
+  elsif ($case == 3) {
+    $lang_case = $lang{NO};
+  }
+
+  my $lang_chars = '';
+  if ($special_chars == 0) {
+    $lang_chars = $lang{NUMBERS};
+  }
+  elsif ($special_chars == 1) {
+    $lang_chars = $lang{SPECIAL_CHARS} . '(-_!&%@#:)';
+  }
+  elsif ($special_chars == 2) {
+    $lang_chars = $lang{NUMBERS} . ', ' . $lang{SPECIAL_CHARS} . '(-_!&%@#:)';
+  }
+  elsif ($special_chars == 3) {
+    $lang_chars = $lang{NO};
+  }
+
+  return $html->br . $lang{LENGTH} . ' : >= ' . ($length || '')
+    . $html->br . $lang{LETTERS} . ' : ' . $lang_case
+    . $html->br . $lang{NON_ALPHABET_SYMBOLS} . ' ' . lc($lang{SYMBOLS}) . ' : ' . $lang_chars . $html->br;
+}
+
+#**********************************************************
+=head2 _config_parse_variable($line, $not_exist) - parse config variables to string
+
+  Arguments:
+    $line      - { type => 1..5, param => 'YOUR_CONFIG', value => 'value' },
+
+  Returns:
+    ($value, $is_error, $is_empty)
+
+=cut
+#**********************************************************
+sub _config_parse_variable {
+  my ($line) = @_;
+  my $value = '';
+  my $is_empty = 0;
+  my $is_error = 0;
+
+  #bool
+  if ($line->{type} == 1) {
+    my $param = $conf{$line->{param}};
+
+    $value = $param;
+
+    if (!(defined($param))) {
+      $is_empty = 1;
+    }
+    elsif (!is_number($param) || ($param != 0 && $param != 1)) {
+      $is_error = 1;
+    }
+    else {
+      $value = $bool_vals[$param];
+    }
+  }
+  #Int
+  elsif ($line->{type} == 2) {
+    my $param = $conf{$line->{param}};
+
+    if (!(defined($param))) {
+      $is_empty = 1;
+    }
+    elsif (!is_number($param)) {
+      $is_error = 1;
+    }
+    else {
+      $value = "$param";
+    }
+  }
+  #Multival
+  # FIXME: working with different params and different defining param ways
+  elsif ($line->{type} == 3) {
+    my $checked_value = defined($conf{$line->{param}}) ? $conf{$line->{param}} : '';
+
+    my @val_arr = split(/:/, $checked_value);
+    my @param_arr = split(/:/, $line->{value});
+
+    $value = $html->form_input(
+      "$line->{param}" . '',
+      'subparams',
+      {
+        TYPE     => 'hidden',
+        STATE    => 'checked',
+        DISABLED => 1
+      }
+    );
+
+    for (my $i = 0 ; $i <= $#param_arr ; $i++) {
+      my $param = $param_arr[$i];
+      $param =~ s/[\n\r]//g;
+      my ($key, $default_val) = split(/=/, $param);
+      my $label = (($key)
+        ? _translate($key)
+        : "$lang{PARAM} " . ($i + 1));
+      $label = $html->element('div', $label, { class => 'col-form-label text-md-right col-md-3' });
+      my $input = $html->form_input($line->{param} . '_' . $i, $val_arr[$i] || $default_val, { SIZE => 10, DISABLED => 1 });
+      my $input_container = $html->element('div', $input, { class => 'col-md-9' });
+
+      my $result = $html->element('div', $label . $input_container, { class => 'form-group row' });
+
+      $value .= $result;
+    }
+  }
+  # Multi-multival
+  elsif ($line->{type} == 4) {
+    my $checked_value = defined($conf{$line->{param}}) ? $conf{$line->{param}} : '';
+
+    my @value_arr = split(/;/, $checked_value);
+    my @val_arr = map { [ split(/:/, $_) ] } @value_arr;
+    my @param_arr = split(/:/, $line->{value});
+
+    $value = $html->form_input(
+      "$line->{param}" . '',
+      'subsubparams',
+      {
+        TYPE     => 'hidden',
+        STATE    => 'checked',
+        DISABLED => 1
+      }
+    );
+
+    for (my $in = 0; $in <= $#value_arr; $in++) {
+      my $count = $in + 1;
+      my $one_item = '';
+      my $count_item = $html->element('span', $count, { id => "count_$count" });
+      my $top_label = $html->element('label',
+        $lang{PARAM} . ' ' . $count_item . ':',
+        { class => 'col-form-label text-md-right col-md-6 text-bold mb-2 pt-0' }
+      );
+
+      $one_item .= $top_label;
+      for (my $i = 0; $i <= $#param_arr; $i++) {
+        my $param = $param_arr[$i];
+        $param =~ s/[\n\r]//g;
+        my ($key, $default_val) = split(/=/, $param);
+        my $number = $i + 1;
+        my $label = (($key)
+          ? _translate($key)
+          : "$lang{PARAM} $number");
+        $label = $html->element('div', $label, { class => 'col-form-label text-md-right col-md-3' });
+        my $input = $html->form_input(
+          $line->{param} . '_' . $in . '_' . $i,
+          $val_arr[$in][$i] || $default_val,
+          { SIZE => 10, DISABLED => 1 }
+        );
+
+        my $input_container = $html->element('div', $input, { class => 'col-md-9' });
+
+        my $result = $html->element('div', $label . $input_container, { class => 'form-group row' });
+
+        $one_item .= $result;
+      }
+      $one_item .= $html->element('hr', '', { style => 'border-top: 3px solid #bbb;'});
+      $one_item = $html->element('div', $one_item, { id => "param_$count" });
+      $value .= $one_item;
+    }
+  }
+  #Select
+  elsif ($line->{type} == 5) {
+    my @param_arr = split(/;/, $line->{value});
+    my %select_hash = ();
+    for (my $i = 0 ; $i <= $#param_arr ; $i++) {
+      my $line_ = $param_arr[$i];
+      $line_ =~ s/[\n\r]//g;
+      my ($key, $val) = split(/=/, $line_);
+      $select_hash{$key} = ($val) ? _translate($val) : "$key";
+    }
+
+    $value = $conf{$line->{param}};
+    if (!(defined($value))) {
+      $is_empty = 1;
+    }
+  }
+  # Multi str
+  elsif ($line->{type} == 6) {
+    $value = $conf{$line->{param}};
+    if (!defined($value)) {
+      $is_empty = 1;
+    }
+  }
+  else {
+    my $param_value = $conf{$line->{param}};
+
+    if (ref $param_value eq 'ARRAY') {
+      $param_value = join(';', @{$param_value});
+    }
+
+    $value = $param_value;
+    if (!(defined($value))) {
+      $is_empty = 1;
+    }
+  }
+
+  return ($value, $is_error, $is_empty);
+}
+
+#**********************************************************
+=head2 _config_manage_parse_change_variable($item) - parse config variable to input change for managing
+
+  Arguments:
+    $item   - { type => 1..5, param => 'YOUR_CONFIG', value => 'value' },
+
+  Returns:
+    $result - string, may HTML-inputs
+
+=cut
+#**********************************************************
+sub _config_parse_change_variable {
+  my ($item, $display_value) = @_;
+  my $value = '';
+  #bool
+  if ($item->{type} == 1) {
+    foreach my $v (0, 1) {
+      $value .= "$conf{$item->{param}} / $v / " if ($debug);
+      $value .= $html->form_input(
+        $item->{param},
+        $v,
+        {
+          TYPE  => 'radio',
+          STATE => (defined($conf{$item->{param}}) && $conf{$item->{param}} eq $v) ? 'checked' : undef
+        }
+      )
+        . ' '
+        . $bool_vals[$v]
+        . $html->br();
+    }
+  }
+  #Int
+  elsif ($item->{type} == 2 && defined $conf{$item->{param}}) {
+    my $ex_params = '';
+    if ($item->{regex}) {
+      $ex_params .= " pattern='$item->{regex}'"
+    }
+    $value .= $html->form_input("$item->{param}", "$conf{$item->{param}}", { SIZE => 5, EX_PARAMS => $ex_params });
+  }
+  #Multival
+  elsif ($item->{type} == 3) {
+    my $checked_value = defined($conf{$item->{param}}) ? $conf{$item->{param}} : '';
+    my @val_arr = split(/:/, $checked_value);
+    my @param_arr = split(/:/, $item->{value});
+
+    $value = $html->form_input(
+      "$item->{param}" . '',
+      'subparams',
+      {
+        TYPE  => 'hidden',
+        STATE => 'checked',
+      }
+    );
+
+    for (my $i = 0; $i <= $#param_arr; $i++) {
+      my $param = $param_arr[$i];
+      $param =~ s/[\n\r]//g;
+      my ($key, $default_val) = split(/=/, $param);
+      my $number = $i + 1;
+      my $label = (($key)
+        ? _translate($key)
+        : "$lang{PARAM} $number");
+      $label = $html->element('div', $label, { class => 'col-form-label text-md-right col-md-3' });
+      my $input = $html->form_input($item->{param} . '_' . $i, $val_arr[$i] || $default_val, { SIZE => 10 });
+      my $input_container = $html->element('div', $input, { class => 'col-md-9' });
+
+      my $result = $html->element('div', $label . $input_container, { class => 'form-group row mx-0' });
+
+      $value .= $result;
+    }
+  }
+  #Multi-multival
+  elsif ($item->{type} == 4) {
+    my $checked_value = defined($conf{$item->{param}}) ? $conf{$item->{param}} : '';
+    my @value_arr = split(/;/, $checked_value);
+    my @val_arr = map { [ split(/:/, $_) ] } @value_arr;
+    my @param_arr = split(/:/, $item->{value});
+
+    $value = $html->form_input(
+      "$item->{param}" . '',
+      'subsubparams',
+      {
+        TYPE  => 'hidden',
+        STATE => 'checked',
+      }
+    );
+
+    for (my $in = 0; $in <= $#value_arr; $in++) {
+      my $count = $in + 1;
+      my $one_item = '';
+      my $count_item = $html->element('span', $count, { id => "count_$count" });
+      my $top_label = $html->element('label',
+        $lang{PARAM} . ' ' . $count_item . ':',
+        { class => 'col-form-label text-md-right col-md-3 text-bold mb-2 pt-0' }
+      );
+      $one_item .= $top_label;
+
+      for (my $i = 0; $i <= $#param_arr; $i++) {
+        my $param = $param_arr[$i];
+        $param =~ s/[\n\r]//g;
+        my ($key, $default_val) = split(/=/, $param);
+        my $number = $i + 1;
+        my $label = (($key)
+          ? _translate($key)
+          : "$lang{PARAM} $number");
+        $label = $html->element('div', $label, { class => 'col-form-label text-md-right col-md-3' });
+        my $input = $html->form_input(
+          $item->{param} . '_' . $in . '_' . $i,
+          $val_arr[$in][$i] || $default_val,
+            { SIZE => 10 }
+        );
+
+        my $input_container = $html->element('div', $input, { class => 'col-md-9' });
+
+        my $result = $html->element('div', $label . $input_container, { class => 'form-group row mx-0' });
+
+        $one_item .= $result;
+      }
+
+      $one_item .= $html->element('hr', '', { style => 'border-top: 3px solid #bbb;'});
+      $one_item = $html->element('div', $one_item, { id => "param_$count" });
+      $value .= $one_item;
+    }
+  }
+  #Select
+  elsif ($item->{type} == 5) {
+    my @param_arr = split(/;/, $item->{value});
+    my %select_hash = ();
+    for (my $i = 0; $i <= $#param_arr; $i++) {
+      my $item_ = $param_arr[$i];
+      $item_ =~ s/[\n\r]//g;
+      my ($key, $val) = split(/=/, $item_);
+      $select_hash{$key} = ($val) ? _translate($val) : "$key";
+    }
+
+    $value = $html->form_select(
+      $item->{param},
+      {
+        SELECTED => $conf{$item->{param}},
+        SEL_HASH => \%select_hash,
+        NO_ID    => 1
+      }
+    );
+  }
+  # Multi str
+  elsif ($item->{type} == 6) {
+    my $param_value = $conf{$item->{param}};
+
+    my $ex_params = '';
+    if ($item->{regex}) {
+      $ex_params .= " pattern='$item->{regex}'"
+    }
+    $ex_params .= " placeholder='$item->{value}'";
+
+    $value = $html->form_textarea($item->{param}, $param_value, { SIZE => 40, EX_PARAMS => $ex_params });
+  }
+  else {
+    my $param_value = $conf{$item->{param}};
+
+    if (ref $param_value eq 'ARRAY') {
+      $param_value = join(';', @{$param_value});
+    }
+
+    my $ex_params = '';
+    if ($item->{regex}) {
+      $ex_params .= " pattern='$item->{regex}'"
+    }
+    $ex_params .= " placeholder='$item->{value}'";
+
+    $value = $html->form_input("$item->{param}", $param_value, { SIZE => 40, EX_PARAMS => $ex_params });
+  }
+
+  return $value;
+}
+
+#**********************************************************
+=head2 _config_parse_change_variable($item) - parse config variable to input change
+
+  Arguments:
+    $item   - { type => 1..5, param => 'YOUR_CONFIG', value => 'value' },
+  Returns:
+    $result - string, may HTML-inputs
+
+=cut
+#**********************************************************
+sub _config_manage_parse_change_variable {
+  my ($item) = @_;
+  my $value = '';
+  #bool
+  if ($item->{type} == 1) {
+    foreach my $v (0, 1) {
+      my $param_value = $item->{value};
+      $value .= "$param_value / $v / " if ($debug);
+      $value .= $html->form_input(
+        'VALUE',
+        $v,
+        {
+          TYPE  => 'radio',
+          STATE => (defined($param_value) && $param_value eq $v) ? 'checked' : undef
+        }
+      )
+        . ' '
+        . $bool_vals[$v]
+        . $html->br();
+    }
+  }
+  #Int
+  elsif ($item->{type} == 2) {
+    my $param_value = $item->{value} || '';
+
+    my $ex_params = '';
+    if ($item->{regex}) {
+      $ex_params .= " pattern='$item->{regex}'";
+    }
+    $value .= $html->form_input('VALUE', $param_value, { SIZE => 5, EX_PARAMS => $ex_params });
+  }
+  # TODO: add constructor for managing Multival (3) Multi-multival (4) and Select (5)
+  # Multi str
+  elsif ($item->{type} == 6) {
+    my $param_value = $item->{value} || '';
+
+    my $ex_params = '';
+    if ($item->{regex}) {
+      $ex_params .= " pattern='$item->{regex}'";
+    }
+
+    $ex_params .= " placeholder='$param_value'";
+
+
+    $value = $html->form_textarea('VALUE',
+      $param_value,
+      {
+        SIZE => 40,
+        EX_PARAMS => $ex_params
+      }
+    );
+  }
+  else {
+    my $param_value = $item->{value} || '';
+
+    my $ex_params = '';
+    if ($item->{regex}) {
+      $ex_params .= " pattern='$item->{regex}'";
+    }
+
+    $ex_params .= " placeholder='$param_value'";
+
+    $value = $html->form_input('VALUE', $param_value,
+      {
+        SIZE => 40,
+        EX_PARAMS => $ex_params
+      }
+    );
+  }
+
+  return $value;
+}
+
+#**********************************************************
+=head2 _config_variables_from_config_pl()
+
+  Returns:
+    %local_conf - loaded %conf only from config.pl
+
+=cut
+#**********************************************************
+sub _config_variables_from_config_pl {
+  my %local_conf = ();
+  eval {
+    local %conf = ();
+    do "$libpath/libexec/config.pl";
+
+    %local_conf = %conf;
+  };
+
+  return %local_conf;
+}
+
+#**********************************************************
+=head2 _config_variables_from_db()
+
+  Returns:
+    %db_conf - loaded %conf only from database
+
+=cut
+#**********************************************************
+sub _config_variables_from_db {
+  my %db_conf = ();
+
+  my $result = $Config->config_list({ CONF_ONLY => 1, COLS_NAME => 1 });
+
+  for my $param (@{$result}) {
+    $db_conf{$param->{param}} = $param->{value};
+  }
+
+  return %db_conf;
+}
+
+#**********************************************************
+=head2 _config_change_param_display($param, $local_conf)
+
+  Arguments:
+    $param - config param key
+    $local_conf - ref to vars from config.pl
+
+  Returns:
+    \%local_conf - loaded %conf only from config.pl
+
+=cut
+#**********************************************************
+sub _config_change_param_display {
+  my ($param, $local_conf, $db_conf) = @_;
+
+  my $additional_class = '';
+  my $additional_item = '';
+  my $tooltip_options = {};
+
+  if (defined($db_conf->{$param})) {
+    $additional_class = 'text-primary';
+  };
+
+  if (defined($local_conf->{$param})) {
+    $additional_class = 'text-danger';
+    $additional_item = $html->element('i',
+      '',
+      {
+        class => 'fas fa-question-circle',
+      }
+    );
+    $tooltip_options = {
+      'data-tooltip' => $lang{EXIST_IN_CONFIG_NOT_DB},
+      'data-tooltip-position' => 'top'
+    }
+  };
+
+  if (defined($local_conf->{$param}) && defined($db_conf->{$param})) {
+    $additional_class = 'text-info';
+    $additional_item = $html->element('i',
+      '',
+      {
+        class => 'fas fa-question-circle',
+      }
+    );
+    $tooltip_options = {
+      'data-tooltip' => $lang{EXIST_IN_CONFIG_AND_DB},
+      'data-tooltip-position' => 'top'
+    }
+  };
+
+  my $display = $html->b(
+    $html->element('div',
+      $param . ' ' . $additional_item,
+      {
+        class => "p-0 m-0 $additional_class",
+        style => 'width: max-content;',
+        %$tooltip_options,
+      }
+    )
+  );
+
+  return $display;
+}
+
+sub _replace_link_id {
+  my ($url, $to) = @_;
+  $url =~ s/:id/$to/r
+}
+
+1

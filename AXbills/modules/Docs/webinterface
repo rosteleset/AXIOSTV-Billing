@@ -1,0 +1,1779 @@
+=head1 NAME
+
+  Docs functions
+
+  Error ID: 5xx
+
+=cut
+
+use warnings FATAL => 'all';
+use strict;
+use Docs;
+
+use Payments;
+use Fees;
+
+use AXbills::Base qw(int2ml in_array sendmail date_format cmd mk_unique_value);
+use AXbills::Defs;
+use FindBin '$Bin';
+
+our ($db,
+  $admin,
+  $users,
+  %conf,
+  %lang,
+  @MONTHES_LIT,
+  @MONTHES,
+  @WEEKDAYS,
+  %err_strs,
+  @units, # ??
+  %permissions,
+
+  @one,
+  @ones,
+  @onest,
+  @twos,
+  @fifth,
+  @ten,
+  @tens,
+  @hundred,
+  @money_unit_names,
+  $Conf,
+  %ADMIN_REPORT,
+  $Bin
+);
+
+our AXbills::HTML $html;
+our Docs $Docs    = Docs->new( $db, $admin, \%conf );
+my $Fees     = Fees->new( $db, $admin, \%conf );
+my $Payments = Payments->new( $db, $admin, \%conf );
+#Default 20% VAT
+$conf{DOCS_VAT_INCLUDE} = 20 if (!defined( $conf{DOCS_VAT_INCLUDE} ));
+my @service_status_colors = ($_COLORS[9], $_COLORS[6]);
+my @service_status = ($lang{ENABLE}, $lang{DISABLE});
+
+
+if($permissions{3}) {
+  require Docs::Reports;
+}
+
+if(%ADMIN_REPORT) {
+  require Docs::Periodic;
+}
+
+require Docs::Invoices;
+require Docs::Receipts;
+require Docs::Tax;
+require Docs::Acts;
+
+#***********************************************************
+=head2 docs_user_del($uid, $attr) - Delete user from module
+
+=cut
+#***********************************************************
+sub docs_user_del{
+  my ($uid, $attr) = @_;
+
+  $Docs->{UID} = $uid;
+  $Docs->del( { UID => $uid, COMMENTS => $attr->{COMMENTS} } );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 docs_contract($attr) - show user contract
+
+  Arguments:
+    $attr
+
+=cut
+#**********************************************************
+sub docs_contract{
+	
+	use Digest::SHA qw(sha256_hex);
+	
+  my ($attr) = @_;
+
+  my $contract_tpl = 'contract';
+  if ( $FORM{UID} ){
+    if ( !$users && $user ){
+      $users = $user;
+    }
+
+    $Docs->{UID} = $FORM{UID};
+
+    my $user_main_info = $users->info( $FORM{UID}, { SHOW_PASSWORD => 1 } );
+    $users->pi( { UID => $FORM{UID} } );
+
+    $FORM{DOMAIN_ID}        = $users->{DOMAIN_ID} if ($users->{DOMAIN_ID});
+    $Docs->{CONTRACT_DATE}  = $users->{CONTRACT_DATE};
+    $Docs->{CONTRACT_SUFIX} = $users->{CONTRACT_SUFIX};
+	
+    $attr = { %{$user_main_info}, %{ ($attr) ? $attr : {}  } };
+  }
+  else{
+    $Docs->{CONTRACT_DATE} = $attr->{CONTRACT_DATE};
+    $Docs->{CONTRACT_SUFIX} = $attr->{CONTRACT_SUFIX};
+    $contract_tpl = 'contract_company';
+  }
+
+  my ($y, $m, $d) = split( /-/, $Docs->{CONTRACT_DATE} || $DATE, 3 );
+  $Docs->{CONTRACT_DATE_LIT} = "$d " . $MONTHES_LIT[ int( $m ) - 1 ] . " $y $lang{YEAR_SHORT}";
+  if ( $y =~ /(\d{2})$/ ){
+    $users->{CONTRACT_YY} = $1;
+  }
+
+  my $docs_service_info = docs_module_info({ UID => $Docs->{UID} });
+  #User Contacts info
+  my $contacts = _docs_user_contacts_info( { UID => $Docs->{UID}, } );
+
+  if ( $Docs->{CONTRACT_SUFIX} ){
+    if ( $conf{DOCS_CONTRACT_TYPES} ){
+      #PREFIX:SUFIX:NAME;
+      $conf{DOCS_CONTRACT_TYPES} =~ s/\n//g;
+      my (@contract_types_list) = split( /;/, $conf{DOCS_CONTRACT_TYPES} );
+      foreach my $line ( @contract_types_list ){
+        my (undef, $sufix, undef, $tpl_name) = split( /:/, $line );
+        if ( $sufix eq $Docs->{CONTRACT_SUFIX} ){
+          $contract_tpl = $tpl_name;
+          $Docs->{CONTRACT_ID} .= $Docs->{CONTRACT_SUFIX};
+          last;
+        }
+      }
+    }
+  }
+  
+	if ($conf{DOCS_PRINT_ERIPT_QR}) {
+my $unique_service_number = $conf{PAYSYS_ERIPT_PROVIDER_SELLER_ID};
+		my $length_unique_service_number = length($unique_service_number);
+			$length_unique_service_number = sprintf("%02d", $length_unique_service_number);
+	my $login = $users->{LOGIN};
+
+	my $base_url = "https://pay.raschet.by/#";
+	my $version_standart = "000201";
+	
+	my $lenght_login = length($login);
+		$lenght_login = sprintf("%02d", $lenght_login);
+
+	my $allow_change_amount = "12" . "02" . "11";
+
+	my $object32_ids = "0010by.raschet01" . $length_unique_service_number . $unique_service_number . "10" . $lenght_login . $login . $allow_change_amount;
+	my $length_id32 = length($object32_ids);
+
+	my $object32_full = "32" . $length_id32 . $object32_ids;
+	
+	my $currency_code = "53" . "03" . "933";
+
+	my $payment_amount = "54" . "05" . "30.00";
+
+	my $country_code = "58" . "02" . "BY";
+	my $seller_name = $conf{PAYSYS_ERIPT_PROVIDER_SELLER_NAME};
+		my $lenght_seller_name = length($seller_name);
+			$lenght_seller_name = sprintf("%02d", $lenght_seller_name);
+		$seller_name = "59" . $lenght_seller_name . $seller_name;
+	my $country_origin = "60" . "07" . "Belarus";
+
+	my $url_code = $version_standart . $object32_full . $currency_code . $payment_amount . $country_code . $seller_name . $country_origin;
+	my $sha256_hex = sha256_hex($url_code);
+		$sha256_hex =~ s/-//g;
+	my $checksum = substr($sha256_hex, -4);
+	my $CRC = "6304" . $checksum;
+
+	$Docs->{QR_URL} = my $QR_URL = $base_url . $url_code . $CRC;
+	
+	}
+
+  return docs_print( $contract_tpl, {
+    %{$admin},
+    %{$users},
+    %{$Docs},
+    %{$docs_service_info},
+    %{$contacts},
+    %{($attr) ? $attr : {}}
+  } );
+}
+
+#**********************************************************
+=head2 docs_preview($type, $attr)
+
+  Arguments:
+    $type
+    $attr
+
+  Returns:
+    True or  FALSE
+
+=cut
+#**********************************************************
+sub docs_preview{
+  my ($type, $attr) = @_;
+
+  my $template = $type;
+
+  $html->tpl_show( _include( "docs_$template.tpl", 'Docs' ), $attr );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 docs_take_variables($type, $attr)
+
+  Arguments:
+
+  Returns:
+    \@DOCS_VARIABLES
+
+=cut
+#**********************************************************
+sub docs_take_variables {
+  $Docs->{ORDER_TOTAL_SUM_VAT} = 1;
+  # Very strange conf, but its a one quick way to take some variables from user
+  # and configure correct working without code changing
+
+  require Info_fields;
+  require Companies;
+  my Users $user = Users->new($db, $admin, \%conf);
+  my Companies $company = Companies->new($db, $admin, \%conf);
+  my $Info_fields = Info_fields->new($db, $admin, \%conf);
+
+  my $extra_fields = $Info_fields->fields_list();
+
+  my $user_info = $user->list({
+    LAST_ACTIVE_USER => 1,
+    SORT             => 'u.uid',
+    DESC             => 'DESC',
+    PAGE_ROWS        => 1,
+    COLS_NAME        => 1
+  });
+
+  my $company_info = $company->list({
+    DISABLE             => 0,
+    SORT                => 'c.id',
+    DESC                => 'DESC',
+    PAGE_ROWS           => 1,
+    COLS_NAME           => 1
+  });
+
+  $Docs->{UID} = $user_info->[0]->{uid} || 1;
+  $Docs->{COMPANY_ID} = $company_info->[0]->{id} || 1;
+  $Docs->{CONTRACT_DATE} = $DATE;
+
+  if ($Docs->{CONTRACT_DATE}) {
+    my ($contract_y, $contract_m, $contract_d) = split(/-/, $Docs->{CONTRACT_DATE} || $DATE, 3);
+    $Docs->{CONTRACT_DATE_LIT} = "$contract_d " . $MONTHES_LIT[ int($contract_m) - 1 ] . " $contract_y $lang{YEAR_SHORT}";
+    $Docs->{CONTRACT_DATE_EURO_STANDART} = "$contract_d.$contract_m.$contract_y";
+  }
+
+  my @result = docs_print("doc", {
+    TAKE_PARAMS           => 1,
+
+    DATE                  => $DATE,
+    TOTAL_ALT_SUM         => 1,
+    TOTAL_SUM             => 1,
+    PAYMENT_METHOD_ID     => 1,
+    TOTAL_SUM_WITHOUT_VAT => 1,
+  });
+
+  my @system_vars = (
+    "",
+    "admin",
+    "list",
+    "db",
+    "list",
+    "conf",
+    "TAKE_PARAMS",
+    'errno',
+    'errstr'
+  );
+
+  my @sorted_shared_vars = sort grep { my $id = $_; not grep $_ eq $id, @system_vars } @result;
+
+  # additional variables for Invoice
+  my @additional_var_invoice = (
+    'AVANCE',
+    'INVOICE_NUM',
+    'ADDRESS_FULL',
+    'CUSTOMER',
+    'AMOUNT_FOR_PAY',
+    'DEBT',
+    'PAYMENT_ID',
+    'CHARGED_SUM',
+    'EXPIRE_DATE',
+    'LAST_PAYMENT_SUM',
+    'LAST_PAYMENT_DATE',
+    'INVOICE_PERIOD',
+    'PAYMENT_DATE_1',
+    'PAYMENT_COMMENTS_1',
+    'PAYMENT_SUM_1',
+    'PAYMENT_ALT_SUM_1',
+    'PAYMENT_ID_1',
+    'PAYMENT_TOTAL_SUM',
+    'UNPAYMENT_INVOICE_NUM_1',
+    'UNPAYMENT_INVOICE_DATE_1',
+    'UNPAYMENT_INVOICE_SUM_1',
+    'UNPAYMENT_INVOICE_ALT_SUM_1',
+    'UNPAYMENT_TOTAL_SUM',
+    'UNPAYMENT_TOTAL_ALT_SUM',
+    'TOTAL_REST_SUM',
+    'TOTAL_REST_ALT_SUM',
+    'ORDER_NUM_1',
+    'ORDER_NAME_1',
+    'ORDER_COUNT_1',
+    'ORDER_PRICE_1',
+    'ORDER_SUM_1',
+    'ORDER_PRICE_WITHOUT_VAT_1',
+    'TOTAL_TAX_SUM_1',
+    'ORDER_VAT_1',
+    'ORDER_SUM_WITHOUT_VAT_1',
+    'TIME',
+    'ORDERS'
+  );
+
+  # additional variables for company
+  my @additional_var_company = (
+    'REPRESENTATIVE',
+    'COMPANY_PHONE',
+    'ADDRESS',
+    'VAT',
+    'BANK_NAME',
+    'BANK_ACCOUNT',
+    'COR_BANK_ACCOUNT',
+    'BANK_BIC',
+    'TAX_NUMBER',
+    'EDRPOU'
+  );
+
+  # additional variables for internet
+  my @additional_var_internet = (
+    'DOCS_TPNAME_INTERNET_1',
+    'DOCS_ABON_INTERNET_1',
+    'DOCS_ABON_ABON_1',
+    'DOCS_TPNAME_ABON_1',
+    'DOCS_ABON_SUM_SERVICE',
+    'DOCS_INTERNET_CID',
+    'DOCS_INTERNET_CPE_MAC'
+  );
+
+  # Special variables where cant defined in standard scenario
+  my @additional_special_vars = (
+    'PASSWORD'
+  );
+
+  my @add_info_fields = ();
+  for my $field (@$extra_fields) {
+    push(@add_info_fields, $field->{SQL_FIELD});
+  };
+
+  my @docs_all_vars = (
+    @sorted_shared_vars,
+    @add_info_fields,
+    @additional_var_invoice,
+    @additional_var_company,
+    @additional_var_internet,
+    @additional_special_vars,
+  );
+
+  my $result = {};
+
+  for my $key (@docs_all_vars) {
+    $result->{$key} = $key;
+  }
+
+  return $result;
+}
+
+#**********************************************************
+=head2 docs_print($type, $attr)
+
+  Arguments:
+    $type
+    $attr
+      OUTPUT2RETURN
+      SEND_EMAIL
+      CERT
+      FILE_NAME
+      EMAIL_ATTACH_FILENAME
+      DOCS  - Docs obj
+
+  Returns:
+    TRUE or FALSE
+
+=cut
+#**********************************************************
+sub docs_print{
+  my ($type, $attr) = @_;
+
+  if($attr->{DOCS}) {
+    $Docs = $attr->{DOCS};
+  }
+
+  $conf{DOCS_LANGUAGE} = $conf{default_language} if (!$conf{DOCS_LANGUAGE});
+  my $filestore_dir = $conf{DOCS_STORE_DIR} || '/usr/axbills/AXbills/temlates/Docs/';
+
+  if ( $conf{DOCS_LANGUAGE} && $html->{language} ne $conf{DOCS_LANGUAGE} ){
+    if ( -f "../AXbills/modules/Docs/lng_$conf{DOCS_LANGUAGE}.pl" ){
+      do "../language/$conf{DOCS_LANGUAGE}.pl";
+      do "../AXbills/modules/Docs/lng_$conf{DOCS_LANGUAGE}.pl";
+    }
+    elsif ( -f $Bin . "/../AXbills/modules/Docs/lng_$conf{DOCS_LANGUAGE}.pl" ){
+      do $Bin . "/../language/$conf{DOCS_LANGUAGE}.pl";
+      do $Bin . "/../AXbills/modules/Docs/lng_$conf{DOCS_LANGUAGE}.pl";
+    }
+    else{
+      do "../../language/$conf{DOCS_LANGUAGE}.pl";
+      do "../../AXbills/modules/Docs/lng_$conf{DOCS_LANGUAGE}.pl";
+    }
+  }
+
+  my $value_list = $Conf->config_list({
+    CUSTOM   => 1,
+    COLS_NAME=> 1
+  });
+
+  foreach my $line (@$value_list){
+    $attr->{"$line->{param}"}=$line->{value};
+  }
+
+  if ( @MONTHES_LIT && $attr->{DATE} ){
+    my ($y, $m, $d) = split( /-/, $attr->{DATE}, 3 );
+
+    $attr->{FROM_DATE_LIT} = "$d " . $MONTHES_LIT[ int( $m ) - 1 ] . " $y $lang{YEAR_SHORT}";
+    $attr->{DAY} = $d;
+    $attr->{MONTH} = $m;
+    $attr->{MONTH_LIT} = $MONTHES_LIT[ int( $m ) - 1 ];
+    $attr->{YEAR} = $y;
+    $attr->{YEAR_SHORT} = substr($y,2);
+    $attr->{DATE_EURO_STANDART} = "$d.$m.$y";
+  }
+  
+  if ($attr->{CONTRACT_DATE}) {
+    my ($contract_y, $contract_m, $contract_d) = split(/-/, $attr->{CONTRACT_DATE} || $DATE, 3);
+    $attr->{CONTRACT_DATE_LIT} = "$contract_d " . $MONTHES_LIT[ int($contract_m) - 1 ] . " $contract_y $lang{YEAR_SHORT}";
+    $attr->{CONTRACT_DATE_EURO_STANDART} = "$contract_d.$contract_m.$contract_y";
+  }
+
+  my @lit_arr = (
+    'PASPORT_DATE',
+    'ACTIVATE',
+    'BIRTH_DATE',
+    'CREDIT_DATE',
+    'EXPIRE',
+    'REGISTRATION',
+    'REDUCTION_DATE',
+  );
+
+  foreach my $attr_name (@lit_arr) {
+    next if (!$attr->{$attr_name} || $attr->{$attr_name} eq '0000-00-00');
+    my ($y, $m, $d) = $attr->{$attr_name} =~ m/(\d{4})-(\d{2})-(\d{2})/;
+    next if (!$y);
+    $attr->{$attr_name . '_LIT'}  = "$d " . $MONTHES_LIT[ int( $m ) - 1 ] . " $y $lang{YEAR_SHORT}";
+    $attr->{$attr_name . '_EURO'} = "$d.$m.$y";
+  }
+
+  $attr->{A_FIO} = $admin->{A_FIO} if ($admin->{A_FIO});
+  my $MONEY_UNIT_NAMES = [];
+  if ( $conf{MONEY_UNIT_NAMES} ){
+    $MONEY_UNIT_NAMES = $conf{MONEY_UNIT_NAMES};
+  }
+  elsif ( @money_unit_names ){
+    $MONEY_UNIT_NAMES = \@money_unit_names;
+  }
+
+
+  if($attr->{TOTAL_SUM}) {
+    ($attr->{SUM_MAIN}, $attr->{SUM_SUB}) = split(/\./, $attr->{TOTAL_SUM});
+
+    $attr->{SUM_LIT} = int2ml(
+      $attr->{TOTAL_SUM},
+      {
+        ONES             => \@ones,
+        TWOS             => \@twos,
+        FIFTH            => \@fifth,
+        ONE              => \@one,
+        ONEST            => \@onest,
+        TEN              => \@ten,
+        TENS             => \@tens,
+        HUNDRED          => \@hundred,
+        MONEY_UNIT_NAMES => $MONEY_UNIT_NAMES,
+        LOCALE           => $conf{LOCALE} || ''
+      }
+    );
+  }
+
+  if ( $attr->{TOTAL_ALT_SUM} ){
+    $attr->{SUM_ALT_LIT} = int2ml( $attr->{TOTAL_ALT_SUM},
+      {
+        ONES             => \@ones,
+        TWOS             => \@twos,
+        FIFTH            => \@fifth,
+        ONE              => \@one,
+        ONEST            => \@onest,
+        TEN              => \@ten,
+        TENS             => \@tens,
+        HUNDRED          => \@hundred,
+        MONEY_UNIT_NAMES => $MONEY_UNIT_NAMES,
+        LOCALE           => $conf{LOCALE}
+      } );
+  }
+
+  if ( $Docs->{ORDER_TOTAL_SUM_VAT} ){
+    $attr->{ORDER_TOTAL_SUM_VAT_LIT} = int2ml( $attr->{ORDER_TOTAL_SUM_VAT},
+      {
+        ONES             => \@ones,
+        TWOS             => \@twos,
+        FIFTH            => \@fifth,
+        ONE              => \@one,
+        ONEST            => \@onest,
+        TEN              => \@ten,
+        TENS             => \@tens,
+        HUNDRED          => \@hundred,
+        MONEY_UNIT_NAMES => $MONEY_UNIT_NAMES,
+        LOCALE           => $conf{LOCALE}
+      }
+    );
+  }
+
+  if ( $attr->{TOTAL_SUM_WITHOUT_VAT} ){
+    $attr->{TOTAL_SUM_WITHOUT_VAT_LIT} = int2ml( $attr->{TOTAL_SUM_WITHOUT_VAT},
+      {
+        ONES             => \@ones,
+        TWOS             => \@twos,
+        FIFTH            => \@fifth,
+        ONE              => \@one,
+        ONEST            => \@onest,
+        TEN              => \@ten,
+        TENS             => \@tens,
+        HUNDRED          => \@hundred,
+        MONEY_UNIT_NAMES => $MONEY_UNIT_NAMES,
+        LOCALE           => $conf{LOCALE}
+      }
+    );
+  }
+
+  my $template = $type;
+  if ( $FORM{qindex} && !$attr->{NO_HEADER} ){
+    print $html->header();
+  }
+
+  my $companies = {};
+  my $company_id = $LIST_PARAMS{COMPANY_ID} // $Docs->{COMPANY_ID} // $FORM{COMPANY_ID};
+  if ($company_id) {
+    $companies = Companies->new($db, $admin, \%conf);
+    $companies->with_info_fields({
+      COMPANY_ID => $company_id,
+    });
+  }
+  else {
+    $users = $user if ($user && $user->{UID});
+  }
+
+  if ($Docs->{UID}) {
+    $users->info( $Docs->{UID} ) if (!$users->{BILL_ID});
+    $users->pi( { UID => $Docs->{UID} } );
+    if ($users->{ADDRESS_STREET}) {
+      $users->{ADDRESS_FULL} =
+        "$users->{ADDRESS_STREET}$conf{BUILD_DELIMITER}$users->{ADDRESS_BUILD}$conf{BUILD_DELIMITER}$users->{ADDRESS_FLAT}"
+    }
+    if ( $users->{GID} ){
+      $users->group_info( $users->{GID} );
+      if ( $users->{SEPARATE_DOCS} ){
+        $attr->{SUFIX} = $users->{GID};
+      }
+    }
+
+    $Docs->user_info( $Docs->{UID} );
+    if ( $Docs->{TOTAL} > 0 ){
+      $users->{EMAIL} = $Docs->{EMAIL} if ($Docs->{EMAIL});
+      $attr->{SEND_EMAIL} = $Docs->{SEND_DOCS} if (!defined( $attr->{SEND_EMAIL} ) && $Docs->{SEND_DOCS});
+    }
+  }
+
+  #Make individual templates for paments methods
+  if ( $attr->{PAYMENT_METHOD_ID} && $FORM{pdf} ){
+    my $new_template = $template . '_' . $attr->{PAYMENT_METHOD_ID};
+    my $template_content = _include( 'docs_' . $new_template, 'Docs', { $FORM{pdf} => 1 } );
+    if ( $template_content !~ /No such / && $template_content ne '' ){
+      $template = $new_template;
+    }
+    elsif ( $attr->{SUFIX} ){
+      $attr->{SUFIX} = '_' . $attr->{SUFIX};
+    }
+  }
+  elsif ( $attr->{SUFIX} ){
+    $attr->{SUFIX} = '_' . $attr->{SUFIX};
+  }
+
+  my %tpl_attributtes = ();
+
+  # Make qrcode with organization params
+  if ($conf{'DOCS_QRCODE_INCLUDE_' . uc($type)}) {
+
+    my @qrcode_params = split(/:/, $conf{'DOCS_QRCODE_INCLUDE_' . uc($type)});
+    my $pdf_params = pop @qrcode_params; # Shift from the end
+
+    # Will create file, so should run it only in need
+    my $get_qrcode_filename = sub {
+      my $qrcode_filename = _docs_make_qrcode(\@qrcode_params, \%conf, $users, $attr);
+      $qrcode_filename;
+    };
+
+    if ( $FORM{pdf} || $html->{pdf_output} ) {
+        $tpl_attributtes{EXTEND_TPL_DESCRIBE} = {
+          QR_CODE => {
+            PARAMS   => $pdf_params . '; img=' . &{$get_qrcode_filename}(),
+          }
+        };
+    }
+    else {
+      my $qrcode_filename = &{$get_qrcode_filename}();
+      $attr->{QR_CODE} = $html->img('/images/' . $qrcode_filename, 'qrcode', {
+          class => 'img-fluid center-block'
+        });
+    }
+  }
+
+  my $qr_code_pay = '';
+  if ($conf{DOCS_QR_CODE}) {
+    $qr_code_pay = docs_qr_code({
+      UID           => $users->{UID},
+      TOTAL_SUM     => $attr->{TOTAL_SUM},
+    });
+
+    $tpl_attributtes{QR_CODE_DOCS} = $qr_code_pay;
+  }
+
+  my $filename = $attr->{FILE_NAME} || $attr->{EMAIL_ATTACH_FILENAME} || $template;
+  $filename .= '_'. ($attr->{UID} || q{});
+  $filename .= '_'. ($attr->{DOC_ID} || q{});
+
+  my $save_file = $filestore_dir . $filename . (($FORM{pdf}) ? '.pdf' : '.htm');
+  my $content = '';
+
+  if($attr->{TAKE_PARAMS}) {
+    my @variables = (keys %{$attr}, keys %{$users}, keys %{$companies});
+    return @variables;
+  }
+
+  if(! -f $save_file) {
+    my $html_old;
+    if ($FORM{pdf} && !$html->{pdf_output}) {
+      $html_old = $html;
+      require AXbills::PDF;
+      my $pdf = AXbills::PDF->new(
+        {
+          #IMG_PATH => $IMG_PATH,
+          NO_PRINT => defined($attr->{'NO_PRINT'}) ? $attr->{'NO_PRINT'} : 1,
+          CONF     => \%conf,
+          CHARSET  => $conf{default_charset}
+        }
+      );
+      $html = $pdf;
+    }
+
+    eval {
+      $content = $html->tpl_show(
+        _include(
+          "docs_$template",
+          'Docs',
+          {
+            pdf   => $FORM{pdf},
+            SUFIX => $attr->{SUFIX}
+          }
+        ),
+        {
+          %{$attr},
+          %{($users) ? $users : {} },
+          %{$companies},
+          QR_CODE_DOCS => $qr_code_pay,
+        },
+        { TITLE         => $template,
+          SUBJECT       => $template,
+          ID            => 'docs_' . $template,
+          FILENAME      => $filename,
+          OUTPUT2RETURN => $attr->{CERT} || $attr->{OUTPUT2RETURN},
+          %tpl_attributtes
+        }
+      );
+    };
+
+    #my $res =  ($html->can('pdf_header')) ? $html->pdf_header() : '';
+    #print $res;
+
+    $html = $html_old if ($html_old);
+
+    if($conf{DOCS_CERT_CMD}) {
+      if (open(my $fh, '>', $save_file)) {
+        print $fh $content;
+        close($fh);
+      }
+    }
+  }
+  else {
+    $content = q{};
+
+    if($FORM{pdf}) {
+      $content .= "Content-type: application/pdf; filename=$filename.pdf\n";
+      $content .= "Cache-Control: no-cache\n";
+      $content .= "Content-disposition: inline; name=\"$filename.pdf\"\n\n";
+    }
+
+    open(my $fh, '<', $save_file);
+    while(<$fh>) {
+      $content .= $_;
+    }
+    close($fh);
+  }
+
+  if ( $@ ){
+    $html->message( 'err', "Template $lang{ERROR}", "$@" );
+  }
+
+  my @ATTACHMENTS = ();
+  if ( $FORM{pdf} ){
+    @ATTACHMENTS = (
+      {
+        CONTENT      => $content,
+        CONTENT_TYPE => 'Content-Type: application/pdf',
+        FILENAME     => $filename . '.pdf'
+      }
+    );
+    delete $FORM{pdf};
+  }
+  else{
+    @ATTACHMENTS = (
+      {
+        CONTENT      => $content,
+        CONTENT_TYPE => 'Content-Type: text/html',
+        FILENAME     => $filename . '.htm'
+      }
+    );
+  }
+
+  if($attr->{CERT}) {
+    $content = docs_certs({
+      CONTENT  => $content,
+      FILENAME => $filename
+    });
+
+    push @ATTACHMENTS, {
+      CONTENT      => $content,
+      CONTENT_TYPE => 'Content-Type: application/file',
+      FILENAME     => $filename . '.pdf.sig'
+    };
+
+    if(! $attr->{OUTPUT2RETURN}) {
+      print "Content-Type: application/file; \n"
+       ."Content-Disposition: attachment; filename=\"$filename.pdf.sig\""
+       ."\n\n";
+    }
+  }
+
+  if ( $conf{DOCS_LANGUAGE} && $html->{language} ne $conf{DOCS_LANGUAGE} ){
+    if ( -f "../AXbills/modules/Docs/lng_$html->{language}.pl" ){
+      do "../language/$html->{language}.pl";
+      do "../AXbills/modules/Docs/lng_$html->{language}.pl";
+    }
+    elsif ( -f $Bin . "/../AXbills/modules/Docs/lng_$html->{language}.pl" ){
+      do $Bin . "/../language/$html->{language}.pl";
+      do $Bin . "/../AXbills/modules/Docs/lng_$html->{language}.pl";
+    }
+    else{
+      delete $INC{"../../language/$html->{language}.pl"};
+      do "../../language/$html->{language}.pl";
+      do "../../AXbills/modules/Docs/lng_$html->{language}.pl";
+    }
+  }
+
+  if ( $attr->{SEND_EMAIL} && !$attr->{OUTPUT2RETURN} ){
+    # Email not specified
+    if ( !$attr->{EMAIL} && !$users->{EMAIL} ){
+      $FORM{ERR_MESSAGE} = "E-mail $lang{NOT_EXIST}";
+      return 0;
+    }
+    elsif ( !$content ){
+      $FORM{ERR_MESSAGE} = "No content";
+      return 0;
+    }
+
+    sendmail(
+      $conf{ADMIN_MAIL},
+      $attr->{EMAIL} || $users->{EMAIL},
+      $attr->{EMAIL_MSG_SUBJECT} || "ABillS",
+      $attr->{EMAIL_MSG_TEXT},
+      "$conf{MAIL_CHARSET}",
+      '',
+      {
+        ATTACHMENTS => \@ATTACHMENTS,
+        TEST        => $FORM{DEBUG} || undef
+      }
+    );
+
+    return 1;
+  }
+  else{
+    return $content;
+  }
+}
+
+# #**********************************************************
+# =head2 docs_payments_maked($attr) - Cross ,odule calls
+#
+#   Arguments:
+#     $attr
+#       CHANGE_CREDIT
+#
+#
+# =cut
+# #**********************************************************
+# sub docs_payments_maked {
+#   my ($attr) = @_;
+#
+#   if ( $attr->{CHANGE_CREDIT} ){
+#     return 0;
+#   }
+#   #Add invoice number
+#   elsif ( !$FORM{SUM} || $FORM{SUM} == 0 ){
+#     if ( $FORM{APPLY_TO_INVOICE} || $FORM{INVOICE_ID} ){
+#       print %FORM;
+#       $html->message( 'err', "$lang{DOCS}:$lang{ERROR}", "$lang{ERR_WRONG_SUM}", { ID => 561  });
+#     }
+#     return 0;
+#   }
+#
+#   if ( $FORM{APPLY_TO_INVOICE} || ($FORM{INVOICE_ID} && $FORM{INVOICE_ID} ne 'create') ){
+#     delete( $FORM{INVOICE_ID} ) if (defined( $FORM{INVOICE_ID} ) && $FORM{INVOICE_ID} == 0);
+#
+#     my $list = $Docs->invoices_list( {
+#       UNPAIMENT => ($FORM{INVOICE_ID}) ? undef : 1,
+#       ID        => $FORM{INVOICE_ID},
+#       UID       => $FORM{UID},
+#       PAGE_ROWS => 50,
+#       COLS_NAME => 1,
+#       SORT      => 1,
+#       DESC      => 'ASC'
+#     } );
+#
+#     my $total_payment_sum = $FORM{SUM};
+#     my $payment_sum       = $FORM{SUM};
+#
+#     if ( $Docs->{TOTAL} > 0 ){
+#       foreach my $doc ( @{$list} ){
+#         if ( $doc->{payment_sum} && $doc->{total_sum} < $doc->{payment_sum} ){
+#           print " //     my $payment_sum       = $FORM{SUM}; // $doc->{total_sum} < $doc->{payment_sum} ";
+#           next;
+#         }
+#
+#         if ( $FORM{SUM} > $doc->{total_sum} - ($doc->{payment_sum} || 0) ){
+#           $payment_sum = $doc->{total_sum} - ($doc->{payment_sum} || 0);
+#           if ($attr->{USER_INFO} && $attr->{USER_INFO}->{COMPANY_ID}) {
+#             return 1;
+#           }
+#           print "Pre link: ADD_SUM: $FORM{SUM} total_sum: $doc->{total_sum} payment_sum: ". ($doc->{payment_sum} || 0) ." Doc id: $doc->{id}\n";
+#         }
+#
+#         $Docs->invoices2payments( {
+#           PAYMENT_ID => $attr->{PAYMENT_ID},
+#           INVOICE_ID => $doc->{id},
+#           SUM        => $payment_sum
+#         } );
+#
+#         if ( !_error_show( $Docs, { MESSAGE => "$lang{INVOICE}", ID => 562 } )
+#               && !$conf{PAYMENTS_NOT_CHECK_INVOICE_SUM}
+#               && $Docs->{TOTAL_SUM} != $FORM{SUM} ){
+#           $html->message( 'warn', $lang{ERROR},
+#             "$lang{PAYMENTS_NOT_EQUAL_DOC} \n  $lang{INVOICE} $lang{SUM}: $Docs->{TOTAL_SUM} \n$lang{PAYMENTS} $lang{SUM}: $FORM{SUM}" );
+#         }
+#
+#         if ( $total_payment_sum - $payment_sum == 0 ){
+#           last;
+#         }
+#       }
+#     }
+#     else{
+#       print "Invoice not found ($Docs->{TOTAL})";
+#     }
+#   }
+#
+#   if ( $FORM{CREATE_RECEIPT} ){
+#     docs_receipt_add({
+#       DATE         => $FORM{DATE} || $DATE,
+#       CUSTOMER   => '-',
+#       PHONE      => '',
+#       UID        => $FORM{UID},
+#       ORDER      => $FORM{DESCRIBE} || '-',
+#       SUM        => $FORM{SUM},
+#       create     => 1,
+#       PAYMENT_ID => $attr->{PAYMENT_ID},
+#       SEND_EMAIL => $FORM{SEND_EMAIL}
+#     });
+#   }
+#
+#   return 1;
+# }
+
+#**********************************************************
+=head2 docs_users_list($attr) - Docs user
+
+=cut
+#**********************************************************
+sub docs_users_list{
+
+  if ( $FORM{search_form} ){
+    $Docs->{INVOICE_PERIOD_SEL} = $html->form_select(
+      'INVOICING_PERIOD',
+      {
+        SELECTED     => $Docs->{INVOICING_PERIOD},
+        SEL_HASH     => {
+          '' => $lang{ALL},
+          1  => "1 $lang{MONTH}",
+          3  => "3 $lang{MONTH}",
+          6  => "6 $lang{MONTH}",
+          12 => "12 $lang{MONTH}",
+        },
+        NO_ID        => 1,
+        SORT_KEY_NUM => 1
+      }
+    );
+
+    $Docs->{PERIODIC_CREATE_DOCS} = 'checked' if ($FORM{PERIODIC_CREATE_DOCS});
+    $Docs->{SEND_DOCS} = 'checked' if ($FORM{SEND_DOCS});
+    $Docs->{PERSONAL_DELIVERY} = 'checked' if ($FORM{PERSONAL_DELIVERY});
+
+    $Docs->{INVOICE_DATE} = $html->date_fld2(
+      'INVOICE_DATE',
+      {
+        MONTHES         => \@MONTHES,
+        FORM_NAME       => 'form_search',
+        WEEK_DAYS       => \@WEEKDAYS,
+        NO_DEFAULT_DATE => 1,
+      }
+    );
+
+    $Docs->{PRE_INVOICE_DATE} = $html->date_fld2(
+      'PRE_INVOICE_DATE',
+      {
+        MONTHES         => \@MONTHES,
+        FORM_NAME       => 'form_search',
+        WEEK_DAYS       => \@WEEKDAYS,
+        NO_DEFAULT_DATE => 1,
+      }
+    );
+
+    $Docs->{STATUS_SEL} = $html->form_select(
+      'LOGIN_STATUS',
+      {
+        SELECTED => $FORM{LOGIN_STATUS} || 0,
+        SEL_HASH => {
+          '' => "$lang{ALL}",
+          0  => $service_status[0],
+          1  => $service_status[1],
+        },
+        NO_ID    => 1,
+        STYLE    => \@service_status_colors,
+      }
+    );
+
+    form_search( { SEARCH_FORM => $html->tpl_show( _include( 'docs_users_search', 'Docs' ),
+        { %FORM, %{$Docs} },
+        { OUTPUT2RETURN => 1 } ),
+        ADDRESS_FORM           => 1
+      } );
+  }
+
+  result_former( {
+    INPUT_DATA       => $Docs,
+    FUNCTION       => 'user_list',
+    BASE_FIELDS    => 0,
+    DEFAULT_FIELDS => 'LOGIN,FIO,DEPOSIT,CREDIT,LOGIN_STATUS,INVOICE_DATE,NEXT_INVOICE_DATE',
+    BASE_FIELDS    => 1,
+    EXT_TITLES     => {
+      login_status      => $lang{STATUS},
+      invoice_date      => $lang{LAST_INVOICE_DATE},
+      pre_invoice_date  => "$lang{PRE} $lang{DATE}",
+      invoicing_period  => "$lang{PERIOD} ($lang{MONTH})",
+      next_invoice_date => "$lang{NEXT_INVOICE_DATE}",
+      send_docs         => "$lang{SEND} $lang{DOCS}"
+    },
+    TABLE          => {
+      width      => '100%',
+      caption    => "$lang{USERS}",
+      qs         => $pages_qs,
+      ID         => 'DOCS_USERS',
+      EXPORT     => 1,
+      MENU       => "$lang{SEARCH}:index=$index&search_form=1:search",
+    },
+    MAKE_ROWS      => 1,
+    MODULE         => 'Docs',
+    TOTAL          => 1
+  } );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 docs_user($attr) - User settings
+
+=cut
+#**********************************************************
+sub docs_user{
+  my ($attr) = @_;
+
+  if ( $FORM{STATEMENT_OF_ACCOUNT} ){
+    docs_statement_of_account();
+    return 0;
+  }
+  elsif ( $FORM{add} ){
+    if ( !$permissions{0}{1} ){
+      $html->message( 'err', $lang{ERROR}, $lang{ERR_ACCESS_DENY} );
+      return 0;
+    }
+
+    $Docs->user_add( { %FORM } );
+    if ( !$Docs->{errno} ){
+      $html->message( 'info', $lang{INFO}, $lang{ADDED} );
+      if ( $attr->{REGISTRATION} ){
+        return 0;
+      }
+    }
+  }
+  elsif ( $FORM{change} ){
+    if ( !$permissions{0}{4} ){
+      $html->message( 'err', $lang{ERROR}, $lang{ERR_ACCESS_DENY} );
+      return 0;
+    }
+
+    $Docs->user_change( { %FORM } );
+
+    if ( !$Docs->{errno} ){
+      $html->message( 'info', $lang{INFO}, $lang{CHANGED} );
+      if ( $attr->{REGISTRATION} ){
+        return 0;
+      }
+    }
+  }
+  elsif ( $FORM{del} ){
+    $Docs->user_del();
+    if ( !$Docs->{errno} ){
+      $html->message( 'info', $lang{INFO}, $lang{DELETED} );
+    }
+  }
+
+  if ( _error_show( $Docs ) ){
+    if ( $attr->{REGISTRATION} ){
+      return 1;
+    }
+  }
+
+  $Docs->user_info( $FORM{UID} );
+
+  if ( $Docs->{TOTAL} < 1 ){
+    if ( $attr->{ACTION} ){
+      $Docs->{ACTION} = 'add';
+      $Docs->{LNG_ACTION} = $attr->{LNG_ACTION};
+    }
+    else{
+      $html->message( 'warn', '', $lang{NOT_ACTIVE} );
+      $Docs->{ACTION} = 'add';
+      $Docs->{LNG_ACTION} = $lang{ACTIVATE};
+    }
+  }
+  else{
+    if ( $attr->{ACTION} ){
+      $Docs->{ACTION} = 'change';
+      $Docs->{LNG_ACTION} = $attr->{LNG_ACTION};
+    }
+    else{
+      $Docs->{ACTION} = 'change';
+      $Docs->{LNG_ACTION} = $lang{CHANGE};
+    }
+  }
+
+  $Docs->{INVOICE_PERIOD_SEL} = $html->form_select(
+    'INVOICING_PERIOD',
+    {
+      SELECTED     => $Docs->{INVOICING_PERIOD},
+      SEL_HASH     => {
+        1  => "1 $lang{MONTH}",
+        3  => "3 $lang{MONTH}",
+        6  => "6 $lang{MONTH}",
+        12 => "12 $lang{MONTH}",
+      },
+      NO_ID        => 1,
+      SORT_KEY_NUM => 1
+    }
+  );
+
+  $Docs->{PERIODIC_CREATE_DOCS} = ($Docs->{PERIODIC_CREATE_DOCS}) ? 'checked' : '';
+  $Docs->{SEND_DOCS} = ($Docs->{SEND_DOCS}) ? 'checked' : '';
+  $Docs->{PERSONAL_DELIVERY} = ($Docs->{PERSONAL_DELIVERY}) ? 'checked' : '';
+
+  if ( !$Docs->{INVOICE_DATE} ){
+    if ( $users->{ACTIVATE} && $users->{ACTIVATE} ne '0000-00-00' ){
+      $Docs->{INVOICE_DATE} = $users->{ACTIVATE};
+    }
+    else{
+      $Docs->{INVOICE_DATE} = $DATE;
+    }
+  }
+
+  my $user_service_form = $html->tpl_show( _include( 'docs_user', 'Docs' ), { %{$attr}, %{$Docs} }, { ID => 'docs_user', OUTPUT2RETURN => 1 } );
+
+  if($attr->{PROFILE_MODE}) {
+    return $user_service_form;
+  }
+
+  print $user_service_form;
+
+  return 1;
+}
+
+#**********************************************************
+=head2 docs_statement_of_account($attr)
+
+=cut
+#**********************************************************
+sub docs_statement_of_account {
+  if($FORM{download}) {
+    print "Content-Type: text/html; filename=\"statement_of_account.htm\"\n"
+      . "Content-Disposition: attachment; filename=\"statement_of_account.htm\"\n\n";
+    print $html->header();
+  }
+
+  my $year_date = $FORM{DATE} || $DATE;
+
+  $LIST_PARAMS{DATE}='>='. date_format($year_date, "%Y-01-01");
+
+  if($year_date ne $DATE) {
+    my($y) = split(/-/, $year_date);
+    $LIST_PARAMS{DATE}.=';<'. date_format($year_date, ($y+1) ."-01-01");
+  }
+
+  $LIST_PARAMS{PAGE_ROWS} = 1000;
+  if ($FORM{ALL}) {
+    $LIST_PARAMS{PAGE_ROWS} = 10000;
+    delete $LIST_PARAMS{DATE};
+  }
+  $LIST_PARAMS{GROUP_BY} = '';
+
+  $Fees->{debug} = 1 if $FORM{DEBUG} && $FORM{DEBUG} > 5;
+  my $fees_list = $Fees->list({
+    DATETIME     => '_SHOW',
+    MONTH        => '_SHOW',
+    DSC          => '_SHOW',
+    SUM          => '_SHOW',
+    LAST_DEPOSIT => '_SHOW',
+    BILL_ID      => '_SHOW',
+    %LIST_PARAMS,
+    COLS_NAME    => 1,
+    COLS_UPPER   => 1
+  });
+
+  my %operations = ();
+  my %operations_month = ();
+
+  foreach my $line (@$fees_list) {
+    push @{$operations{$line->{datetime}}}, { %$line, FEES => 1 };
+    $operations_month{$line->{month}}{$line->{datetime}} = $operations{$line->{datetime}};
+  }
+
+  $Payments->{debug} = 1 if $FORM{DEBUG} && $FORM{DEBUG} > 5;
+  my $payments_list = $Payments->list({
+    DATETIME     => '_SHOW',
+    MONTH        => '_SHOW',
+    DSC          => '_SHOW',
+    DEPOSIT      => '_SHOW',
+    INVOICE_NUM  => '_SHOW',
+    INVOICE_DATE => '_SHOW',
+    LAST_DEPOSIT => '_SHOW',
+    SUM          => '_SHOW',
+    BILL_ID      => '_SHOW',
+    AMOUNT       => '_SHOW',
+    %LIST_PARAMS,
+    COLS_NAME    => 1,
+    COLS_UPPER   => 1
+  });
+
+  foreach my $line (@$payments_list) {
+    push @{$operations{$line->{datetime}}}, $line;
+    $operations_month{$line->{month}}{$line->{datetime}} = $operations{$line->{datetime}};
+  }
+
+  $users->pi({ UID => $LIST_PARAMS{UID} });
+
+  my @statment_rows = ();
+  my @statment_title = ( $lang{DATE}, $lang{LOGIN}, $lang{BILLS}, $lang{INVOICE}, $lang{DESCRIBE}, $lang{FEES},
+    $lang{PAYMENTS}, $lang{BALANCE});
+
+  if ($conf{DOCS_CURRENCY}) {
+    push @statment_title, "$lang{ALT} $lang{SUM}";
+  }
+
+  my %BILL_ACCOUNTS = ();
+
+  if ($conf{EXT_BILL_ACCOUNT}) {
+    $BILL_ACCOUNTS{ $users->{BILL_ID} } = "$lang{PRIMARY} : $users->{BILL_ID}" if ($users->{BILL_ID});
+    $BILL_ACCOUNTS{ $users->{EXT_BILL_ID} } = "$lang{EXTRA} : $users->{EXT_BILL_ID}" if ($users->{EXT_BILL_ID});
+  }
+
+
+  foreach my $month (sort keys %operations_month) {
+    my $month_fees = 0.00;
+    my $month_payments = 0.00;
+    my $month_balance = 0.00;
+    my @xls_data = ();
+
+    foreach my $date_ (sort keys %{$operations_month{$month}}) {
+
+      foreach my $money_operation (@{$operations_month{$month}{$date_}}) {
+        my $date = ($money_operation->{FEES}) ? substr($money_operation->{datetime},0,16) : $html->b((substr($money_operation->{datetime},0,16)));
+        my $login = ($money_operation->{FEES}) ? $users->{LOGIN} : $html->b($users->{LOGIN});
+        my $bill_id = ($money_operation->{FEES}) ? $BILL_ACCOUNTS{$money_operation->{bill_id}} : $BILL_ACCOUNTS{$money_operation->{bill_id}};
+        my $invoice = ($money_operation->{invoice_num}) ? $html->b($money_operation->{invoice_num}) . "\n" . $money_operation->{invoice_date} : q{};
+        my $fio = ($money_operation->{FEES}) ? $users->{FIO} : $html->b($users->{FIO});
+        my $fees = ($money_operation->{FEES}) ? sprintf("%.2f", $money_operation->{sum} || 0) : '';
+        my $payments = ($money_operation->{FEES}) ? '' : $html->b(sprintf("%.2f", $money_operation->{sum} || 0));
+        my $describe = ($money_operation->{FEES}) ? $money_operation->{dsc} : $html->b($money_operation->{dsc} || q{});
+        $describe =~ s/(\d{4}-\d{2}-\d{2})-(\d{4}-\d{2}-\d{2})/$lang{FROM} $1 $lang{TO} $2/g;
+        my $deposit = ($money_operation->{FEES})
+        ? (sprintf("%.2f", $money_operation->{last_deposit} || 0) - sprintf("%.2f", $money_operation->{sum} || 0))
+        : (sprintf("%.2f", $money_operation->{last_deposit} || 0) + sprintf("%.2f", $money_operation->{sum} || 0));
+        $deposit = sprintf("%.2f", $deposit || 0);
+
+
+        $month_payments += ($money_operation->{FEES}) ? 0 : sprintf("%.2f", $money_operation->{sum} || 0);
+        $month_fees += ($money_operation->{FEES}) ? sprintf("%.2f", $money_operation->{sum} || 0) : 0;
+        $month_balance = ($money_operation->{FEES}) ? ($money_operation->{last_deposit} - $money_operation->{sum}) : ($money_operation->{last_deposit} + $money_operation->{sum});
+
+        $Docs->{ROWS} .= $html->tpl_show(_include('docs_statement_of_account_row', 'Docs'), {
+          date        => $date,
+          login       => $login,
+          bill_id     => $bill_id,
+          invoice     => $invoice,
+          fio         => $fio,
+          fees_sum    => $fees,
+          payment_sum => $payments . (($payments && $conf{DOCS_CURRENCY}) ? $html->br() . sprintf("(%.2f)", $money_operation->{amount}) : ''),
+          describe    => $describe,
+          deposit     => $deposit,
+        }, { OUTPUT2RETURN => 1 });
+
+        push @xls_data, ($date, $login, $bill_id, $invoice, $describe, $fees, $payments, $deposit,
+          (($payments && $conf{DOCS_CURRENCY}) ? sprintf("%.2f", $money_operation->{amount}) : '')
+        );
+      }
+
+      push @statment_rows, [ @xls_data ];
+
+    }
+
+    $Docs->{ROWS} .= $html->tpl_show(_include('docs_statement_of_account_row', 'Docs'), {
+      describe    => $html->b("$lang{TOTAL_END_MONTH}: $month"),
+      fees_sum    => $html->b(sprintf("%.2f", $month_fees || 0)),
+      payment_sum => $html->b(sprintf("%.2f", $month_payments || 0)),
+      deposit     => $html->b(sprintf("%.2f", $month_balance || 0)),
+      underline   => 'docs-row-underline'
+    }, { OUTPUT2RETURN => 1 });
+
+    push @statment_rows, [('', '', '', $html->b("$lang{TOTAL_END_MONTH}: $month"), '', $month_fees || 0, $month_payments || 0, sprintf("%.2f", $month_balance || 0))];
+  }
+
+  my ($y)=split(/-/, $DATE);
+  my %date_list = ();
+  for (my $i = $y; $i>($y-3); $i--) {
+    $date_list{"$i-01-01"}="$i-01-01";
+  }
+
+  my $period_from = ($FORM{DATE}) ? $FORM{DATE} : "$y-01-01";
+  my $period_to = '';
+
+  if ($FORM{DATE}){
+    my ($year_period) = split(/-/, $FORM{DATE});
+    $period_to = ($year_period == $y) ? $DATE : "$year_period-12-31";
+  }
+  else {
+    $period_to = $DATE;
+    }
+
+  $Docs->{YEAR_SEL} = $html->form_select('DATE', {
+    SELECTED  => $FORM{DATE} || "$y-01-01",
+    SEL_HASH  => \%date_list,
+    NO_ID     => 1,
+    EX_PARAMS => "onchange='autoReload()'",
+  });
+
+  my $uid = $FORM{UID} || 0;
+  my $upload_xml = $html->button('XLS', "qindex=15&STATMENT_ACCOUNT=1&UID=$uid&header=2&xls=1&EXPORT_CONTENT=DOCS"
+    .(($FORM{DATE}) ? "&DATE=$FORM{DATE}" : q{}), {
+    class => 'btn btn-light border mt-1'
+  });
+
+  if ($FORM{xls}) {
+    my $table = $html->table({
+      ID    => 'DOCS',
+      title => \@statment_title,
+      rows  => \@statment_rows,
+    });
+    $table->show();
+  }
+  else {
+    $html->tpl_show(_include('docs_statement_of_account', 'Docs'), {
+      %{$users},
+      %{$Docs},
+      PERIOD_FROM => $period_from,
+      PERIOD_TO   => $period_to,
+      DATE        => $DATE,
+      UPLOAD_XML  => $upload_xml
+    });
+  }
+
+  return 1;
+}
+
+
+#***************************************************************
+=head2 docs_start_page($attr)
+
+=cut
+#***************************************************************
+sub docs_start_page{
+  my %START_PAGE_F = (
+    'docs_sp_invoice_summary' => "$lang{INVOICES}",
+  );
+
+  return \%START_PAGE_F;
+}
+
+
+#***************************************************************
+=head2 docs_sp_invoice_summary($attr)
+
+=cut
+#***************************************************************
+sub docs_sp_invoice_summary{
+  my ($Y, $M, $D) = split( /-/, $DATE, 3 );
+
+  $Docs->invoices_list({
+    FROM_DATE => "$Y-$M-01",
+    TO_DATE   => "$Y-$M-$D",
+    UNPAIMENT => 1
+  });
+
+  my $qs = "&FROM_DATE=$Y-$M-01&TO_DATE=$Y-$M-$D&search=1";
+
+  my $table = $html->table({
+    width   => '100%',
+    caption => $lang{INVOICES},
+    ID      => 'DOCS_INVOICE',
+    rows    => [
+        [ "$lang{TOTAL}:", $html->button( $Docs->{TOTAL_}, 'index=' . get_function_index( 'docs_invoices_list' ) . $qs ) ],
+        [ "$lang{USERS}:", $html->b( $Docs->{TOTAL_USERS} || 0 ) ],
+        [ "$lang{UNPAID}:", $html->button( (($Docs->{TOTAL_} || 0) - ($Docs->{PAYMENT_COUNT} || 0)),
+            "UNPAIMENT=1&index=" . get_function_index( 'docs_invoices_list' ) . $qs ) ]
+      ]
+  });
+
+  my $reports = $table->show();
+
+  return $reports;
+}
+
+#**********************************************************
+=head2 docs_registration_create()
+
+=cut
+#**********************************************************
+sub docs_registration_create{
+
+  if ( $FORM{print} ){
+    # Prepare QRCode
+    my $base_url = $SELF_URL;
+    $base_url =~ s/\/admin\/index\.cgi//g;
+    my $registration_url = "$base_url/registration.cgi";
+
+    require Control::Qrcode;
+    Control::Qrcode->import();
+    my $QRCode = Control::Qrcode->new($db, $admin, \%conf, { html => $html });
+
+    $Docs->{QR_CODE} = $QRCode->qr_make($SELF_URL, {
+      SHOW_IMG      => 1,
+      GLOBAL_URL    => $registration_url,
+      OUTPUT2RETURN => 1,
+      size          => 5,
+      margin        => 0,
+      WRITE_TO_DISK => ($FORM{OUTPUT} eq 'pdf') ? 1 : 0
+    });
+    $Docs->{BASE_LINK} = $registration_url;
+
+    # If HTML we need to load bootstrap
+    if ( $FORM{OUTPUT} eq 'html' ){
+      print $html->header();
+      $html->tpl_show( templates( 'metatags' ), { HTML_STYLE => 'default' } );
+    }
+
+    docs_print( 'registration', { %{$Docs}, %FORM, NO_HEADER => 1 } );
+    return 1;
+  }
+
+  $FORM{OUTPUT} = $FORM{OUTPUT} || 'html';
+
+  $html->tpl_show(_include('docs_registration_form_create', 'Docs'), {
+    HTML_CHECKED => $FORM{OUTPUT} eq 'html' ? "checked='checked'" : '',
+    PDF_CHECKED  => $FORM{OUTPUT} eq 'pdf' ? "checked='checked'" : '',
+    %FORM
+  });
+
+  docs_registration_preview() if $FORM{generate};
+
+  return 1;
+}
+
+#**********************************************************
+=head2 docs_registration_preview()
+
+=cut
+#**********************************************************
+sub docs_registration_preview{
+  my ($attr) = @_;
+
+  my $base_url = $SELF_URL;
+  $base_url =~ s/\/admin\/index\.cgi//g;
+  my $registration_url = "$base_url/registration.cgi";
+
+  require Control::Qrcode;
+  Control::Qrcode->import();
+  my $QRCode = Control::Qrcode->new($db, $admin, \%conf, { html => $html });
+
+  $attr->{QR_CODE} = $QRCode->qr_make( $SELF_URL, {
+      SHOW_IMG   => 1,
+      GLOBAL_URL => $registration_url,
+      OUTPUT2RETURN => 1,
+      size       => 8,
+      margin     => 0
+    } );
+
+  $attr->{BASE_LINK} = $registration_url;
+
+  docs_print( 'registration', { %{$Docs}, %{$attr}, %FORM } );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _docs_user_contacts_info() Get information tags about user phones for docs
+
+  Arguments:
+    $attr
+      UID
+      TYPE  - Contacts type; default '1;2' Cell phone and home phone
+
+  Returns:
+    $attr
+      CELL_PHONE_1 = User cell phone number
+      HOME_PHONE_1 = User home phone number
+      CELL_PHONE_2++
+      HOME_PHONE_2++
+=cut
+#**********************************************************
+sub _docs_user_contacts_info {
+  my ($attr) = @_;
+
+  return {} unless ( $attr->{UID} );
+
+  require Contacts;
+  Contacts->import();
+  my $Contacts = Contacts->new($db, $admin, \%conf);
+
+  my $user_phones = $Contacts->contacts_list({
+    UID   => $attr->{UID},
+    VALUE => '_SHOW',
+    TYPE  => $attr->{TYPE} ? $attr->{TYPE} : '1;2',
+  });
+  _error_show($Contacts);
+
+  my %result_hash = ();
+
+  for ( my $i = 0; $i < scalar @{$user_phones}; $i++ ) {
+    my $user_contact = $user_phones->[$i];
+
+    if ( $user_contact->{type_id} == 1 ) {
+      $result_hash{"CELL_PHONE_" . $i} = $user_contact->{value};
+    }
+    elsif ( $user_contact->{type_id} == 2 ) {
+      $result_hash{"HOME_PHONE_" . $i} = $user_contact->{value};
+    }
+
+  }
+
+  return \%result_hash;
+}
+
+#**********************************************************
+=head2 _alt_sum_filter($alt_sum, $currency);
+
+=cut
+#**********************************************************
+sub _alt_sum_filter {
+  my ($alt_sum, $currency) = @_;
+
+  $currency = ($currency) ? "($currency)" : q{};
+
+  return sprintf("%.2f %s", $alt_sum, $currency);
+}
+
+#**********************************************************
+=head2 docs_certs($attr);
+
+  Arguments:
+    $attr
+      CONTENT
+      DEBUG
+      FILE_NAME
+
+  Returns:
+    TRUE or FALSE
+
+=cut
+#**********************************************************
+sub docs_certs {
+  my ($attr) = @_;
+
+  my $content  = $attr->{CONTENT} || q{};
+  my $uni_id   = mk_unique_value(6);
+  my $tmp_file = $attr->{FILE_NAME} || '/tmp/docs.'.$uni_id;
+
+  if (! -f $tmp_file.'.sig') {
+    if(open(my $fh, '>', $tmp_file)) {
+      print $fh $content;
+      close($fh);
+    }
+
+    my $cmd = $conf{DOCS_CERT_CMD};
+
+    $cmd =~ s/\%INPUT_FILE\%/$tmp_file/g;
+    $cmd =~ s/\%CERT_FILE\%/$tmp_file.sig/g;
+
+    my $debug = $attr->{DEBUG} || 0;
+    if ($debug > 2) {
+      print "Content-Type: text/html\n\n";
+    }
+
+    cmd($cmd, { DEBUG => $debug });
+  }
+
+  $content = q{};
+
+  if(open(my $fh, '<', $tmp_file.'.sig')) {
+    while (<$fh>) {
+      $content .= $_;
+    }
+    close($fh);
+  }
+
+  return $content;
+}
+
+#**********************************************************
+=head2 _docs_make_qrcode($data)
+
+  Arguments:
+    $data - array_ref
+
+  Returns
+    string - file path
+
+=cut
+#**********************************************************
+sub _docs_make_qrcode {
+  my ($params, $config, $client_info, $document_info) = @_;
+
+  return if ( !$params || ref $params ne 'ARRAY' );
+  
+  my @data = _docs_collect_qrcode_data($params, $config, $client_info, $document_info);
+
+  # Calculate md5 from array data
+  require Digest::MD5;
+  my $digest = Digest::MD5->new();
+
+  $digest->add($_) foreach ( @data );
+  my $filename = $digest->hexdigest() . '.jpg';
+
+  # Check if already have such file
+  my $docs_qrcode_directory = ($conf{TPL_DIR} || '/usr/axbills/AXbills/templates') . '/docs_qr';
+  if (!-d $docs_qrcode_directory && !mkdir $docs_qrcode_directory){
+    print "Content-Type: text/html\n\n";
+    die "Can't open directory $docs_qrcode_directory \n";
+  }
+
+  my $full_filename = "$docs_qrcode_directory/$filename";
+
+  if ( !-f $full_filename ) {
+    # It's not exists so should create image
+    require Control::Qrcode;
+    Control::Qrcode->import();
+    my $QRCode = Control::Qrcode->new($db, $admin, \%conf, { html => $html });
+
+    open(my $qrcode_file, '>', $full_filename) or do {
+      print "Content-Type: text/html\n\n";
+      die "Can't open $full_filename for write : $!\n";
+    };
+
+    my $qrcode_image = $QRCode->qr_make_image_from_string(join("|", @data));
+    print $qrcode_file $qrcode_image;
+  };
+
+  # Return file
+#  return $filename;
+  return '/docs_qr/' . $filename;
+}
+
+#**********************************************************
+=head2 _docs_collect_qrcode_data($qrcode_params)
+
+  Arguments:
+    $qrcode_params - params to include in qrcode
+
+  Returns:
+    array - values for given params
+
+=cut
+#**********************************************************
+sub _docs_collect_qrcode_data {
+  my ($qrcode_params, $config, $client_info, $document_info) = @_;
+  
+  return '' if ( !$qrcode_params || !ref $qrcode_params eq 'ARRAY' );
+  my ($text_prefix, $config_params, $client_params, $document_params) = @{$qrcode_params};
+  
+  my @data = ();
+  push (@data, $text_prefix) if $text_prefix;
+  
+  my $collect_data = sub {
+    my ($keys_string, $hash) = @_;
+    my @keys = split(',\s?', $keys_string);
+    
+    foreach my $key ( @keys ) {
+      my ($name, $value) = ($key, $hash->{$key});
+      
+      if ($key =~ /([a-zA-Z0-9_.]+)\(([a-zA-Z0-9_.]+)\)/){
+        $value = $hash->{$1 || ''};
+        $name = $2 || '';
+      }
+      
+      if ( defined $value ) {
+        push @data, "$name=$value";
+      }
+    }
+  };
+  
+  # Each of it can be empty
+  if ( $config_params ) {
+    &{$collect_data}($config_params, $config);
+  }
+  if ( $client_params ) {
+    &{$collect_data}($client_params, $client_info);
+  }
+  if ( $document_params ) {
+    &{$collect_data}($document_params, $document_info);
+  }
+  
+  return @data;
+}
+
+#**********************************************************
+=head2 docs_module_info($attr)
+
+  Arguments:
+    $attr
+
+  Return:
+    \%docs - Docs modulei nfo
+
+=cut
+#**********************************************************
+sub docs_module_info {
+  my($attr)=@_;
+
+  my %doc = ();
+  my $days_in_month = days_in_month({ DATE => next_month({ DATE => $main::DATE }) });
+  #Modules info
+  my $cross_modules_return = cross_modules('docs', {
+    UID      => $attr->{UID},
+    SHOW_ALL => 1,
+    FULL_INFO=> 1
+  });
+
+  $doc{"DOCS_ABON_SUM_SERVICE"} = 0;
+
+  my $service_num = 1;
+  foreach my $module (sort keys %$cross_modules_return) {
+    if (ref $cross_modules_return->{$module} eq 'ARRAY') {
+      next if ($#{$cross_modules_return->{$module}} == -1);
+      my $module_num = 1;
+      foreach my $line (@{$cross_modules_return->{$module}}) {
+        my $sum = (($line->{day} // 0) * $days_in_month) + ($line->{month} // 0);
+        my $tp_name = $line->{tp_name};
+        my $module_info = uc($module) . (($module_num) ? "_$module_num" : '');
+        $doc{"DOCS_ABON_" . $module_info }   = sprintf("%.2f", $sum || 0);
+        $doc{"DOCS_TPNAME_" . $module_info } = $tp_name || q{};
+        $doc{"DOCS_SERVICE_SUM_" . $service_num } = sprintf("%.2f", $sum || 0);
+        $doc{"DOCS_SERVICE_NAME_" . $service_num } = $tp_name || q{};
+        $service_num++;
+        $module_num++;
+
+        $doc{"DOCS_ABON_SUM_SERVICE"} += $doc{"DOCS_ABON_" . $module_info } || 0;
+        $doc{"DOCS_ABON_SUM_SERVICE"} += $doc{"DOCS_SERVICE_SUM_" . $service_num } || 0;
+
+        if ($line->{extra}) {
+          foreach my $param ( keys %{ $line->{extra} }) {
+            $doc{"DOCS_". uc($module) .'_'. uc($param)} = $line->{extra}->{$param} || q{};
+          }
+        }
+
+      }
+    }
+  }
+
+  return \%doc;
+}
+
+#**********************************************************
+=head2 docs_qr_code($attr)
+
+  Arguments:
+    UID           - User ID
+    TOTAL_SUM     - User total sum
+
+  Return:
+    qr_code       - QR Code
+
+=cut
+#**********************************************************
+sub docs_qr_code {
+  my ($attr) = @_;
+
+  my $index     = get_function_index('form_payments');
+  my $user_info = $users->pi({ UID => $attr->{UID} });
+  my $op_sid    = mk_unique_value(16);
+
+  my $url_pay   = $conf{DOCS_QR_CODE} . '&index=' . $index . '&UID=' . $attr->{UID}
+         . '&OP_SID=' . $op_sid
+         . '&SUM=' . $attr->{TOTAL_SUM};
+
+  require Control::Qrcode;
+  Control::Qrcode->import();
+  my $QRCode = Control::Qrcode->new($db, $admin, \%conf, { html => $html });
+
+
+  my $qr_code = $QRCode->qr_make( $SELF_URL, {
+    SHOW_IMG          => 1,
+    OUTPUT2RETURN     => 1,
+    GLOBAL_URL        => $url_pay,
+    PARAMS            => {
+      CONVERT_URL       => 1
+    },
+    size              => 1,
+    margin            => 0,
+  });
+  
+  return $qr_code;
+}
+
+1

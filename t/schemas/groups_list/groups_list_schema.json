@@ -1,0 +1,49 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+  "required": [
+    "domainId",
+    "name",
+    "usersCount",
+    "descr",
+    "allowCredit",
+    "gid",
+    "disableChgTp",
+    "disablePaysys"
+  ],
+  "properties": {
+    "domainId": {
+      "$id": "#/properties/domainId",
+      "type": "number"
+    },
+    "name": {
+      "$id": "#/properties/name",
+      "type": "string"
+    },
+    "usersCount": {
+      "$id": "#/properties/usersCount",
+      "type": "number"
+    },
+    "descr": {
+      "$id": "#/properties/descr",
+      "type": "string"
+    },
+    "allowCredit": {
+      "$id": "#/properties/allowCredit",
+      "type": "number"
+    },
+    "gid": {
+      "$id": "#/properties/gid",
+      "type": "number"
+    },
+    "disableChgTp": {
+      "$id": "#/properties/disableChgTp",
+      "type": "number"
+    },
+    "disablePaysys": {
+      "$id": "#/properties/disablePaysys",
+      "type": "number"
+    }
+  }
+}

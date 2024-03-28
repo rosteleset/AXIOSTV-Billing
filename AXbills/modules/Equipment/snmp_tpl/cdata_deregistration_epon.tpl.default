@@ -1,0 +1,3 @@
+olt %BRANCH%
+no-bind onu-id %ONU_ID%
+exit

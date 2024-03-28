@@ -1,0 +1,113 @@
+{
+  "DEVICE": "dlink",
+  "FDB": "1",
+  "SAVE": "1.3.6.1.4.1.171.12.1.2.6.0",
+  "VLANS": ".1.3.6.1.2.1.17.7.1.4.3.1.1",
+  "info": {
+    "FIRMWARE": {
+      "OIDS": "1.3.6.1.2.1.16.19.2.0",
+      "PARSER": ""
+    },
+    "SERIAL": {
+      "OIDS": "1.3.6.1.2.1.16.19.3.0",
+      "PARSER": ""
+    },
+    "SYSTEM_MAC": {
+      "OIDS": ".1.3.6.1.2.1.17.1.1.0",
+      "PARSER": "bin2mac"
+    },
+    "PORTS": {
+      "OIDS": ".1.3.6.1.2.1.17.1.2.0",
+      "PARSER": ""
+    }
+  },
+  "status": {
+    "CPU_LOAD_01": {
+      "OIDS": ".1.3.6.1.4.1.171.12.1.1.6.1.0",
+      "PARSER": ""
+    },
+    "CPU_LOAD_05": {
+      "OIDS": ".1.3.6.1.4.1.171.12.1.1.6.2.0",
+      "PARSER": ""
+    },
+    "CPU_LOAD_15": {
+      "OIDS": ".1.3.6.1.4.1.171.12.1.1.6.3.0",
+      "PARSER": ""
+    }
+  },
+  "ports": {
+    "RUN_CABLE_TEST": {
+      "OIDS": "1.3.6.1.4.1.171.12.58.1.1.1.12",
+      "CABLE_TEST_STATUS_OID": "1.3.6.1.4.1.171.12.58.1.1.1.13",
+      "CABLE_TEST_STATUS_IN_PROGRESS": "2",
+      "CABLE_TEST_STATUS_OK": "3",
+      "SLEEP": 1,
+      "PARSER": "hidden"
+    },
+    "LENGTH_PAIR_1": {
+      "NAME": "Pair 1 length",
+      "OIDS": "1.3.6.1.4.1.171.12.58.1.1.1.8",
+      "PARSER": "",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "LENGTH_PAIR_2": {
+      "NAME": "Pair 2 length",
+      "OIDS": "1.3.6.1.4.1.171.12.58.1.1.1.9",
+      "PARSER": "",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "LENGTH_PAIR_3": {
+      "NAME": "Pair 3 length",
+      "OIDS": "1.3.6.1.4.1.171.12.58.1.1.1.10",
+      "PARSER": "",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "LENGTH_PAIR_4": {
+      "NAME": "Pair 4 length",
+      "OIDS": "1.3.6.1.4.1.171.12.58.1.1.1.11",
+      "PARSER": "",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "STATUS_PAIR_1": {
+      "NAME": "Pair 1 status",
+      "OIDS": "1.3.6.1.4.1.171.12.58.1.1.1.4",
+      "PARSER": "_dlink_convert_pair_status",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "STATUS_PAIR_2": {
+      "NAME": "Pair 2 status",
+      "OIDS": "1.3.6.1.4.1.171.12.58.1.1.1.5",
+      "PARSER": "_dlink_convert_pair_status",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "STATUS_PAIR_3": {
+      "NAME": "Pair 3 status",
+      "OIDS": "1.3.6.1.4.1.171.12.58.1.1.1.6",
+      "PARSER": "_dlink_convert_pair_status",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "STATUS_PAIR_4": {
+      "NAME": "Pair 4 status",
+      "OIDS": "1.3.6.1.4.1.171.12.58.1.1.1.7",
+      "PARSER": "_dlink_convert_pair_status",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "CABLE_TEST_LINK_STATUS": {
+      "NAME": "Link status",
+      "OIDS": "1.3.6.1.4.1.171.12.58.1.1.1.3",
+      "PARSER": "_dlink_convert_link_status",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "CABLE_TEST_PORT_TYPE": {
+      "NAME": "Port type",
+      "OIDS": "1.3.6.1.4.1.171.12.58.1.1.1.2",
+      "PARSER": "_dlink_convert_port_type",
+      "REQUIRES_CABLE_TEST": "1"
+    }
+  },
+  "ERRORS_RESET": {
+     "OIDS": ".1.3.6.1.4.1.171.11.63.1.2.2.1.2.12.0",
+     "RESET_VALUE": 2
+  }
+}
+

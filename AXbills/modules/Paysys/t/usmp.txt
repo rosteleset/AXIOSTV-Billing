@@ -1,0 +1,8 @@
+QueryType -> pay
+ProviderId -> 81
+Amount -> 13
+TransactionId -> 236870376
+Account -> 66651
+PayElementId -> 5
+TerminalId -> 4536
+TransactionDate -> 20150131195735

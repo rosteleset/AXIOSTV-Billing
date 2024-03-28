@@ -1,0 +1,365 @@
+{
+  "DEVICE":"ZTE ZXPON",
+  "FDB":"1",
+  "FDB_OID" : ".1.3.6.1.4.1.3902.1015.6.1.3.1.5.1",
+  "FDB_EXPR" : "(%%d+).(%%d+).(%%d+%%.%%d+%%.%%d+%%.%%d+%%.%%d+%%.%%d+):|PORT,VLAN,MAC",
+  "VLANS" : ".1.3.6.1.4.1.3902.1015.20.2.1.2",
+
+  "info" : {
+
+    "VLAN_COUNT" : {
+      "NAME" : "VLan count",
+      "OIDS" : ".1.3.6.1.4.1.3902.1015.20.1.0",
+      "PARSER" : ""
+    },
+
+    "SYSTEM_NAME" : {
+      "NAME" : "System name",
+      "OIDS" : ".1.3.6.1.2.1.1.5.0",
+      "PARSER" : ""
+    },
+
+    "SYSTEM_DESCR" : {
+      "NAME" : "System describe",
+      "OIDS" : ".1.3.6.1.2.1.1.1.0",
+      "PARSER" : ""
+    },
+
+    "UPTIME" : {
+      "NAME" : "Uptime",
+      "OIDS" : ".1.3.6.1.2.1.1.3.0",
+      "PARSER" : "sp_parse_raw"
+    }
+  },
+
+  "status" : {
+    "CPU_LOAD" : {
+      "OIDS" : ".1.3.6.1.4.1.3902.1015.2.1.1.3.1.9",
+      "PARSER" : "_zte_convert_cpu_usage",
+      "WALK" : 1
+    },
+    "RAM_USAGE" : {
+      "OIDS" : ".1.3.6.1.4.1.3902.1015.2.1.1.3.1.11",
+      "PARSER" : "_zte_convert_cpu_usage",
+      "WALK" : 1
+    },
+    "SLOT_DESC" : {
+      "OIDS" : ".1.3.6.1.4.1.3902.1015.2.1.1.3.1.4",
+      "PARSER" : "",
+      "WALK" : "1"
+    },
+    "SLOT_TEMP" : {
+      "OIDS" : ".1.3.6.1.4.1.3902.1015.2.1.3.13.5.1.1",
+      "PARSER" : "_zte_convert_info_temperature",
+      "WALK" : 1
+    }
+  },
+
+  "epon": {
+    "ONU_MAC_SERIAL" : {
+      "NAME"   : "Mac/Serial",
+      "OIDS"   : ".1.3.6.1.4.1.3902.1015.1010.1.1.1.1.1.4",
+      "PARSER" : "bin2mac"
+    },
+    "ONU_STATUS"     : {
+      "NAME"   : "STATUS",
+      "OIDS"   : ".1.3.6.1.4.1.3902.1015.1010.1.7.4.1.17"
+    },
+    "ONU_TX_POWER"   : {
+      "NAME"   : "ONU_TX_POWER",
+      "OIDS"   : "", //.1.3.6.1.4.1.3902.1015.1010.1.1.1.29.1.4
+      "PARSER" : "_zte_convert_epon_power"
+    },
+    "ONU_RX_POWER"   : {
+      "NAME"   : "ONU_RX_POWER",
+      "OIDS"   : ".1.3.6.1.4.1.3902.1015.1010.1.1.1.29.1.5",
+      "PARSER" : "_zte_convert_epon_power"
+    },
+    "OLT_RX_POWER"   : {
+      "NAME"   : "OLT_RX_POWER",
+      "OIDS"   : ""
+    },
+    "ONU_DESC"       : {
+      "NAME"   : "DESCRIBE",
+      "OIDS"   : ".1.3.6.1.4.1.3902.1015.1010.1.7.4.1.1",
+      "PARSER" : "_zte_convert_epon_description"
+    },
+    "ONU_IN_BYTE"    : {
+      "NAME" : "ONU_IN_BYTE"
+      //"OIDS"   : ".1.3.6.1.4.1.3902.1015.1010.5.5.1.2"
+    },
+    "ONU_OUT_BYTE"   : {
+      "NAME" : "ONU_OUT_BYTE"
+      //"OIDS"   : ".1.3.6.1.4.1.3902.1015.1010.5.5.1.2"
+    },
+    "TEMPERATURE"    : {
+      "NAME"   : "TEMPERATURE",
+      "OIDS"   : "", //.1.3.6.1.4.1.3902.1015.1010.1.1.1.29.1.1
+      "PARSER" : "_zte_convert_epon_temperature"
+    },
+    "VLAN"           : {
+      "NAME"   : "VLAN",
+      "OIDS"   : "1.3.6.1.4.1.3902.1015.1010.1.1.1.10.2.1.1",
+      "PARSER" : "_zte_convert_eth_vlan",
+      "WALK"   : 1
+    },
+    "reset"          : {
+      "NAME"        : "",
+      "OIDS"        : ".1.3.6.1.4.1.3902.1015.1010.1.1.2.1.1.1", //tested on ZTE C220, system description: ZXR10 ROS Version V4.8.01A ZXPON C220 Software, Version V2.8.01A.21
+      "RESET_VALUE" : 1,
+      "PARSER"      : ""
+    },
+    "main_onu_info"    : {
+      "VLAN"           : {
+        "NAME"   : "VLAN",
+        "OIDS"   : "1.3.6.1.4.1.3902.1015.1010.1.1.1.10.2.1.1",
+        "PARSER" : "_zte_convert_eth_vlan",
+        "WALK"   : 1
+      },
+      "HARD_VERSION" : {
+        "NAME"   : "Hard_Version",
+        "OIDS"   : ".1.3.6.1.4.1.3902.1015.1010.1.1.1.1.1.5",
+        "PARSER" : ""
+      },
+      "SOFT_VERSION" : {
+        "NAME"   : "Soft_Version",
+        "OIDS"   : ".1.3.6.1.4.1.3902.1015.1010.1.1.1.1.1.6",
+        "PARSER" : ""
+      },
+      "MODEL"        : {
+        "NAME"   : "VERSION",
+        "OIDS"   : ".1.3.6.1.4.1.3902.1015.1010.1.7.4.1.5",
+        "PARSER" : ""
+      },
+      "VENDOR"       : {
+        "NAME"   : "VENDOR",
+        "OIDS"   : ".1.3.6.1.4.1.3902.1015.1010.1.1.1.1.1.2",
+        "PARSER" : ""
+      },
+      "VOLTAGE"      : {
+        "NAME"   : "VOLTAGE",
+        "OIDS"   : ".1.3.6.1.4.1.3902.1015.1010.1.1.1.29.1.2",
+        "PARSER" : "_zte_convert_epon_voltage"
+      },
+      "DISTANCE"     : {
+        "NAME"   : "DISTANCE",
+        "OIDS"   : ".1.3.6.1.4.1.3902.1015.1010.1.2.1.1.10",
+        "PARSER" : "_zte_convert_distance"
+      },
+      "TEMPERATURE"  : {
+        "NAME"   : "TEMPERATURE",
+        "OIDS"   : ".1.3.6.1.4.1.3902.1015.1010.1.1.1.29.1.1",
+        "PARSER" : "_zte_convert_epon_temperature"
+      },
+      "ONU_TX_POWER" : {
+        "NAME"   : "ONU_TX_POWER",
+        "OIDS"   : ".1.3.6.1.4.1.3902.1015.1010.1.1.1.29.1.4",
+        "PARSER" : "_zte_convert_epon_power"
+      },
+      "MAC_BEHIND_ONU" : {
+        "NAME"                        : "MAC_BEHIND_ONU",
+        "USE_MAC_LOG"                 : 1,
+        "MAC_LOG_SEARCH_BY_PORT_NAME" : "no_pon_type"
+      },
+      "ONU_PORTS_STATUS" : {
+        "NAME"   : "ONU_PORTS_STATUS",
+        "OIDS"   : ".1.3.6.1.4.1.3902.1015.1010.1.1.1.5.1.2 ",
+        "PARSER" : "_zte_eth_status",
+        "WALK"   : 1
+      }
+    }
+  },
+
+  "gpon" : {
+    "ONU_MAC_SERIAL" : {
+      "NAME"   : "Mac/Serial",
+      "OIDS"   : "1.3.6.1.4.1.3902.1082.500.20.2.1.2.1.3",
+      "PARSER" : "serial2mac"
+    },
+    "ONU_STATUS" : {
+      "NAME" : "STATUS",
+      "OIDS" : "1.3.6.1.4.1.3902.1082.500.20.2.1.2.1.7",
+      "PARSER" : "_zte_convert_status"
+    },
+    "ONU_TX_POWER" : {
+      "NAME"      : "ONU_TX_POWER",
+      "OIDS"      : "", //.1.3.6.1.4.1.3902.1012.3.50.12.1.1.14
+      "PARSER"    : "_zte_convert_power",
+      "ADD_2_OID" : ".1"
+    }, // tx_power = tx_power * 0.002 - 30.0;
+    "ONU_RX_POWER" : {
+      "NAME"      : "ONU_RX_POWER",
+      "OIDS"      : "1.3.6.1.4.1.3902.1082.500.20.2.2.2.1.10",
+      "PARSER"    : "_zte_convert_power",
+      "ADD_2_OID" : ".1"
+    }, // rx_power = rx_power * 0.002 - 30.0;
+    "OLT_RX_POWER" : {
+      "NAME"   : "OLT_RX_POWER",
+      "OIDS"   : "1.3.6.1.4.1.3902.1082.500.1.2.4.2.1.2",
+      "PARSER" : "_zte_convert_olt_power"
+    }, // olt_rx_power = olt_rx_power * 0.001;
+    "ONU_DESC" : {
+      "NAME"   : "DESCRIBE",
+      "OIDS"   : "1.3.6.1.4.1.3902.1082.500.10.2.3.3.1.3",
+      "PARSER" : "_zte_convert_description"
+    },
+    "reset" : { //there are different OID on firmware V2
+      "NAME"        : "",
+      "OIDS"        : "1.3.6.1.4.1.3902.1082.500.20.2.1.10.1.1",
+      "RESET_VALUE" : 1,
+      "PARSER"      : ""
+    },
+    "catv_port_manage" : {
+      "NAME"               : "",
+      "OIDS"               : "",
+      "ENABLE_VALUE"       : 1,
+      "DISABLE_VALUE"      : 2,
+      "USING_CATV_PORT_ID" : 1,
+      "PARSER"             : ""
+    },
+    "disable_onu_manage" : {
+      "OIDS"               : "",
+      "SKIP"               : 1,
+      "ENABLE_VALUE"       : 1,
+      "DISABLE_VALUE"      : 2
+    },
+    "LLID" : {
+      "NAME"   : "LLID",
+      "OIDS"   : "1.3.6.1.4.1.3902.1082.500.10.2.2.3.1.14",
+      "PARSER" : ""
+    },
+    "main_onu_info" : {
+      "VERSION_ID"   : {
+        "NAME"   : "VERSION",
+        "OIDS"   : "1.3.6.1.4.1.3902.1082.500.20.2.1.2.1.2",
+        "PARSER" : ""
+      },
+      "VENDOR" : {
+        "NAME"   : "VENDOR",
+        "OIDS"   : "1.3.6.1.4.1.3902.1082.500.20.2.1.2.1.1",
+        "PARSER" : ""
+      },
+      "EQUIPMENT_ID" : {
+        "NAME"   : "Equipment_ID",
+        "OIDS"   : ".1.3.6.1.4.1.3902.1082.500.20.2.1.2.1.8",
+        "PARSER" : ""
+      },
+      "VOLTAGE" : {
+        "NAME"      : "VOLTAGE",
+        "OIDS"      : ".1.3.6.1.4.1.3902.1012.3.50.12.1.1.17",
+        "PARSER"    : "_zte_convert_voltage",
+        "ADD_2_OID" : ".1"
+      },
+      "DISTANCE" : {
+        "NAME"   : "DISTANCE",
+        "OIDS"   : ".1.3.6.1.4.1.3902.1082.500.10.2.3.10.1.2",
+        "PARSER" : "_zte_convert_distance"
+      },
+      "TEMPERATURE"  : {
+        "NAME"      : "TEMPERATURE",
+        "OIDS"      : "",
+        "PARSER"    : "_zte_convert_temperature",
+        "ADD_2_OID" : ".1"
+      },
+      "ONU_TX_POWER" : {
+        "NAME"      : "ONU_TX_POWER",
+        "OIDS"      : "",
+        "PARSER"    : "_zte_convert_power",
+        "ADD_2_OID" : ".1"
+      },
+      "ONU_NAME" : {
+        "NAME"   : "Onu NAME",
+        "OIDS"   : "",
+        "PARSER" : "_zte_convert_description"
+      },
+      "ETH_DUPLEX"              : {
+        "NAME"   : "ETH_DUPLEX",
+        "OIDS"   : "1.3.6.1.4.1.3902.1082.500.20.2.3.2.1.7",
+        "PARSER" : "_zte_convert_duplex",
+        "WALK"   : "1"
+      },
+      "ETH_ADMIN_STATE" : {
+        "NAME"   : "ETH_ADMIN_STATE",
+        "OIDS"   : "1.3.6.1.4.1.3902.1082.500.20.2.3.2.1.5",
+        "PARSER" : "_zte_convert_admin_state",
+        "WALK"   : "1"
+      },
+      "ONU_PORTS_STATUS" : {
+        "NAME"   : "ONU_PORTS_STATUS",
+        "OIDS"   : "1.3.6.1.4.1.3902.1082.500.20.2.3.2.1.6",
+        "PARSER" : "_zte_convert_state",
+        "WALK"   : "1"
+      },
+      "ETH_SPEED" : {
+        "NAME"   : "ETH_SPEED",
+        "OIDS"   : "1.3.6.1.4.1.3902.1082.500.20.2.3.2.1.7",
+        "PARSER" : "_zte_convert_speed",
+        "WALK"   : "1"
+      },
+      "CATV_PORTS_STATUS" : {
+        "NAME"   : "CATV_PORTS_STATUS",
+        "OIDS"   : "",
+        "WALK"   : 1
+      },
+      "CATV_PORTS_COUNT" : {
+        "NAME"   : "CATV_PORTS_COUNT",
+        "OIDS"   : ""
+      },
+      "CATV_PORTS_ADMIN_STATUS" : {
+        "NAME"   : "CATV_PORTS_ADMIN_STATUS",
+        "OIDS"   : "",
+        "PARSER" : "_zte_convert_catv_port_admin_status",
+        "WALK"   : 1
+      },
+      "VIDEO_RX_POWER" : {
+        "NAME"   : "VIDEO_RX_POWER",
+        "OIDS"   : "",
+        "PARSER" : "_zte_convert_video_power"
+      },
+      "MAC_BEHIND_ONU" : {
+        "NAME"                        : "MAC_BEHIND_ONU",
+        "USE_MAC_LOG"                 : 1,
+        "MAC_LOG_SEARCH_BY_PORT_NAME" : "no_pon_type"
+      }
+    }
+  },
+     // reboot - 1.3.6.1.4.1.3902.1082.500.20.2.1.10.1.1
+     // LLID - 1.3.6.1.4.1.3902.1082.500.10.2.2.3.1.14
+
+  "unregister_gpon" : {
+    "UNREGISTER"       : {
+      "NAME"   : "UNREGISTER",
+      "OIDS"   : "1.3.6.1.4.1.3902.1082.500.2.2.11.2.1.2",
+      "TYPE"   : "gpon",
+      "PARSER" : "",
+      "WALK"   : "1"
+    },
+    "sn" : {
+      "NAME"   : "SN",
+      "OIDS"   : "1.3.6.1.4.1.3902.1082.500.2.2.11.2.1.2",
+      "PARSER" : "",
+      "WALK"   : "1"
+    },
+    "mac" : {
+      "NAME"   : "MAC",
+      "OIDS"   : "1.3.6.1.4.1.3902.1082.500.2.2.11.2.1.6",
+      "PARSER" : "",
+      "WALK"   : "1"
+    },
+    "ONU_PASSWORD" : {
+      "OIDS"   : "1.3.6.1.4.1.3902.1082.500.2.2.11.2.1.3",
+      "WALK"   : "1"
+    },
+    "ONU_TYPE" : {
+      "NAME" : "ONU_TYPE",
+      "OIDS" : "1.3.6.1.4.1.3902.1082.500.2.2.11.2.1.8",
+      "WALK" : "1"
+    },
+    "SOFTWARE_VERSION" : {
+      "NAME" : "SOFTWARE_VERSION",
+      "OIDS" : "1.3.6.1.4.1.3902.1082.500.2.2.11.2.1.10",
+      "WALK" : "1"
+    }
+  }
+
+}

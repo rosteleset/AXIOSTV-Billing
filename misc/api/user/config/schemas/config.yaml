@@ -1,0 +1,199 @@
+type: object
+properties:
+  abonClient:
+    type: number
+    example: 1
+  addFriend:
+    type: number
+    example: 1
+  bots:
+    type: object
+    properties:
+      telegram:
+        type: number
+        example: 1
+  camsArchives:
+    type: number
+    example: 1
+  camsClientsStreams:
+    type: number
+    example: 1
+  camsUserInfo:
+    type: number
+    example: 1
+  camsUserStreamsManagement:
+    type: number
+    example: 1
+  cardsUserPayment:
+    type: object
+    properties:
+      serial:
+        type: number
+        example: 1
+  internet:
+    type: object
+    properties:
+      nextMonth:
+        type: number
+        example: 1
+      now:
+        type: number
+        example: 0
+      schedule:
+        type: number
+        example: 2
+  internetUserChgTp:
+    type: number
+    example: 1
+  internetUserInfo:
+    type: number
+    example: 1
+  internetUserStats:
+    type: number
+    example: 1
+  iptv:
+    type: object
+    properties:
+      nextMonth:
+        type: number
+        example: 1
+      schedule:
+        type: number
+        example: 2
+  iptvConfig:
+    type: object
+    properties:
+      promotionTps:
+        type: number
+        example: 1
+      subscribe:
+        type: object
+        properties:
+          describe:
+            type: string
+            example: Enter your email
+          id:
+            type: string
+            example: EMAIL
+          name:
+            type: string
+            example: E-mail
+  iptvPortalServiceInfo:
+    type: number
+    example: 1
+  iptvUserChgTp:
+    type: number
+    example: 1
+  iptvUserInfo:
+    type: number
+    example: 1
+  msgsUser:
+    type: number
+    example: 1
+  paysysPayment:
+    type: number
+    example: 1
+  paysysRecurrentPayment:
+    type: number
+    example: 1
+  paysysSubscribe:
+    type: number
+    example: 1
+  paysysUserLog:
+    type: number
+    example: 1
+  portalNews:
+    type: number
+    example: 1
+  showUserChat:
+    type: number
+    example: 1
+  socialAuth:
+    type: object
+    properties:
+      facebook:
+        type: number
+        example: 0
+      google:
+        type: number
+        example: 0
+  socialNetworks:
+    type: object
+    description: соответствует параметру config.pl SOCIAL_NETWORKS
+    properties:
+      facebook:
+        type: string
+        example: https://www.facebook.com/axbills.net/
+      instagram:
+        type: string
+        example: https://instagram.com
+      telegram:
+        type: string
+        example: https://t.me/axbills
+      viber:
+        type: string
+        example: https://viber.com
+      youtube:
+        type: string
+        example: https://www.youtube.com/c/axbillsnetua
+  reviewPages:
+    type: object
+    description: соответствует параметру config.pl REVIEW_PAGES
+    properties:
+      2ipUa:
+        type: string
+        example: https://2ip.ua/ua/services/providers-rating
+      2ipIo:
+        type: string
+        example: https://2ip.io/ua/isp-rating/
+      googleMaps:
+        type: string
+        example: https://goo.gl/maps/yn7nSx1RdCxGePXV7
+  system:
+    type: object
+    properties:
+      currency:
+        type: number
+        example: 980
+      password:
+        type: object
+        properties:
+          length:
+            type: number
+            example: 7
+          symbols:
+            type: number
+            example: 1234567890
+  userChgPasswd:
+    type: number
+    example: 1
+  userCredit:
+    type: number
+    example: 1001
+  userHoldupAll:
+    type: object
+    properties:
+      activeFees:
+        type: number
+        example: 10
+      dailyFees:
+        type: number
+        example: 0
+      holdupPeriod:
+        type: string
+        example: 10
+      maxPeriod:
+        type: number
+        example: 30
+      minPeriod:
+        type: number
+        example: 1
+  voipUserInfo:
+    type: number
+    example: 1
+  voipUserRoutes:
+    type: number
+    example: 1
+  voipUserStats:
+    type: number
+    example: 1

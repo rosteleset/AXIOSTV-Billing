@@ -1,0 +1,42 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+  "required": [
+    "uid"
+  ],
+  "properties": {
+    "clientIp": {
+      "$id": "#/properties/clientIp",
+      "type": "string"
+    },
+    "uid": {
+      "$id": "#/properties/uid",
+      "type": "number"
+    },
+    "userName": {
+      "$id": "#/properties/userName",
+      "type": "string"
+    },
+    "nasId": {
+      "$id": "#/properties/nasId",
+      "type": "string"
+    },
+    "status": {
+      "$id": "#/properties/status",
+      "type": "number"
+    },
+    "clientIpNum": {
+      "$id": "#/properties/clientIpNum",
+      "type": "number"
+    },
+    "duration": {
+      "$id": "#/properties/duration",
+      "type": "string"
+    },
+    "acctSessionId": {
+      "$id": "#/properties/acctSessionId",
+      "type": "string"
+    }
+  }
+}

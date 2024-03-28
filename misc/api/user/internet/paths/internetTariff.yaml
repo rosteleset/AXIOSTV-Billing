@@ -1,0 +1,73 @@
+put:
+  tags:
+    - internet
+  summary: Смена ТП
+  parameters:
+    - name: id
+      in: path
+      description: id услуги Интернет
+      required: true
+      schema:
+        type: number
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: "../schemas/tariffChangeRequest.yaml"
+    required: true
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: integer
+                example: 1
+              uid:
+                type: integer
+                example: 1
+    400:
+      description: Ошибка
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              errno:
+                type: integer
+                example: 145
+              errstr:
+                type: string
+                example: Wrong data - date
+  security:
+    - USERSID: [ ]
+delete:
+  tags:
+    - internet
+  summary: Удалить расписание изменения ТП
+  parameters:
+    - name: id
+      in: path
+      description: id расписания
+      required: true
+      schema:
+        type: integer
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              success:
+                type: integer
+                example: 1
+              uid:
+                type: integer
+                example: 1
+  security:
+    - USERSID: [ ]

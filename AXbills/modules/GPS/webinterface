@@ -1,0 +1,600 @@
+#!perl
+=head1 NAME
+
+  GPS web managment
+  
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+
+use AXbills::Base qw/sec2time time2sec in_array cmd load_pmodule _bp/;
+
+our $db;
+our $admin;
+our %conf;
+our $html;
+our %lang;
+our $base_dir;
+
+require GPS;
+GPS->import();
+my $Gps = GPS->new($db, $admin, \%conf);
+
+my $debug = $FORM{DEBUG} || 0;
+my $img_dir = $conf{IMG_DIR} || '/images/';
+
+my $close_outer_modal_script = qq\
+  <script>
+    setTimeout(function(){aModal.hide()}, 3000);
+  </script>
+  \;
+
+#**********************************************************
+=head2 - gps_unregistered_trackers
+
+=cut
+#**********************************************************
+sub gps_unregistered_trackers {
+  my $unregistered_trackers_list = $Gps->unregistered_trackers_list({ COLS_NAME => 1 });
+
+  my $table = $html->table({
+    width   => '100%',
+    caption => "Tracker",
+    title   => [ '#', 'GPS IMEI', $lang{ADDED}, "IP Address" ],
+    ID      => "GPS_UNREGISTERED_TRACKERS"
+  });
+
+  my $i = 1;
+  foreach my $tracker (@{$unregistered_trackers_list}) {
+    $table->addrow(
+      $i++,
+      $tracker->{gps_imei},
+      $tracker->{gps_time},
+      $tracker->{ip},
+    );
+  }
+
+  print $table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 - gps_tracked_admins
+
+=cut
+#**********************************************************
+sub gps_tracked_admins {
+
+  my $admins_list = $Gps->tracked_admins_list();
+
+  if ($FORM{change}) {
+    my $result = $Gps->admins_color_info({ AID => $FORM{AID} });
+    if (!$Gps->{TOTAL}) {
+      $Gps->admins_color_add({ AID => $FORM{AID}, COLOR => $FORM{COLOR} });
+    }
+    else {
+      $Gps->admins_color_change({ ID => $result->{ID}, COLOR => $FORM{COLOR} });
+    }
+
+    $html->message("info", $lang{CHANGED}) if !_error_show($Gps);
+  }
+
+  if ($FORM{COLOR_FORM}) {
+    my $color = "#0000FF";
+    my $result = $Gps->admins_color_info({ AID => $FORM{AID} });
+    $color = $result->{COLOR} if $Gps->{TOTAL};
+
+    $html->tpl_show(_include('gps_color_form', "GPS"), {
+      ACTION      => "add",
+      ACTION_LANG => $lang{ADD},
+      COLOR       => $color,
+      AID         => $FORM{AID}
+    });
+
+    return 1;
+  }
+
+  my $table = $html->table({
+    width   => '100%',
+    caption => $lang{ADMIN_ROUTES},
+    title   => [ 'Admin ID', $lang{LOGIN}, "GPS IMEI", $lang{ROUTE_COLOR}, $lang{LAST_UPDATE} ],
+    ID      => "GPS_TRACKED_ADMINS"
+  });
+
+  foreach my $admin_ (@{$admins_list}) {
+
+    my $last_row = $Gps->tracked_admin_info($admin_->{aid});
+
+    next if ($last_row == 0);
+
+    my $color = "#0000FF";
+    my $result = $Gps->admins_color_info({ AID => $admin_->{aid} });
+    $color = $result->{COLOR} if $Gps->{TOTAL} && $result->{COLOR};
+
+    my $colorBtn = $html->button($color, "get_index=gps_tracked_admins&header=2&COLOR_FORM=1&AID=$admin_->{aid}", {
+      LOAD_TO_MODAL => 1,
+      ex_params     => "style='color: $color;'"
+    });
+
+    $table->addrow($admin_->{aid}, $admin_->{name} || $admin->{login}, $admin_->{gps_imei}, $colorBtn, $last_row->{gps_time});
+  }
+
+  print $table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 gps_map_button($coord_x, $coord_y, $admin_id)
+
+  Shows map link
+
+  Arguments:
+     $coord_x  -
+     $coord_y  -
+     $admin_id -
+    
+  Returns:
+  
+=cut
+#**********************************************************
+sub gps_map_button {
+  my ($coord_x, $coord_y, $admin_id) = @_;
+
+  return '' if !$coord_x || !$coord_y;
+
+  my $maps_index = get_function_index('maps_show_map');
+  my $link = "?index=$maps_index&show_gps=$admin_id&NO_ROUTE=1";
+
+  return $html->button("<span class='fa fa-globe'></span>", undef, {
+    GLOBAL_URL     => $link,
+    target         => '_blank',
+    class          => 'btn btn-xs btn-info',
+    NO_LINK_FORMER => 1
+  });
+}
+
+#**********************************************************
+=head2 gps_route_button($coord_x, $coord_y, $admin_id, $date)
+
+  Shows map link
+
+  Arguments:
+     $coord_x  -
+     $coord_y  -
+     $admin_id -
+     $date     -
+
+  Returns:
+
+=cut
+#**********************************************************
+sub gps_route_button {
+  my ($coord_x, $coord_y, $admin_id, $date) = @_;
+
+  unless ($coord_x && $coord_y) {
+    return '';
+  }
+
+  my $maps_index = get_function_index('maps_show_map');
+  my $link = "?index=$maps_index&show_gps=$admin_id&DATE=$date";
+
+  return $html->button("<span class='fa fa-road'></span>", undef,
+    {
+      GLOBAL_URL     => $link,
+      target         => '_blank',
+      class          => 'btn btn-xs btn-info',
+      NO_LINK_FORMER => 1
+    });
+
+}
+
+#**********************************************************
+=head2 gps_admin_add_thumbnail() - gps admin add thumbnail
+
+=cut
+#**********************************************************
+sub gps_add_thumbnail {
+  #my ($attr) = @_;
+  my $aid = $FORM{AID};
+
+  if ($FORM{choosed}) {
+
+    my $icon_name = "$FORM{ICON_NAME}.png";
+
+    # Copy icon to template_folder
+    my $file_name = "thumbnail_aid_$icon_name";
+    cmd("cp $base_dir/cgi-bin/styles/default/img/maps/adm_thumbnails/$icon_name $conf{TPL_DIR}/$file_name");
+
+    $Gps->thumbnail_add({
+      AID            => $aid,
+      THUMBNAIL_PATH => "$file_name"
+    });
+
+    if (!_error_show($Gps)) {
+      $html->message('info', $lang{ADDED});
+      print $close_outer_modal_script;
+    }
+
+  }
+  elsif ($FORM{uploaded}) {
+
+    my $loaded_imager_result = load_pmodule("Imager", { RETURN => 1 });
+    if ($loaded_imager_result) {
+      print $loaded_imager_result;
+      return 0;
+    }
+
+    # Check dimensions
+    if (my $img = Imager->new(data => $FORM{UPLOAD_FILE}->{Contents})) {
+      my ($w, $h) = ($img->getwidth, $img->getheight);
+      unless ($w == 30 && $h == 30) {
+        $html->message('err', $lang{ERROR}, "Wrong file dimensions: $w x $h");
+        return 0;
+      }
+    }
+    else {
+      $html->message('err', $lang{ERROR}, "Corrupted file");
+    }
+
+    my ($file_type) = $FORM{UPLOAD_FILE}->{filename} =~ /(\.[^.]+)$/;
+
+    my $file_name = "thumbnail_aid_$FORM{AID}$file_type";
+
+    my $is_uploaded = upload_file($FORM{UPLOAD_FILE}, {
+      FILE_NAME  => $file_name,
+      EXTENTIONS => $conf{INFO_IMAGE_ALLOWED_EXTENSIONS} || 'gif, png, jpg, jpeg'
+    });
+
+    if ($is_uploaded) {
+
+      $Gps->thumbnail_add({
+        AID            => $aid,
+        THUMBNAIL_PATH => "$file_name"
+      });
+
+      if (!_error_show($Gps)) {
+        $html->message('info', $lang{ADDED});
+        print $close_outer_modal_script;
+      }
+    }
+  }
+  else {
+
+    my $thumbnail = $Gps->thumbnail_get($FORM{AID});
+    _error_show($Gps);
+
+    if ($thumbnail) {
+      $html->tpl_show(_include('gps_thumbnail', "GPS"), {
+        IMG_PATH  => "$img_dir$thumbnail",
+        AID       => $aid,
+        DEL_INDEX => get_function_index("gps_delete_thumbnail")
+      });
+    }
+    else {
+
+      my $icon_select = $html->form_select('ICON_NAME',
+        {
+          SEL_ARRAY => [ 1 .. 11 ],
+          NO_ID     => 1,
+          ID        => 'ICON_SELECT'
+        }
+      );
+
+      $html->tpl_show(_include('gps_ajax_upload_form', "GPS"), {
+        ICON_SELECT   => $icon_select,
+        CALLBACK_FUNC => 'gps_add_thumbnail'
+      });
+    }
+
+    return 1;
+  }
+
+  return 1;
+}
+
+
+#**********************************************************
+=head2 gps_delete_thumbnail
+
+=cut
+#**********************************************************
+sub gps_delete_thumbnail {
+  my $aid = $FORM{AID};
+
+  my $thumbnail_path = $Gps->thumbnail_get($aid);
+  my $file_path = "$conf{TPL_DIR}/$thumbnail_path";
+
+  print $file_path if ($debug);
+
+  my $del_result = unlink $file_path;
+  if ($del_result) {
+    $Gps->thumbnail_del($aid);
+    if (!_error_show($Gps)) {
+      $html->message('info', $lang{DELETED});
+      print $close_outer_modal_script;
+    }
+    return 1;
+  }
+  return 0;
+}
+
+#**********************************************************
+=head2 gps_report
+
+
+=cut
+#**********************************************************
+sub gps_report {
+
+  if ($FORM{change}) {
+    $Gps->admins_show_change({ AIDS => $FORM{AIDS} });
+  }
+
+  if ($FORM{FILTER}) {
+    my $admins_list = $Gps->tracked_admins_list();
+
+    my $aids = '';
+    my $checkbox = '';
+    my $label = '';
+    my $div_checkbox = '';
+
+    foreach my $line (@$admins_list) {
+
+      my $show_info = $Gps->admins_color_info({ AID => $line->{aid} });
+
+      $checkbox = $html->form_input('AIDS', $line->{aid}, {
+        class => 'list-checkbox',
+        TYPE  => 'checkbox',
+        STATE => $Gps->{TOTAL} ? $show_info->{SHOW_ADMIN} : 1,
+      }) . " " . ($line->{name} || q{}) . ' : ' . ($line->{login} || q{}) . " ( " . ($line->{gps_imei} || q{}) . " )";
+
+      $label = $html->element('label', $checkbox);
+      $div_checkbox = $html->element('li', $checkbox, { class => 'list-group-item' });
+
+      $aids .= $div_checkbox;
+    }
+
+    $html->tpl_show(_include('gps_filter_form', 'GPS'), { AIDS => $aids });
+    return;
+  }
+
+  if (!in_array('Maps', \@MODULES)) {
+    $html->message('err', $lang{ERROR}, "Module Maps not connected");
+    return 0;
+  }
+
+  require Control::Reports;
+  reports({
+    NO_GROUP    => 1,
+    NO_TAGS     => 1,
+    DATE_RANGE  => 1,
+    DATE        => $FORM{DATE},
+    REPORT      => '',
+    EX_PARAMS   => {
+      DATE   => $lang{DATE},
+      USERS  => $lang{USERS},
+      ADMINS => $lang{ADMINS},
+    },
+    PERIOD_FORM => 1,
+    EXT_TYPE    => {
+      ADMINS     => $lang{ADMINS},
+      CHAPTERS   => $lang{CHAPTERS},
+      PER_MONTH  => $lang{PER_MONTH},
+      DISTRICT   => $lang{DISTRICT},
+      STREET     => $lang{STREET},
+      BUILD      => $lang{BUILD},
+      REPLY      => $lang{REPLY},
+      PER_CLOSED => $lang{CLOSED},
+    },
+    EXT_SELECT  => {
+      ADMINS => { LABEL => $lang{ADMIN}, SELECT => sel_admins({ NAME => 'AID' }) },
+    },
+  });
+
+  my $date_start = $FORM{FROM_DATE} || $DATE;
+  my $date_end = $FORM{TO_DATE} || $DATE;
+  my $admin_aid = $FORM{AID} || undef;
+
+  require Maps;
+  Maps->import();
+
+  my $by_date = {};
+  my $stats = {};
+
+  my $admins_list = $Gps->tracked_admins_list($admin_aid);
+
+  foreach my $adm (@{$admins_list}) {
+    my $aid = $adm->{aid};
+
+    my $info = $Gps->tracked_admin_route_info($aid, undef, {
+      FROM_DATE => $date_start,
+      TO_DATE   => $date_end,
+      PAGE_ROWS => 10000,
+    });
+
+    next if $info == 0;
+
+    next unless (defined $info && scalar @{$info} > 0);
+
+    $by_date = group_by_date($info, 'gps_time');
+    my @dates = sort (keys %{$by_date});
+
+    foreach my $date (@dates) {
+      $stats->{$aid}->{$date}->{work_time} = get_work_time($by_date->{$date});
+      $stats->{$aid}->{$date}->{kilometers} = get_route_length($by_date->{$date});
+    }
+
+    $stats->{$aid}->{dates} = \@dates;
+  }
+
+  my $filterBtn = $html->button("Настройки отображения на карте", "get_index=gps_report&header=2&FILTER=1", {
+    LOAD_TO_MODAL => 1,
+    class         => 'btn btn-xs btn-primary',
+  });
+
+  my $user_table = $html->table({
+    width   => '100%',
+    caption => "GPS $lang{REPORTS} $lang{FOR_TIME} ($date_start - $date_end)",
+    title   => [ $lang{NAME}, $lang{TIME}, "$lang{DURATION}, km", $lang{ROUTE} ],
+    ID      => 'CHANNEL_USERS',
+    qs      => $pages_qs,
+    header  => $filterBtn,
+  });
+
+  foreach my $adm (@{$admins_list}) {
+    my $aid = $adm->{aid};
+
+    my $adm_stats = $stats->{$aid};
+
+    my $kilometers = 0;
+    my $time;
+
+    foreach my $key (keys %{$adm_stats}) {
+      next if ($key eq 'dates');
+
+      $time += $adm_stats->{$key}{work_time};
+      $kilometers += $adm_stats->{$key}{kilometers};
+    }
+
+    $time = sec2time($time, { format => 1 });
+
+    my $route_btn = '';
+
+    if ($kilometers > 0) {
+      my $maps_index = get_function_index('maps_show_map');
+      my $link = "?index=$maps_index&show_gps=$aid";
+
+      $route_btn = $html->button("<span class='fa fa-globe'></span>", undef, {
+        GLOBAL_URL     => $link, target => '_blank',
+        class          => 'btn btn-xs btn-info',
+        NO_LINK_FORMER => 1
+      });
+    }
+
+    $user_table->addrow(
+      $adm->{name} || $adm->{login},
+      $time,       # $work_time
+      $kilometers, # $route_length
+      $route_btn
+    );
+  }
+
+  print $user_table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 group_by_date($list)
+
+  Arguments:
+    $list     - arr_ref of hash_ref that contains some data
+    $time_key - key that points to DATETIME information
+
+  Returns:
+    hash_ref - hash_ref where keys are dates and values are arr_ref of hash_ref
+
+=cut
+#**********************************************************
+sub group_by_date {
+  my ($list, $time_key) = @_;
+  #group by date
+  my $result = {};
+
+  foreach my $point (@{$list}) {
+    my $date = extract_date($point->{$time_key}, 0);
+
+    if ($result->{$date}) {
+      push @{$result->{$date}}, $point;
+    }
+    else {
+      $result->{$date} = [ $point ];
+    }
+  }
+
+  return $result;
+}
+
+#**********************************************************
+=head2 get_work_time($list)
+
+  Arguments:
+    $list - arr_ref of points [ { gps_time => '2012-05-06 23:23:23' }, { gps_time => '2012-05-06 23:23:24' } ]
+
+  Returns:
+    number - seconds between first and last point time
+
+=cut
+#**********************************************************
+sub get_work_time {
+  my ($list) = @_;
+
+  my $first = extract_date($list->[0]->{gps_time}, 1);
+  my $last = extract_date($list->[scalar @{$list} - 1]->{gps_time}, 1);
+
+  return(time2sec($last) - time2sec($first));
+}
+
+#**********************************************************
+=head2 get_route_length($list)
+
+  Arguments:
+    $list - arr_ref of points
+
+  Returns:
+    number - sum of kilometers between each point
+
+=cut
+#**********************************************************
+sub get_route_length {
+  my ($list) = @_;
+
+  my $mistake = $conf{GPS_MISTAKE} // 0;
+
+  my $sum = 0;
+  for (my $i = 0, my $len = ((scalar @{$list}) - 1); $i < $len; $i++) {
+    my $length = Maps::_mercator_to_meters(
+      @{$list}[$i]->{coord_x},
+      @{$list}[$i]->{coord_y},
+      @{$list}[$i + 1]->{coord_x},
+      @{$list}[$i + 1]->{coord_y}
+    );
+    if ($length > $mistake) {
+      $sum += $length;
+    }
+  }
+  # ground to meters
+  return int($sum) / 1000;
+}
+
+
+#**********************************************************
+=head2 extract_date($date_time, $get_time)
+
+  Extracts date or time part from DATETIME string
+
+  Arguments:
+    $date_time - '2016-01-45 23:25:21'
+    $get_time - boolean
+  Returns:
+    if $get_time = 0
+      string - '2016-01-45'
+    if $get_time = 1
+      string - '23:25:21'
+
+=cut
+#**********************************************************
+sub extract_date {
+  my ($date_time, $get_time) = @_;
+  my ($date, $time) = split /\s/, $date_time;
+  unless ($get_time) {
+    return $date;
+  }
+  return $time;
+}
+
+
+1

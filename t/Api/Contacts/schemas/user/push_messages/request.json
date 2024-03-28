@@ -1,0 +1,6 @@
+{
+  "name": "USER_PUSH_MESSAGES",
+  "method": "GET",
+  "path": "user/:uid/contacts/push/messages/",
+  "params": {}
+}

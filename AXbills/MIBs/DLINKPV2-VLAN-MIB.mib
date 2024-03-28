@@ -1,0 +1,354 @@
+--  *****************************************************************
+--  DLINKPV2-VLAN-MIB.mib : VLAN MIB
+-- 
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+DLINKPV2-VLAN-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,OBJECT-TYPE,
+        NOTIFICATION-TYPE, Integer32,
+        Unsigned32                  FROM SNMPv2-SMI
+        RowStatus,TruthValue,
+        MacAddress                  FROM SNMPv2-TC
+        MODULE-COMPLIANCE,
+        OBJECT-GROUP                FROM SNMPv2-CONF
+        InetAddress,InetAddressType,
+        InetAddressPrefixLength     FROM INET-ADDRESS-MIB
+        dot1dBasePort               FROM BRIDGE-MIB
+        VlanId,VlanIdOrNone,PortList,
+        dot1vProtocolPortGroupId    FROM Q-BRIDGE-MIB      
+        dlinkDGS1100CommonV2        FROM DGS1100SERMGMT-MIB;              
+
+    Dlink2kVlanList ::=
+              OCTET STRING (SIZE (256))
+          -- a string of octets containing one bit per VLAN for VLANs 1 
+          -- to 2048
+
+		  
+    primeV2VlanMIB MODULE-IDENTITY
+        LAST-UPDATED "201404260000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for extending the configuration of 
+            VLAN (Virtual Local Area Network). "
+
+        REVISION "201404260000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file."
+
+        ::= { dlinkDGS1100CommonV2 26 } 
+            
+-- -----------------------------------------------------------------------------
+    v2VlanMIBNotifications   OBJECT IDENTIFIER ::= { primeV2VlanMIB 0 }
+    v2VlanMIBObjects         OBJECT IDENTIFIER ::= { primeV2VlanMIB 1 }
+    v2VlanMIBConformance     OBJECT IDENTIFIER ::= { primeV2VlanMIB 2 }
+ 
+-- -----------------------------------------------------------------------------
+    v2VlanPortIfCtrlTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2VlanPortIfCtrlEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table provides mechanism to configure port-specific VLAN
+            function."
+        ::= { v2VlanMIBObjects 1 }
+     
+    v2VlanPortIfCtrlEntry OBJECT-TYPE
+        SYNTAX          V2VlanPortIfCtrlEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table entry represents the VLAN configuration on a port.
+            This table is an extension to dot1qPortVlanTable which is defined at 
+            Q-BRIDGE-MIB."            
+        INDEX { 
+            dot1dBasePort 
+        }
+        ::= { v2VlanPortIfCtrlTable 1 }
+                     
+    V2VlanPortIfCtrlEntry ::= SEQUENCE {                                    
+        v2VlanPortIfMode                         INTEGER,
+        v2VlanPortIfTrunkNativeVlanTagged        TruthValue,
+        v2VlanPortIfAcceptableFrameTypes         INTEGER,        
+        v2VlanPortIfTagAllowVlanLstFirst2K       Dlink2kVlanList,
+        v2VlanPortIfTagAllowVlanLstSecond2K      Dlink2kVlanList,
+        v2VlanPortIfUntagAllowVlanLstFirst2K     Dlink2kVlanList,
+        v2VlanPortIfUntagAllowVlanLstSecond2K    Dlink2kVlanList
+    }
+              
+    v2VlanPortIfMode OBJECT-TYPE
+        SYNTAX          INTEGER {
+            access(1),
+            hybrid(2),
+            trunk(3)
+        }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates VLAN mode for the port. 
+            access - this port will be untagged member of the access VLAN
+                     configured for the port.
+            hybrid - the port can be untagged or tagged member of all VLANs
+                     configured by the user. The purpose of this VLAN mode is
+                     to support protocol VLAN, MAC-based VLAN, voice VLAN and
+                     dot1q VLAN tunnel application in access side.
+            trunk -  this port is either tagged or untagged member port of its
+                     native VLAN and can be tagged member of other VLANs
+                     configured by the user. The purpose of a trunk port is to
+                     support the switch-to-switch connection. 
+
+            When VLAN mode is changed, the VLAN related setting associated
+            with previous mode will be lost."
+        ::= { v2VlanPortIfCtrlEntry 1 } 
+       
+    v2VlanPortIfTrunkNativeVlanTagged OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current  
+        DESCRIPTION
+            "This object indicates whether enable the tagging mode of the native
+            VLAN on the interface.
+            
+            Note: This value is meaningful only when the VLAN mode of the port
+                  is the 'trunk'."
+        ::= { v2VlanPortIfCtrlEntry 2 }
+      
+    v2VlanPortIfAcceptableFrameTypes OBJECT-TYPE
+        SYNTAX          INTEGER {
+            admitAll(1),
+            admitUntaggedAndPriority(2),
+            admitTagged(3)            
+        }
+        MAX-ACCESS      read-write
+        STATUS          current  
+        DESCRIPTION
+            "This object indicates the acceptable frame types on the interface.     
+            
+            'admitAll' - Permits both tagged and untagged packet.
+            'admitUntaggedAndPriority' - Only untagged or Priority-Tagged packets 
+                        received on this interface will be accepted and tagged packets are 
+                        dropped. 
+            'admitTagged' - Only tagged incoming packets are permitted and untagged packets
+                        are dropped."
+        ::= { v2VlanPortIfCtrlEntry 3 }  
+
+
+    v2VlanPortIfTagAllowVlanLstFirst2K  OBJECT-TYPE
+        SYNTAX          Dlink2kVlanList
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object specifies the VLANs in a string of octets containing
+            one bit per VLAN for VLANs 1 to 2048.
+             
+            If the bit is set to '1', then the interface is allowed to be the
+            VLAN's tagged member.
+            
+            Note: This value is meaningful only when the VLAN mode of the port
+                  is one of the 'hybrid', 'trunk'"         
+        ::= { v2VlanPortIfCtrlEntry 4 }
+    
+    v2VlanPortIfTagAllowVlanLstSecond2K OBJECT-TYPE
+        SYNTAX          Dlink2kVlanList
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object specifies the VLANs in a string of octets containing
+            one bit per VLAN for VLANs 2049 to 4094.
+            
+            If the bit is set to '1', then the interface is allowed to be the
+            VLAN's tagged member.
+            
+            Note: This value is meaningful only when the VLAN mode of the port
+                  is one of the 'hybrid', 'trunk'"    
+        ::= { v2VlanPortIfCtrlEntry 5 }         
+        
+    v2VlanPortIfUntagAllowVlanLstFirst2K  OBJECT-TYPE
+        SYNTAX          Dlink2kVlanList
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object specifies the VLANs in a string of octets containing
+            one bit per VLAN for VLANs 1 to 2048. 
+                                   
+            If the bit is set to '1', then the interface is allowed to be the
+            VLAN's untagged member.  
+            
+            Note: This value is meaningful only when the VLAN mode of the port
+                  is the 'hybrid'."         
+        ::= { v2VlanPortIfCtrlEntry 6 }
+    
+    v2VlanPortIfUntagAllowVlanLstSecond2K OBJECT-TYPE
+        SYNTAX          Dlink2kVlanList
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object specifies the VLANs in a string of octets containing
+            one bit per VLAN for VLANs 2049 to 4094.                       
+             
+            If the bit is set to '1', then the interface is allowed to be the
+            VLAN's untagged member.                         
+            
+            Note: This value is meaningful only when the VLAN mode of the port
+                  is the 'hybrid'."      
+        ::= { v2VlanPortIfCtrlEntry 7 } 
+        
+
+-- -----------------------------------------------------------------------------
+ v2VlanAsymVlanStateEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object enables or disables asymmetric VLAN feature."
+        ::= { v2VlanMIBObjects 2 }
+
+---------------------------------------------------------------------------------
+ v2VlanManagementVlanGlobal OBJECT IDENTIFIER ::= { v2VlanMIBObjects 3 }
+
+	v2VlanManagementVlanEnabled OBJECT-TYPE
+	SYNTAX          TruthValue
+	MAX-ACCESS      read-write
+	STATUS          current
+	DESCRIPTION
+		"This object enables or disables management VLAN feature."
+	::= { v2VlanManagementVlanGlobal 1 }
+		
+    v2VlanManagementVlanId OBJECT-TYPE
+        SYNTAX          VlanIdOrNone
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "The object specifies the management VLAN on a switch.
+            A value of zero indicates that no management VLAN has been
+            configured.
+            It is required to configure the global v2VlanManagementVlanId and enable
+            v2svEnabled to start the management VLAN function."
+        DEFVAL  { 0 }
+        ::= { v2VlanManagementVlanGlobal 2 }	
+
+---------------------------------------------------------------------------------
+ v2VlanPortBasedVlan OBJECT IDENTIFIER ::= { v2VlanMIBObjects 4 }
+
+	v2VlanPortBasedVlanEnabled OBJECT-TYPE
+	SYNTAX          TruthValue
+	MAX-ACCESS      read-write
+	STATUS          current
+	DESCRIPTION
+		"This object enables or disables Port-based VLAN feature."
+	::= { v2VlanPortBasedVlan 1 }
+		
+    
+ v2PortBasedVlanTable OBJECT-TYPE
+    SYNTAX      SEQUENCE OF  V2PortBasedVlanEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "A table containing static configuration information for
+        each VLAN configured into the device by (local or
+        network) management.  All entries are permanent and will
+        be restored after the device is reset."
+    ::= { v2VlanPortBasedVlan 2 }
+
+ v2PortBasedVlanEntry OBJECT-TYPE
+    SYNTAX      V2PortBasedVlanEntry
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Static information for a Port-based VLAN configured into the
+        device by (local or network) management."
+    INDEX   { v2PortBasedVlanIndex }
+    ::= { v2PortBasedVlanTable 1 }
+
+ V2PortBasedVlanEntry ::=
+    SEQUENCE {
+        v2PortBasedVlanIndex            Integer32,
+        v2PortBasedVlanEgressPorts      PortList,
+        v2PortBasedVlanRowStatus        RowStatus
+    }
+
+ v2PortBasedVlanIndex OBJECT-TYPE
+    SYNTAX      Integer32
+    MAX-ACCESS  not-accessible
+    STATUS      current
+    DESCRIPTION
+        "Port-based VLAN index."
+    ::= { v2PortBasedVlanEntry 1 }
+
+ v2PortBasedVlanEgressPorts OBJECT-TYPE
+    SYNTAX      PortList
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "The set of ports that are permanently assigned to the
+        egress list for this VLAN by management. "
+    ::= { v2PortBasedVlanEntry 2 }
+
+ v2PortBasedVlanRowStatus OBJECT-TYPE
+    SYNTAX      RowStatus
+    MAX-ACCESS  read-create
+    STATUS      current
+    DESCRIPTION
+        "This object indicates the status of this entry."
+    ::= { v2PortBasedVlanEntry 3 }
+	
+		
+--  *************************************************************************** 
+--  Conformance
+--  ***************************************************************************                 
+    v2VlanCompliances OBJECT IDENTIFIER ::= { v2VlanMIBConformance 1 }
+        
+    v2VlanCompliance MODULE-COMPLIANCE
+        STATUS current
+        DESCRIPTION 
+            "The compliance statement for entities which implement the 
+            DLINKPV2-VLAN-MIB."
+        MODULE -- this module
+        MANDATORY-GROUPS { 
+            v2VlanIfCfgGroup
+        }
+        GROUP           v2VlanAsymmetricVlanCfgGroup
+        DESCRIPTION
+            "Implementation of this group is optional."  
+        ::= { v2VlanCompliances 1 }
+        
+    v2VlanGroups OBJECT IDENTIFIER ::= { v2VlanMIBConformance 2 }
+        
+    v2VlanIfCfgGroup OBJECT-GROUP
+        OBJECTS { 
+            v2VlanPortIfMode,
+            v2VlanPortIfTrunkNativeVlanTagged,            
+            v2VlanPortIfAcceptableFrameTypes,
+            v2VlanPortIfTagAllowVlanLstFirst2K,
+            v2VlanPortIfTagAllowVlanLstSecond2K,
+            v2VlanPortIfUntagAllowVlanLstFirst2K,
+            v2VlanPortIfUntagAllowVlanLstSecond2K
+        }           
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing the information 
+            and control for configuring port-specific VLAN feature."
+        ::= { v2VlanGroups 1 }
+        
+     
+    v2VlanAsymmetricVlanCfgGroup OBJECT-GROUP
+        OBJECTS { 
+            v2VlanAsymVlanStateEnabled
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects provides the management of
+            asymmetric VLAN feature."
+            ::= { v2VlanGroups 2 }
+END
+

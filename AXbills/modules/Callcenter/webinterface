@@ -1,0 +1,4303 @@
+=head1 NAME
+  Callcenter - work with callcenter
+
+=cut
+
+=head1 Synopsis
+  This module give you opportunity connect your callcenter with axbills.
+
+  Capabilities:
+=cut
+
+use strict;
+use warnings;
+
+use Callcenter;
+use Users;
+use Admins;
+use AXbills::Base qw(in_array);
+
+our ($db, $admin, %lang, %conf, %OUTPUT, %LIST_PARAMS);
+our AXbills::HTML $html;
+
+if (form_purchase_module({
+  HEADER          => $user->{UID},
+  MODULE          => 'Callcenter',
+  REQUIRE_VERSION => 7.15
+})) {
+  exit;
+}
+
+my $Callcenter = Callcenter->new($db, $admin, \%conf);
+my $Users = Users->new($db, $admin, \%conf);
+my $Admins = Admins->new($db, $admin, \%conf);
+
+
+#**********************************************************
+=head2 callcenter_calls_handler() - all the calls show here
+
+  Arguments:
+    $attr -
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub callcenter_calls_handler {
+
+  my @STATUSES = ('', $lang{RINGING}, $lang{IN_PROCESSING}, $lang{PROCESSED}, $lang{NOT_PROCESSED});
+
+  my $STATUS_SELECT = $html->form_select('STATUS', {
+    SELECTED     => $FORM{STATUS} || q{},
+    SEL_ARRAY    => \@STATUSES,
+    ARRAY_NUM_ID => 1,
+  });
+
+  my $ADMINS_SELECT = $html->form_select('ADMIN_SELECT', {
+    SELECTED     => $FORM{ADMIN_SELECT} || q{},
+    SEL_LIST     => $Admins->list({ COLS_NAME => 1, WITH_SIP_NUMBER => 1, SIP_NUMBER => '_SHOW' }),
+    SEL_KEY      => 'sip_number',
+    SEL_VALUE    => 'login',
+    ARRAY_NUM_ID => 1,
+    NO_ID        => 1,
+    SEL_OPTIONS  => { "" => "" },
+  });
+
+  if ($FORM{call_status} && $FORM{call_status} == 1) {
+    $Callcenter->callcenter_add_cals({
+      USER_PHONE     => $FORM{user_phone},
+      OPERATOR_PHONE => $FORM{operator_phone},
+      STATUS         => $FORM{call_status},
+      UID            => $FORM{uid} || 0,
+      ID             => $FORM{call_id}
+    });
+
+    print !$Callcenter->{errno} ? 'Call successfully added' : 'Error';
+
+    return 1;
+  }
+  elsif ($FORM{call_status} && $FORM{call_status} == 2) {
+
+    $Callcenter->callcenter_change_calls({
+      STATUS => $FORM{call_status},
+      ID     => $FORM{call_id}
+    });
+
+    print !$Callcenter->{errno} ? 'Status changed to 2' : 'Error';
+
+    return 1;
+  }
+  elsif ($FORM{call_status} && $FORM{call_status} == 3) {
+    $Callcenter->callcenter_change_calls({
+      STATUS => $FORM{call_status},
+      ID     => $FORM{call_id}
+    });
+
+    print !$Callcenter->{errno} ? 'Status changed to 3' : 'Error';
+
+    return 1;
+  }
+  elsif ($FORM{call_status} && $FORM{call_status} == 4) {
+    $Callcenter->callcenter_change_calls({
+      STATUS => $FORM{call_status},
+      ID     => $FORM{call_id}
+    });
+
+    print !$Callcenter->{errno} ? 'Status changed to 4' : 'Error'; 
+
+    return 1;
+  }
+
+  if ($FORM{chg}) {
+    my $call_info = $Callcenter->callcenter_info_calls({ COLS_NAME => 1, ID => $FORM{chg} });
+
+    $STATUS_SELECT = $html->form_select('STATUS', {
+      SELECTED     => $call_info->{status} || q{},
+      SEL_ARRAY    => \@STATUSES,
+      ARRAY_NUM_ID => 1,
+    });
+
+    $html->tpl_show(_include('callcenter_calls_change', 'Callcenter'), {
+      STATUS_SELECT => $STATUS_SELECT,
+      USER          => $call_info->{user_phone},
+      ADMIN         => $call_info->{operator_phone},
+      ID            => $call_info->{id}
+    });
+
+    return 1;
+  }
+
+  if ($FORM{del} && $FORM{COMMENTS}) {
+    $Callcenter->callcenter_delete_calls({ ID => $FORM{del} });
+    $html->message('info', $lang{SUCCESS}, $lang{DELETED}) if !$Callcenter->{errno};
+  }
+  elsif ($FORM{change}) {
+    $Callcenter->callcenter_change_calls({
+      STATUS => $FORM{STATUS},
+      ID     => $FORM{change}
+    });
+
+    $html->message('info', $lang{SUCCESS}, $lang{CHANGED}) if !$Callcenter->{errno};
+  }
+
+  _error_show($Callcenter);
+
+  if ($FORM{refresh} && $FORM{refresh} == 1) {
+    my $not_found_users = 0;
+    my $unrecognized_users_list = $Callcenter->callcenter_list_calls({
+      COLS_NAME    => 1,
+      UNRECOGNIZED => 1,
+      USER_PHONE   => '_SHOW'
+    });
+
+    foreach my $unrecognized_user (@$unrecognized_users_list) {
+      my $unrecognized_user_phone = $unrecognized_user->{user_phone};
+      if ($conf{CALLCENTER_ASTERISK_PHONE_PREFIX}) {
+        $unrecognized_user_phone =~ s/$conf{CALLCENTER_ASTERISK_PHONE_PREFIX}//;
+      }
+
+      my $admins_for_number_list = $Admins->list({ SIP_NUMBER => $unrecognized_user_phone, AID => '_SHOW', COLS_NAME => 1 });
+      if ($admins_for_number_list && ref $admins_for_number_list eq 'ARRAY' && scalar @{$admins_for_number_list} > 0) {
+        next;
+      }
+
+      my $u_info = $Users->list({ COLS_NAME => 1, PHONE => "*$unrecognized_user_phone" })->[0];
+
+      if ($Users->{errno}) {
+        $not_found_users++;
+        next;
+      }
+
+      $Callcenter->callcenter_change_calls({
+        ID  => $unrecognized_user->{id},
+        UID => $u_info->{uid}
+      });
+    }
+
+    if ($not_found_users > 0) {
+      $html->message('success', "$lang{NOT_FOUND} $not_found_users $lang{USERS}");
+    }
+  }
+
+  if (defined $FORM{STATUS} && $FORM{STATUS} != 0) {
+    $LIST_PARAMS{STATUS} = $FORM{STATUS};
+  }
+
+  if ($FORM{ADMIN_SELECT}) {
+    $LIST_PARAMS{OPERATOR_PHONE} = $FORM{ADMIN_SELECT};
+  }
+
+  if ($FORM{DATE_START}) {
+    $LIST_PARAMS{DATE_START} = $FORM{DATE_START};
+  }
+
+  if ($FORM{DATE_END}) {
+    $LIST_PARAMS{DATE_END} = $FORM{DATE_END};
+  }
+
+  $html->tpl_show(_include('callcenter_calls_filter', 'Callcenter'), {
+    STATUS_SELECT      => $STATUS_SELECT,
+    STATUS_VISIBILITY  => 1,
+    ADMINS_SELECT      => $ADMINS_SELECT,
+    REFRESH_VISIBILITY => 1,
+  });
+
+  if (!$FORM{sort}) {
+    $LIST_PARAMS{SORT} = 'date';
+  }
+
+  result_former({
+    INPUT_DATA      => $Callcenter,
+    FUNCTION        => 'callcenter_list_calls',
+    BASE_FIELDS     => 0,
+    DEFAULT_FIELDS  => "ID, UID, USER_PHONE, ADMIN, OPERATOR_PHONE, STATUS, DATE, LOGIN",
+    FUNCTION_FIELDS => 'change, del',
+    STATUS_VALS     => \@STATUSES,
+    EXT_TITLES      => {
+      id             => "ID",
+      user_phone     => $lang{CALL_FROM},
+      admin          => $lang{ADMIN},
+      status         => $lang{STATUS},
+      date           => $lang{DATE},
+      operator_phone => $lang{CALL_TO},
+      fio            => $lang{FIO},
+      login          => $lang{USER},
+      address_full   => $lang{ADDRESS},
+      city           => $lang{CITY},
+      stop           => $lang{END},
+      duration       => $lang{DURATION}
+    },
+    TABLE           => {
+      width   => '100%',
+      caption => $lang{CALL_CENTER},
+      qs      => $pages_qs,
+      ID      => 'CALLCENTER_CALLS_HANDLER',
+      EXPORT  => 1,
+      # MENU    => "$lang{ADD}:index=" . get_function_index('poll_main') . ':add' . ";",
+    },
+    MAKE_ROWS       => 1,
+    SEARCH_FORMER   => 1,
+    FUNCTION_INDEX  => $index,
+    MODULE          => 'Callcenter',
+    TOTAL           => 1,
+    SKIP_USER_TITLE => 1
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 callcenter_admins_report() -
+
+  Arguments:
+    $attr -
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub callcenter_admins_report {
+
+  my $ADMINS_SELECT = $html->form_select('ADMIN_SELECT', {
+    SELECTED     => $FORM{ADMIN_SELECT} || q{},
+    SEL_LIST     => $Admins->list({ COLS_NAME => 1, WITH_SIP_NUMBER => 1, SIP_NUMBER => '_SHOW' }),
+    SEL_KEY      => 'sip_number',
+    SEL_VALUE    => 'login',
+    ARRAY_NUM_ID => 1,
+    NO_ID        => 1,
+    SEL_OPTIONS  => { "" => "" }
+  });
+
+  my $chart = '';
+  my $calls_list;
+  if ($FORM{ADMIN_SELECT}) {
+    $calls_list = $Callcenter->callcenter_list_calls({
+      DATE_START     => $FORM{DATE_START},
+      DATE_END       => $FORM{DATE_END},
+      OPERATOR_PHONE => $FORM{ADMIN_SELECT},
+      DATE           => '_SHOW',
+      STATUS         => '_SHOW',
+      COLS_NAME      => 1
+    });
+
+    if (!$calls_list) {
+      $html->message('err', $lang{NO_CALLS_FOR_DATE_OR_OPERATOR});
+      return 1;
+    }
+
+    my @dates;
+    my @processed;
+    my @not_processed;
+
+    @$calls_list = reverse(@$calls_list);
+
+    for (my $i = 1; $i <= scalar(@$calls_list); $i++) {
+      my ($date, undef) = split(' ', $calls_list->[$i - 1]->{date});
+
+      if (in_array($date, \@dates)) {
+        if ($calls_list->[$i - 1]->{status} == 3) {
+          exists $processed[scalar(@dates) - 1] ? $processed[scalar(@dates) - 1]++ : push(@processed, 1);
+        }
+
+        if ($calls_list->[$i - 1]->{status} == 4) {
+
+          exists $not_processed[scalar(@dates) - 1] ? $not_processed[scalar(@dates) - 1]++ : push(@not_processed, 1);
+
+        }
+      }
+      else {
+
+        push(@dates, $date);
+        if ($calls_list->[$i - 1]->{status} == 3) {
+          push(@processed, 1);
+        }
+
+        if ($calls_list->[$i - 1]->{status} == 4) {
+          push(@not_processed, 1);
+        }
+      }
+    }
+
+    $chart = $html->make_charts({
+      TRANSITION    => 1,
+      TYPES         => { $lang{PROCESSED} => 'COLUMN', $lang{NOT_PROCESSED} => 'COLUMN' },
+      X_TEXT        => \@dates,
+      DATA          => { $lang{PROCESSED} => \@processed, $lang{NOT_PROCESSED} => \@not_processed },
+      OUTPUT2RETURN => 1
+    });
+  }
+
+  $html->tpl_show(_include('callcenter_calls_filter', 'Callcenter'), {
+    ADMINS_SELECT => $ADMINS_SELECT,
+    CHART         => $chart,
+    DATE_START    => $FORM{DATE_START} || '',
+    DATE_END      => $FORM{DATE_END} || '',
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 callcenter_ivr_log()
+
+=cut
+#**********************************************************
+sub callcenter_ivr_log {
+
+  if (!$FORM{sort}) {
+    $LIST_PARAMS{SORT} = 1;
+    $LIST_PARAMS{DESC} = 'DESC';
+  }
+
+  my %ivr_status = (
+    0 => 'Unauth',
+    1 => 'Auth',
+    2 => 'Error',
+    3 => 'Tech message',
+    4 => 'Complete',
+    5 => 'Answer',
+    6 => 'Cancel',
+    7 => 'Busy'
+  );
+
+  $Callcenter->{STATUS_SEL} = sel_status();
+
+  if ($FORM{search_form}) {
+    form_search({ SEARCH_FORM => $html->tpl_show(_include('callcenter_ivr_search', 'Callcenter'),
+      { %{$Callcenter}, %FORM }, { OUTPUT2RETURN => 1 }) });
+  }
+
+  my @status_vals = ();
+  foreach my $id (sort keys(%ivr_status)) {
+    push @status_vals, $ivr_status{$id};
+  }
+
+  result_former({
+    INPUT_DATA      => $Callcenter,
+    FUNCTION        => 'log_list',
+    BASE_FIELDS     => 2,
+    DEFAULT_FIELDS  => 'ID,DATETIME,CALL_PHONE,CALL_COMMENT,STATUS,UID,LOGIN,DURATION,ADMIN_NAME,LEAD_FIO,OUTGOING,CALL_RECORD',
+    HIDDEN_FIELDS   => 'UID,LEAD_ID',
+    FUNCTION_FIELDS => 'change,del',
+    FILTER_VALUES   => {
+      duration    => sub {
+        my $seconds = shift;
+
+        my $hours = 0;
+        my $minutes = int($seconds / 60);
+        $seconds -= $minutes * 60;
+
+        if ($minutes >= 60) {
+          $hours = int($minutes / 60);
+          $minutes -= $hours * 60;
+        }
+
+        return $hours ? sprintf("%02d:%02d:%02d", $hours, $minutes, $seconds) :
+          sprintf("%02d:%02d", $minutes, $seconds);
+      },
+      lead_fio    => sub {
+        my ($fio, $line) = @_;
+
+        return '' if !$fio || !$line->{lead_id};
+
+        return $html->button($fio, "index=" . get_function_index('crm_lead_info') . "&LEAD_ID=$line->{lead_id}");
+      },
+      outgoing    => sub {
+        my $outgoing = shift;
+
+        return $outgoing ? $lang{OUTGOING_CALL} : $lang{INPUT_CALL};
+      },
+      call_record => sub {
+        my $call_record = shift;
+
+        return '' if !$call_record;
+        return $html->element('audio', $lang{BROWSER_DOES_NOT_SUPPORT_ELEMENT} . ' <code>audio</code>.', { src => $call_record, controls => 1 });
+      }
+    },
+    EXT_TITLES      => {
+      id           => '#',
+      call_phone   => $lang{PHONE},
+      call_comment => $lang{COMMENTS},
+      datetime     => $lang{DATE},
+      ip           => 'IP',
+      duration     => $lang{DURATION},
+      status       => $lang{STATUS},
+      duration     => $lang{DURATION},
+      admin_name   => $lang{ADMIN},
+      outgoing     => $lang{CALL_TYPE},
+      call_record  => $lang{CALL_RECORD}
+    },
+    TABLE           => {
+      width   => '100%',
+      caption => 'IVR',
+      qs      => $pages_qs,
+      ID      => 'VOIP_USERS_LIST',
+      EXPORT  => 1,
+      MENU    => "$lang{SEARCH}:index=$index&search_form=1:search",
+    },
+    STATUS_VALS     => \@status_vals,
+    MAKE_ROWS       => 1,
+    MODULE          => 'Voip',
+    TOTAL           => 1
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 callcenter_ivr_menu_chapters() - Voip IVR menu
+
+=cut
+#**********************************************************
+sub callcenter_ivr_menu_chapters {
+  $Callcenter->{ACTION} = 'add';
+  $Callcenter->{LNG_ACTION} = $lang{ADD};
+
+  if ($FORM{add}) {
+    $Callcenter->ivr_menu_chapters_add({ %FORM });
+    if (!$Callcenter->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{ADDED});
+    }
+  }
+  elsif ($FORM{change}) {
+    $Callcenter->ivr_menu_chapters_change({ %FORM });
+    if (!$Callcenter->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{CHANGED});
+    }
+  }
+  elsif ($FORM{chg}) {
+    $Callcenter->ivr_menu_chapters_info({ %FORM, ID => $FORM{chg} });
+    if (!$Callcenter->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{CHANGING});
+    }
+    $Callcenter->{ACTION} = 'change';
+    $Callcenter->{LNG_ACTION} = $lang{CHANGE};
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Callcenter->ivr_menu_chapters_del({ ID => $FORM{del} });
+    if (!$Callcenter->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{DELETED});
+    }
+  }
+
+  _error_show($Callcenter);
+
+  $Callcenter->{DISABLE} = 'checked' if ($Callcenter->{DISABLE});
+  $html->tpl_show(_include('callcenter_ivr_menu_chapter', 'Callcenter'), $Callcenter);
+
+  delete($Callcenter->{COL_NAMES_ARR});
+
+  result_former({
+    INPUT_DATA      => $Callcenter,
+    FUNCTION        => 'ivr_menu_chapters_list',
+    BASE_FIELDS     => 1,
+    DEFAULT_FIELDS  => 'ID,NAME,NUMBERS',
+    FUNCTION_FIELDS => 'change,del',
+    SKIP_USER_TITLE => 1,
+    EXT_TITLES      => {
+      id      => '#',
+      numbers => $lang{NUMBERS},
+      name    => $lang{NAME}
+    },
+    TABLE => {
+      width   => '100%',
+      caption => "IVR $lang{MENU} $lang{CHAPTERS}",
+      qs      => $pages_qs,
+      #header  => $status_bar,
+      ID      => 'VOIP_IVR_MENU_CHAPTERS',
+    },
+    MAKE_ROWS       => 1,
+    TOTAL           => 1
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 callcenter_ivr_menu_import() - Voip IVR menu
+
+=cut
+#**********************************************************
+sub callcenter_ivr_menu_import {
+
+  if ($FORM{add}) {
+    my $import_info = import_former(\%FORM);
+    my $total = $#{$import_info} + 1;
+    foreach my $_info (@{$import_info}) {
+      $Callcenter->ivr_menu_add($_info);
+      if (_error_show($Callcenter)) {
+        return 0;
+      }
+    }
+
+    $html->message('info', $lang{INFO},
+      "$lang{ADDED}\n $lang{FILE}: $FORM{UPLOAD_FILE}{filename}\n Size: $FORM{UPLOAD_FILE}{Size}\n Count: $total");
+    return 1
+  }
+
+  my $import_fields = $html->form_select('IMPORT_FIELDS', {
+    SELECTED  => $FORM{IMPORT_FIELDS},
+    SEL_ARRAY => [],
+    EX_PARAMS => 'multiple="multiple"'
+  });
+
+  my $encode = $html->form_select('ENCODE', {
+    SELECTED  => $FORM{ENCODE},
+    SEL_ARRAY => [ '', 'win2utf8', 'utf82win', 'win2koi', 'koi2win', 'win2iso', 'iso2win', 'win2dos', 'dos2win' ],
+  });
+
+  my $extra_row = $html->tpl_show(templates('form_row'), {
+    ID    => 'ENCODE',
+    NAME  => $lang{ENCODE},
+    VALUE => $encode
+  }, { OUTPUT2RETURN => 1 });
+
+  $html->tpl_show(templates('form_import'), {
+    #IMPORT_FIELDS     => 'LOGIN,CONTRACT_ID,FIO,PHONE,ADDRESS_STREET,ADDRESS_BUILD,ADDRESS_FLAT,PASPORT_NUM,PASPORT_GRANT',
+    CALLBACK_FUNC     => 'callcenter_ivr_menu',
+    IMPORT_FIELDS_SEL => $import_fields,
+    EXTRA_ROWS        => $extra_row
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 callcenter_ivr_menu() - Voip IVR menu
+
+=cut
+#**********************************************************
+sub callcenter_ivr_menu {
+
+  $Callcenter->{ACTION} = 'add';
+  $Callcenter->{LNG_ACTION} = $lang{ADD};
+
+  if ($FORM{import}) {
+    callcenter_ivr_menu_import();
+    return 1;
+  }
+  elsif ($FORM{add}) {
+    $Callcenter->ivr_menu_add({ %FORM });
+    if (!$Callcenter->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{ADDED});
+    }
+  }
+  elsif ($FORM{change}) {
+    $Callcenter->ivr_menu_change({ %FORM });
+    if (!$Callcenter->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{CHANGED});
+    }
+  }
+  elsif ($FORM{chg}) {
+    $Callcenter->ivr_menu_info({ %FORM, ID => $FORM{chg} });
+    if (!$Callcenter->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{CHANGING});
+    }
+    $Callcenter->{ACTION} = 'change';
+    $Callcenter->{LNG_ACTION} = $lang{CHANGE};
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Callcenter->ivr_menu_del({ ID => $FORM{del} });
+    if (!$Callcenter->{errno}) {
+      $html->message('info', $lang{INFO}, $lang{DELETED});
+    }
+  }
+
+  _error_show($Callcenter);
+
+  my $list_menu = $Callcenter->ivr_menu_list({
+    MAIN_ID    => 0,
+    NUMBER     => '_SHOW',
+    NAME       => '_SHOW',
+    CHAPTER_ID => $FORM{CHAPTER_ID} || undef,
+    COLS_NAME  => 1
+  });
+
+  my %menu_hash = ();
+  foreach my $line (@{$list_menu}) {
+    next if !$line->{number};
+    $menu_hash{$line->{number}} = $line->{name} . " ($line->{number})";
+  }
+
+  $Callcenter->{MAIN_ID_SEL} = $html->form_select('MAIN_ID', {
+    SELECTED    => $Callcenter->{MAIN_ID},
+    SEL_LIST    => $list_menu,
+    SEL_KEY     => 'number',
+    SEL_VALUE   => 'id,number,name',
+    NO_ID       => 1,
+    SEL_OPTIONS => { '' => $lang{MAIN_MENU} },
+  });
+
+  $Callcenter->{CHAPTER_SEL} = $html->form_select('CHAPTER_ID', {
+    SELECTED       => $Callcenter->{CHAPTER_ID} || $FORM{CHAPTER_ID},
+    SEL_LIST       => $Callcenter->ivr_menu_chapters_list({ COLS_NAME => 1, NUMBERS => '_SHOW', NAME => '_SHOW' }),
+    SEL_KEY        => 'id',
+    SEL_VALUE      => 'id,numbers,name',
+    NO_ID          => 1,
+    SEL_OPTIONS    => { 0 => $lang{MAIN_MENU} },
+    MAIN_MENU      => get_function_index('callcenter_ivr_menu_chapters'),
+    MAIN_MENU_ARGV => "chg=" . ($Callcenter->{CHAPTER_ID} || q{}),
+  });
+
+  $Callcenter->{NUMBER_SEL} = $html->form_select('NUMBER', {
+    SELECTED  => $Callcenter->{NUMBER} || $FORM{NUMBER},
+    SEL_ARRAY => [ 0, 1, 2, 3, 4, 5, 6, 7, 8, 9 ],
+    NO_ID     => 1,
+  });
+
+  $Callcenter->{DISABLE} = 'checked' if ($Callcenter->{DISABLE});
+
+  $html->tpl_show(_include('callcenter_ivr_menu', 'Callcenter'), $Callcenter);
+
+  $html->short_form({
+    LABELED_FIELDS => {
+      "$lang{CHAPTER}:" => $Callcenter->{CHAPTER_SEL},
+    },
+    FIELDS         => [
+      $html->form_input('submit', $lang{SHOW}, { TYPE => 'submit' }),
+      $html->form_input('index', $index, {TYPE => 'hidden'})],
+    'class'        => 'form-inline',
+    IN_BOX         => 1,
+    NO_BOX_HEADER  => 1,
+  });
+
+  if ($FORM{CHAPTER_ID}) {
+    $LIST_PARAMS{CHAPTER_ID}=$FORM{CHAPTER_ID};
+  }
+
+  delete($Callcenter->{COL_NAMES_ARR});
+  #my $table;
+  #($table, $list) =
+  result_former({
+    INPUT_DATA      => $Callcenter,
+    FUNCTION        => 'ivr_menu_list',
+    BASE_FIELDS     => 1,
+    DEFAULT_FIELDS  => 'MAIN_ID,NUMBER,NAME,DISABLE,CHAPTER_NAME,COMMENTS',
+    FUNCTION_FIELDS => 'change,del',
+    SKIP_USER_TITLE => 1,
+    EXT_TITLES      => {
+      id         => '#',
+      main_id    => $lang{MAIN},
+      number     => $lang{NUM},
+      name       => $lang{NAME},
+      disable    => $lang{DISABLE},
+      function   => $lang{FUNCTION},
+      comments   => $lang{COMMENTS},
+      audio_file => $lang{AUDIO_FILE},
+      unique_id  => 'unique_id'
+    },
+    TABLE           => {
+      width   => '100%',
+      caption => "IVR $lang{MENU}",
+      qs      => $pages_qs,
+      #header  => $status_bar,
+      ID      => 'CALLCENTER_IVR_MENU',
+      EXPORT  => 1,
+      IMPORT  => "$SELF_URL?get_index=callcenter_ivr_menu&import=1&header=2",
+    },
+    SELECT_VALUE    => {
+      disable => {
+        0 => "$lang{ENABLE}",
+        1 => "$lang{DISABLE}"
+      },
+      main_id => \%menu_hash
+    },
+    MAKE_ROWS       => 1,
+    TOTAL           => 1
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 callcenter_cdr()
+
+=cut
+#**********************************************************
+sub callcenter_cdr {
+
+  if ($FORM{refresh} && $FORM{refresh} == 1) {
+    my $not_found_users = 0;
+
+    my $unrecognized_users_list = $Callcenter->callcenter_cdr_list({
+      COLS_NAME    => 1,
+      UNRECOGNIZED => 1,
+      SRC          => '_SHOW',
+      CALLDATE     => '_SHOW',
+    });
+
+    foreach my $unrecognized_user (@$unrecognized_users_list) {
+      my $unrecognized_user_phone = $unrecognized_user->{src};
+      if ($conf{CALLCENTER_ASTERISK_PHONE_PREFIX}) {
+        $unrecognized_user_phone =~ s/$conf{CALLCENTER_ASTERISK_PHONE_PREFIX}//;
+      }
+
+      my $admins_for_number_list = $Admins->list({ SIP_NUMBER => $unrecognized_user_phone, AID => '_SHOW', COLS_NAME => 1 });
+      if ($admins_for_number_list && ref $admins_for_number_list eq 'ARRAY' && scalar @{$admins_for_number_list} > 0) {
+        next;
+      }
+
+      my $u_info = $Users->list({ COLS_NAME => 1, PHONE => "*$unrecognized_user_phone" })->[0];
+
+      if ($Users->{errno}) {
+        $not_found_users++;
+        next;
+      }
+
+      $Callcenter->callcenter_cdr_change({
+        CALLDATE  => $unrecognized_user->{calldate},
+        USERFIELD => $u_info->{uid}
+      });
+    }
+    if ($not_found_users > 0) {
+      $html->message('success', "$lang{NOT_FOUND} $not_found_users $lang{USERS}");
+    }
+  }
+
+  result_former({
+    INPUT_DATA      => $Callcenter,
+    FUNCTION        => 'callcenter_cdr_list',
+    BASE_FIELDS     => 0,
+    DEFAULT_FIELDS  => 'USERFIELD, SRC, DST, CALLDATE, DURATION, DISPOSITION',
+    #      FUNCTION_FIELDS => 'change,del',
+    SKIP_USER_TITLE => 1,
+    FILTER_COLS     => {
+      userfield => '_callcenter_user_btn::USERFIELD',
+    },
+    EXT_TITLES      => {
+      userfield   => $lang{USER},
+      src         => $lang{PHONE},
+      dst         => "$lang{ADMIN} $lang{PHONE}",
+      disposition => $lang{STATUS},
+      calldate    => $lang{DATE},
+      duration    => "$lang{DURATION} ($lang{SECONDS})",
+    },
+    TABLE           => {
+      width       => '100%',
+      caption     => "CDR",
+      qs          => $pages_qs,
+      #header  => $status_bar,
+      ID          => 'CALLCENTER_CDR',
+      DATA_TABLE  => 1,
+      title_plain => 1,
+      MENU        => "$lang{REFRESH}:index=$index&refresh=1:fas fa-sync",
+    },
+    SELECT_VALUE    => {
+      disposition => {
+        'ANSWERED'  => "$lang{ANSWERED}:success",
+        'NO ANSWER' => "$lang{NO_ANSWER}:text-danger",
+        'BUSY'      => "$lang{BUSY}:text-default"
+      },
+    },
+    MAKE_ROWS       => 1,
+    TOTAL           => 1
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _callcenter_user_btn($UID)
+
+  Arguments:
+    UID -
+
+  Returns:
+
+=cut
+#**********************************************************
+sub _callcenter_user_btn {
+  my ($uid) = @_;
+  return '' unless ($uid);
+
+  my $u_info = $Users->info($uid);
+
+  return $html->button("$u_info->{LOGIN}", "index=15&UID=$uid", { class => 'user' }) . $html->button("$u_info->{LOGIN}", "index=15&UID=$uid", {});
+}
+
+#**********************************************************
+=head2 callcenter_report()
+
+  Arguments:
+     -
+   my @STATUSES = ('', $lang{RINGING}, $lang{IN_PROCESSING}, $lang{PROCESSED}, $lang{NOT_PROCESSED});
+  Returns:
+
+=cut
+#**********************************************************
+sub callcenter_report {
+
+  require Control::Reports;
+  reports({
+    PERIOD_FORM => 1,
+    DATE_RANGE  => 1,
+    NO_GROUP    => 1,
+    NO_TAGS     => 1,
+  });
+
+  my %info = ();
+  my %data_status_1 = ();
+  my %data_status_2 = ();
+  my %data_status_3 = ();
+  my %data_status_4 = ();
+
+  #  Count calls for info-boxes
+  $Callcenter->callcenter_data_report({ DATE => ($FORM{FROM_DATE_TO_DATE} || $DATE), PARAM => "'%Y-%m-%d'", COLS_NAME => 1 });
+  $info{ALL_CALLS} = $Callcenter->{list}[0]{count};
+
+  $Callcenter->callcenter_data_report({ DATE => ($FORM{FROM_DATE_TO_DATE} || $DATE), STATUS => 1, PARAM => "'%Y-%m-%d'", COLS_NAME => 1 });
+  $info{RINGING} = $Callcenter->{list}[0]{count};
+
+  $Callcenter->callcenter_data_report({ DATE => ($FORM{FROM_DATE_TO_DATE} || $DATE), STATUS => 2, PARAM => "'%Y-%m-%d'", COLS_NAME => 1 });
+  $info{IN_PROCESSING} = $Callcenter->{list}[0]{count};
+
+  $Callcenter->callcenter_data_report({ DATE => ($FORM{FROM_DATE_TO_DATE} || $DATE), STATUS => 3, PARAM => "'%Y-%m-%d'", COLS_NAME => 1 });
+  $info{PROCESSED} = $Callcenter->{list}[0]{count};
+
+  $Callcenter->callcenter_data_report({ DATE => ($FORM{FROM_DATE_TO_DATE} || $DATE), STATUS => 4, PARAM => "'%Y-%m-%d'", COLS_NAME => 1 });
+  $info{NOT_PROCESSED} = $Callcenter->{list}[0]{count};
+
+  #  DATA for chart
+  %data_status_1 = _callcenter_convert_data_for_chart({
+    DATE      => $FORM{FROM_DATE_TO_DATE},
+    STATUS    => 1,
+    FROM_DATE => $FORM{FROM_DATE},
+    TO_DATE   => $FORM{TO_DATE},
+  });
+
+  %data_status_2 = _callcenter_convert_data_for_chart({
+    DATE      => $FORM{FROM_DATE_TO_DATE},
+    STATUS    => 2,
+    FROM_DATE => $FORM{FROM_DATE},
+    TO_DATE   => $FORM{TO_DATE},
+  });
+
+  %data_status_3 = _callcenter_convert_data_for_chart({
+    DATE      => $FORM{FROM_DATE_TO_DATE},
+    STATUS    => 3,
+    FROM_DATE => $FORM{FROM_DATE},
+    TO_DATE   => $FORM{TO_DATE},
+  });
+
+  %data_status_4 = _callcenter_convert_data_for_chart({
+    DATE      => $FORM{FROM_DATE_TO_DATE},
+    STATUS    => 4,
+    FROM_DATE => $FORM{FROM_DATE},
+    TO_DATE   => $FORM{TO_DATE},
+  });
+
+  $info{CHART} = $html->chart({
+    TYPE       => 'line',
+    DATA_CHART => {
+      datasets => [ {
+        data            => $data_status_1{ARRAY_Y},
+        label           => $lang{RINGING},
+        borderColor     => '#e54',
+        fill            => 'false',
+        backgroundColor => '#e54',
+        lineTension     => 0
+      }, {
+        data            => $data_status_2{ARRAY_Y},
+        label           => $lang{IN_PROCESSING},
+        borderColor     => '#0a6',
+        fill            => 'false',
+        backgroundColor => '#0a6',
+        lineTension     => 0
+      }, {
+        data            => $data_status_3{ARRAY_Y},
+        label           => $lang{PROCESSED},
+        borderColor     => '#0cf',
+        fill            => 'false',
+        backgroundColor => '#0cf',
+        lineTension     => 0
+      }, {
+        data            => $data_status_4{ARRAY_Y},
+        label           => $lang{NOT_PROCESSED},
+        borderColor     => '#fa1',
+        fill            => 'false',
+        backgroundColor => '#fa1',
+        lineTension     => 0
+      }
+      ],
+      labels   => $data_status_1{ARRAY_X}
+    },
+    OPTIONS    => {
+      bezierCurve => 'false',
+      scales      => {
+        yAxes => [ {
+          type  => 'linear',
+          ticks => {
+            min      => 0,
+            stepSize => 1
+          }
+        } ]
+      }
+    }
+  });
+
+  $html->tpl_show(_include('callcenter_reports_items', 'Callcenter'), { %info });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _callcenter_convert_data_for_chart($attr)
+
+  Arguments:
+    $attr -
+
+  Returns:
+
+=cut
+#**********************************************************
+sub _callcenter_convert_data_for_chart {
+  my ($attr) = @_;
+  my $start_date = $attr->{FROM_DATE} || $DATE;
+  my $end_date = $attr->{TO_DATE} || $DATE;
+  my $period = $attr->{DATE} || "$DATE/$DATE";
+  my $date_param = qq{};
+  my $data = qq{};
+  my @array = ();
+  my @array_x = ();
+  my @array_y = ();
+  my %result = ();
+  my ($ys, $ms, $ds) = split(/-/, $start_date);
+  my ($ye, $me, $de) = split(/-/, $end_date);
+
+  if (($ys == $ye) && ($ms == $me) && ($ds == $de)) {
+    $date_param = "'%H'";
+    @array = (0 ... 23);
+  }
+  elsif (($ys == $ye) && ($ms == $me) && ($ds != $de)) {
+    $date_param = "'%d'";
+    @array = (1 ... AXbills::Base::days_in_month({ DATE => $ms }));
+  }
+  elsif (($ys == $ye) && ($ms != $me)) {
+    $date_param = "'%m'";
+    @array = (1 ... 12);
+  }
+  elsif (($ys != $ye)) {
+    $date_param = "'%Y'";
+    @array = ($ys ... $ye);
+  }
+
+  $data = $Callcenter->callcenter_data_report({
+    DATE      => $period,
+    STATUS    => $attr->{STATUS},
+    PARAM     => $date_param,
+    GROUP_BY  => 1,
+    LIST2HASH => 'my_data,count',
+  });
+
+  foreach my $item (keys %$data) {
+    $data->{int $item} = delete $data->{$item}
+  }
+
+  foreach my $item (@array) {
+    push @array_x, $item;
+    if ($data->{$item}) {
+      push @array_y, $data->{$item};
+    }
+    else {
+      push @array_y, 0;
+    }
+  }
+
+  if (($ys == $ye) && ($ms != $me)) {
+    $result{ARRAY_X} = \@main::MONTHES;
+  }
+  else {
+    $result{ARRAY_X} = \@array_x;
+  }
+
+  $result{ARRAY_Y} = \@array_y;
+
+  return %result;
+}
+
+#**********************************************************
+=head2 callcenter_sound($attr)
+
+  Arguments:
+    $attr -
+
+  Returns:
+
+=cut
+#**********************************************************
+sub callcenter_sound {
+  #my ($attr) = @_;
+
+  my $table = $html->table({
+    width       => '100%',
+    caption     => $lang{CALLS_SOUNDS},
+    title_plain => [ $lang{CALL_FROM}, $lang{CALL_TO}, $lang{DATE}, $lang{LISTEN} ],
+    DATA_TABLE  => 1
+  });
+
+  my $result_cmd = AXbills::Base::cmd("ls /usr/axbills/AXbills/templates/asterisk/");
+
+  foreach my $file (split(/\s/, $result_cmd)) {
+    my ($date, $call_from, $call_to) = $file =~ /^(\d+)\-(\d+)\-(\d+)/;
+    my ($y, $m, $d, $h, $mn) = $date =~ /^(\d{4})(\d{2})(\d{2})(\d{2})(\d{2})/g;
+    $table->addrow(
+      $call_from || '',
+      $call_to || '',
+      "$d-$m-$y $h:$mn" || '',
+      qq{<audio controls style="width: 350px;height: 25px;"><source src="/images/asterisk/$file" type="audio/wav"</audio>},
+    );
+  }
+
+  print $table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 callcenter_start_page($attr)
+
+=cut
+#**********************************************************
+sub callcenter_start_page {
+
+  my %START_PAGE_F = (
+    callcenter_personal_call_statistics => $lang{PERSONAL_CALL_STATISTICS},
+    callcenter_total_call_statistics    => $lang{TOTAL_CALL_STATISTICS},
+  );
+
+  return \%START_PAGE_F;
+}
+
+#**********************************************************
+=head2 callcenter_personal_call_statistics()
+
+=cut
+#**********************************************************
+sub callcenter_personal_call_statistics {
+
+  my $avatar_logo = $admin->{AVATAR_LINK} ? "/images/$admin->{AVATAR_LINK}" : '/styles/default/img/admin/avatar5.png';
+
+  $Callcenter->log_list({ AID => $admin->{AID} });
+
+  return $html->tpl_show(_include('callcenter_call_statistics', 'Callcenter'), {
+    ADMIN_AVATAR => $avatar_logo,
+    ADMIN        => $admin->{ADMIN},
+    DATE         => $DATE,
+    TITLE        => $lang{PERSONAL_CALL_STATISTICS},
+    TOTAL        => $Callcenter->{TOTAL} || 0,
+    INCOMING     => $Callcenter->{INCOMING} || 0,
+    OUTGOING     => $Callcenter->{OUTGOING} || 0
+  }, { OUTPUT2RETURN => 1 });
+}
+
+#**********************************************************
+=head2 callcenter_total_call_statistics()
+
+=cut
+#**********************************************************
+sub callcenter_total_call_statistics {
+
+  $Callcenter->log_list();
+
+  return $html->tpl_show(_include('callcenter_call_statistics', 'Callcenter'), {
+    ADMIN_AVATAR => '/styles/default/img/modules/callcenter/support-team.png',
+    DATE         => $DATE,
+    TITLE        => $lang{TOTAL_CALL_STATISTICS},
+    TOTAL        => $Callcenter->{TOTAL} || 0,
+    INCOMING     => $Callcenter->{INCOMING} || 0,
+    OUTGOING     => $Callcenter->{OUTGOING} || 0
+  }, { OUTPUT2RETURN => 1 });
+}
+
+1
+
+##############################################################
+# OLD CODE
+##############################################################
+#!perl
+# Pon
+#use AXbills::Base;
+#use Socket;
+#use Tariffs;
+#use Data::Dumper;
+#use Callcenter;
+#
+#my %FORM_BASE = ();
+#my $Callcenter = Callcenter->new($db, $admin, \%conf);
+#
+#my %dest_hash = (
+#  1 => "$_SYSTEM_FUNC",
+#  2 => "$_INTERNAL_NUM",
+#  3 => "$_EXTERNAL_NUM",
+#  4 => "$_QUEUE",
+#  5 => "$_GROUP_CALL",
+#  6 => "$_MESSAGE",
+#  7 => "$_TERMS_TIME",
+#  8 => "$_IVR",
+#  9 => "$_WELCOME"
+#);
+#
+#my %dest_func_hash = (
+#  1 => SYS_FUNC,
+#  2 => SIPUSERS,
+#  3 => OUT_NUM,
+#  4 => QUEUE,
+#  5 => GROUP_CALL,
+#  6 => MESSAGES,
+#  7 => INTERVALS,
+#  8 => IVR,
+#  9 => WELCOME
+#);
+
+#*******************************************************************
+#
+# callcenter_ivr()
+#*******************************************************************
+# sub callcenter_ivr {
+#   my ($attr) = @_;
+
+#   if ($FORM{qindex}) {
+#     $html->{METATAGS} = templates('metatags');
+#     print $html->header();
+#   }
+
+#   my %func_hash = callcenter_get_dest_ids();
+#   if ($FORM{show}) {
+#     $Callcenter->{DEST_ID_SEL} = $html->form_select(
+#       'DEST_ID',
+#       {
+#         SEL_OPTIONS => { '' => $_SELECT_DEST },
+#         SELECTED => $Callcenter->{DEST_ID} || '',
+#         NO_ID    => '1',
+#         SEL_HASH => $func_hash{ $FORM{DEST_TYPE} },
+#       }
+#     );
+#     print $Callcenter->{DEST_ID_SEL};
+#     return 0;
+#   }
+#   if (!$FORM{sort}) {
+#     $LIST_PARAMS{SORT} = 1;
+#     $LIST_PARAMS{DESC} = 'desc';
+#   }
+#   if ($FORM{add_form} || $FORM{chg}) {
+#     $Callcenter->{ACTION}     = 'add';
+#     $Callcenter->{ACTION_LNG} = $_ADD;
+
+#     if ($FORM{chg}) {
+#       $Callcenter->{ACTION}     = 'change';
+#       $Callcenter->{ACTION_LNG} = $_CHANGE;
+#     }
+#     print "<table width=\"100%\" border=\"0\" cellspacing=\"1\" cellpadding=\"2\"><tr><td valign=\"top\" align=\"center\">";
+
+#     my $IVR = $Callcenter->info($FORM{chg}, { FUNC => IVR });
+#     $Callcenter->{MESSAGE_ID_SEL} = $html->form_select(
+#       'MESSAGE_ID',
+#       {
+#         SELECTED => $IVR->{MESSAGE_ID} || '',
+#         SEL_OPTIONS => { '' => $_SELECT_MESSAGE },
+#         NO_ID       => '1',
+#         SEL_HASH    => $func_hash{6},
+#       }
+#     );
+
+#     $Callcenter->{ERR_MESSAGE_SEL} = $html->form_select(
+#       'ERR_MESSAGE',
+#       {
+#         SELECTED => $IVR->{ERR_MESSAGE} || '',
+#         SEL_OPTIONS => { '' => $_SELECT_MESSAGE },
+#         NO_ID       => '1',
+#         SEL_HASH    => $func_hash{6},
+#       }
+#     );
+
+#     $Callcenter->{UNDEF_MESSAGE_SEL} = $html->form_select(
+#       'UNDEF_MESSAGE',
+#       {
+#         SELECTED => $IVR->{UNDEF_MESSAGE} || '',
+#         SEL_OPTIONS => { '' => $_SELECT_MESSAGE },
+#         NO_ID       => '1',
+#         SEL_HASH    => $func_hash{6},
+#       }
+#     );
+
+#     $Callcenter->{INVALID_LOOPS_SEL} = $html->form_select(
+#       'INVALID_LOOPS',
+#       {
+#         SELECTED => $IVR->{INVALID_LOOPS} || '',
+#         NO_ID => '1',
+#         SEL_ARRAY => [ '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ],
+#       }
+#     );
+#     $Callcenter->{TIMEOUT_SEL} = $html->form_select(
+#       'TIMEOUT',
+#       {
+#         SELECTED => $IVR->{TIMEOUT} || '',
+#         NO_ID => '1',
+#         SEL_ARRAY => [ '&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;', 1, 2, 3, 4, 5, 6, 7, 8, 9, 10 ],
+#       }
+#     );
+
+#     $html->tpl_show(_include('ivr_menu', 'Callcenter'), { %FORM, %$Callcenter },);
+#   }
+#   elsif ($FORM{add}) {
+#     $Callcenter->add({ %LIST_PARAMS, %FORM, FUNC => IVR });
+#     if (!$Callcenter->{errno}) {
+#       $html->message('info', $_ADDED, "$_ADDED [$FORM{NAME}] ");
+#     }
+
+#   }
+#   elsif ($FORM{change}) {
+#     $Callcenter->change({ %LIST_PARAMS, %FORM, FUNC => IVR });
+#     if (!$Callcenter->{errstr}) {
+#       $html->message('info', $_CHANGE, "$_CHANGE [$FORM{ID}] ");
+#     }
+#   }
+#   elsif ($FORM{del} && $FORM{COMMENTS}) {
+#     $Callcenter->del($FORM{del}, { FUNC => IVR });
+#     if (!$Callcenter->{errstr}) {
+#       $html->message('info', $_DELETED, "$_DELETED [$FORM{del}]");
+#     }
+#     delete($FORM{del});
+
+#   }
+
+#   if ($FORM{chg} || $FORM{add_function_form} || $FORM{add_func} || $FORM{del_func} || $FORM{chg_func} || $FORM{change_func}) {
+#     callcenter_ivr_function({ MENU_ID => $FORM{chg}, MENU_NAME => $FORM{MENU_NAME} });
+#   }
+
+#   #  else {
+
+#   my $list = $Callcenter->list({ %LIST_PARAMS, FUNC => IVR, COLS_NAME => 1, COLS_UPPER => 1 });
+#   my $table = $html->table(
+#     {
+#       width      => '100%',
+#       caption    => "$_IVR",
+#       title      => [ "ID", "$_NAME", "$_DESCRIBE", "$_MESSAGE", "$_INVALID_LOOPS", "$_TIMEOUT", "$_ERR_MESSAGE", "$_UNDEF_MESSAGE", "-", "-" ],
+#       cols_align => [ 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none' ],
+#       ID         => 'IVR',
+#       qs         => $pages_qs,
+#       pages      => $Callcenter->{TOTAL},
+#       MENU       => "$_ADD:index=$index&add_form=1:add"
+#     }
+#   );
+
+#   foreach my $line (@$list) {
+#     $table->addrow(
+#       $line->{ID}, $line->{NAME}, $line->{DESCRIPTION},
+#       ($line->{MESSAGE_ID}) ? $func_hash{6}{ $line->{MESSAGE_ID} } : "$_NO",
+#       $line->{INVALID_LOOPS},
+#       $line->{TIMEOUT},
+#       ($line->{ERR_MESSAGE})   ? $func_hash{6}{ $line->{ERR_MESSAGE} }   : "$_NO",
+#       ($line->{UNDEF_MESSAGE}) ? $func_hash{6}{ $line->{UNDEF_MESSAGE} } : "$_NO",
+#       $html->button($_CHANGE, "index=$index&MENU_NAME=$line->{NAME}&chg=$line->{ID}", { class => 'change' }),
+#       $html->button($_DEL, "index=$index&del=$line->{ID}", { MESSAGE => "$_DEL IVR : $line->{NAME}?", class => 'del' })
+#     );
+#   }
+#   print $table->show();
+
+#   $table = $html->table(
+#     {
+#       width      => '100%',
+#       cols_align => [ 'right', 'right' ],
+#       rows       => [ [ "$_TOTAL:", $html->b($Callcenter->{TOTAL}) ] ]
+#     }
+#   );
+#   print $table->show();
+
+#   #  }
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_ivr_function()
+# #*******************************************************************
+# sub callcenter_ivr_function {
+#   my ($attr) = @_;
+
+#   $FORM{MENU_ID} = $attr->{MENU_ID} if ($attr->{MENU_ID});
+#   my %sel_hash = callcenter_get_dest_ids();
+
+#   if (!$FORM{sort}) {
+#     $LIST_PARAMS{SORT} = 2;
+#     $LIST_PARAMS{DESC} = '';
+#   }
+#   if ($FORM{add_function_form} || $FORM{chg_func}) {
+#     $Callcenter->{ACTION}     = 'add_func';
+#     $Callcenter->{ACTION_LNG} = $_ADD;
+#     if ($FORM{chg_func}) {
+#       $Callcenter->{ACTION}     = 'change_func';
+#       $Callcenter->{ACTION_LNG} = $_CHANGE;
+#     }
+#     print "<table width=\"100%\" border=\"0\" cellspacing=\"1\" cellpadding=\"2\"><tr><td valign=\"top\" align=\"center\">";
+#     my $IVR_FUNC = $Callcenter->info($FORM{chg_func}, { FUNC => IVR_FUNC });
+#     my $list = $Callcenter->list({ %LIST_PARAMS, %FORM, FUNC => IVR_FUNC, COLS_NAME => 1, COLS_UPPER => 1 });
+#     my %exten;
+#     my %exten_hash;
+#     foreach my $line (@$list) {
+#       $exten{ $line->{exten} } = 1;
+#     }
+#     for (my $num = 1 ; $num <= 9 ; $num++) {
+#       if (!$exten{$num}) {
+#         $exten_hash{$num} = "$num&nbsp;&nbsp;&nbsp;";
+#       }
+#     }
+#     $Callcenter->{EXTEN_SEL} = $html->form_select(
+#       'EXTEN',
+#       {
+#         SEL_OPTIONS => { $IVR_FUNC->{EXTEN} => $IVR_FUNC->{EXTEN} },
+#         SELECTED => $IVR_FUNC->{EXTEN} || '',
+#         NO_ID    => '1',
+#         SEL_HASH => \%exten_hash,
+#       }
+#     );
+#     $Callcenter->{MESSAGE_ID_SEL} = $html->form_select(
+#       'MESSAGE_ID',
+#       {
+#         SELECTED => $IVR_FUNC->{MESSAGE_ID} || '',
+#         SEL_OPTIONS => { '' => $_SELECT_MESSAGE },
+#         NO_ID       => '1',
+#         SEL_HASH    => $sel_hash{6},
+#       }
+#     );
+#     $Callcenter->{DEST_TYPE_SEL} = $html->form_select(
+#       'DEST_TYPE',
+#       {
+#         SELECTED => $IVR_FUNC->{DEST_TYPE} || '',
+#         SEL_OPTIONS => { '' => $_SELECT_TYPE },
+#         NO_ID       => '1',
+#         SEL_HASH    => \%dest_hash
+
+#       }
+#     );
+
+#     $Callcenter->{DEST_ID_SEL} = $html->form_select(
+#       'DEST_ID',
+#       {
+#         SELECTED => $IVR_FUNC->{DEST_ID} || '',
+#         NO_ID    => '1',
+#         SEL_HASH => $sel_hash{ $IVR_FUNC->{DEST_TYPE} },
+#       }
+#     );
+
+#     $Callcenter->{MENU_RET_SEL} = $html->form_select(
+#       'MENU_RET',
+#       {
+#         SELECTED => $IVR_FUNC->{MENU_RET} || '',
+#         NO_ID => '1',
+#         SEL_HASH => { 1 => "$_YES", 0 => "$_NO" },
+#       }
+#     );
+
+#     $html->tpl_show(_include('ivr_menu_function', 'Callcenter'), { %FORM, %$Callcenter },);
+#   }
+#   elsif ($FORM{add_func}) {
+#     print "<table width=\"100%\" border=\"0\" cellspacing=\"1\" cellpadding=\"2\"><tr><td valign=\"top\" align=\"center\">";
+#     if ( $FORM{DEST_TYPE} =~ /^\d+$/
+#       || $FORM{DEST_ID} =~ /^\d+$/)
+#     {
+#       $Callcenter->list({ %LIST_PARAMS, EXTEN => $FORM{EXTEN}, MENU_ID => $FORM{MENU_ID}, FUNC => IVR_FUNC, COLS_NAME => 1, COLS_UPPER => 1 });
+#       if ($Callcenter->{TOTAL} eq '0') {
+#         $Callcenter->add({ %LIST_PARAMS, %FORM, FUNC => IVR_FUNC });
+#         if (!$Callcenter->{errno}) {
+#           $html->message('info', $_ADDED, "$_FUNCTION $_ADDED");
+#         }
+#       }
+#       else {
+#         $html->message('err', $_ERROR, "$_ERROR DUBLICATE EXTEN ");
+#       }
+#     }
+#     else {
+#       $html->message('err', $_ERROR, "$_ERROR $ERR_WRONG_DATA ");
+#     }
+
+#   }
+#   elsif ($FORM{change_func}) {
+#     print "<table width=\"100%\" border=\"0\" cellspacing=\"1\" cellpadding=\"2\"><tr><td valign=\"top\" align=\"center\">";
+#     $Callcenter->change({ %LIST_PARAMS, %FORM, FUNC => IVR_FUNC });
+#     if (!$Callcenter->{errstr}) {
+#       $html->message('info', $_CHANGE, "$_CHANGE [$FORM{ID}] ");
+#     }
+
+#   }
+#   elsif ($FORM{del_func} && $FORM{COMMENTS}) {
+#     print "<table width=\"100%\" border=\"0\" cellspacing=\"1\" cellpadding=\"2\"><tr><td valign=\"top\" align=\"center\">";
+#     $Callcenter->del($FORM{del_func}, { FUNC => IVR_FUNC });
+#     if (!$Callcenter->{errstr}) {
+#       $html->message('info', $_DELETED, "$_DELETED [$FORM{del_func}]");
+#     }
+#     delete($FORM{del});
+
+#   }
+
+#   $FORM{MENU_ID} = $attr->{MENU_ID} if ($attr->{MENU_ID});
+#   my $list = $Callcenter->list({ %LIST_PARAMS, MENU_ID => $FORM{MENU_ID}, FUNC => IVR_FUNC, COLS_NAME => 1, COLS_UPPER => 1 });
+
+#   $Callcenter->{IVR_FUNC} = $html->element('li', $html->button("<b>$_ADD $_NEW $_SECTION $_TO \"$FORM{MENU_NAME}\"</b>", "index=$index&MENU_ID=$FORM{MENU_ID}&MENU_NAME=$FORM{MENU_NAME}&add_function_form=1"), { class => 'umenu_item' });
+
+#   foreach my $line (@$list) {
+#     $Callcenter->{IVR_FUNC} .= $html->element('li', $html->button("<b>$line->{EXTEN} : $sel_hash{6}{ $line->{MESSAGE_ID} }</b>", "index=$index&MENU_ID=$FORM{MENU_ID}&MENU_NAME=$FORM{MENU_NAME}&EXTEN=$line->{EXTEN}&chg_func=$line->{ID}"), { class => 'umenu_item' });
+#   }
+#   $Callcenter->{IVR_FUNC} .= $html->element('li', $html->button("<b>$_DEL $_SECTION : $FORM{EXTEN}</b>", "index=$index&MENU_ID=$FORM{MENU_ID}&MENU_NAME=$FORM{MENU_NAME}&del_func=$FORM{chg_func}", { MESSAGE => "$_DEL $_SECTION : $FORM{EXTEN}?" }), { class => 'umenu_item' }) if ($FORM{chg_func});
+
+#   $html->tpl_show(_include('ivr_func_list', 'Callcenter'), { %FORM, %$Callcenter },);
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_messages
+# #*******************************************************************
+# sub callcenter_messages {
+#   my ($attr) = @_;
+
+#   if ($FORM{qindex}) {
+
+#     #    $html->{METATAGS} = templates('metatags');
+#     print $html->header();
+#   }
+
+#   my %func_hash = callcenter_get_dest_ids();
+#   if (!$FORM{sort}) {
+#     $LIST_PARAMS{SORT} = 1;
+#     $LIST_PARAMS{DESC} = '';
+#   }
+#   if ($FORM{add_form} || $FORM{chg}) {
+#     $Callcenter->{ACTION}     = 'add';
+#     $Callcenter->{ACTION_LNG} = $_ADD;
+
+#     if ($FORM{chg}) {
+#       $Callcenter->{ACTION}     = 'change';
+#       $Callcenter->{ACTION_LNG} = $_CHANGE;
+#     }
+
+#     my $MESSAGE = $Callcenter->info($FORM{chg}, { FUNC => MESSAGES });
+
+#     $Callcenter->{TYPE_SEL} = $html->form_select(
+#       'TYPE_MESSAGE',
+#       {
+#         SELECTED => $MESSAGE->{TYPE} || '',
+#         SEL_OPTIONS => { '' => $_SELECT_TYPE },
+#         NO_ID       => '1',
+#         SEL_HASH => { text => "$_TEXT", file => "$_FILE" },
+#       }
+#     );
+#     $html->tpl_show(_include('messages', 'Callcenter'), { %FORM, %$Callcenter },);
+#   }
+#   elsif ($FORM{add}) {
+#     my $file_name = '';
+#     $FORM{Ststus} = 1;
+
+#     if ($FORM{TYPE_MESSAGE} eq 'file') {
+#       ($file_binary, $file_name) = upload_message_file($FORM{FILE_UPLOAD}, { EXTENSIONS => 'mp3,wav', ACTION => 'ADD' });
+#     }
+#     if ($file_name) {
+#       $Callcenter->message_add({ %FORM, TYPE => $FORM{TYPE_MESSAGE}, VALUE => $file_name, DATA => $file_binary });
+#     }
+#     else {
+#       $Callcenter->message_add({ %FORM, TYPE => $FORM{TYPE_MESSAGE} });
+#     }
+#     if (!$Callcenter->{errno}) {
+#       $html->message('info', $_ADDED, "$_ADDED [$FORM{NAME}] ");
+#     }
+#   }
+#   elsif ($FORM{change}) {
+#     my $file_name = '';
+#     $FORM{Status} = 1;
+#     if ($FORM{TYPE_MESSAGE} eq 'file') {
+#       ($file_binary, $file_name) = upload_message_file($FORM{FILE_UPLOAD}, { EXTENSIONS => 'mp3,wav', ACTION => 'CHANGE' });
+#     }
+#     if ($file_name) {
+#       $Callcenter->message_change({ %FORM, TYPE => $FORM{TYPE_MESSAGE}, VALUE => $file_name, DATA => $file_binary, FUNC => MESSAGES });
+#     }
+#     else {
+#       $Callcenter->message_change({ %FORM, TYPE => $FORM{TYPE_MESSAGE}, DATA => '', FUNC => MESSAGES });
+#     }
+#     if (!$Callcenter->{errno}) {
+#       $html->message('info', $_CHANGE, "$_CHANGE [$FORM{NAME}] ");
+#     }
+#   }
+#   elsif ($FORM{del} && $FORM{COMMENTS}) {
+#     $Callcenter->del($FORM{del}, { FUNC => MESSAGES });
+#     if (!$Callcenter->{errstr}) {
+#       $html->message('info', $_DELETED, "$_DELETED [$FORM{del}]");
+#     }
+#     delete($FORM{del});
+
+#   }
+
+#   my $list = $Callcenter->list({ %LIST_PARAMS, FUNC => MESSAGES, COLS_NAME => 1, COLS_UPPER => 1 });
+#   my $table = $html->table(
+#     {
+#       width      => '100%',
+#       caption    => "$_MESSAGES",
+#       title      => [ "ID", "$_NAME", "$_TYPE", "$_VALUE", "-", "-" ],
+#       cols_align => [ 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none' ],
+#       ID         => 'MESSAGES',
+#       qs         => $pages_qs,
+#       pages      => $Callcenter->{TOTAL},
+#       MENU       => "$_ADD:index=$index&add_form=1:add"
+#     }
+#   );
+#   foreach my $line (@$list) {
+#     $table->addrow(
+#       $line->{ID}, $line->{NAME}, $line->{TYPE}, $line->{VALUE},
+#       $html->button($_CHANGE, "index=$index&chg=$line->{ID}", { class => 'change' }),
+#       $html->button($_DEL, "index=$index&TYPE_MESSAGE=$line->{TYPE}&VALUE=$line->{VALUE}&del=$line->{ID}", { MESSAGE => "$_DEL IVR : $line->{NAME}?", class => 'del' })
+#     );
+#   }
+#   print $table->show();
+
+#   $table = $html->table(
+#     {
+#       width      => '100%',
+#       cols_align => [ 'right', 'right' ],
+#       rows       => [ [ "$_TOTAL:", $html->b($Callcenter->{TOTAL}) ] ]
+#     }
+#   );
+#   print $table->show();
+
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_welcome
+# #*******************************************************************
+# sub callcenter_welcome {
+#   my ($attr) = @_;
+
+#   if ($FORM{qindex}) {
+#     $html->{METATAGS} = templates('metatags');
+#     print $html->header();
+#   }
+
+#   my %sel_hash = callcenter_get_dest_ids();
+#   if ($FORM{show}) {
+
+#     $Callcenter->{DEST_ID_SEL} = $html->form_select(
+#       'DEST_ID',
+#       {
+#         SEL_OPTIONS => { '' => $_SELECT_DEST },
+#         SELECTED => $Callcenter->{DEST_ID} || '',
+#         NO_ID    => '1',
+#         SEL_HASH => $sel_hash{ $FORM{DEST_TYPE} },
+#       }
+#     );
+#     print $Callcenter->{DEST_ID_SEL};
+#     return 0;
+#   }
+
+#   if (!$FORM{sort}) {
+#     $LIST_PARAMS{SORT} = 1;
+#     $LIST_PARAMS{DESC} = '';
+#   }
+
+#   if ($FORM{add_form} || $FORM{chg}) {
+#     $Callcenter->{ACTION}     = 'add';
+#     $Callcenter->{ACTION_LNG} = $_ADD;
+
+#     if ($FORM{chg}) {
+#       $Callcenter->{ACTION}     = 'change';
+#       $Callcenter->{ACTION_LNG} = $_CHANGE;
+#     }
+
+#     my $WELCOME = '';
+#     if ($FORM{chg}) {
+#       $WELCOME = $Callcenter->info($FORM{chg}, { FUNC => WELCOME });
+#     }
+
+#     $Callcenter->{MESSAGE_ID_SEL} = $html->form_select(
+#       'MESSAGE_ID',
+#       {
+#         SELECTED    => $WELCOME->{MESSAGE_ID} || '',
+#         SEL_OPTIONS => { '0' => $_NO },
+#         NO_ID       => '1',
+#         SEL_HASH    => $sel_hash{6},
+#       }
+#     );
+
+#     $Callcenter->{DEST_TYPE_SEL} = $html->form_select(
+#       'DEST_TYPE',
+#       {
+#         SELECTED    => $WELCOME->{DEST_TYPE} || '',
+#         SEL_OPTIONS => { '0' => $_NO },
+#         NO_ID       => '1',
+#         SEL_HASH    => \%dest_hash
+
+#       }
+#     );
+
+#     $Callcenter->{DEST_ID_SEL} = $html->form_select(
+#       'DEST_ID',
+#       {
+#         SELECTED => $WELCOME->{DEST_ID} || '',
+#         NO_ID    => '1',
+#         SEL_HASH => $sel_hash{ $WELCOME->{DEST_TYPE} },
+#       }
+#     );
+
+#     $html->tpl_show(_include('welcome', 'Callcenter'), { %FORM, %$Callcenter },);
+#   }
+#   elsif ($FORM{add}) {
+#     $Callcenter->add({ %LIST_PARAMS, %FORM, FUNC => WELCOME });
+#     if (!$Callcenter->{errno}) {
+#       $html->message('info', $_ADDED, "$_ADDED [$FORM{NAME}] ");
+#       callcenter_dialplan({ %FORM, ID => $Callcenter->{INSERT_ID}, WELCOM => 1 });
+#     }
+
+#   }
+#   elsif ($FORM{change}) {
+#     $Callcenter->change({ %LIST_PARAMS, %FORM, FUNC => WELCOME });
+#     if (!$Callcenter->{errstr}) {
+#       $html->message('info', $_CHANGE, "$_CHANGE [$FORM{ID}] ");
+#       callcenter_dialplan({ %FORM, WELCOM => 1 });
+#     }
+
+#   }
+#   elsif ($FORM{del} && $FORM{COMMENTS}) {
+#     $Callcenter->del($FORM{del}, { FUNC => WELCOME });
+#     if (!$Callcenter->{errstr}) {
+#       $html->message('info', $_DELETED, "$_DELETED [$FORM{del}]");
+#       callcenter_dialplan({ %FORM, WELCOM => 1 });
+#     }
+#     delete($FORM{del});
+
+#   }
+
+#   _error_show($Callcenter);
+
+#   my $list = $Callcenter->list({ %LIST_PARAMS, FUNC => WELCOME, COLS_NAME => 1, COLS_UPPER => 1 });
+#   my $table = $html->table(
+#     {
+#       width      => '100%',
+#       caption    => "$_WELCOME",
+#       title      => [ "ID", "$_NAME", "$_MESSAGE", "$_DEST_TYPE", "$_DEST_ID", "-", "-" ],
+#       cols_align => [ 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none' ],
+#       ID         => 'WELCOME',
+#       qs         => $pages_qs,
+#       pages      => $Callcenter->{TOTAL},
+#       MENU       => "$_ADD:index=$index&add_form=1:add"
+#     }
+#   );
+
+#   foreach my $line (@$list) {
+#     $table->addrow(
+#       $line->{ID}, $line->{NAME},
+#       ($line->{MESSAGE_ID})                                 ? $sel_hash{6}{ $line->{MESSAGE_ID} }                 : "$_NO",
+#       ($dest_hash{ $line->{DEST_TYPE} })                    ? $dest_hash{ $line->{DEST_TYPE} }                    : "$_NO",
+#       ($sel_hash{ $line->{DEST_TYPE} }{ $line->{DEST_ID} }) ? $sel_hash{ $line->{DEST_TYPE} }{ $line->{DEST_ID} } : "$_NO",
+#       $html->button($_CHANGE, "index=$index&chg=$line->{ID}", { class => 'change' }),
+#       $html->button($_DEL, "index=$index&del=$line->{ID}", { MESSAGE => "$_DEL $_WELCOME : $line->{NAME}?", class => 'del' })
+#     );
+#   }
+#   print $table->show();
+
+#   $table = $html->table(
+#     {
+#       width      => '100%',
+#       cols_align => [ 'right', 'right' ],
+#       rows       => [ [ "$_TOTAL:", $html->b($Callcenter->{TOTAL}) ] ]
+#     }
+#   );
+#   print $table->show();
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_intervals
+# #*******************************************************************
+# sub callcenter_intervals {
+#   my ($attr) = @_;
+
+#   if ($FORM{qindex}) {
+#     $html->{METATAGS} = templates('metatags');
+#     print $html->header();
+#   }
+#   my %DAYS = (
+#     "$WEEKDAYS[1]" => 'mon',
+#     "$WEEKDAYS[2]" => 'tue',
+#     "$WEEKDAYS[3]" => 'wed',
+#     "$WEEKDAYS[4]" => 'thu',
+#     "$WEEKDAYS[5]" => 'fri',
+#     "$WEEKDAYS[6]" => 'sat',
+#     "$WEEKDAYS[7]" => 'sun'
+#   );
+#   my %MONTHES = (
+#     "$MONTHES[0]"  => 'jan',
+#     "$MONTHES[1]"  => 'feb',
+#     "$MONTHES[2]"  => 'mar',
+#     "$MONTHES[3]"  => 'apr',
+#     "$MONTHES[4]"  => 'may',
+#     "$MONTHES[5]"  => 'jun',
+#     "$MONTHES[6]"  => 'jul',
+#     "$MONTHES[7]"  => 'aug',
+#     "$MONTHES[8]"  => 'sep',
+#     "$MONTHES[9]"  => 'oct',
+#     "$MONTHES[10]" => 'nov',
+#     "$MONTHES[11]" => 'dec',
+#   );
+#   my @DAY_NAMES     = ("$_ALL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;",                                     "$WEEKDAYS[1]", "$WEEKDAYS[2]", "$WEEKDAYS[3]", "$WEEKDAYS[4]", "$WEEKDAYS[5]", "$WEEKDAYS[6]", "$WEEKDAYS[7]");
+#   my @DAY_NUMBERS   = ("$_ALL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;",                                     1,              2,              3,              4,              5,              6,              7, 8, 9, 10, 11, 12, 13, 14, 15, 16, 17, 18, 19, 20, 21, 22, 23, 24, 25, 26, 27, 28, 29, 30, 31);
+#   my @MONTHES_NAMES = ("$_ALL &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", "$MONTHES[0]",  "$MONTHES[1]",  "$MONTHES[2]",  "$MONTHES[3]",  "$MONTHES[4]",  "$MONTHES[5]",  "$MONTHES[6]", "$MONTHES[7]", "$MONTHES[8]", "$MONTHES[9]", "$MONTHES[10]", "$MONTHES[11]");
+#   my %sel_hash = callcenter_get_dest_ids();
+#   if ($FORM{show}) {
+
+#     if ($FORM{DEST_TYPE_TRUE}) {
+#       $Callcenter->{DEST_ID_TRUE_SEL} = $html->form_select(
+#         'DEST_ID_TRUE',
+#         {
+#           SEL_OPTIONS => { '' => $_SELECT_DEST },
+#           SELECTED    => '',
+#           NO_ID       => '1',
+#           SEL_HASH    => $sel_hash{ $FORM{DEST_TYPE_TRUE} },
+#         }
+#       );
+#       print $Callcenter->{DEST_ID_TRUE_SEL};
+#     }
+#     elsif ($FORM{DEST_TYPE_FALSE}) {
+#       $Callcenter->{DEST_ID_FALSE_SEL} = $html->form_select(
+#         'DEST_ID_FALSE',
+#         {
+#           SEL_OPTIONS => { '' => $_SELECT_DEST },
+#           SELECTED    => '',
+#           NO_ID       => '1',
+#           SEL_HASH    => $sel_hash{ $FORM{DEST_TYPE_FALSE} },
+#         }
+#       );
+#       print $Callcenter->{DEST_ID_FALSE_SEL};
+#     }
+#     return 0;
+#   }
+
+#   if (!$FORM{sort}) {
+#     $LIST_PARAMS{SORT} = 1;
+#     $LIST_PARAMS{DESC} = '';
+#   }
+#   if ($FORM{add_form} || $FORM{chg}) {
+#     $Callcenter->{ACTION}     = 'add';
+#     $Callcenter->{ACTION_LNG} = $_ADD;
+
+#     if ($FORM{chg}) {
+#       $Callcenter->{ACTION}     = 'change';
+#       $Callcenter->{ACTION_LNG} = $_CHANGE;
+#     }
+
+#     my $INTERVALS = $Callcenter->info($FORM{chg}, { FUNC => INTERVALS });
+#     $Callcenter->{TIME_BEGIN} = $Callcenter->{TIME_BEGIN} || '00:00';
+#     $Callcenter->{TIME_END}   = $Callcenter->{TIME_END}   || '00:00';
+
+#     foreach my $key (keys %{$INTERVALS}) {
+#       if ($key eq 'WEEK_BEGIN' || $key eq 'WEEK_END') {
+#         foreach my $key1 (keys %DAYS) {
+#           if ($DAYS{$key1} eq $INTERVALS->{$key}) {
+#             $INTERVALS->{$key} = $key1;
+#           }
+#         }
+#       }
+#       elsif ($key eq 'MONTH_BEGIN' || $key eq 'MONTH_END') {
+#         foreach my $key1 (keys %MONTHES) {
+#           if ($MONTHES{$key1} eq $INTERVALS->{$key}) {
+#             $INTERVALS->{$key} = $key1;
+#           }
+#         }
+#       }
+#     }
+#     $Callcenter->{WEEK_BEGIN_SEL} = $html->form_select(
+#       'WEEK_BEGIN',
+#       {
+#         SELECTED => $INTERVALS->{WEEK_BEGIN} || '',
+#         NO_ID => '1',
+#         SEL_ARRAY => \@DAY_NAMES
+#       }
+#     );
+
+#     $Callcenter->{WEEK_END_SEL} = $html->form_select(
+#       'WEEK_END',
+#       {
+#         SELECTED => $INTERVALS->{WEEK_END} || '',
+#         NO_ID => '1',
+#         SEL_ARRAY => \@DAY_NAMES
+#       }
+#     );
+
+#     $Callcenter->{DAY_BEGIN_SEL} = $html->form_select(
+#       'DAY_BEGIN',
+#       {
+#         SELECTED => $INTERVALS->{DAY_BEGIN} || '',
+#         NO_ID => '1',
+#         SEL_ARRAY => \@DAY_NUMBERS
+#       }
+#     );
+
+#     $Callcenter->{DAY_END_SEL} = $html->form_select(
+#       'DAY_END',
+#       {
+#         SELECTED => $INTERVALS->{DAY_END} || '',
+#         NO_ID => '1',
+#         SEL_ARRAY => \@DAY_NUMBERS
+#       }
+#     );
+
+#     $Callcenter->{MONTH_BEGIN_SEL} = $html->form_select(
+#       'MONTH_BEGIN',
+#       {
+#         SELECTED => $INTERVALS->{MONTH_BEGIN} || '',
+#         NO_ID => '1',
+#         SEL_ARRAY => \@MONTHES_NAMES
+#       }
+#     );
+
+#     $Callcenter->{MONTH_END_SEL} = $html->form_select(
+#       'MONTH_END',
+#       {
+#         SELECTED => $INTERVALS->{MONTH_END} || '',
+#         NO_ID => '1',
+#         SEL_ARRAY => \@MONTHES_NAMES
+#       }
+#     );
+
+#     $Callcenter->{DEST_TYPE_TRUE_SEL} = $html->form_select(
+#       'DEST_TYPE_TRUE',
+#       {
+#         SELECTED => $INTERVALS->{DEST_TYPE_TRUE} || '',
+#         SEL_OPTIONS => { '' => $_SELECT_TYPE },
+#         NO_ID       => '1',
+#         SEL_HASH    => \%dest_hash
+
+#       }
+#     );
+
+#     $Callcenter->{DEST_ID_TRUE_SEL} = $html->form_select(
+#       'DEST_ID_TRUE',
+#       {
+#         SELECTED => $INTERVALS->{DEST_ID_TRUE} || '',
+#         NO_ID    => '1',
+#         SEL_HASH => $sel_hash{ $INTERVALS->{DEST_TYPE_TRUE} },
+#       }
+#     );
+
+#     $Callcenter->{DEST_TYPE_FALSE_SEL} = $html->form_select(
+#       'DEST_TYPE_FALSE',
+#       {
+#         SELECTED => $INTERVALS->{DEST_TYPE_FALSE} || '',
+#         SEL_OPTIONS => { '' => $_SELECT_TYPE },
+#         NO_ID       => '1',
+#         SEL_HASH    => \%dest_hash
+
+#       }
+#     );
+
+#     $Callcenter->{DEST_ID_FALSE_SEL} = $html->form_select(
+#       'DEST_ID_FALSE',
+#       {
+#         SELECTED => $INTERVALS->{DEST_ID_FALSE} || '',
+#         NO_ID    => '1',
+#         SEL_HASH => $sel_hash{ $INTERVALS->{DEST_TYPE_FALSE} },
+#       }
+#     );
+
+#     $html->tpl_show(_include('intervals', 'Callcenter'), { %FORM, %$Callcenter },);
+#   }
+#   elsif ($FORM{add}) {
+#     $FORM{DAY_BEGIN} = ($FORM{DAY_BEGIN} =~ /^[0-9]+$/) ? $FORM{DAY_BEGIN} : '';
+#     $FORM{DAY_END}   = ($FORM{DAY_END}   =~ /^[0-9]+$/) ? $FORM{DAY_END}   : '';
+#     foreach my $key (keys %FORM) {
+#       if ($key eq 'WEEK_BEGIN') {
+#         $FORM{$key} = $DAYS{ $FORM{$key} } || '';
+#       }
+#       elsif ($key eq 'WEEK_END') {
+#         $FORM{$key} = $DAYS{ $FORM{$key} } || '';
+#       }
+#       elsif ($key eq 'MONTH_BEGIN') {
+#         $FORM{$key} = $MONTHES{ $FORM{$key} } || '';
+#       }
+#       elsif ($key eq 'MONTH_END') {
+#         $FORM{$key} = $MONTHES{ $FORM{$key} } || '';
+#       }
+#     }
+#     $Callcenter->add({ %LIST_PARAMS, %FORM, FUNC => INTERVALS });
+#     if (!$Callcenter->{errno}) {
+#       $html->message('info', $_ADDED, "$_ADDED [$FORM{NAME}] ");
+#       $FORM{ID} = $Callcenter->{INSERT_ID};
+#       callcenter_dialplan({ %FORM, INTERVALS => 1 });
+#     }
+
+#   }
+#   elsif ($FORM{change}) {
+#     $FORM{DAY_BEGIN} = ($FORM{DAY_BEGIN} =~ /^[0-9]+$/) ? $FORM{DAY_BEGIN} : '';
+#     $FORM{DAY_END}   = ($FORM{DAY_END}   =~ /^[0-9]+$/) ? $FORM{DAY_END}   : '';
+#     foreach my $key (keys %FORM) {
+#       if ($key eq 'WEEK_BEGIN') {
+#         $FORM{$key} = $DAYS{ $FORM{$key} } || '';
+#       }
+#       elsif ($key eq 'WEEK_END') {
+#         $FORM{$key} = $DAYS{ $FORM{$key} } || '';
+#       }
+#       elsif ($key eq 'MONTH_BEGIN') {
+#         $FORM{$key} = $MONTHES{ $FORM{$key} } || '';
+#       }
+#       elsif ($key eq 'MONTH_END') {
+#         $FORM{$key} = $MONTHES{ $FORM{$key} } || '';
+#       }
+#     }
+#     $Callcenter->change({ %LIST_PARAMS, %FORM, FUNC => INTERVALS });
+#     if (!$Callcenter->{errstr}) {
+#       $html->message('info', $_CHANGE, "$_CHANGE [$FORM{ID}] ");
+#       callcenter_dialplan({ %FORM, INTERVALS => 1 });
+#     }
+
+#   }
+#   elsif ($FORM{del} && $FORM{COMMENTS}) {
+#     $Callcenter->del($FORM{del}, { FUNC => INTERVALS });
+#     if (!$Callcenter->{errstr}) {
+#       $html->message('info', $_DELETED, "$_DELETED [$FORM{del}]");
+#     }
+#     delete($FORM{del});
+
+#   }
+
+#   my $list = $Callcenter->list({ %LIST_PARAMS, FUNC => INTERVALS, COLS_NAME => 1, COLS_UPPER => 1 });
+#   my $table = $html->table(
+#     {
+#       width   => '100%',
+#       caption => "$_TERMS_TIME",
+#       title   => [ "ID", "$_NAME", "$_TIME_BEGIN", "$_TIME_END", "$_WEEK_BEGIN", "$_WEEK_END", "$_DAY_BEGIN", "$_DAY_END", "$_MONTH_BEGIN", "$_MONTH_END", "$_DEST_TYPE true", "$_DEST_ID true", "$_DEST_TYPE false", "$_DEST_ID false", "-", "-" ],
+#       cols_align => [ 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none' ],
+#       ID         => 'INTERVALS',
+#       qs         => $pages_qs,
+#       pages      => $Callcenter->{TOTAL},
+#       MENU       => "$_ADD:index=$index&add_form=1:add"
+#     }
+#   );
+#   foreach my $line (@$list) {
+#     foreach my $key (keys %DAYS) {
+#       if ($DAYS{$key} eq $line->{WEEK_BEGIN}) {
+#         $line->{WEEK_BEGIN} = $key;
+#       }
+#       if ($DAYS{$key} eq $line->{WEEK_END}) {
+#         $line->{WEEK_END} = $key;
+#       }
+#     }
+#     foreach my $key (keys %MONTHES) {
+#       if ($MONTHES{$key} eq $line->{MONTH_BEGIN}) {
+#         $line->{MONTH_BEGIN} = $key;
+#       }
+#       if ($MONTHES{$key} eq $line->{MONTH_END}) {
+#         $line->{MONTH_END} = $key;
+#       }
+#     }
+#     $table->addrow(
+#       $line->{ID},
+#       $line->{NAME},
+#       $line->{TIME_BEGIN},
+#       $line->{TIME_END},
+#       ($line->{WEEK_BEGIN})                                             ? $line->{WEEK_BEGIN}                                             : "$_ALL",
+#       ($line->{WEEK_END})                                               ? $line->{WEEK_END}                                               : "$_ALL",
+#       ($line->{DAY_BEGIN})                                              ? $line->{DAY_BEGIN}                                              : "$_ALL",
+#       ($line->{DAY_END})                                                ? $line->{DAY_END}                                                : "$_ALL",
+#       ($line->{MONTH_BEGIN})                                            ? $line->{MONTH_BEGIN}                                            : "$_ALL",
+#       ($line->{MONTH_END})                                              ? $line->{MONTH_END}                                              : "$_ALL",
+#       ($dest_hash{ $line->{DEST_TYPE_TRUE} })                           ? $dest_hash{ $line->{DEST_TYPE_TRUE} }                           : "$_NO",
+#       ($sel_hash{ $line->{DEST_TYPE_TRUE} }{ $line->{DEST_ID_TRUE} })   ? $sel_hash{ $line->{DEST_TYPE_TRUE} }{ $line->{DEST_ID_TRUE} }   : "$_NO",
+#       ($dest_hash{ $line->{DEST_TYPE_FALSE} })                          ? $dest_hash{ $line->{DEST_TYPE_FALSE} }                          : "$_NO",
+#       ($sel_hash{ $line->{DEST_TYPE_FALSE} }{ $line->{DEST_ID_FALSE} }) ? $sel_hash{ $line->{DEST_TYPE_FALSE} }{ $line->{DEST_ID_FALSE} } : "$_NO",
+#       $html->button($_CHANGE, "index=$index&chg=$line->{ID}", { class => 'change' }),
+#       $html->button($_DEL, "index=$index&del=$line->{ID}", { MESSAGE => "$_DEL $_TERMS_TIME : $line->{NAME}?", class => 'del' })
+#     );
+#   }
+#   print $table->show();
+
+#   $table = $html->table(
+#     {
+#       width      => '100%',
+#       cols_align => [ 'right', 'right' ],
+#       rows       => [ [ "$_TOTAL:", $html->b($Callcenter->{TOTAL}) ] ]
+#     }
+#   );
+#   print $table->show();
+
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_sip
+# #*******************************************************************
+# sub callcenter_sip {
+#   my ($attr) = @_;
+#   my %func_hash = callcenter_get_dest_ids();
+
+#   if (!$FORM{sort}) {
+#     $LIST_PARAMS{SORT} = 1;
+#     $LIST_PARAMS{DESC} = '';
+#   }
+#   print "<table width=\"100%\" border=\"0\" cellspacing=\"1\" cellpadding=\"2\"><tr><td valign=\"top\" align=\"center\">";
+#   if ($FORM{change}) {
+#     if ($FORM{SECRET} && $FORM{USERNAME}) {
+#       $FORM{TYPE} = $FORM{TYPE_SEL};
+#       $FORM{CONTEXT} = $FORM{CONTEXT} || 'from_call_center';
+
+#       $Callcenter->change({ %LIST_PARAMS, %FORM, FUNC => SIPUSERS });
+#       if (!$Callcenter->{errno}) {
+#         $html->message('info', $_CHANGE, "$_CHANGE [$FORM{USERNAME}] ");
+#         callcenter_dialplan({ %FORM, SIPUSERS => 1 });
+#       }
+#     }
+#     else {
+#       $html->message('err', $_ERROR, "$ERR_WRONG_DATA");
+#     }
+#   }
+#   elsif ($FORM{add}) {
+#     if ($FORM{SECRET} && $FORM{USERNAME} && $FORM{NAME} =~ /^\d+$/) {
+#       $FORM{TYPE}     = 'friend';
+#       $FORM{HOST}     = 'dynamic';
+#       $FORM{CALLERID} = "$FORM{USERNAME} -> $FORM{NAME}";
+#       $FORM{CONTEXT}  = 'from_call_center';
+#       $Callcenter->add({ %LIST_PARAMS, %FORM, FUNC => SIPUSERS });
+#       if (!$Callcenter->{errno}) {
+#         $html->message('info', $_ADDED, "$_ADDED [$FORM{USERNAME}] ");
+#         $FORM{chg} = $Callcenter->{INSERT_ID};
+#         callcenter_dialplan({ %FORM, ID => $Callcenter->{INSERT_ID}, SIPUSERS => 1 });
+#       }
+#       else {
+#         $html->message('err', $_ERROR, "$_EXIST [$FORM{NAME}]");
+#       }
+#     }
+#     else {
+#       $html->message('err', $_ERROR, "$ERR_WRONG_DATA");
+#     }
+#   }
+
+#   if ($FORM{chg} || $FORM{change}) {
+#     $Callcenter->{ACTION}     = 'change';
+#     $Callcenter->{ACTION_LNG} = $_CHANGE;
+#     my $SIPUSER = $Callcenter->info($FORM{chg}, { FUNC => SIPUSERS });
+
+#     $Callcenter->{DISABLE_SEL} = $html->form_select(
+#       'DISABLE',
+#       {
+#         SELECTED => $SIPUSER->{DISABLE} || '',
+#         NO_ID => '1',
+#         SEL_HASH => { off => "$_NO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", on => "$_YES" },
+
+#       }
+#     );
+
+#     $Callcenter->{MAX_LINE_SEL} = $html->form_select(
+#       'MAX_LINE',
+#       {
+#         SELECTED => $SIPUSER->{MAX_LINE} || '',
+#         NO_ID => '1',
+#         SEL_HASH => { '2' => "$_NO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", '3' => "$_YES" },
+
+#       }
+#     );
+
+#     $Callcenter->{NAT_SEL} = $html->form_select(
+#       'NAT',
+#       {
+#         SELECTED => $SIPUSER->{NAT} || '',
+#         NO_ID => '1',
+#         SEL_HASH => { 'no' => 'no', 'yes' => 'yes', 'force_rport,comedia' => 'force_rport,comedia' },
+
+#       }
+#     );
+
+#     $Callcenter->{TRANSPORT_SEL} = $html->form_select(
+#       'TRANSPORT',
+#       {
+#         SELECTED => $SIPUSER->{TRANSPORT} || '',
+#         NO_ID => '1',
+#         SEL_HASH => { 'udp' => 'udp', 'tcp' => 'tcp', 'udp,tcp' => 'udp,tcp', 'tcp,udp' => 'tcp,udp' },
+
+#       }
+#     );
+
+#     $Callcenter->{DTMFMODE_SEL} = $html->form_select(
+#       'DTMFMODE',
+#       {
+#         SELECTED => $SIPUSER->{DTMFMODE} || '',
+#         NO_ID => '1',
+#         SEL_HASH => { 'rfc2833' => 'rfc2833', 'info' => 'info', 'shortinfo' => 'shortinfo', 'inband' => 'inband', 'auto' => 'auto' },
+
+#       }
+#     );
+
+#     $Callcenter->{TYPE_SEL} = $html->form_select(
+#       'TYPE_SEL',
+#       {
+#         SELECTED => $SIPUSER->{TYPE} || '',
+#         NO_ID => '1',
+#         SEL_HASH => { 'friend' => 'friend&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp', 'user' => 'user', 'peer' => 'peer' },
+
+#       }
+#     );
+
+#     $html->tpl_show(_include('sip_change', 'Callcenter'), { %$SIPUSER, %FORM, %$Callcenter },);
+
+#   }
+#   elsif ($FORM{del} && $FORM{COMMENTS}) {
+#     $Callcenter->del($FORM{del}, { FUNC => SIPUSERS });
+#     if (!$Callcenter->{errstr}) {
+#       $html->message('info', $_DELETED, "$_DELETED [$FORM{del}]");
+#       callcenter_dialplan({ %FORM, SIPUSERS => 1 });
+
+#     }
+#     delete($FORM{del});
+
+#   }
+#   else {
+#     $Callcenter->{ACTION}      = 'add';
+#     $Callcenter->{ACTION_LNG}  = $_ADD;
+#     $Callcenter->{RINGTIMER}   = 60;
+#     $Callcenter->{DISABLE_SEL} = $html->form_select(
+#       'DISABLE',
+#       {
+#         SELECTED => 'off',
+#         NO_ID    => '1',
+#         SEL_HASH => { off => "$_NO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", on => "$_YES" },
+
+#       }
+#     );
+
+#     $Callcenter->{MAX_LINE_SEL} = $html->form_select(
+#       'MAX_LINE',
+#       {
+#         SELECTED => '2',
+#         NO_ID    => '1',
+#         SEL_HASH => { '2' => "$_NO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", '3' => "$_YES" },
+
+#       }
+#     );
+
+#     $html->tpl_show(_include('sip_add', 'Callcenter'), { %FORM, %$Callcenter },);
+
+#   }
+
+#   my $list = $Callcenter->list({ %LIST_PARAMS, SIP_TYPE => 'user', FUNC => SIPUSERS, COLS_NAME => 1, COLS_UPPER => 1 });
+
+#   $Callcenter->{SIP_NUMBERS} = $html->element('li', $html->button("<b>$_ADD SIP $_NUM</b>", "index=$index&add_form=1"), { class => 'umenu_item' });
+
+#   foreach my $line (@$list) {
+#     $Callcenter->{SIP_NUMBERS} .= $html->element('li', $html->button("<b>$line->{USERNAME} : $line->{NAME}</b>", "index=$index&CONTEXT=$line->{CONTEXT}&NAME=$line->{NAME}&chg=$line->{ID}"), { class => 'umenu_item' }) if ($line->{NAME} =~ /^([0-9]+)$/);
+#   }
+#   $Callcenter->{SIP_NUMBERS} .= $html->element('li', $html->button("<b>$_DEL SIP  $FORM{NAME}</b>", "index=$index&CONTEXT=$FORM{CONTEXT}&NAME=$FORM{NAME}&del=$FORM{chg}", { MESSAGE => "$_DEL SIP $_NUM : $FORM{NAME}?" }), { class => 'umenu_item' }) if ($FORM{chg});
+
+#   $html->tpl_show(_include('sip_list', 'Callcenter'), { %FORM, %$Callcenter },);
+
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_queues
+# #*******************************************************************
+# sub callcenter_queues {
+#   my ($attr) = @_;
+
+#   if (!$FORM{sort}) {
+#     $LIST_PARAMS{SORT} = 1;
+#     $LIST_PARAMS{DESC} = '';
+#   }
+#   if ($FORM{qindex}) {
+#     $html->{METATAGS} = "<script type='text/javascript' src='/styles/default/js/chosen.jquery.min.js' ></script>";
+#     print $html->header();
+
+#   }
+
+#   my %sel_hash = callcenter_get_dest_ids();
+#   if ($FORM{add}) {
+
+#     $Callcenter->{AGENT_SEL} = $html->form_select(
+#       "DEST_TYPE_$FORM{id}",
+#       {
+#         SEL_OPTIONS => { '' => $_SELECT_DEST },
+#         NO_ID       => '1',
+#         SEL_HASH => { 2 => "$_INTERNAL_NUM", 3 => "$_EXTERNAL_NUM" }
+#       }
+#     );
+#     print $Callcenter->{AGENT_SEL};
+#     return 0;
+#   }
+
+#   print "<table width=\"100%\" border=\"0\" cellspacing=\"1\" cellpadding=\"2\"><tr><td valign=\"top\" align=\"center\">";
+
+#   if ($FORM{change}) {
+#     $Callcenter->change({ %LIST_PARAMS, %FORM, FUNC => QUEUES });
+#     if (!$Callcenter->{errno}) {
+#       $html->message('info', $_CHANGE, "$_CHANGE [$FORM{NAME}] ");
+#       $FORM{chg} = $FORM{NAME};
+#       callcenter_dialplan({ %FORM, QUEUES => 1 });
+#     }
+#   }
+#   elsif ($FORM{add}) {
+#     if ($FORM{NAME} =~ /^[0-9a-zA-Z]+$/) {
+#       $Callcenter->add({ %LIST_PARAMS, %FORM, FUNC => QUEUES });
+#       if (!$Callcenter->{errno}) {
+#         $html->message('info', $_ADDED, "$_ADDED [$FORM{NAME}] ");
+#         $FORM{chg} = $FORM{NAME};
+#         callcenter_dialplan({ %FORM, QUEUES => 1 });
+#       }
+#       else {
+#         $html->message('err', $_ERROR, "$_EXIST [$FORM{NAME}]");
+#       }
+#     }
+#     else {
+#       $html->message('err', $_ERROR, "$ERR_WRONG_DATA");
+#     }
+#   }
+#   if ($FORM{chg} || $FORM{change}) {
+#     $Callcenter->{ACTION}     = 'change';
+#     $Callcenter->{ACTION_LNG} = $_CHANGE;
+#     my $agents = $Callcenter->list({ QUEUE_NAME => "$FORM{chg}", FUNC => QUEUE_MEMBERS });
+#     $Callcenter->info($FORM{chg}, { WHERE => "WHERE name='$FORM{chg}'", FUNC => QUEUES });
+#     $Callcenter->{STRATEGY_DIAL_SEL} = $html->form_select(
+#       'STRATEGY',
+#       {
+#         SELECTED => $Callcenter->{STRATEGY} || '',
+#         NO_ID    => '1',
+#         SEL_HASH => {
+#           'ringall'     => "$_RINGALL",
+#           'leastrecent' => "$_LEASTRECENT",
+#           'fewestcalls' => "$_FERESTCALLS",
+#           'random'      => "$_RANDOM",
+#           'rrmemory'    => "$_RRMEMORY",
+#           'linear'      => "$_LINEAR",
+#           'wrandom'     => "$_WRANDOM"
+#         },
+
+#       }
+#     );
+#     $Callcenter->{RINGINUSE_SEL} = $html->form_select(
+#       'RINGINUSE',
+#       {
+#         SELECTED => $Callcenter->{RINGINUSE} || 'no',
+#         NO_ID => '1',
+#         SEL_HASH => { no => "$_NO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", yes => "$_YES" },
+
+#       }
+#     );
+#     my %sel_hash = callcenter_get_dest_ids();
+#     $Callcenter->{MESSAGES_SEL} = $html->form_select(
+#       'MESSAGE',
+#       {
+#         SEL_OPTIONS => { '' => $_NO },
+#         SELECTED => $Callcenter->{MESSAGE} || '',
+#         NO_ID    => '1',
+#         SEL_HASH => $sel_hash{6},
+#       }
+#     );
+#     $Callcenter->{CALL_RECORD_SEL} = $html->form_select(
+#       'MONITOR_FORMAT',
+#       {
+#         SELECTED => $Callcenter->{MONITOR_FORMAT} || 'no',
+#         NO_ID => '1',
+#         SEL_HASH => { no => "$_NO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", wav => wav, gsm => gsm },
+#       }
+#     );
+#     $Callcenter->{ANNOUNCE_POSITION_SEL} = $html->form_select(
+#       'ANNOUNCE_POSITION',
+#       {
+#         SELECTED => $Callcenter->{ANNOUNCE_POSITION} || 'no',
+#         NO_ID => '1',
+#         SEL_HASH => { no => "$_NO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", yes => "$_YES" },
+#       }
+#     );
+
+#     my $i = 1;
+#     foreach my $line (@{$agents}) {
+#       $Callcenter->{AGENTS} .= "<tr><td colspan=2 >
+#          <input type=hidden id=id\_$i name=id\_$i value=\"$line->{ID}\">
+#          $_NAME: \
+#          <input id=membername\_$i class=agent size=10 type=text value=\"$line->{MEMBERNAME}\" name=MEMBERNAME\_$i>
+#          <input id=interface\_$i size=10 type=text value=\"$line->{INTERFACE}\" name=INTERFACE\_$i>
+#          <a class=link_button href=# onclick=\"remagent($i); return false;\">$_DEL</a>
+#          <a class=link_button href=# onclick=\"saveagent($i); return false;\">$_SAVE</a></td></tr>
+#         ";
+#       $i++;
+#     }
+#     $Callcenter->{AGENTS} .= "<tr id=\"last_row\"></tr>";
+#     $Callcenter->{AGENTS} .= "<tr><td colspan=2  align='right'><a class=link_button href=# onclick=\"addagent(); return false;\">$_ADD_AGENT</a></td></tr>";
+
+#     $html->tpl_show(_include('queues_change', 'Callcenter'), { %FORM, %$Callcenter },);
+
+#   }
+#   elsif ($FORM{del} && $FORM{COMMENTS}) {
+#     $Callcenter->del($FORM{del}, { FUNC => QUEUES });
+#     if (!$Callcenter->{errstr}) {
+#       $html->message('info', $_DELETED, "$_DELETED [$FORM{del}]");
+
+#       #      callcenter_dialplan({%FORM, QUEUES => 1});
+
+#     }
+#     delete($FORM{del});
+
+#   }
+#   else {
+#     $Callcenter->{ACTION}            = 'add';
+#     $Callcenter->{ACTION_LNG}        = $_ADD;
+#     $Callcenter->{STRATEGY_DIAL_SEL} = $html->form_select(
+#       'STRATEGY',
+#       {
+#         SELECTED => '',
+#         NO_ID    => '1',
+#         SEL_HASH => {
+#           'ringall'     => "$_RINGALL",
+#           'leastrecent' => "$_LEASTRECENT",
+#           'fewestcalls' => "$_FERESTCALLS",
+#           'random'      => "$_RANDOM",
+#           'rrmemory'    => "$_RRMEMORY",
+#           'linear'      => "$_LINEAR",
+#           'wrandom'     => "$_WRANDOM"
+#         },
+
+#       }
+#     );
+
+#     $Callcenter->{RINGINUSE_SEL} = $html->form_select(
+#       'RINGINUSE',
+#       {
+#         SELECTED => 'no',
+#         NO_ID    => '1',
+#         SEL_HASH => { no => "$_NO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", yes => "$_YES" },
+
+#       }
+#     );
+#     my %sel_hash = callcenter_get_dest_ids();
+#     $Callcenter->{MESSAGES_SEL} = $html->form_select(
+#       'MESSAGE',
+#       {
+#         SEL_OPTIONS => { '' => $_NO },
+#         SELECTED    => '',
+#         NO_ID       => '1',
+#         SEL_HASH    => $sel_hash{6},
+#       }
+#     );
+#     $Callcenter->{CALL_RECORD_SEL} = $html->form_select(
+#       'MONITOR_FORMAT',
+#       {
+#         SELECTED => 'no',
+#         NO_ID    => '1',
+#         SEL_HASH => { no => "$_NO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", wav => wav, gsm => gsm },
+#       }
+#     );
+
+#     $html->tpl_show(_include('queues_add', 'Callcenter'), { %FORM, %$Callcenter },);
+#   }
+
+#   my $list = $Callcenter->list({ %LIST_PARAMS, FUNC => QUEUES, COLS_NAME => 1, COLS_UPPER => 1 });
+#   $Callcenter->{QUEUES} = $html->element('li', $html->button("<b>$_ADD $_QUEUE</b>", "index=$index&add_form=1"), { class => 'umenu_item' });
+
+#   _error_show($Callcenter);
+
+#   if ($Callcenter->{TOTAL} > 0) {
+#     foreach my $line (@$list) {
+#       $Callcenter->{QUEUES} .= $html->element('li', $html->button("<b>$line->{NAME}</b>", "index=$index&chg=$line->{NAME}"), { class => 'umenu_item' });
+#     }
+#   }
+#   $Callcenter->{QUEUES} .= $html->element('li', $html->button("<b>$_DEL $_QUEUE  $FORM{NAME}</b>", "index=$index&del=$FORM{chg}", { MESSAGE => "$_DEL $_QUEUE : $FORM{chg}?" }), { class => 'umenu_item' }) if ($FORM{chg});
+
+#   $html->tpl_show(_include('queues_list', 'Callcenter'), { %FORM, %$Callcenter },);
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_trunks
+# #*******************************************************************
+# sub callcenter_trunks {
+#   my ($attr) = @_;
+#   my %func_hash = callcenter_get_dest_ids();
+
+#   if (!$FORM{sort}) {
+#     $LIST_PARAMS{SORT} = 1;
+#     $LIST_PARAMS{DESC} = '';
+#   }
+#   print "<table width=\"100%\" border=\"0\" cellspacing=\"1\" cellpadding=\"2\"><tr><td valign=\"top\" align=\"center\">";
+#   if ($FORM{change}) {
+#     if ($FORM{TRUNK_TYPE} eq 'sip' && $FORM{NAME} && ($FORM{SIP_TYPE} eq 'peer' || $FORM{SIP_TYPE} eq 'friend')) {
+#       my %PEER;
+#       my %FRIEND;
+#       my %USER;
+#       my %REGISTER;
+
+#       $FORM{chg} = $FORM{ID};
+
+#       if ($FORM{SIP_TYPE} eq 'peer') {
+#         $FORM{CHANNELID} = "SIP/$FORM{NAME_PEER}";
+#       }
+#       if ($FORM{SIP_TYPE} eq 'friend') {
+#         $FORM{CHANNELID} = "SIP/$FORM{NAME_FRIEND}";
+#       }
+
+#       $FORM{ID_PEER}   = $FORM{CHANNELCONTEXT};
+#       $FORM{ID_FRIEND} = $FORM{CHANNELCONTEXT};
+#       $FORM{ID_USER}   = $FORM{USERCONTEXT};
+
+#       $Callcenter->change({ %LIST_PARAMS, %FORM, FUNC => TRUNKS });
+#       if (!$Callcenter->{errno}) {
+#         $html->message('info', $_CHANGE, "$_CHANGE [$FORM{NAME}] ");
+#         foreach my $list (keys %FORM) {
+#           if ($list =~ /_PEER$/i) {
+#             my $key = $list;
+#             $key =~ s/_PEER//g;
+#             $PEER{$key} = $FORM{$list};
+#           }
+#           elsif ($list =~ /_FRIEND$/i) {
+#             my $key = $list;
+#             $key =~ s/_FRIEND//g;
+#             $FRIEND{$key} = $FORM{$list};
+#           }
+#           elsif ($list =~ /_USER$/i) {
+#             my $key = $list;
+#             $key =~ s/_USER//g;
+#             $USER{$key} = $FORM{$list};
+#           }
+
+#         }
+#         if ($FORM{SIP_TYPE} eq 'peer') {
+#           $Callcenter->change({ %LIST_PARAMS, %PEER, FUNC => SIPUSERS });
+#           if (!$Callcenter->{errno}) {
+#             $html->message('info', $_CHANGE, "$_CHANGE PEEER [$PEER{NAME}] ");
+#           }
+#           $Callcenter->change({ %LIST_PARAMS, %USER, FUNC => SIPUSERS });
+#           if (!$Callcenter->{errno}) {
+#             $html->message('info', $_CHANGE, "$_CHANGE USER [$USER{NAME}] ");
+#           }
+#         }
+#         if ($FORM{SIP_TYPE} eq 'friend') {
+#           $Callcenter->change({ %LIST_PARAMS, %FRIEND, FUNC => SIPUSERS });
+#           if (!$Callcenter->{errno}) {
+#             $html->message('info', $_CHANGE, "$_CHANGE FRIEND [$FRIEND{NAME}] ");
+#           }
+#         }
+#         callcenter_dialplan({ change => 1, ID => $FORM{REGISTER_ID}, REGISTER => $FORM{REGISTER}, SIPTRUNK => 1 });
+#         callcenter_dialplan({ %FORM, change => 1, TRUNK => $FORM{ID} });
+#       }
+
+#     }
+#     elsif ($FORM{TRUNK_TYPE} eq 'special' && $FORM{NAME}) {
+#       $Callcenter->change({ %LIST_PARAMS, %FORM, FUNC => TRUNKS });
+#       if (!$Callcenter->{errno}) {
+#         $html->message('info', $_CHANGE, "$_CHANGE [$FORM{NAME}] ");
+#         $FORM{chg} = $FORM{ID};
+#         callcenter_dialplan({ %FORM, change => 1, TRUNK => $FORM{ID} });
+
+#       }
+
+#     }
+#     else {
+#       $html->message('err', $_ERROR, "$ERR_WRONG_DATA");
+#     }
+
+#   }
+#   elsif ($FORM{add}) {
+#     if ($FORM{TRUNK_TYPE} eq 'sip' && $FORM{NAME} && ($FORM{SIP_TYPE} eq 'peer' || $FORM{SIP_TYPE} eq 'friend')) {
+#       my %PEER;
+#       my %FRIEND;
+#       my %USER;
+#       if ($FORM{SIP_TYPE} eq 'peer') {
+#         $FORM{CHANNELID} = "SIP/$FORM{NAME_PEER}";
+#       }
+#       if ($FORM{SIP_TYPE} eq 'friend') {
+#         $FORM{CHANNELID} = "SIP/$FORM{NAME_FRIEND}";
+#       }
+
+#       $Callcenter->add({ %LIST_PARAMS, %FORM, FUNC => TRUNKS });
+#       $FORM{ID} = $Callcenter->{INSERT_ID};
+
+#       if (!$Callcenter->{errno}) {
+#         $html->message('info', $_ADDED, "$_ADDED [$FORM{NAME}] ");
+#         $FORM{chg} = $Callcenter->{INSERT_ID};
+#         foreach my $list (keys %FORM) {
+#           if ($list =~ /_PEER$/i) {
+#             my $key = $list;
+#             $key =~ s/_PEER//g;
+#             $PEER{$key} = $FORM{$list};
+#           }
+#           elsif ($list =~ /_FRIEND$/i) {
+#             my $key = $list;
+#             $key =~ s/_FRIEND//g;
+#             $FRIEND{$key} = $FORM{$list};
+#           }
+#           elsif ($list =~ /_USER$/i) {
+#             my $key = $list;
+#             $key =~ s/_USER//g;
+#             $USER{$key} = $FORM{$list};
+#           }
+
+#         }
+#         if ($FORM{SIP_TYPE} eq 'peer') {
+#           $Callcenter->add({ %LIST_PARAMS, %PEER, FUNC => SIPUSERS });
+#           if (!$Callcenter->{errno}) {
+#             $html->message('info', $_ADDED, "$_ADDED PEEER [$PEER{NAME}] ");
+#             $FORM{CHANNELCONTEXT} = $Callcenter->{INSERT_ID};
+#           }
+#           $Callcenter->add({ %LIST_PARAMS, %USER, FUNC => SIPUSERS });
+#           if (!$Callcenter->{errno}) {
+#             $html->message('info', $_ADDED, "$_ADDED USER [$USER{NAME}] ");
+#             $FORM{USERCONTEXT} = $Callcenter->{INSERT_ID};
+#           }
+
+#         }
+#         if ($FORM{SIP_TYPE} eq 'friend') {
+#           $Callcenter->add({ %LIST_PARAMS, %FRIEND, FUNC => SIPUSERS });
+#           if (!$Callcenter->{errno}) {
+#             $html->message('info', $_ADDED, "$_ADDED FRIEND [$FRIEND{NAME}] ");
+#             $FORM{CHANNELCONTEXT} = $Callcenter->{INSERT_ID};
+#           }
+#         }
+
+#         $FORM{REGISTER_ID} = callcenter_dialplan({ add => 1, REGISTER => $FORM{REGISTER}, SIPTRUNK => 1 });
+#         $Callcenter->change({ %LIST_PARAMS, %FORM, FUNC => TRUNKS });
+#         callcenter_dialplan({ %FORM, add => 1, TRUNK => $FORM{chg} });
+
+#       }
+#       else {
+#         $html->message('err', $_ERROR, "$_EXIST [$FORM{NAME}]");
+#       }
+
+#     }
+#     elsif ($FORM{TRUNK_TYPE} eq 'special' && $FORM{NAME}) {
+#       $Callcenter->add({ %LIST_PARAMS, %FORM, FUNC => TRUNKS });
+#       if (!$Callcenter->{errno}) {
+#         $html->message('info', $_ADDED, "$_ADDED [$FORM{NAME}] ");
+#         $FORM{chg} = $Callcenter->{INSERT_ID};
+#         callcenter_dialplan({ %FORM, add => 1, TRUNK => $FORM{chg} });
+
+#       }
+#       else {
+#         $html->message('err', $_ERROR, "$_EXIST [$FORM{NAME}]");
+#       }
+
+#     }
+#     else {
+#       $html->message('err', $_ERROR, "$ERR_WRONG_DATA");
+#     }
+#   }
+#   if ($FORM{add_form} || $FORM{chg}) {
+#     $Callcenter->{ACTION}     = 'add';
+#     $Callcenter->{ACTION_LNG} = $_ADD;
+
+#     if ($FORM{chg}) {
+#       $Callcenter->{ACTION}     = 'change';
+#       $Callcenter->{ACTION_LNG} = $_CHANGE;
+#     }
+#     $Callcenter->info($FORM{chg}, { FUNC => TRUNKS });
+#     $FORM{TRUNK_TYPE} = $FORM{TRUNK_TYPE} || $Callcenter->{TRUNK_TYPE};
+#     if ($FORM{TRUNK_TYPE} eq 'sip') {
+#       $Callcenter->{CHANNELCONTEXT_FORM} = "<div class='form-group'><label class='col-md-3 control-label'>$_TYPE:</label><div class='col-md-9'>%SIP_TYPE_SEL%</div></div><div class='form-group'><div class='panel panel-default panel-form'><div class='panel-body form form-horizontal' id='table_sip_type'></div></div></div>";
+#     }
+#     elsif ($FORM{TRUNK_TYPE} eq 'special') {
+#       $Callcenter->{CHANNELCONTEXT_FORM} = "<label class='col-md-12 bg-primary'>$_SETTING_OUTBOUND_CONNECT:</label><div class='form-group'><label class='col-md-3 control-label'>$_SPECIAL_SET:</label><div class='col-md-9'><input type=text name=CHANNELID value='%CHANNELID%' class='form-control'></div></div>";
+
+#     }
+#     if ($Callcenter->{TRUNK_TYPE} eq 'sip') {
+#       $Callcenter->info($Callcenter->{CHANNELCONTEXT}, { FUNC => SIPUSERS });
+#       if (!$Callcenter->{errno}) {
+#         foreach my $line (keys %$Callcenter) {
+#           my $key = "$line\_PEER" if ($Callcenter->{TYPE} =~ /^peer/);
+#           $key = "$line\_FRIEND" if ($Callcenter->{TYPE} =~ /^friend/);
+#           $FORM{$key} = $Callcenter->{$line};
+#         }
+#       }
+#       $Callcenter->info($Callcenter->{USERCONTEXT}, { FUNC => SIPUSERS });
+#       if (!$Callcenter->{errno}) {
+#         foreach my $line (keys %$Callcenter) {
+#           my $key = "$line\_USER" if ($Callcenter->{NAME});
+#           $FORM{$key} = $Callcenter->{$line};
+#         }
+#       }
+#     }
+#     $FORM{CONTEXT_FRIEND} = $FORM{FRIEND_FRIEND} || 'from_trunk';
+#     $FORM{CONTEXT_USER}   = $FORM{CONTEXT_USER}  || 'from_trunk';
+
+#     $Callcenter->info($FORM{chg}, { FUNC => TRUNKS });
+#     $Callcenter->{MAX_LINE} = $Callcenter->{MAX_LINE} || 1;
+
+#     my %SEL_HASH = ('friend' => 'friend&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp', 'peer' => 'peer') if ($FORM{add_form});
+#     %SEL_HASH = ("$Callcenter->{SIP_TYPE}" => "$Callcenter->{SIP_TYPE}&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp") if ($FORM{chg});
+
+#     $Callcenter->{SIP_TYPE_SEL} = $html->form_select(
+#       'SIP_TYPE',
+#       {
+#         SELECTED => $Callcenter->{SIP_TYPE} || 'friend',
+#         NO_ID    => '1',
+#         SEL_HASH => \%SEL_HASH
+
+#       }
+#     );
+
+#     $Callcenter->{DISABLE_SEL} = $html->form_select(
+#       'DISABLED',
+#       {
+#         SELECTED => $Callcenter->{DISABLED} || 'off',
+#         NO_ID => '1',
+#         SEL_HASH => { off => "$_NO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", on => "$_YES" },
+
+#       }
+#     );
+
+#     $Callcenter->{BUSY_NEXT_SEL} = $html->form_select(
+#       'BUSY_NEXT',
+#       {
+#         SELECTED => $Callcenter->{BUSY_NEXT} || 'off',
+#         NO_ID => '1',
+#         SEL_HASH => { 'off' => "$_NO &nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;", 'on' => "$_YES" },
+
+#       }
+#     );
+#     $Callcenter->{NAT_PEER_SEL} = $html->form_select(
+#       'NAT_PEER',
+#       {
+#         SELECTED => $FORM{NAT_PEER} || 'no',
+#         NO_ID => '1',
+#         SEL_HASH => { 'no' => 'no', 'yes' => 'yes', 'force_rport,comedia' => 'force_rport,comedia' },
+
+#       }
+#     );
+#     $Callcenter->{NAT_PEER_SEL} =~ s/\n//g;
+
+#     $Callcenter->{TRANSPORT_PEER_SEL} = $html->form_select(
+#       'TRANSPORT_PEER',
+#       {
+#         SELECTED => $FORM{TRANSPORT_PEER} || 'udp',
+#         NO_ID => '1',
+#         SEL_HASH => { 'udp' => 'udp', 'tcp' => 'tcp', 'udp,tcp' => 'udp,tcp', 'tcp,udp' => 'tcp,udp' },
+
+#       }
+#     );
+#     $Callcenter->{TRANSPORT_PEER_SEL} =~ s/\n//g;
+
+#     $Callcenter->{DTMFMODE_PEER_SEL} = $html->form_select(
+#       'DTMFMODE_PEER',
+#       {
+#         SELECTED => $FORM{DTMFMODE_PEER} || 'auto',
+#         NO_ID => '1',
+#         SEL_HASH => { 'rfc2833' => 'rfc2833', 'info' => 'info', 'shortinfo' => 'shortinfo', 'inband' => 'inband', 'auto' => 'auto' },
+
+#       }
+#     );
+#     $Callcenter->{DTMFMODE_PEER_SEL} =~ s/\n//g;
+
+#     $Callcenter->{NAT_USER_SEL} = $html->form_select(
+#       'NAT_USER',
+#       {
+#         SELECTED => $FORM{NAT_USER} || 'no',
+#         NO_ID => '1',
+#         SEL_HASH => { 'no' => 'no', 'yes' => 'yes', 'force_rport,comedia' => 'force_rport,comedia' },
+
+#       }
+#     );
+#     $Callcenter->{NAT_USER_SEL} =~ s/\n//g;
+
+#     $Callcenter->{TRANSPORT_USER_SEL} = $html->form_select(
+#       'TRANSPORT_USER',
+#       {
+#         SELECTED => $FORM{TRANSPORT_USER} || 'udp',
+#         NO_ID => '1',
+#         SEL_HASH => { 'udp' => 'udp', 'tcp' => 'tcp', 'udp,tcp' => 'udp,tcp', 'tcp,udp' => 'tcp,udp' },
+
+#       }
+#     );
+#     $Callcenter->{TRANSPORT_USER_SEL} =~ s/\n//g;
+
+#     $Callcenter->{DTMFMODE_USER_SEL} = $html->form_select(
+#       'DTMFMODE_USER',
+#       {
+#         SELECTED => $FORM{DTMFMODE_USER} || 'auto',
+#         NO_ID => '1',
+#         SEL_HASH => { 'rfc2833' => 'rfc2833', 'info' => 'info', 'shortinfo' => 'shortinfo', 'inband' => 'inband', 'auto' => 'auto' },
+
+#       }
+#     );
+#     $Callcenter->{DTMFMODE_USER_SEL} =~ s/\n//g;
+
+#     $Callcenter->{NAT_FRIEND_SEL} = $html->form_select(
+#       'NAT_FRIEND',
+#       {
+#         SELECTED => $FORM{NAT_FRIEND} || 'no',
+#         NO_ID => '1',
+#         SEL_HASH => { 'no' => 'no', 'yes' => 'yes', 'force_rport,comedia' => 'force_rport,comedia' },
+
+#       }
+#     );
+#     $Callcenter->{NAT_FRIEND_SEL} =~ s/\n//g;
+
+#     $Callcenter->{TRANSPORT_FRIEND_SEL} = $html->form_select(
+#       'TRANSPORT_FRIEND',
+#       {
+#         SELECTED => $FORM{TRANSPORT_FRIEND} || 'udp',
+#         NO_ID => '1',
+#         SEL_HASH => { 'udp' => 'udp', 'tcp' => 'tcp', 'udp,tcp' => 'udp,tcp', 'tcp,udp' => 'tcp,udp' },
+
+#       }
+#     );
+#     $Callcenter->{TRANSPORT_FRIEND_SEL} =~ s/\n//g;
+
+#     $Callcenter->{DTMFMODE_FRIEND_SEL} = $html->form_select(
+#       'DTMFMODE_FRIEND',
+#       {
+#         SELECTED => $FORM{DTMFMODE_FRIEND} || 'auto',
+#         NO_ID => '1',
+#         SEL_HASH => { 'rfc2833' => 'rfc2833', 'info' => 'info', 'shortinfo' => 'shortinfo', 'inband' => 'inband', 'auto' => 'auto' },
+
+#       }
+#     );
+#     $Callcenter->{DTMFMODE_FRIEND_SEL} =~ s/\n//g;
+
+#     $html->tpl_show(_include('trunk_add', 'Callcenter'), { %FORM, %$Callcenter },);
+
+#   }
+#   elsif ($FORM{del} && $FORM{COMMENTS}) {
+#     my $TRUNK = $Callcenter->info($FORM{del}, { FUNC => TRUNKS });
+
+#     $Callcenter->del($FORM{del}, { FUNC => TRUNKS });
+#     if (!$Callcenter->{errstr}) {
+
+#       callcenter_dialplan({ del => $FORM{del}, TRUNK => 1 });
+#       $html->message('info', $_DELETED, "$_DELETED [$FORM{del}]");
+#       if ($TRUNK->{TRUNK_TYPE} eq 'sip') {
+#         $Callcenter->del($TRUNK->{CHANNELCONTEXT}, { FUNC => SIPUSERS });
+#         if (!$Callcenter->{errstr}) {
+#           $html->message('info', $_DELETED, "$_DELETED  [$TRUNK->{CHANNELCONTEXT}]");
+#         }
+#         $Callcenter->del($TRUNK->{USERCONTEXT}, { FUNC => SIPUSERS });
+#         if (!$Callcenter->{errstr}) {
+#           $html->message('info', $_DELETED, "$_DELETED  [$TRUNK->{USERCONTEXT}]");
+#         }
+#         callcenter_dialplan({ del => 1, ID => $TRUNK->{REGISTER_ID}, SIPTRUNK => 1 });
+#       }
+#     }
+#     delete($FORM{del});
+
+#   }
+#   else {
+
+#     $html->tpl_show(_include('trunks_add', 'Callcenter'), { %FORM, %$Callcenter },);
+
+#   }
+
+#   my $list = $Callcenter->list({ %LIST_PARAMS, FUNC => TRUNKS, COLS_NAME => 1, COLS_UPPER => 1 });
+
+#   $Callcenter->{TRUNKS} = $html->element('li', $html->button("<b>$_ADD $_TRUNK </b>", "index=$index"), { class => 'umenu_item' });
+
+#   foreach my $line (@$list) {
+#     $Callcenter->{TRUNKS} .= $html->element('li', $html->button("<b>$line->{NAME} : $line->{TRUNK_TYPE}</b>", "index=$index&NAME=$line->{NAME}&chg=$line->{ID}"), { class => 'umenu_item' });
+#   }
+#   $Callcenter->{TRUNKS} .= $html->element('li', $html->button("<b>$_DEL $_TRUNK  $FORM{NAME}</b>", "index=$index&NAME=$FORM{NAME}&del=$FORM{chg}", { MESSAGE => "$_DEL $_TRUNK : $FORM{NAME}?" }), { class => 'umenu_item' }) if ($FORM{chg});
+
+#   $html->tpl_show(_include('trunks_list', 'Callcenter'), { %FORM, %$Callcenter },);
+
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_out_num
+# #*******************************************************************
+# sub callcenter_out_num {
+#   my ($attr) = @_;
+
+#   if (!$FORM{sort}) {
+#     $LIST_PARAMS{SORT} = 1;
+#     $LIST_PARAMS{DESC} = '';
+#   }
+#   if ($FORM{add_form} || $FORM{chg}) {
+#     $Callcenter->{ACTION}     = 'add';
+#     $Callcenter->{ACTION_LNG} = $_ADD;
+
+#     if ($FORM{chg}) {
+#       $Callcenter->{ACTION}     = 'change';
+#       $Callcenter->{ACTION_LNG} = $_CHANGE;
+#     }
+
+#     my $OUT_NUM = $Callcenter->info($FORM{chg}, { FUNC => OUT_NUM });
+
+#     $html->tpl_show(_include('out_num', 'Callcenter'), { %FORM, %$Callcenter },);
+#   }
+#   elsif ($FORM{add}) {
+#     if ($FORM{EXTEN} =~ /^\d+$/) {
+#       $Callcenter->add({ %LIST_PARAMS, %FORM, FUNC => OUT_NUM });
+#       if (!$Callcenter->{errno}) {
+#         $html->message('info', $_ADDED, "$_ADDED [$FORM{EXTEN}] ");
+#       }
+#     }
+#     else {
+#       $html->message('err', $_ERROR, "$_ERROR Wrong $_PHONE");
+#     }
+#   }
+#   elsif ($FORM{change}) {
+#     if ($FORM{EXTEN} =~ /^\d+$/) {
+#       $Callcenter->change({ %LIST_PARAMS, %FORM, FUNC => OUT_NUM });
+#       if (!$Callcenter->{errstr}) {
+#         $html->message('info', $_CHANGE, "$_CHANGE [$FORM{EXTEN}] ");
+#       }
+#     }
+#     else {
+#       $html->message('err', $_ERROR, "$_ERROR Wrong $_PHONE");
+#     }
+#   }
+#   elsif ($FORM{del} && $FORM{COMMENTS}) {
+#     $Callcenter->del($FORM{del}, { FUNC => OUT_NUM });
+#     if (!$Callcenter->{errstr}) {
+#       $html->message('info', $_DELETED, "$_DELETED [$FORM{del}]");
+#     }
+#     delete($FORM{del});
+
+#   }
+
+#   my $list = $Callcenter->list({ %LIST_PARAMS, FUNC => OUT_NUM, COLS_NAME => 1, COLS_UPPER => 1 });
+#   my $table = $html->table(
+#     {
+#       width      => '100%',
+#       caption    => "$_OUT_NUM",
+#       title      => [ "ID", "$_PHONE", "$_FIO", "-", "-" ],
+#       cols_align => [ 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', ],
+#       ID         => 'OUT_NUM',
+#       qs         => $pages_qs,
+#       pages      => $Callcenter->{TOTAL},
+#       MENU       => "$_ADD:index=$index&add_form=1:add"
+#     }
+#   );
+#   foreach my $line (@$list) {
+#     $table->addrow($line->{ID}, $line->{EXTEN}, ($line->{FIO}) ? $line->{FIO} : "$_NO", $html->button($_CHANGE, "index=$index&chg=$line->{ID}", { class => 'change' }), $html->button($_DEL, "index=$index&del=$line->{ID}", { MESSAGE => "$_DEL $_OUT_NUM : $line->{EXTEN}?", class => 'del' }));
+#   }
+#   print $table->show();
+
+#   $table = $html->table(
+#     {
+#       width      => '100%',
+#       cols_align => [ 'right', 'right' ],
+#       rows       => [ [ "$_TOTAL:", $html->b($Callcenter->{TOTAL}) ] ]
+#     }
+#   );
+#   print $table->show();
+
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_sys_func
+# #*******************************************************************
+# sub callcenter_sys_func {
+#   my ($attr) = @_;
+#   if ($FORM{qindex}) {
+#     $html->{METATAGS} = templates('metatags');
+#     print $html->header();
+#   }
+
+#   my %sel_hash = callcenter_get_dest_ids();
+#   if ($FORM{show}) {
+
+#     $Callcenter->{DEST_ID_SEL} = $html->form_select(
+#       'DEST_ID',
+#       {
+#         SEL_OPTIONS => { '' => $_SELECT_DEST },
+#         SELECTED => $Callcenter->{DEST_ID} || '',
+#         NO_ID    => '1',
+#         SEL_HASH => $sel_hash{ $FORM{DEST_TYPE} },
+#       }
+#     );
+#     print $Callcenter->{DEST_ID_SEL};
+#     return 0;
+#   }
+
+#   if (!$FORM{sort}) {
+#     $LIST_PARAMS{SORT} = 1;
+#     $LIST_PARAMS{DESC} = '';
+#   }
+
+#   if ($FORM{chg}) {
+#     $Callcenter->{ACTION}     = 'change';
+#     $Callcenter->{ACTION_LNG} = $_CHANGE;
+
+#     my $SYS_FUNC = $Callcenter->info($FORM{chg}, { FUNC => SYS_FUNC });
+#     $Callcenter->{NAME} =~ s/(.+)/qq("$1")/eeg;
+
+#     $Callcenter->{DEST_TYPE_SEL} = $html->form_select(
+#       'DEST_TYPE',
+#       {
+#         SELECTED => $SYS_FUNC->{DEST_TYPE} || '',
+#         SEL_OPTIONS => { '' => $_SELECT_TYPE },
+#         NO_ID       => '1',
+#         SEL_HASH    => \%dest_hash
+
+#       }
+#     );
+
+#     $Callcenter->{DEST_ID_SEL} = $html->form_select(
+#       'DEST_ID',
+#       {
+#         SELECTED => $SYS_FUNC->{DEST_ID} || '',
+#         NO_ID    => '1',
+#         SEL_HASH => $sel_hash{ $SYS_FUNC->{DEST_TYPE} },
+#       }
+#     );
+
+#     $html->tpl_show(_include('sys_func', 'Callcenter'), { %FORM, %$Callcenter },);
+#   }
+#   elsif ($FORM{change}) {
+#     $Callcenter->change({ %LIST_PARAMS, %FORM, FUNC => SYS_FUNC });
+#     if (!$Callcenter->{errstr}) {
+#       $html->message('info', $_CHANGE, "$_CHANGE [$FORM{NAME}] ");
+#       callcenter_dialplan({ %FORM, SYS_FUNC => 1 });
+#     }
+#   }
+
+#   my $list = $Callcenter->list({ %LIST_PARAMS, FUNC => SYS_FUNC, COLS_NAME => 1, COLS_UPPER => 1 });
+#   my $table = $html->table(
+#     {
+#       width      => '100%',
+#       caption    => "$_SYSTEM_FUNC",
+#       title      => [ "ID", "$_NAME", "$_FUNC", "$_DEST_TYPE", "$_DEST_ID", "-", "-" ],
+#       cols_align => [ 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none', 'center:d-print-none' ],
+#       ID         => 'SYS_FUNC',
+#       qs         => $pages_qs,
+#       pages      => $Callcenter->{TOTAL},
+#     }
+#   );
+#   foreach my $line (@$list) {
+#     $line->{NAME} =~ s/(.+)/qq("$1")/eeg;
+#     $table->addrow(
+#       $line->{ID}, $line->{NAME}, $line->{FUNCTION},
+#       ($dest_hash{ $line->{DEST_TYPE} }) ? $dest_hash{ $line->{DEST_TYPE} } : "$_NO",
+#       ($sel_hash{ $line->{DEST_TYPE} }{ $line->{DEST_ID} }) ? $sel_hash{ $line->{DEST_TYPE} }{ $line->{DEST_ID} } : "$_NO",
+#       $html->button($_CHANGE, "index=$index&chg=$line->{ID}", { class => 'change' })
+#     );
+#   }
+#   print $table->show();
+
+#   $table = $html->table(
+#     {
+#       width      => '100%',
+#       cols_align => [ 'right', 'right' ],
+#       rows       => [ [ "$_TOTAL:", $html->b($Callcenter->{TOTAL}) ] ]
+#     }
+#   );
+#   print $table->show();
+
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_outbound_routes
+# #*******************************************************************
+# sub callcenter_outbound_routes {
+#   my ($attr) = @_;
+
+#   my $TRUNKS;
+#   my $PATTERNS;
+
+#   if ($FORM{qindex}) {
+
+#     #   $html->{METATAGS} = templates('metatags');
+
+#     print $html->header();
+#   }
+
+#   if (!$FORM{sort}) {
+#     $LIST_PARAMS{SORT} = 1;
+#     $LIST_PARAMS{DESC} = '';
+#   }
+#   if ($FORM{change_sort}) {
+#     callcenter_dialplan({ OUT_ROUTE => 1, change_sort => $FORM{change_sort} });
+#     print "$_AMENDED";
+#     return 0;
+#   }
+#   print "<table width=\"100%\" border=\"0\" cellspacing=\"1\" cellpadding=\"2\"><tr><td valign=\"top\" align=\"center\">";
+#   if ($FORM{change}) {
+#     if ($FORM{NAME}) {
+#       $FORM{TYPE} = $FORM{TYPE_SEL};
+#       $FORM{CONTEXT} = $FORM{CONTEXT} || 'from_call_center';
+#       $Callcenter->change({ %LIST_PARAMS, %FORM, FUNC => OUT_ROUTE });
+#       if (!$Callcenter->{errno}) {
+#         $html->message('info', $_CHANGE, "$_CHANGE [$FORM{NAME}] ");
+#         $FORM{chg} = $FORM{ID};
+#         foreach my $line (keys %FORM) {
+#           if ($line =~ /^PREPEND_/) {
+#             my ($p, $k) = split('_', $line);
+#             $PATTERNS->[$k]->{1} = $FORM{$line};
+#           }
+#           elsif ($line =~ /^PREFIX_/) {
+#             my ($p, $k) = split('_', $line);
+#             $PATTERNS->[$k]->{2} = $FORM{$line};
+#             $PATTERNS->[$k]->{4} = length($FORM{$line});
+#           }
+#           elsif ($line =~ /^TEMPLATE_/) {
+#             my ($t, $k) = split('_', $line);
+#             $PATTERNS->[$k]->{3} = $FORM{$line};
+#           }
+#           elsif ($line =~ /^TRUNK_/) {
+#             my ($t, $k) = split('_', $line);
+#             $TRUNKS->{$k} = $FORM{$line} if ($FORM{$line});
+#           }
+#         }
+#         callcenter_dialplan({ PATTERNS => $PATTERNS, TRUNKS => $TRUNKS, OUT_ROUTE => 1, ID => $FORM{ID}, CONTEXT => $FORM{CONTEXT}, change => 1 });
+#       }
+#     }
+#     else {
+#       $html->message('err', $_ERROR, "$ERR_WRONG_DATA");
+#     }
+#   }
+#   elsif ($FORM{add}) {
+#     if ($FORM{NAME}) {
+#       $Callcenter->add({ %LIST_PARAMS, %FORM, FUNC => OUT_ROUTE });
+#       if (!$Callcenter->{errno}) {
+#         $html->message('info', $_ADDED, "$_ADDED [$FORM{NAME}] ");
+#         $FORM{chg} = $Callcenter->{INSERT_ID};
+#         foreach my $line (keys %FORM) {
+#           if ($line =~ /^PREPEND_/) {
+#             my ($p, $k) = split('_', $line);
+#             $PATTERNS->[$k]->{1} = $FORM{$line};
+#           }
+#           elsif ($line =~ /^PREFIX_/) {
+#             my ($p, $k) = split('_', $line);
+#             $PATTERNS->[$k]->{2} = $FORM{$line};
+#             $PATTERNS->[$k]->{4} = length($FORM{$line});
+#           }
+#           elsif ($line =~ /^TEMPLATE_/) {
+#             my ($t, $k) = split('_', $line);
+#             $PATTERNS->[$k]->{3} = $FORM{$line};
+#           }
+#           elsif ($line =~ /^TRUNK_/) {
+#             my ($t, $k) = split('_', $line);
+#             $TRUNKS->{$k} = $FORM{$line} if ($FORM{$line});
+#           }
+#         }
+#         callcenter_dialplan({ PATTERNS => $PATTERNS, TRUNKS => $TRUNKS, OUT_ROUTE => 1, ID => $Callcenter->{INSERT_ID}, CONTEXT => $FORM{CONTEXT}, add => 1 });
+#       }
+#       else {
+#         $html->message('err', $_ERROR, "$_EXIST [$FORM{NAME}]");
+#       }
+#     }
+#     else {
+#       $html->message('err', $_ERROR, "$ERR_WRONG_DATA $_NOT_EXIST $_NAME");
+#     }
+#   }
+
+#   if ($FORM{chg} || $FORM{change}) {
+#     $Callcenter->{ACTION}     = 'change';
+#     $Callcenter->{ACTION_LNG} = $_CHANGE;
+#     my $list = $Callcenter->list({ %LIST_PARAMS, CONTEXT => "OUT_ROUTE_$FORM{chg}", FUNC => EXTENSIONS, COLS_NAME => 1, COLS_UPPER => 1 });
+#     my $i = 1;
+#     my %trunk;
+#     my @PATTERN;
+#     foreach my $line (@{$list}) {
+#       my $PREPEND;
+#       my $PREFIX;
+#       my $l;
+
+#       if ($line->{APPDATA} =~ /TRUNK\_(.*)\,s\,1\((.*)\$\{EXTEN\:(.*)\}\)$/) {
+#         $PREPEND                    = $2;
+#         $PREFIX                     = $3 || '';
+#         $trunk{ $line->{PRIORITY} } = $1;
+#         next if (in_array("$2$3$line->{EXTEN}", \@PATTERN));
+#         push @PATTERN, "$2$3$line->{EXTEN}";
+#       }
+#       $line->{EXTEN} =~ s/^\_//;
+#       if ($line->{EXTEN} =~ /(.{$PREFIX})(.*)$/) {
+#         $PREFIX = $1;
+#         $line->{EXTEN} = $2;
+#       }
+
+#       $Callcenter->{TEMTLATES} .= "<div class='form-group'> 
+#     <div class='col-md-3'>
+#       <input type=text id=PREPEND\_$i value=\"$PREPEND\"  name=PREPEND\_$i class='form-control'>
+#     </div> 
+#     <div class='col-md-3'>
+#       <input  type=text value=\"$PREFIX\" name=PREFIX\_$i class='form-control'>
+#     </div> 
+#    <div class='col-md-4'> 
+#     <input class='TEMPLATE form-control' type=text value=\"$line->{EXTEN}\" name=TEMPLATE\_$i>
+#    </div> 
+#    <div class='col-md-2'> 
+#      <a  type='button' href=# onclick='remtemplate($i);'><span class='btn fa fa-times'></span></a>
+#    </div> 
+#    </div>";
+#       $i++;
+#     }
+#     $Callcenter->{TEMTLATES} .= "<div class='form-group'> 
+#     <div class='col-md-3'>
+#       <input type=text id=PREPEND\_$i value=\"$PREPEND\"  name=PREPEND\_$i class='form-control'>
+#     </div> 
+#     <div class='col-md-3'>
+#       <input  type=text value=\"$PREFIX\" name=PREFIX\_$i class='form-control'>
+#     </div> 
+#    <div class='col-md-4'> 
+#     <input class='TEMPLATE form-control' type=text value=\"$line->{EXTEN}\" name=TEMPLATE\_$i>
+#    </div> 
+#    <div class='col-md-2'> 
+#      <a  type='button' href=# onclick='remtemplate($i);'><span class='btn fa fa-times'></span></a>
+#    </div> 
+#    </div>";
+
+#     my $trunks = $Callcenter->list({ %LIST_PARAMS, FUNC => TRUNKS, COLS_NAME => 1, COLS_UPPER => 1 });
+#     my %trunk_hash;
+
+#     foreach my $line (@$trunks) {
+#       $trunk_hash{ $line->{ID} } = $line->{NAME};
+#     }
+
+#     for ($i = 1 ; $i <= $Callcenter->{TOTAL} ; $i++) {
+#       $Callcenter->{TRUNKS} .= "<div class='form-group' style='width:100%; max-width:100% !important;'><label class='col-md-6 control-label'>$i : </label>";
+#       $Callcenter->{TRUNKS} .= $html->form_select(
+#         "TRUNK_$i",
+#         {
+#           SEL_OPTIONS => { '' => "<div class='col-md-9'>$_SELECT $_TRUNK</div>" },
+#           SELECTED => $trunk{$i} || '',
+#           NO_ID    => '1',
+#           SEL_HASH => \%trunk_hash,
+#         }
+#       );
+#       $Callcenter->{TRUNKS} .= "</div>";
+#     }
+
+#     $Callcenter->info($FORM{chg}, { FUNC => OUT_ROUTE });
+
+#     $Callcenter->{CONTEXT_LINE} = "<div class='form-group'>
+#       <label class='col-md-3 control-label'>context:</label>
+#       <label class='col-md-6 control-label'>$Callcenter->{CONTEXT}</label>
+#       </div>";
+
+#     $html->tpl_show(
+#       _include('out_route_add', 'Callcenter'),
+#       {
+
+#         #        %FORM,
+#         %$Callcenter
+#       },
+#     );
+
+#   }
+#   elsif ($FORM{del} && $FORM{COMMENTS}) {
+#     $Callcenter->del($FORM{del}, { FUNC => OUT_ROUTE });
+#     if (!$Callcenter->{errstr}) {
+#       $html->message('info', $_DELETED, "$_DELETED [$FORM{del}]");
+#       callcenter_dialplan({ del => $FORM{del}, OUT_ROUTE => 1 });
+#     }
+#     delete($FORM{del});
+
+#   }
+#   else {
+#     $Callcenter->{ACTION}     = 'add';
+#     $Callcenter->{ACTION_LNG} = $_ADD;
+#     $Callcenter->{MOHCLASS}   = 'default';
+#     $Callcenter->{CONTEXT}    = 'from_call_center';
+#     my $trunks = $Callcenter->list({ %LIST_PARAMS, FUNC => TRUNKS, COLS_NAME => 1, COLS_UPPER => 1 });
+#     my %trunk_hash;
+
+#     $Callcenter->{TEMTLATES} .= "<div class='form-group'> 
+#     <div class='col-md-3'>
+#       <input type=text id=PREPEND\_1 value=\"\"  name=PREPEND\_1 class='form-control'>
+#     </div> 
+#     <div class='col-md-3'>
+#       <input  type=text value=\"\" name=PREFIX\_1 class='form-control'>
+#     </div> 
+#    <div class='col-md-4'> 
+#     <input class='TEMPLATE form-control' type=text value=\"\" name=TEMPLATE\_1>
+#    </div> 
+#    <div class='col-md-2'> 
+#      <a  type=submit href=# onclick='remtemplate($i);'><span class='btn fa fa-times'></span></a>
+#    </div>
+#    </div>";
+
+#     foreach my $line (@$trunks) {
+#       $trunk_hash{ $line->{ID} } = $line->{NAME};
+#     }
+
+#     for ($i = 1 ; $i <= $Callcenter->{TOTAL} ; $i++) {
+#       $Callcenter->{TRUNKS} .= "<div class='form-group' style='width:100%; max-width:100% !important;'><label class='col-md-6 control-label'>$i : </label>";
+#       $Callcenter->{TRUNKS} .= $html->form_select(
+#         "TRUNK_$i",
+#         {
+#           SEL_OPTIONS => { '' => "<div class='col-md-9'>$_SELECT $_TRUNK</div>" },
+#           SELECTED    => '',
+#           NO_ID       => '1',
+#           SEL_HASH    => \%trunk_hash,
+#         }
+#       );
+#       $Callcenter->{TRUNKS} .= "</div>";
+#     }
+
+#     #    $Callcenter->{CONTEXT_LINE} ="<tr><td>context:</td><td><input type=text name=CONTEXT value='$Callcenter->{CONTEXT}'></td></tr>";
+#     $Callcenter->{CONTEXT_LINE} = "<div class='form-group'>
+#       <label class='col-md-3 control-label'>context:</label>
+#       <label class='col-md-6 control-label'>$Callcenter->{CONTEXT}</label>
+#       </div>";
+
+#     $html->tpl_show(_include('out_route_add', 'Callcenter'), { %FORM, %$Callcenter },);
+
+#   }
+
+#   my $list = $Callcenter->list({ %LIST_PARAMS, FUNC => OUT_ROUTE, COLS_NAME => 1, COLS_UPPER => 1 });
+#   my %out_route_hash;
+#   my @category_arr;
+#   foreach my $line (@$list) {
+#     $out_route_hash{ $line->{ID} }{NAME} = $line->{NAME};
+#     next if (in_array("$line->{CONTEXT}", \@category_arr));
+#     push @category_arr, "$line->{CONTEXT}";
+
+#   }
+#   foreach my $category (@category_arr) {
+#     my $list = $Callcenter->list({ Sort => 3, CATEGORY => $category, FUNC => AST_CONFIG, COLS_NAME => 1, COLS_UPPER => 1 });
+
+#     $Callcenter->{OUT_ROUTE_ADD} = $html->element('li', $html->button("<b>$_ADD $_ROUTE </b>", "index=$index&add_form=1"), { class => 'umenu_item' });
+
+#     foreach my $line (@$list) {
+#       my $id;
+#       if ($line->{VAR_VAL} =~ /^Realtime\/OUT_ROUTE\_(.+)\@/) {
+#         $id = $1;
+#       }
+#       else {
+#         next;
+#       }
+
+#       $Callcenter->{OUT_ROUTE} .= $html->element('li', $html->button("<b>&nbsp;â†“â†‘&nbsp;$out_route_hash{ $id }{NAME}</b>", "index=$index&NAME=$out_route_hash{ $id }{NAME}&chg=$id"), { id => "$line->{CATEGORY}:$id" });
+#     }
+#   }
+
+#   $Callcenter->{OUT_ROUTE_DEL} .= $html->element('li', $html->button("<b>$_DEL $_ROUTE : $FORM{NAME}</b>", "index=$index&NAME=$FORM{NAME}&del=$FORM{chg}", { MESSAGE => "$_DEL $_ROUTE : $FORM{NAME}?" }), { class => 'umenu_item' }) if ($FORM{chg});
+
+#   $html->tpl_show(_include('out_route_list', 'Callcenter'), { %FORM, %$Callcenter },);
+
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_incoming_routes
+# #*******************************************************************
+# sub callcenter_incoming_routes {
+#   my ($attr) = @_;
+
+#   if ($FORM{qindex} && $FORM{change_sort}) {
+#     print $html->header();
+#   }
+#   elsif ($FORM{qindex}) {
+#     $html->{METATAGS} = templates('metatags');
+#     print $html->header();
+
+#   }
+
+#   my %sel_hash = callcenter_get_dest_ids();
+#   if ($FORM{show}) {
+
+#     $Callcenter->{DEST_ID_SEL} = $html->form_select(
+#       'DEST_ID',
+#       {
+#         SEL_OPTIONS => { '' => $_SELECT_DEST },
+#         SELECTED => $Callcenter->{DEST_ID} || '',
+#         NO_ID    => '1',
+#         SEL_HASH => $sel_hash{ $FORM{DEST_TYPE} },
+#       }
+#     );
+#     print $Callcenter->{DEST_ID_SEL};
+#     return 0;
+#   }
+
+#   if (!$FORM{sort}) {
+#     $LIST_PARAMS{SORT} = 1;
+#     $LIST_PARAMS{DESC} = '';
+#   }
+#   if ($FORM{change_sort}) {
+#     callcenter_dialplan({ INPUT_ROUTE => 1, change_sort => $FORM{change_sort} });
+#     print "$_AMENDED";
+#     return 0;
+#   }
+
+#   print "<table width=\"100%\" border=\"0\" cellspacing=\"1\" cellpadding=\"2\"><tr><td valign=\"top\" align=\"center\">";
+#   if ($FORM{add}) {
+#     if ($FORM{NAME} || $FORM{DID} || $FORM{CALLER_ID}) {
+#       $Callcenter->add({ %LIST_PARAMS, %FORM, FUNC => INPUT_ROUTE });
+#       if (!$Callcenter->{errno}) {
+#         $html->message('info', $_ADDED, "$_ADDED  [$FORM{NAME}] ");
+#         $FORM{chg} = $Callcenter->{INSERT_ID};
+#         callcenter_dialplan({ %FORM, ID => $Callcenter->{INSERT_ID}, INPUT_ROUTE => 1 });
+#       }
+#       else {
+#         $html->message('err', $_ERROR, "$_ERROR [$FORM{NAME}]");
+#       }
+#     }
+#     else {
+#       $html->message('err', $_ERROR, "$ERR_WRONG_DATA");
+#     }
+
+#   }
+#   elsif ($FORM{change}) {
+#     if ($FORM{NAME} || $FORM{DID} || $FORM{CALLER_ID}) {
+#       $Callcenter->change({ %LIST_PARAMS, %FORM, FUNC => INPUT_ROUTE });
+#       if (!$Callcenter->{errno}) {
+#         $html->message('info', $_CHANGE, "$_CHANGE [$FORM{NAME}] ");
+#         $FORM{chg} = $FORM{ID};
+#         callcenter_dialplan({ %FORM, ID => $FORM{ID}, INPUT_ROUTE => 1 });
+#       }
+#       else {
+#         $html->message('err', $_ERROR, "$_EXIST [$FORM{NAME}]");
+#       }
+#     }
+#     else {
+#       $html->message('err', $_ERROR, "$ERR_WRONG_DATA");
+#     }
+
+#   }
+#   if ($FORM{chg}) {
+#     $Callcenter->{ACTION}     = 'change';
+#     $Callcenter->{ACTION_LNG} = $_CHANGE;
+
+#     my $list = $Callcenter->list({ %LIST_PARAMS, CONTEXT => "INPUT_ROUTE_$FORM{chg}", GROUP_BY => "GROUP BY context", FUNC => EXTENSIONS, COLS_NAME => 1, COLS_UPPER => 1 });
+
+#     $Callcenter->{DID} = $list->[0]->{EXTEN};
+
+#     $Callcenter->info($FORM{chg}, { FUNC => INPUT_ROUTE });
+
+#     $Callcenter->{CONTEXT_LINE} = "<div class='form-group'>
+#       <label class='col-md-3 control-label'>context:</label>
+#       <label class='col-md-6 control-label'>$Callcenter->{CONTEXT}</label>
+#       </div>";
+
+#     $Callcenter->{DEST_TYPE_SEL} = $html->form_select(
+#       'DEST_TYPE',
+#       {
+#         SELECTED => $Callcenter->{DEST_TYPE} || '',
+#         SEL_OPTIONS => { '' => $_SELECT_TYPE },
+#         NO_ID       => '1',
+#         SEL_HASH    => \%dest_hash
+
+#       }
+#     );
+
+#     $Callcenter->{DEST_ID_SEL} = $html->form_select(
+#       'DEST_ID',
+#       {
+#         SELECTED => $Callcenter->{DEST_ID} || '',
+#         NO_ID    => '1',
+#         SEL_HASH => $sel_hash{ $Callcenter->{DEST_TYPE} },
+#       }
+#     );
+
+#     $html->tpl_show(_include('input_route_add', 'Callcenter'), { %FORM, %$Callcenter },);
+
+#   }
+#   elsif ($FORM{del} && $FORM{COMMENTS}) {
+#     $Callcenter->del($FORM{del}, { FUNC => INPUT_ROUTE });
+#     if (!$Callcenter->{errstr}) {
+#       $html->message('info', $_DELETED, "$_DELETED [$FORM{del}]");
+#       callcenter_dialplan({ del => $FORM{del}, INPUT_ROUTE => 1 });
+#     }
+#     delete($FORM{del});
+
+#   }
+#   else {
+#     $Callcenter->{ACTION}     = 'add';
+#     $Callcenter->{ACTION_LNG} = $_ADD;
+
+#     $Callcenter->{MOHCLASS} = 'default';
+#     $Callcenter->{CONTEXT}  = 'from_trunk';
+
+#     #    $Callcenter->{CONTEXT_LINE} ="<tr><td>context:</td><td><input type=text name=CONTEXT value='$Callcenter->{CONTEXT}'></td></tr>";
+#     $Callcenter->{CONTEXT_LINE} = "<tr><td>context:</td><td>$Callcenter->{CONTEXT}</td></tr>";
+
+#     $Callcenter->{DEST_TYPE_SEL} = $html->form_select(
+#       'DEST_TYPE',
+#       {
+#         SELECTED => $Callcenter->{DEST_TYPE} || '',
+#         SEL_OPTIONS => { '' => $_SELECT_TYPE },
+#         NO_ID       => '1',
+#         SEL_HASH    => \%dest_hash
+
+#       }
+#     );
+
+#     $Callcenter->{DEST_ID_SEL} = $html->form_select(
+#       'DEST_ID',
+#       {
+#         SELECTED => $Callcenter->{DEST_ID} || '',
+#         NO_ID    => '1',
+#         SEL_HASH => $sel_hash{ $SYS_FUNC->{DEST_TYPE} },
+#       }
+#     );
+
+#     $html->tpl_show(_include('input_route_add', 'Callcenter'), { %FORM, %$Callcenter },);
+
+#   }
+
+#   my $list = $Callcenter->list({ %LIST_PARAMS, FUNC => INPUT_ROUTE, COLS_NAME => 1, COLS_UPPER => 1 });
+#   my %input_route_hash;
+#   my @category_arr;
+#   foreach my $line (@$list) {
+#     $input_route_hash{ $line->{ID} }{NAME} = $line->{NAME};
+#     next if (in_array("$line->{CONTEXT}", \@category_arr));
+#     push @category_arr, "$line->{CONTEXT}";
+
+#   }
+
+#   foreach my $category (@category_arr) {
+#     my $list = $Callcenter->list({ Sort => 3, CATEGORY => $category, FUNC => AST_CONFIG, COLS_NAME => 1, COLS_UPPER => 1 });
+
+#     $Callcenter->{INPUT_ROUTE_ADD} = $html->element('li', $html->button("<b>$_ADD $_ROUTE </b>", "index=$index&add_form=1"), { class => 'umenu_item' });
+
+#     foreach my $line (@$list) {
+#       my $id;
+#       if ($line->{VAR_VAL} =~ /^Realtime\/INPUT_ROUTE\_(.+)\@/) {
+#         $id = $1;
+#       }
+#       else {
+#         next;
+#       }
+
+#       $Callcenter->{INPUT_ROUTE} .= $html->element('li', $html->button("<b>&nbsp;â†“â†‘&nbsp;$input_route_hash{ $id }{NAME}</b>", "index=$index&NAME=$input_route_hash{ $id }{NAME}&chg=$id"), { id => "$line->{CATEGORY}:$id" });
+#     }
+#   }
+
+#   $Callcenter->{INPUT_ROUTE_DEL} .= $html->element('li', $html->button("<b>$_DEL $_ROUTE : $FORM{NAME}</b>", "index=$index&NAME=$FORM{NAME}&del=$FORM{chg}", { MESSAGE => "$_DEL $_ROUTE : $FORM{NAME}?" }), { class => 'umenu_item' }) if ($FORM{chg});
+
+#   $html->tpl_show(_include('input_route_list', 'Callcenter'), { %FORM, %$Callcenter },);
+
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_extensions
+# #*******************************************************************
+# sub callcenter_extensions {
+#   my ($attr) = @_;
+
+#   if (!$FORM{sort}) {
+#     $LIST_PARAMS{SORT} = 1;
+#     $LIST_PARAMS{DESC} = '';
+#   }
+#   if ($FORM{qindex}) {
+
+#     #    $html->{METATAGS} = templates('metatags');
+#     print $html->header();
+#     if ($FORM{add}) {
+#       $Callcenter->add({ CONTEXT => $FORM{add}, PRIORITY => $FORM{PRIORITY}, FUNC => EXTENSIONS });
+#       if (!$Callcenter->{errno}) {
+#         print $Callcenter->{INSERT_ID};
+#       }
+#     }
+#     elsif ($FORM{del}) {
+#       $Callcenter->del('', { WHERE => "WHERE id='$FORM{del}'", FUNC => EXTENSIONS });
+#       if (!$Callcenter->{errno}) {
+#         print 'DELETE';
+#       }
+#     }
+#     return;
+
+#   }
+#   print "<table width=\"100%\" border=\"0\" cellspacing=\"1\" cellpadding=\"2\"><tr><td valign=\"top\" align=\"center\">";
+#   if ($FORM{change}) {
+#     my $EXTEN;
+#     foreach my $line (keys %FORM) {
+#       if ($line =~ /^id/) {
+#         my ($p, $k) = split('_', $line);
+#         $EXTEN->[$k]->{1} = $FORM{$line};
+#       }
+#       elsif ($line =~ /^exten_/) {
+#         my ($p, $k) = split('_', $line);
+#         $EXTEN->[$k]->{2} = $FORM{$line};
+#       }
+#       elsif ($line =~ /^priority_/) {
+#         my ($p, $k) = split('_', $line);
+#         $EXTEN->[$k]->{3} = $FORM{$line};
+#       }
+#       elsif ($line =~ /^app_/) {
+#         my ($p, $k) = split('_', $line);
+#         $EXTEN->[$k]->{4} = $FORM{$line};
+#       }
+#       elsif ($line =~ /^appdata_/) {
+#         my ($p, $k) = split('_', $line);
+#         $EXTEN->[$k]->{5} = $FORM{$line};
+#       }
+#     }
+#     foreach my $line (@$EXTEN) {
+#       $Callcenter->change({ ID => $line->{1}, CONTEXT => $FORM{CONTEXT}, EXTEN => $line->{2}, PRIORITY => $line->{3}, APP => $line->{4}, APPDATA => $line->{5}, FUNC => EXTENSIONS });
+#     }
+#     $FORM{chg} = $FORM{CONTEXT};
+#     callcenter_dialplan_reload({ DIALPLAN => 1 });
+
+#   }
+#   if ($FORM{chg}) {
+#     $Callcenter->{ACTION}     = 'change';
+#     $Callcenter->{ACTION_LNG} = $_CHANGE;
+
+#     $LIST_PARAMS{SORT} = '4' if ($FORM{chg} =~ /^macro/ || $FORM{chg} =~ /^messages/);
+
+#     my $list = $Callcenter->list({ %LIST_PARAMS, CONTEXT => "$FORM{chg}", FUNC => EXTENSIONS, COLS_NAME => 1, COLS_UPPER => 1 });
+#     my $i = 1;
+#     foreach my $line (@{$list}) {
+#       $Callcenter->{TEMTLATES} .= "<div class='form-group'> 
+#     <div class='col-md-3'>
+#       <input type=hidden id=id\_$i name=id\_$i value=\"$line->{ID}\" class='form-control'>
+#     </div> 
+#     <div class='col-md-3'>
+#       <input  type=text value=''3+prefix+'' name=PREFIX_'+c+' class='form-control'>
+#     </div> 
+#    <div class='col-md-4'> 
+#     <input class='form-control' type=text value=''3+template+'' name=TEMPLATE_'+c+'>
+#    </div>  
+#      <div class='col-md-2'> 
+#      <a class='btn btn-link' type=button href=# onclick='remtemplate($i);'><span class='btn  fa fa-times'></span><</a>
+#    </div> 
+#    </div>";
+#       $i++;
+#     }
+
+#     $html->tpl_show(_include('extensions_change', 'Callcenter'), { %FORM, %$Callcenter },);
+
+#   }
+#   else {
+
+#   }
+#   $LIST_PARAMS{SORT} = '2';
+#   my $list = $Callcenter->list({ %LIST_PARAMS, GROUP_BY => "GROUP BY context", FUNC => EXTENSIONS, COLS_NAME => 1, COLS_UPPER => 1 });
+
+#   #  $Callcenter->{EXTENSIONS} = $html->element('li', $html->button( "<b>$_ADD CONTEXT </b>", "index=$index"), { class=>'umenu_item' });
+#   if ($Callcenter->{TOTAL} > 0) {
+#     foreach my $line (@$list) {
+#       $Callcenter->{EXTENSIONS} .= $html->element('li', $html->button($html->b([$line->{CONTEXT}]), "index=$index&chg=$line->{CONTEXT}"), { class => 'umenu_item' });
+#     }
+#   }
+
+#   # $Callcenter->{EXTENSIONS} .= $html->element('li', $html->button("<b>$_DEL [$FORM{chg}]</b>", "index=$index&del=$FORM{chg}", { MESSAGE => "$_DEL [$FORM{chg}]?"}), { class=>'umenu_item' }) if ($FORM{chg});
+
+#   $html->tpl_show(_include('extensions_list', 'Callcenter'), { %FORM, %$Callcenter },);
+
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_users_phone
+# #*******************************************************************
+# sub callcenter_users_phone {
+#   my ($attr) = @_;
+#   if ($FORM{qindex}) {
+
+#     #    $html->{METATAGS} = templates('metatags');
+#     print $html->header();
+#     if ($FORM{add}) {
+#       $Callcenter->add({ UID => $FORM{UID}, PHONE => $FORM{PHONE}, FUNC => USERS_PHONE });
+#       if (!$Callcenter->{errno}) {
+#         print $Callcenter->{INSERT_ID};
+#       }
+#     }
+#     elsif ($FORM{del}) {
+#       $Callcenter->del($FORM{del}, { FUNC => USERS_PHONE });
+#       if (!$Callcenter->{errno}) {
+#         print 'DELETE';
+#       }
+#     }
+#     elsif ($FORM{change}) {
+#       $Callcenter->change({ %FORM, FUNC => USERS_PHONE });
+#       if (!$Callcenter->{errno}) {
+#         print 'SAVED';
+#       }
+#     }
+#     elsif ($FORM{get_phone}) {
+#       $Callcenter->info('', { FUNC => CURRENT_CALL, WHERE => "WHERE operator='$FORM{SIP_NUMBER}'" });
+#       print $Callcenter->{CALLER};
+#     }
+#     elsif ($FORM{current_call}) {
+#       my $list = $Callcenter->list({ %FORM, STATUS => 0, FUNC => CURRENT_CALL, OPERATOR => $FORM{operator}, COLS_NAME => 1, COLS_UPPER => 1 });
+#       foreach my $line (@$list) {
+#         print "$line->{CALLER},$line->{UID},$line->{LOGIN},$_INPUT_CALL,$_NUM,$_UNKNOWN_USER|";
+#         $Callcenter->change({ ID => $line->{ID}, STATUS => 1, FUNC => CURRENT_CALL });
+#       }
+#     }
+
+#     return;
+
+#   }
+
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_get_dest_ids
+# #*******************************************************************
+# sub callcenter_get_dest_ids {
+#   my ($dest_type_id) = @_;
+#   my %hash_ids;
+#   my $list;
+
+#   #Sytem Func
+#   $list = $Callcenter->list({ %LIST_PARAMS, FUNC => SYS_FUNC, COLS_NAME => 1, COLS_UPPER => 1 });
+#   foreach my $line (@$list) {
+#     $line->{NAME} =~ s/(.+)/qq("$1")/eeg;
+#     $hash_ids{1}{ $line->{ID} } = $line->{NAME};
+#   }
+
+#   #SIP_NUM
+#   $list = $Callcenter->list({ %LIST_PARAMS, SIP_TYPE => 'user', FUNC => SIPUSERS, COLS_NAME => 1, COLS_UPPER => 1 });
+#   foreach my $line (@$list) {
+#     $hash_ids{2}{ $line->{NAME} } = "$line->{USERNAME} \"$line->{NAME}\"";
+#   }
+
+#   #OUT_NUM
+#   $list = $Callcenter->list({ %LIST_PARAMS, FUNC => OUT_NUM, COLS_NAME => 1, COLS_UPPER => 1 });
+#   foreach my $line (@$list) {
+#     $hash_ids{3}{ $line->{EXTEN} } = "$line->{FIO}";
+#   }
+
+#   #QUEUES
+#   $list = $Callcenter->list({ %LIST_PARAMS, FUNC => QUEUES, COLS_NAME => 1, COLS_UPPER => 1 });
+#   if($Callcenter->{TOTAL} > 0) {
+#     foreach my $line (@$list) {
+#       $hash_ids{4}{ $line->{NAME} } = "$line->{NAME}";
+#     }
+#   }
+
+#   #Messages
+#   $list = $Callcenter->list({ %LIST_PARAMS, FUNC => MESSAGES, COLS_NAME => 1, COLS_UPPER => 1 });
+#   foreach my $line (@$list) {
+#     $hash_ids{6}{ $line->{ID} } = $line->{NAME};
+#   }
+
+#   #Intervals
+#   $list = $Callcenter->list({ %LIST_PARAMS, FUNC => INTERVALS, COLS_NAME => 1, COLS_UPPER => 1 });
+#   foreach my $line (@$list) {
+#     $hash_ids{7}{ $line->{ID} } = $line->{NAME};
+#   }
+
+#   #IVR menu
+#   $list = $Callcenter->list({ %LIST_PARAMS, FUNC => IVR, COLS_NAME => 1, COLS_UPPER => 1 });
+#   foreach my $line (@$list) {
+#     $hash_ids{8}{ $line->{ID} } = $line->{NAME};
+#   }
+
+#   #Welcome
+#   $list = $Callcenter->list({ %LIST_PARAMS, FUNC => WELCOME, COLS_NAME => 1, COLS_UPPER => 1 });
+#   foreach my $line (@$list) {
+#     $hash_ids{9}{ $line->{ID} } = $line->{NAME};
+#   }
+
+#   return %hash_ids;
+# }
+
+# #**********************************************************
+# #
+# #**********************************************************
+# sub upload_message_file {
+#   my ($file_hash, $attr) = @_;
+
+#   use File::Copy qw(move);
+#   my $mpg123 = `/usr/bin/which mpg123`;
+#   my $sox    = `/usr/bin/which sox`;
+#   chomp($sox, $mpg123);
+
+#   my $safe_filename_characters = ($attr->{SAFE_FILENAME_CHARACTERS}) ? $attr->{SAFE_FILENAME_CHARACTERS} : "a-zA-Z0-9_.-";
+#   my $file_name = ($attr->{FILE_NAME}) ? $attr->{FILE_NAME} : $file_hash->{filename};
+#   my $file_extension;
+#   my $file;
+#   $file_name = txt2translit($file_name);
+#   $file_name =~ tr/ /_/;
+#   $file_name =~ s/[^$safe_filename_characters]//g;
+
+#   if ($attr->{EXTENSIONS}) {
+#     my @ext_arr = split(/,\s?/, $attr->{EXTENSIONS});
+#     if ($file_name =~ /(.+)\.([a-z0-9\_]+)$/i) {
+#       $file_extension = $2;
+#       $file           = $1;
+#       if (!in_array($file_extension, \@ext_arr)) {
+#         $html->message('err', $_ERROR, "$_ERROR Wrong format '$file_extension' $_FILE: '$file_name'");
+#         return 0;
+#       }
+#     }
+#     else {
+#       $html->message('err', $_ERROR, "$_ERROR Wrong extension\n $_FILE: '$file_name'");
+#       return 0;
+#     }
+#   }
+
+#   #  my $dir = ($attr->{PREFIX}) ? "$conf{ASTERISK_SOUND_FILE}" . $attr->{PREFIX} : $conf{ASTERISK_SOUND_FILE};
+#   my $dir = "/tmp";
+
+#   if (open(FILE, ">$dir/$file_name")) {
+#     binmode FILE;
+#     print FILE $file_hash->{Contents};
+#     close(FILE);
+
+#     if ($file_extension eq 'mp3') {
+#       my $convert = `$mpg123 -w $dir/$file $dir/$file.$file_extension`;
+#       unlink "$dir/$file.$file_extension";
+#     }
+
+#     $content = `$sox -v 1 $dir/$file  -t wav -2 -r 8000 -c 1 $dir/$file.wav`;
+#     unlink "$dir/$file";
+
+#     my $buf;
+#     open(FILE, "<$dir/$file.wav") or die print "Can't open file '$filename' $!";
+#     binmode(FILE);
+#     my $data;
+#     binmode($buf);
+#     while (<FILE>) {
+#       $buf .= $_;
+#     }
+
+#     close(FILE);
+#     unlink "$dir/$file.wav";
+#     $html->message('info', $_INFO, "$_ADDED: '$file'");
+
+#     return ($buf, $file);
+#   }
+#   else {
+#     $html->message('err', $_ERROR, "$_ERROR '$dir/$file_name'  '$!'");
+#     return 0;
+#   }
+# }
+
+# #**********************************************************
+# # convert to translit
+# #**********************************************************
+# sub txt2translit {
+#   my ($text) = @_;
+
+#   my %mchars = (
+#     'Ð¡Ñ…'      => 'S\'h',
+#     'ÑÑ…'      => 's\'h',
+#     'Ð¡Ð¥'       => 'S\'H',
+#     'Ð¨'           => 'Sh',
+#     'Ñˆ'          => 'sh',
+#     'Ð¡Ñ†Ñ…' => 'Sc\'h',
+#     'ÑÑ†Ñ…' => 'sc\'h',
+#     'Ð¡Ð¦Ð¥'   => 'SC\'H',
+#     'Ð©'           => 'Sch',
+#     'Ñ‰'          => 'sch',
+#     'Ð¦Ñ…'      => 'C\'h',
+#     'Ñ†Ñ…'     => 'c\'h',
+#     'Ð¦Ð¥'       => 'C\'H',
+#     'Ð§'           => 'Ch',
+#     'Ñ‡'          => 'ch',
+#     'Ð™Ð°'      => 'J\'a',
+#     'Ð¹Ð°'      => 'j\'a',
+#     'Ð™Ð'      => 'J\'A',
+#     'Ð¯'           => 'Ja',
+#     'Ñ'           => 'ja',
+#     'Ð™Ð¾'      => 'J\'o',
+#     'Ð¹Ð¾'      => 'j\'o',
+#     'Ð™Ðž'      => 'J\'O',
+#     'Ð'           => 'Jo',
+#     'Ñ‘'          => 'jo',
+#     'Ð™Ñƒ'      => 'J\'u',
+#     'Ð¹Ñƒ'      => 'j\'u',
+#     'Ð™Ð£'      => 'J\'U',
+#     'Ð®'           => 'Ju',
+#     'ÑŽ'           => 'ju',
+#     'Ð­'           => 'E\'',
+#     'Ñ'           => 'e\'',
+#     'Ð—Ñ…'     => 'Z\'h',
+#     'Ð·Ñ…'      => 'z\'h',
+#     'Ð—Ð¥'      => 'Z\'H',
+#     'Ð–'          => 'Zh',
+#     'Ð¶'           => 'zh',
+#     'Ð'           => 'A',
+#     'Ð‘'          => 'B',
+#     'Ð’'          => 'V',
+#     'Ð“'          => 'G',
+#     'Ð”'          => 'D',
+#     'Ð•'          => 'E',
+#     'Ð–'          => 'J',
+#     'Ð—'          => 'Z',
+#     'Ð˜'           => 'I',
+#     'Ð™'          => 'Y',
+#     'Ðš'           => 'K',
+#     'Ð›'          => 'L',
+#     'Ðœ'           => 'M',
+#     'Ð'           => 'N',
+#     'Ðž'           => 'O',
+#     'ÐŸ'           => 'P',
+#     'Ð '           => 'R',
+#     'Ð¡'           => 'S',
+#     'Ð¢'           => 'T',
+#     'Ð£'           => 'U',
+#     'Ð¤'           => 'F',
+#     'Ð¥'           => 'H',
+#     'Ð¦'           => 'C',
+#     'Ðª'           => '',
+#     'Ð«'           => 'YI',
+#     'Ð¬'           => '',
+#     'Ð°'           => 'a',
+#     'Ð±'           => 'b',
+#     'Ð²'           => 'v',
+#     'Ð³'           => 'g',
+#     'Ð´'           => 'd',
+#     'Ðµ'           => 'e',
+#     'Ð¶'           => 'j',
+#     'Ð·'           => 'z',
+#     'Ð¸'           => 'i',
+#     'Ð¹'          => 'y',
+#     'Ðº'           => 'k',
+#     'Ð»'           => 'l',
+#     'Ð¼'           => 'm',
+#     'Ð½'           => 'n',
+#     'Ð¾'           => 'o',
+#     'Ð¿'           => 'p',
+#     'Ñ€'           => 'r',
+#     'Ñ'           => 's',
+#     'Ñ‚'          => 't',
+#     'Ñƒ'           => 'u',
+#     'Ñ„'          => 'f',
+#     'Ñ…'          => 'h',
+#     'Ñ†'          => 'c',
+#     'ÑŠ'           => '',
+#     'Ñ‹'          => 'yi',
+#     'ÑŒ'           => '',
+#     ' '              => '_'
+#   );
+#   for my $c (keys %mchars) {
+#     $text =~ s/$c/$mchars{$c}/g;
+#   }
+
+#   return $text;
+# }
+
+# #**********************************************************
+# # HELP
+# #**********************************************************
+# sub help_menu {
+#   my ($title, $header, $items, $f_args) = @_;
+#   print "<TABLE width='100%' bgcolor='$_COLORS[2]'>\n";
+#   print "<tr><th class=\"table_title\"><b>$title</b></th></tr> \n";
+
+#   while (my ($k, $v) = each %$header) {
+#     print "<tr><td>$k: </td><td valign=top>$v</td></tr>\n";
+#   }
+#   print "<tr class='even'><td colspan='2'>\n";
+
+#   print "</td></tr></TABLE>\n";
+
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_dialplan
+# #*******************************************************************
+# sub callcenter_dialplan {
+#   my ($attr) = @_;
+
+#   load_pmodule('Digest::MD5', { IMPORT => 'md5_hex'});
+
+#   my %AST_CONFIG;
+#   my $list = $Callcenter->list({ SORT => 2, DESC => 'desc', PAGE_ROWS => 1, FUNC => AST_CONFIG, COLS_NAME => 1, COLS_UPPER => 1 });
+#   my $cat_metric = $list->[0]->{CAT_METRIC} + 1;
+
+#   $AST_CONFIG{CAT_METRIC} = $cat_metric;
+#   $AST_CONFIG{FILENAME}   = "extensions.conf";
+#   $AST_CONFIG{VAR_NAME}   = "switch";
+#   $AST_CONFIG{VAR_VAL}    = "Realtime/\@";
+
+#   if ($attr->{INPUT_ROUTE}) {
+#     if ($attr->{change_sort}) {
+#       my @data_arr = split(',', $attr->{change_sort});
+#       my ($category, $input_route_id) = split(':', @data_arr[0]);
+#       my $list = $Callcenter->list({ Sort => 3, DESC => 'desc', CATEGORY => $category, FUNC => AST_CONFIG, COLS_NAME => 1, COLS_UPPER => 1 });
+
+#       $Callcenter->del("$category", { FUNC => AST_CONFIG });
+#       my $last_metric = $list->[0]->{CAT_METRIC};
+#       my $i           = 0;
+#       foreach my $line (@data_arr) {
+#         my ($category, $input_route_id) = split(':', $line);
+#         $AST_CONFIG{CATEGORY}   = $category;
+#         $AST_CONFIG{CAT_METRIC} = $last_metric;
+#         $AST_CONFIG{VAR_METRIC} = $i;
+#         $AST_CONFIG{VAR_VAL}    = "Realtime/INPUT_ROUTE_$input_route_id@";
+#         $Callcenter->add({ %AST_CONFIG, FUNC => AST_CONFIG });
+#         $i++;
+#       }
+#       callcenter_dialplan_reload({ DIALPLAN => 1 });
+#     }
+#     if ($attr->{add} || $attr->{change}) {
+#       if ($attr->{add}) {
+#         my %CATEGURY;
+#         my $list = $Callcenter->list({ CATEGORY => $attr->{CONTEXT}, FUNC => AST_CONFIG, COLS_NAME => 1, COLS_UPPER => 1 });
+#         $Callcenter->del("$attr->{CONTEXT}", { FUNC => AST_CONFIG });
+#         foreach my $line (@$list) {
+#           $CATEGURY{ $line->{VAR_METRIC} } = [ $line->{CAT_METRIC}, $line->{VAR_VAL} ];
+#         }
+#         my $last_key = (sort { $b <=> $a } keys %CATEGURY)[0] || 0;
+#         my $last_metric = $list->[0]->{CAT_METRIC} || $cat_metric;
+#         $last_key++;
+#         $CATEGURY{$last_key}[0] = $last_metric;
+#         $CATEGURY{$last_key}[1] = "Realtime/INPUT_ROUTE_$attr->{ID}@";
+
+#         foreach my $key (sort { $a <=> $b } keys %CATEGURY) {
+#           $AST_CONFIG{CATEGORY}   = $attr->{CONTEXT};
+#           $AST_CONFIG{CAT_METRIC} = $CATEGURY{$key}[0];
+#           $AST_CONFIG{VAR_METRIC} = $key;
+#           $AST_CONFIG{VAR_VAL}    = $CATEGURY{$key}[1];
+#           $Callcenter->add({ %AST_CONFIG, FUNC => AST_CONFIG });
+#         }
+#         callcenter_dialplan_reload({ DIALPLAN => 1 });
+#       }
+#       $Callcenter->del("INPUT_ROUTE_$attr->{ID}", { FUNC => EXTENSIONS });
+#       my $exten;
+#       $attr->{DID} = $attr->{DID} || "_.";
+#       $Callcenter->add({ CONTEXT => "INPUT_ROUTE_$attr->{ID}", EXTEN => "$attr->{DID}", PRIORITY => 1, APP => 'Noop', APPDATA => "\${EXTEN},$attr->{DID},$attr->{CALLER_ID}", FUNC => EXTENSIONS });
+
+#       if ($dest_func_hash{ $attr->{DEST_TYPE} } eq SIPUSERS || $dest_func_hash{ $attr->{DEST_TYPE} } eq OUT_NUM) {
+#         $Callcenter->add({ CONTEXT => "INPUT_ROUTE_$attr->{ID}", EXTEN => "$attr->{DID}", PRIORITY => 2, APP => 'Goto', APPDATA => "from_call_center,$attr->{DEST_ID},1", FUNC => EXTENSIONS });
+#       }
+#       else {
+#         $Callcenter->add({ CONTEXT => "INPUT_ROUTE_$attr->{ID}", EXTEN => "$attr->{DID}", PRIORITY => 2, APP => 'Goto', APPDATA => "$dest_func_hash{ $attr->{DEST_TYPE} }_$attr->{DEST_ID},s,1", FUNC => EXTENSIONS });
+#       }
+
+#     }
+#     elsif ($attr->{del}) {
+#       $Callcenter->info('', { WHERE => "WHERE var_val='Realtime/INPUT_ROUTE_$attr->{del}\@'", FUNC => AST_CONFIG });
+#       my $category   = $Callcenter->{CATEGORY};
+#       my $var_metric = $Callcenter->{VAR_METRIC};
+#       my $list       = $Callcenter->list({ Sort => 3, CATEGORY => $category, FUNC => AST_CONFIG, COLS_NAME => 1, COLS_UPPER => 1 });
+#       $Callcenter->del("$category", { FUNC => AST_CONFIG });
+#       my $i = 0;
+#       foreach my $line (@$list) {
+#         next if ($var_metric eq $line->{VAR_METRIC});
+#         $AST_CONFIG{CATEGORY}   = $line->{CATEGORY};
+#         $AST_CONFIG{CAT_METRIC} = $line->{CAT_METRIC};
+#         $AST_CONFIG{VAR_METRIC} = $i;
+#         $AST_CONFIG{VAR_VAL}    = $line->{VAR_VAL};
+#         $Callcenter->add({ %AST_CONFIG, FUNC => AST_CONFIG });
+#         $i++;
+#       }
+#       $Callcenter->del("INPUT_ROUTE_$attr->{del}", { FUNC => EXTENSIONS });
+#       callcenter_dialplan_reload({ DIALPLAN => 1 });
+#     }
+
+#   }
+#   elsif ($attr->{OUT_ROUTE}) {
+#     if ($attr->{change_sort}) {
+#       my @data_arr = split(',', $attr->{change_sort});
+#       my ($category, $out_route_id) = split(':', @data_arr[0]);
+#       my $list = $Callcenter->list({ Sort => 3, DESC => '', CATEGORY => $category, FUNC => AST_CONFIG, COLS_NAME => 1, COLS_UPPER => 1 });
+
+#       $Callcenter->del("$category", { FUNC => AST_CONFIG });
+#       my $last_metric  = $list->[0]->{CAT_METRIC};
+#       my $last_var_val = $list->[0]->{VAR_VAL};
+#       my $i            = 0;
+#       $AST_CONFIG{CATEGORY}   = $category;
+#       $AST_CONFIG{CAT_METRIC} = $last_metric;
+#       $AST_CONFIG{VAR_METRIC} = $i;
+#       $AST_CONFIG{VAR_VAL}    = $last_var_val;
+#       $Callcenter->add({ %AST_CONFIG, FUNC => AST_CONFIG });
+#       $i++;
+
+#       foreach my $line (@data_arr) {
+#         my ($category, $out_route_id) = split(':', $line);
+#         $AST_CONFIG{CATEGORY}   = $category;
+#         $AST_CONFIG{CAT_METRIC} = $last_metric;
+#         $AST_CONFIG{VAR_METRIC} = $i;
+#         $AST_CONFIG{VAR_VAL}    = "Realtime/OUT_ROUTE_$out_route_id@";
+#         $Callcenter->add({ %AST_CONFIG, FUNC => AST_CONFIG });
+#         $i++;
+#       }
+#       callcenter_dialplan_reload({ DIALPLAN => 1 });
+
+#     }
+#     elsif ($attr->{add} || $attr->{change}) {
+#       if ($attr->{add}) {
+#         $attr->{CONTEXT} =~ s/ //g;
+#         my @context_arr = split(';', $attr->{CONTEXT});
+#         foreach my $line (@context_arr) {
+#           my %CATEGURY;
+#           my $list = $Callcenter->list({ CATEGORY => $line, FUNC => AST_CONFIG, COLS_NAME => 1, COLS_UPPER => 1 });
+#           $Callcenter->del("$line", { FUNC => AST_CONFIG });
+#           foreach my $line1 (@$list) {
+#             $CATEGURY{ $line1->{VAR_METRIC} } = [ $line1->{CAT_METRIC}, $line1->{VAR_VAL} ];
+#           }
+#           my $last_key = (sort { $b <=> $a } keys %CATEGURY)[0];
+#           my $last_metric = $CATEGURY{$last_key}[0];
+#           $last_key++;
+#           $CATEGURY{$last_key}[0] = $last_metric;
+#           $CATEGURY{$last_key}[1] = "Realtime/OUT_ROUTE_$attr->{ID}@";
+
+#           foreach my $key (sort { $a <=> $b } keys %CATEGURY) {
+#             $AST_CONFIG{CATEGORY}   = $line;
+#             $AST_CONFIG{CAT_METRIC} = $CATEGURY{$key}[0];
+#             $AST_CONFIG{VAR_METRIC} = $key;
+#             $AST_CONFIG{VAR_VAL}    = $CATEGURY{$key}[1];
+#             $Callcenter->add({ %AST_CONFIG, FUNC => AST_CONFIG });
+#           }
+#         }
+#         callcenter_dialplan_reload({ DIALPLAN => 1 });
+#       }
+#       $Callcenter->del("OUT_ROUTE_$attr->{ID}", { FUNC => EXTENSIONS });
+
+#       foreach my $line (@{ $attr->{PATTERNS} }) {
+#         my $i     = 1;
+#         my $false = '1';
+#         foreach my $key (keys %$line) {
+#           if ($line->{$key}) {
+#             $false = '0';
+#             last;
+#           }
+#         }
+#         next if ($false);
+#         foreach my $key (sort { $a <=> $b } keys %{ $attr->{TRUNKS} }) {
+#           $Callcenter->add(
+#             {
+#               CONTEXT  => "OUT_ROUTE_$attr->{ID}",
+#               EXTEN    => "_$line->{2}$line->{3}",
+#               PRIORITY => $i,
+#               APP      => 'Gosub',
+#               APPDATA  => "TRUNK_$attr->{TRUNKS}->{ $key },s,1($line->{1}\$\{EXTEN\:$line->{4}\})",
+#               FUNC     => EXTENSIONS
+#             }
+#           );
+#           $i++;
+#         }
+#       }
+#     }
+#     elsif ($attr->{del}) {
+#       $Callcenter->info('', { WHERE => "WHERE var_val='Realtime/OUT_ROUTE_$attr->{del}\@'", FUNC => AST_CONFIG });
+#       my $category   = $Callcenter->{CATEGORY};
+#       my $var_metric = $Callcenter->{VAR_METRIC};
+#       my $list       = $Callcenter->list({ Sort => 3, CATEGORY => $category, FUNC => AST_CONFIG, COLS_NAME => 1, COLS_UPPER => 1 });
+#       $Callcenter->del("$category", { FUNC => AST_CONFIG });
+#       my $i = 0;
+#       foreach my $line (@$list) {
+#         next if ($var_metric eq $line->{VAR_METRIC});
+#         $AST_CONFIG{CATEGORY}   = $line->{CATEGORY};
+#         $AST_CONFIG{CAT_METRIC} = $line->{CAT_METRIC};
+#         $AST_CONFIG{VAR_METRIC} = $i;
+#         $AST_CONFIG{VAR_VAL}    = $line->{VAR_VAL};
+#         $Callcenter->add({ %AST_CONFIG, FUNC => AST_CONFIG });
+#         $i++;
+#       }
+#       $Callcenter->del("OUT_ROUTE_$attr->{del}", { FUNC => EXTENSIONS });
+#       callcenter_dialplan_reload({ DIALPLAN => 1 });
+#     }
+#   }
+#   elsif ($attr->{SIPTRUNK}) {
+#     $AST_CONFIG{VAR_VAL} = "$attr->{REGISTER}";
+#     $AST_CONFIG{ID}      = "$attr->{ID}";
+#     if ($AST_CONFIG{VAR_VAL} || $attr->{del}) {
+#       $AST_CONFIG{FILENAME} = "sip.conf";
+#       $AST_CONFIG{CATEGORY} = "general";
+#       $AST_CONFIG{VAR_NAME} = "register";
+#     }
+#     else {
+#       $AST_CONFIG{FILENAME} = '';
+#       $AST_CONFIG{CATEGORY} = '';
+#       $AST_CONFIG{VAR_NAME} = '';
+#     }
+#     if ($attr->{add}) {
+#       $Callcenter->add({ %AST_CONFIG, FUNC => AST_CONFIG });
+#       callcenter_dialplan_reload({ SIP => 1 });
+#       return $Callcenter->{INSERT_ID};
+#     }
+#     if ($attr->{change}) {
+#       $Callcenter->change({ %AST_CONFIG, FUNC => AST_CONFIG });
+#       callcenter_dialplan_reload({ SIP => 1 });
+#     }
+#     if ($attr->{del}) {
+#       $Callcenter->del('', { WHERE => "WHERE id=$AST_CONFIG{ID}", FUNC => AST_CONFIG });
+#       callcenter_dialplan_reload({ SIP => 1 });
+#     }
+
+#   }
+#   elsif ($attr->{SIPUSERS}) {
+#     if ($attr->{add} || $attr->{change}) {
+#       $attr->{CONTEXT} = $attr->{CONTEXT} || 'from_call_center';
+#       $Callcenter->info($attr->{CONTEXT}, { FUNC => AST_CONFIG });
+#       if ($Callcenter->{TOTAL} < 1) {
+#         $AST_CONFIG{CATEGORY} = "$attr->{CONTEXT}";
+#         $AST_CONFIG{VAR_VAL}  = "Realtime/$attr->{CONTEXT}\@";
+#         $Callcenter->add({ %LIST_PARAMS, %AST_CONFIG, FUNC => AST_CONFIG });
+#         callcenter_dialplan_reload({ DIALPLAN => 1 });
+#       }
+#       $Callcenter->del("$attr->{CONTEXT_OLD}", { EXTEN => $attr->{NAME}, FUNC => EXTENSIONS });
+#       $Callcenter->del("$attr->{CONTEXT}",     { EXTEN => $attr->{NAME}, FUNC => EXTENSIONS });
+#       $Callcenter->add({ CONTEXT => "$attr->{CONTEXT}", EXTEN => "$attr->{NAME}", PRIORITY => 1, APP => 'Macro', APPDATA => "dial-sip,\${EXTEN},$attr->{RINGTIMER},$attr->{DISABLE},$attr->{MAX_LINE}", FUNC => EXTENSIONS });
+#       $Callcenter->add({ CONTEXT => "$attr->{CONTEXT}", EXTEN => "$attr->{NAME}", PRIORITY => 2, APP => 'Noop', APPDATA => '${DIALSTATUS}', FUNC => EXTENSIONS });
+#       $Callcenter->add({ CONTEXT => "$attr->{CONTEXT}", EXTEN => "$attr->{NAME}", PRIORITY => 3, APP => 'Hangup', FUNC => EXTENSIONS });
+
+#     }
+#     if ($attr->{del}) {
+#       $Callcenter->del("$attr->{CONTEXT}", { EXTEN => $attr->{NAME}, FUNC => EXTENSIONS });
+#     }
+
+#   }
+#   elsif ($attr->{QUEUES}) {
+#     if ($attr->{add} || $attr->{change}) {
+#       if ($attr->{add}) {
+#         $AST_CONFIG{CATEGORY} = "QUEUE_$attr->{NAME}";
+#         $AST_CONFIG{VAR_VAL}  = "Realtime/QUEUE_$attr->{NAME}\@";
+
+#         $Callcenter->add({ %LIST_PARAMS, %AST_CONFIG, FUNC => AST_CONFIG });
+#         callcenter_dialplan_reload({ DIALPLAN => 1 });
+#       }
+#       $Callcenter->del("QUEUE_$attr->{NAME}", { FUNC => EXTENSIONS });
+#       $Callcenter->add({ CONTEXT => "QUEUE_$attr->{NAME}", EXTEN => 's', PRIORITY => 1, APP => 'Queue', APPDATA => "$attr->{NAME}", FUNC => EXTENSIONS });
+
+#       #      $Callcenter->add({CONTEXT => "QUEUE_$attr->{NAME}", EXTEN => 's', PRIORITY => 2, APP => 'Return', FUNC => EXTENSIONS});
+
+#     }
+
+#     if ($attr->{del}) {
+#       $Callcenter->del("QUEUE_$attr->{del}", { FUNC => AST_CONFIG });
+#       callcenter_dialplan_reload();
+#       $Callcenter->del("QUEUE_$attr->{del}", { FUNC => EXTENSIONS });
+#     }
+#   }
+#   elsif ($attr->{TRUNK}) {
+#     if ($attr->{add} || $attr->{change}) {
+#       if ($attr->{add}) {
+#         $AST_CONFIG{CATEGORY} = "TRUNK_$attr->{TRUNK}";
+#         $AST_CONFIG{VAR_VAL}  = "Realtime/TRUNK_$attr->{TRUNK}\@";
+
+#         $Callcenter->add({ %LIST_PARAMS, %AST_CONFIG, FUNC => AST_CONFIG });
+#         callcenter_dialplan_reload({ DIALPLAN => 1 });
+#       }
+#       $Callcenter->del("TRUNK_$attr->{TRUNK}", { FUNC => EXTENSIONS });
+#       $Callcenter->add(
+#         {
+#           CONTEXT  => "TRUNK_$attr->{TRUNK}",
+#           EXTEN    => 's',
+#           PRIORITY => 1,
+#           APP      => 'Macro',
+#           APPDATA  => "trunk-dial,$attr->{PREFIX}\$\{ARG1\},$attr->{CHANNELID},$attr->{MAX_LINE},$attr->{DISABLED},$attr->{BUSY_NEXT}",
+#           FUNC     => EXTENSIONS
+#         }
+#       );
+#       $Callcenter->add({ CONTEXT => "TRUNK_$attr->{TRUNK}", EXTEN => 's', PRIORITY => 2, APP => 'Return', FUNC => EXTENSIONS });
+
+#     }
+
+#     if ($attr->{del}) {
+#       $Callcenter->del("TRUNK_$attr->{del}", { FUNC => AST_CONFIG });
+#       callcenter_dialplan_reload();
+#       $Callcenter->del("TRUNK_$attr->{del}", { FUNC => EXTENSIONS });
+#     }
+
+#   }
+#   elsif ($attr->{WELCOM}) {
+#     if ($attr->{add} || $attr->{change}) {
+#       if ($attr->{add}) {
+#         $AST_CONFIG{CATEGORY} = "$dest_func_hash{9}_$attr->{ID}";
+#         $AST_CONFIG{VAR_VAL}  = "Realtime/$dest_func_hash{9}_$attr->{ID}\@";
+
+#         $Callcenter->add({ %LIST_PARAMS, %AST_CONFIG, FUNC => AST_CONFIG });
+#         callcenter_dialplan_reload({ DIALPLAN => 1 });
+#       }
+#       $Callcenter->del("$dest_func_hash{9}_$attr->{ID}", { FUNC => EXTENSIONS });
+
+#       $Callcenter->add({ CONTEXT => "$dest_func_hash{9}_$attr->{ID}", EXTEN => 's', PRIORITY => 1, APP => 'Answer', FUNC => EXTENSIONS });
+#       $Callcenter->add({ CONTEXT => "$dest_func_hash{9}_$attr->{ID}", EXTEN => 's', PRIORITY => 2, APP => 'Wait', APPDATA => '1', FUNC => EXTENSIONS });
+
+#       if ($attr->{MESSAGE_ID}) {
+#         my $MESSAGE = $Callcenter->info($attr->{MESSAGE_ID}, { FUNC => MESSAGES });
+#         $Callcenter->add({ CONTEXT => "$dest_func_hash{9}_$attr->{ID}", EXTEN => 's', PRIORITY => 3, APP => 'AGI', APPDATA => "$conf{CALLCENTER_AGI_SCRYPT},MESSAGE,$MESSAGE->{ID}", FUNC => EXTENSIONS });
+#         $Callcenter->add({ CONTEXT => "$dest_func_hash{9}_$attr->{ID}", EXTEN => 's', PRIORITY => 4, APP => 'Background', APPDATA => "\${message_$MESSAGE->{ID}}", FUNC => EXTENSIONS });
+
+#       }
+#       else {
+#         $Callcenter->add({ CONTEXT => "$dest_func_hash{9}_$attr->{ID}", EXTEN => 's', PRIORITY => 3, APP => 'Noop', APPDATA => 'NO_MESSAGE', FUNC => EXTENSIONS });
+#         $Callcenter->add({ CONTEXT => "$dest_func_hash{9}_$attr->{ID}", EXTEN => 's', PRIORITY => 4, APP => 'Noop', APPDATA => 'NEXT',       FUNC => EXTENSIONS });
+
+#       }
+#       if ($attr->{DEST_TYPE} && $attr->{DEST_ID}) {
+
+#         if ($dest_func_hash{ $attr->{DEST_TYPE} } eq SIPUSERS || $dest_func_hash{ $attr->{DEST_TYPE} } eq OUT_NUM) {
+#           $Callcenter->add({ CONTEXT => "$dest_func_hash{9}_$attr->{ID}", EXTEN => "s", PRIORITY => 5, APP => 'Goto', APPDATA => "from_call_center,$attr->{DEST_ID},1", FUNC => EXTENSIONS });
+#         }
+#         else {
+#           $Callcenter->add({ CONTEXT => "$dest_func_hash{9}_$attr->{ID}", EXTEN => 's', PRIORITY => 5, APP => 'Goto', APPDATA => "$dest_func_hash{ $attr->{DEST_TYPE} }_$attr->{DEST_ID},s,1", FUNC => EXTENSIONS });
+#         }
+#       }
+
+#     }
+#     if ($attr->{del}) {
+#       $Callcenter->del("$dest_func_hash{9}_$attr->{del}", { FUNC => AST_CONFIG });
+#       callcenter_dialplan_reload();
+#       $Callcenter->del("$dest_func_hash{9}_$attr->{del}", { FUNC => EXTENSIONS });
+#     }
+#   }
+#   elsif ($attr->{SYS_FUNC}) {
+#     if ($attr->{change}) {
+#       $Callcenter->del("$dest_func_hash{1}_$attr->{ID}", { FUNC => EXTENSIONS });
+
+#       $Callcenter->add({ CONTEXT => "$dest_func_hash{1}_$attr->{ID}", EXTEN => 's', PRIORITY => 1, APP => 'Answer', FUNC    => EXTENSIONS });
+#       $Callcenter->add({ CONTEXT => "$dest_func_hash{1}_$attr->{ID}", EXTEN => 's', PRIORITY => 2, APP => 'Wait',   APPDATA => '1', FUNC => EXTENSIONS });
+#       $Callcenter->add({ CONTEXT => "$dest_func_hash{1}_$attr->{ID}", EXTEN => 's', PRIORITY => 3, APP => 'AGI',    APPDATA => "$conf{CALLCENTER_AGI_SCRYPT},SYS_FUNC,$attr->{FUNCTION}", FUNC => EXTENSIONS });
+
+#       if ($attr->{DEST_TYPE} && $attr->{DEST_ID}) {
+
+#         if ($dest_func_hash{ $attr->{DEST_TYPE} } eq SIPUSERS || $dest_func_hash{ $attr->{DEST_TYPE} } eq OUT_NUM) {
+#           $Callcenter->add({ CONTEXT => "$dest_func_hash{1}_$attr->{ID}", EXTEN => "s", PRIORITY => 4, APP => 'Goto', APPDATA => "from_call_center,$attr->{DEST_ID},1", FUNC => EXTENSIONS });
+#         }
+#         else {
+#           $Callcenter->add({ CONTEXT => "$dest_func_hash{1}_$attr->{ID}", EXTEN => 's', PRIORITY => 4, APP => 'Goto', APPDATA => "$dest_func_hash{ $attr->{DEST_TYPE} }_$attr->{DEST_ID},s,1", FUNC => EXTENSIONS });
+#         }
+#       }
+
+#     }
+#   }
+#   elsif ($attr->{INTERVALS}) {
+#     if ($attr->{add} || $attr->{change}) {
+#       if ($attr->{add}) {
+#         $AST_CONFIG{CATEGORY} = "$dest_func_hash{7}_$attr->{ID}";
+#         $AST_CONFIG{VAR_VAL}  = "Realtime/$dest_func_hash{7}_$attr->{ID}\@";
+
+#         $Callcenter->add({ %LIST_PARAMS, %AST_CONFIG, FUNC => AST_CONFIG });
+#         callcenter_dialplan_reload({ DIALPLAN => 1 });
+#       }
+#       $Callcenter->del("$dest_func_hash{7}_$attr->{ID}", { FUNC => EXTENSIONS });
+
+#       if ($attr->{DEST_TYPE_TRUE} && $attr->{DEST_ID_TRUE}) {
+#         my ($time, $week, $day, $month);
+
+#         $time = ($attr->{TIME_BEGIN} ne '00:00' || $attr->{TIME_END} ne '00:00') ? "$attr->{TIME_BEGIN}-$attr->{TIME_END}" : '*';
+#         $week  = ($attr->{WEEK_BEGIN}  && $attr->{WEEK_END})  ? "$attr->{WEEK_BEGIN}-$attr->{WEEK_END}"   : '*';
+#         $day   = ($attr->{DAY_BEGIN}   && $attr->{DAY_END})   ? "$attr->{DAY_BEGIN}-$attr->{DAY_END}"     : '*';
+#         $month = ($attr->{MONTH_BEGIN} && $attr->{MONTH_END}) ? "$attr->{MONTH_BEGIN}-$attr->{MONTH_END}" : '*';
+
+#         if ($dest_func_hash{ $attr->{DEST_TYPE_TRUE} } eq SIPUSERS || $dest_func_hash{ $attr->{DEST_TYPE} } eq OUT_NUM) {
+#           $Callcenter->add({ CONTEXT => "$dest_func_hash{7}_$attr->{ID}", EXTEN => "s", PRIORITY => 1, APP => 'GotoifTime', APPDATA => "$time,$week,$day,$month?from_call_center,$attr->{DEST_ID_TRUE},1", FUNC => EXTENSIONS });
+#         }
+#         else {
+#           $Callcenter->add({ CONTEXT => "$dest_func_hash{7}_$attr->{ID}", EXTEN => 's', PRIORITY => 1, APP => 'GotoifTime', APPDATA => "$time,$week,$day,$month?$dest_func_hash{ $attr->{DEST_TYPE_TRUE} }_$attr->{DEST_ID_TRUE},s,1", FUNC => EXTENSIONS });
+#         }
+#       }
+#       if ($attr->{DEST_TYPE_FALSE} && $attr->{DEST_ID_FALSE}) {
+
+#         if ($dest_func_hash{ $attr->{DEST_TYPE_FALSE} } eq SIPUSERS || $dest_func_hash{ $attr->{DEST_TYPE} } eq OUT_NUM) {
+#           $Callcenter->add({ CONTEXT => "$dest_func_hash{7}_$attr->{ID}", EXTEN => "s", PRIORITY => 2, APP => 'Goto', APPDATA => "from_call_center,$attr->{DEST_ID_FALSE},1", FUNC => EXTENSIONS });
+#         }
+#         else {
+#           $Callcenter->add({ CONTEXT => "$dest_func_hash{7}_$attr->{ID}", EXTEN => 's', PRIORITY => 2, APP => 'Goto', APPDATA => "$dest_func_hash{ $attr->{DEST_TYPE_FALSE} }_$attr->{DEST_ID_FALSE},s,1", FUNC => EXTENSIONS });
+#         }
+#       }
+
+#     }
+#     if ($attr->{del}) {
+#       $Callcenter->del("$dest_func_hash{7}_$attr->{del}", { FUNC => AST_CONFIG });
+#       callcenter_dialplan_reload();
+#       $Callcenter->del("$dest_func_hash{7}_$attr->{del}", { FUNC => EXTENSIONS });
+#     }
+#   }
+
+# }
+
+# #*******************************************************************
+# #
+# # callcenter_dialplan_reload
+# #*******************************************************************
+# sub callcenter_dialplan_reload {
+#   my ($attr) = @_;
+
+#   if ($conf{CALLCENTER_ASTERISK_IP}) {
+#     load_pmodule('Asterisk::Manager');
+#     my $astman = new Asterisk::Manager;
+
+#     $astman->user($conf{CALLCENTER_AMI_USERNAME});
+#     $astman->secret($conf{CALLCENTER_AMI_SECRET});
+#     $astman->host($conf{CALLCENTER_ASTERISK_IP});
+
+#     if (!$astman->connect) {
+#       $html->message('err', $_ERROR, "Asterisk::Manager Could not connect to " . $astman->{host} . "\n");
+#     }
+#     else {
+#       #print Dumper $attr;
+#       $astman->sendcommand(Action => 'Command', Command => 'dialplan reload') if ($attr->{DIALPLAN});
+#       $astman->sendcommand(Action => 'Command', Command => 'sip reload')      if ($attr->{SIP});
+#       $astman->disconnect;
+#     }
+#   }
+# }
+# 1
+

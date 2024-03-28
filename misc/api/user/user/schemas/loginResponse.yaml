@@ -1,0 +1,15 @@
+type: object
+properties:
+  login:
+    type: string
+    example: testuser
+  sid:
+    type: string
+    example: sW44EJZLyWDMeXAV
+  uid:
+    type: integer
+    example: 1
+  password:
+    type: string
+    example: "`ab012WXY"
+    description: Параметр который возвращает биллинг если авторизация через социальную сеть и если включена опция $conf{API_LOGIN_SHOW_PASSWORD}. Если значение 0 сдвиг не происходит, если значение не 0, происходит смещение или влево или вправо, по алгоритму цезаря таблиця ASCII c значения 33 до 126

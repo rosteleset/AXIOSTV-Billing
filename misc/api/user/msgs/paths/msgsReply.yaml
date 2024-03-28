@@ -1,0 +1,52 @@
+get:
+  tags:
+    - msgs
+  summary: Ответ на существующую заявку
+  parameters:
+    - name: ID
+      in: path
+      description: ID заявки
+      required: true
+      schema:
+        type: number
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/msgsReply.yaml"
+  security:
+    - USERSID: [ ]
+post:
+  tags:
+    - msgs
+  summary: Все сообщения в заявке
+  parameters:
+    - name: ID
+      in: path
+      description: ID заявки
+      required: true
+      schema:
+        type: number
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: "../schemas/msgsReplyAddRequest.yaml"
+      multipart/form-data:
+        schema:
+          - $ref: "../schemas/msgsReplyAddRequest.yaml"
+            file1:
+              type: string
+              format: binary
+            file2:
+              type: string
+              format: binary
+    required: true
+  responses:
+    200:
+      description: Успешное выполнение
+      content: { }
+  security:
+    - USERSID: [ ]

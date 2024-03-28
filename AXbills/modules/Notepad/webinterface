@@ -1,0 +1,886 @@
+#!perl
+=head1 NAME
+
+ Admin notepad
+
+=cut
+use strict;
+use warnings FATAL => 'all';
+
+our ($db, $admin, %conf, %lang, @WEEKDAYS, @state_colors, @MONTHES, $SELF_URL);
+our AXbills::HTML $html;
+
+use Notepad;
+use AXbills::Defs;
+use Time::Local;
+use AXbills::Base qw/next_month date_inc days_in_month in_array date_diff/;
+use AXbills::Experimental;
+use JSON qw/encode_json decode_json/;
+
+my $Notepad = Notepad->new($db, $admin, \%conf);
+my @STATUS = ($lang{ACTIVE}, $lang{PAUSED}, $lang{CLOSED});
+my @STICKER_STATUS = ($lang{STICKER_HIDE},$lang{STICKER_DISPLAY});
+
+my @REAL_WEEKDAYS = ();
+($lang{HOLIDAY}, @REAL_WEEKDAYS) = (@WEEKDAYS); # Removed confusing first element
+
+use Notepad::Reminders qw/calculate_next_periodic_time/;
+
+our @PREDEFINED_RULES = qw/
+  once
+  every_day
+  on_weekdays
+  weekdays_list
+  every_week
+  every_month
+  every_year
+/;
+
+my @notes_table_filter_bar = (
+  "$lang{ALL}:index=$index&STATUS=",
+  "$lang{ACTIVE}:index=$index&STATUS=0",
+  "$lang{CLOSED}:index=$index&STATUS=2",
+  "$lang{PAUSED}:index=$index&STATUS=1"
+);
+
+
+#**********************************************************
+=head2 notepad_main()
+
+=cut
+#**********************************************************
+sub notepad_main {
+
+  my %TEMPLATE_NOTE = ();
+  my $show_add_form = $FORM{add_form} || 0;
+
+  my @admins_that_can_assign_notes_to_other = split(',\s?', $conf{NOTEPAD_MANAGERS} || '0');
+  my $can_assign_note_to_other_admin = in_array($admin->{AID}, \@admins_that_can_assign_notes_to_other);
+
+  my $check_notepad_form_params = sub {
+    if (!$FORM{TEXT} && !$FORM{SUBJECT}) {
+      $html->message('info', $lang{INFO}, "$lang{ERR_FIELDS_FOR_NOTIFIED_AND_SUBJECT_ARE_REQUIRED}");
+    }
+    if ($FORM{TEXT} && !$FORM{SUBJECT}) {
+      $FORM{SUBJECT} = substr($FORM{TEXT}, 0, 20) . '...';
+    }
+  };
+
+  if ($FORM{add}) {
+    $check_notepad_form_params->();
+    $Notepad->notes_add({ %FORM });
+    $show_add_form = !show_result($Notepad, $lang{ADDED});
+
+    if (!_error_show($Notepad)) {
+      $show_add_form = 1;
+    }
+    else {
+      $Notepad->{NEW_RULE_ID} = $Notepad->{INSERT_ID};
+    }
+  }
+  elsif ($FORM{change}) {
+    $check_notepad_form_params->();
+
+    $Notepad->notes_change({ %FORM });
+    show_result($Notepad, $lang{CHANGED});
+    $show_add_form = 1;
+  }
+  elsif ($FORM{chg}) {
+
+    my $tp_info = $Notepad->notes_info($FORM{chg});
+    if (!_error_show($Notepad)) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGING}");
+      %TEMPLATE_NOTE = %{$tp_info};
+      $show_add_form = 1;
+    }
+
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Notepad->notes_del({ ID => $FORM{del} });
+    if (!_error_show($Notepad)) {
+      $html->redirect("?index=$index", { MESSAGE => $lang{DELETED} });
+    }
+  }
+  elsif ($FORM{seen}) {
+    my $result = _notepad_notified($FORM{seen});
+    return show_result($Notepad, $result);
+  }
+
+  if ($show_add_form) {
+
+    if ($can_assign_note_to_other_admin) {
+      $TEMPLATE_NOTE{CAN_SELECT_AID} = $can_assign_note_to_other_admin;
+      $TEMPLATE_NOTE{AID_SELECT} = sel_admins({
+        SELECTED => $TEMPLATE_NOTE{AID} || $admin->{AID}
+      });
+    }
+
+    $TEMPLATE_NOTE{STATUS_SELECT} = $html->form_select(
+      "STATUS",
+      {
+        SELECTED     => $TEMPLATE_NOTE{STATUS},
+        SEL_ARRAY    => \@STATUS,
+        ARRAY_NUM_ID => 1,
+        NO_ID        => 1
+      }
+    );
+
+    $TEMPLATE_NOTE{DATETIMEPICKER} = $html->form_datepicker(
+      'SHOW_AT',
+      $TEMPLATE_NOTE{SHOW_AT} || ($DATE || ''),
+      { ICON => 1 }
+    );
+
+    $TEMPLATE_NOTE{START_STAT} = $html->form_timepicker('START_STAT', $TEMPLATE_NOTE{START_STAT});
+    $TEMPLATE_NOTE{END_STAT} = $html->form_timepicker('END_STAT', $TEMPLATE_NOTE{END_STAT});
+
+    $TEMPLATE_NOTE{PERIODIC} = notepad_periodic_rule({ OUTPUT2RETURN => 1, RULE_ID => $Notepad->{NEW_RULE_ID} });
+
+    $TEMPLATE_NOTE{CHECKLIST} = notepad_checklist({ OUTPUT2RETURN => 1, NOTE_ID => $TEMPLATE_NOTE{ID} });
+
+    $TEMPLATE_NOTE{STATUS_ST} //= 1;
+    $TEMPLATE_NOTE{STICKER_STATUS} = $html->form_select(
+      "STATUS_ST",
+      {
+        SELECTED     => $FORM{STATUS_ST}||$TEMPLATE_NOTE{STATUS_ST},
+        SEL_ARRAY    => \@STICKER_STATUS,
+        ARRAY_NUM_ID => 1,
+        NO_ID        => 1
+      }),
+
+    $html->tpl_show(_include('notepad_main_form', 'Notepad'),
+      {
+        %TEMPLATE_NOTE,
+        ($FORM{chg}) ? %FORM : (),
+        SUBMIT_BTN_ACTION => ($FORM{chg}) ? 'change' : 'add',
+        SUBMIT_BTN_NAME   => ($FORM{chg}) ? $lang{CHANGE} : $lang{CREATE},
+      }
+    );
+
+  }
+  if ($can_assign_note_to_other_admin) {
+
+    $html->tpl_show(_include('notepad_manager_filter_panel', 'Notepad'), {
+      AID_SELECT => sel_admins({ SELECTED => $FORM{AID} })
+    });
+
+    $LIST_PARAMS{AID} = $FORM{AID} || '_SHOW';
+    notepad_manager_notes_list_view();
+
+    if ($FORM{AID} && $FORM{AID} eq $admin->{AID}) {
+      notepad_calendar();
+    }
+  }
+  else {
+    $LIST_PARAMS{AID} = $admin->{AID};
+    notepad_admin_notes_list_view();
+    notepad_calendar();
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 notepad_admin_notes_list_view()
+
+=cut
+#**********************************************************
+sub notepad_admin_notes_list_view {
+
+  $LIST_PARAMS{AID} = $admin->{AID};
+
+  result_former({
+    INPUT_DATA      => $Notepad,
+    FUNCTION        => 'notes_list',
+    DEFAULT_FIELDS  => 'ID,SUBJECT,STATUS,SHOW_AT,START_STAT,END_STAT,PERIODIC_RULE_ID,CREATED',
+    FUNCTION_FIELDS => 'change,del',
+    SKIP_USER_TITLE => 1,
+    EXT_FIELDS      => 0,
+    HIDDEN_FIELDS   => 'AID',
+    EXT_TITLES      => {
+      id               => '#',
+      show_at          => $lang{NEXT_SHOW},
+      start_stat       => $lang{START_STAT},
+      end_stat         => $lang{END_STAT},
+      created          => $lang{CREATED},
+      status           => $lang{STATUS},
+      subject          => $lang{SUBJECT},
+      name             => $lang{ADMIN},
+      periodic_rule_id => $lang{PERIODICALLY},
+      aid              => $lang{ADMIN}
+    },
+    FILTER_VALUES   => {
+      status           => sub {
+        $STATUS[$_[0]] || "$lang{ERROR} $lang{STATUS} : $_[0]";
+      },
+      periodic_rule_id => sub {
+        $_[0] ? _translate('$lang{' . uc(@PREDEFINED_RULES[$_[0]] || 'error') . '}') : $lang{NO};
+      }
+    },
+    TABLE           => {
+      header  => $html->table_header(\@notes_table_filter_bar),
+      caption => $lang{NOTEPAD},
+      ID      => 'NOTEPAD_NOTES',
+      EXPORT  => 1,
+      MENU    => "$lang{ADD}:index=$index&add_form=1:add"
+    },
+    MAKE_ROWS       => 1,
+    SEARCH_FORMER   => 1,
+    TOTAL           => 1,
+    MODULE          => 'Notepad',
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 notepad_manager_notes_list_view()
+
+=cut
+#**********************************************************
+sub notepad_manager_notes_list_view {
+
+  # my @status_bar = (
+  #   "$lang{ALL}:index=$index&STATUS=ALL",
+  #   "$lang{ACTIVE}:index=$index&STATUS=0",
+  #   "$lang{CLOSED}:index=$index&STATUS=1",
+  #   "$lang{PAUSED}:index=$index&STATUS=2"
+  # );
+
+  $LIST_PARAMS{AID} = $FORM{AID} || '_SHOW';
+  $LIST_PARAMS{STATUS} = (defined($FORM{STATUS})) ? $FORM{STATUS} : "_SHOW";
+
+  result_former({
+    INPUT_DATA      => $Notepad,
+    FUNCTION        => 'notes_list',
+    DEFAULT_FIELDS  => 'ID,SUBJECT,STATUS,SHOW_AT,PERIODIC_RULE_ID,CREATED,NAME',
+    FUNCTION_FIELDS => 'change,del',
+    SKIP_USER_TITLE => 1,
+    EXT_FIELDS      => 0,
+    HIDDEN_FIELDS   => 'AID',
+    EXT_TITLES      => {
+      id               => '#',
+      show_at          => $lang{NEXT_SHOW},
+      start_stat       => $lang{START_STAT},
+      end_stat         => $lang{END_STAT},
+      created          => $lang{CREATED},
+      status           => $lang{STATUS},
+      subject          => $lang{SUBJECT},
+      name             => $lang{ADMIN},
+      periodic_rule_id => $lang{PERIODICALLY},
+      aid              => $lang{ADMIN}
+    },
+    FILTER_VALUES   => {
+      status           => sub {
+        $STATUS[$_[0]] || "$lang{ERROR} $lang{STATUS} : $_[0]";
+      },
+      periodic_rule_id => sub {
+        $_[0] ? _translate('$lang{' . uc(@PREDEFINED_RULES[$_[0]] || 'error') . '}') : $lang{NO};
+      }
+    },
+    TABLE           => {
+      header  => $html->table_header(\@notes_table_filter_bar),
+      caption => $lang{NOTEPAD},
+      ID      => 'NOTEPAD_NOTES',
+      EXPORT  => 1,
+      MENU    => "$lang{ADD}:index=$index&add_form=1:add"
+    },
+    MAKE_ROWS       => 1,
+    TOTAL           => 1,
+    SEARCH_FORMER   => 1,
+    MODULE          => 'Notepad',
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 notepad_periodic_rule()
+
+=cut
+#**********************************************************
+sub notepad_periodic_rule {
+  my ($attr) = @_;
+  my %TEMPLATE_ARGS = ();
+
+  if (($FORM{add} || $FORM{chg}) && $FORM{RULE_ID} && $FORM{RULE_ID} ne '0') {
+    $FORM{ID} ||= $Notepad->{INSERT_ID} || $FORM{chg};
+    if ($FORM{ID}) {
+      $Notepad->periodic_rules_add({ %FORM });
+      show_result($Notepad, "$lang{RULE} $lang{ADDED}");
+    }
+  }
+  elsif ($FORM{change}) {
+    my $rule_info = $Notepad->periodic_rules_info($FORM{ID}, { COLS_UPPER => 1 });
+    my $was_periodic = $rule_info && ref $rule_info && $rule_info->{rule_id};
+    my $will_be_periodic = defined $FORM{RULE_ID} && $FORM{RULE_ID} ne '0';
+
+    # Rule existance is linked to note, so have to be changed accordingly
+    if ($was_periodic && !$will_be_periodic) {
+      $Notepad->periodic_rules_del({ ID => $FORM{ID} });
+      show_result($Notepad, "$lang{RULE} $lang{DELETED}");
+    }
+    elsif (!$was_periodic && $will_be_periodic) {
+      $Notepad->periodic_rules_add({ %FORM });
+      show_result($Notepad, "$lang{RULE} $lang{ADDED}");
+    }
+    elsif ($was_periodic && $will_be_periodic) {
+      $Notepad->periodic_rules_change({ %FORM });
+      show_result($Notepad, "$lang{RULE} $lang{CHANGED}");
+    }
+
+  }
+  elsif ($FORM{chg}) {
+    my $tp_info = $Notepad->periodic_rules_info($FORM{chg});
+    if (!_error_show($Notepad)) {
+      %TEMPLATE_ARGS = %{$tp_info};
+    }
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Notepad->periodic_rules_del({ ID => $FORM{del} });
+  }
+
+  $TEMPLATE_ARGS{RULE_ID_SELECT} = $html->form_select('RULE_ID', {
+    SELECTED     => $TEMPLATE_ARGS{RULE_ID},
+    SEL_ARRAY    => [ '', map {_translate('$lang{' . uc($_) . '}')} @PREDEFINED_RULES[1 .. $#PREDEFINED_RULES] ],
+    ARRAY_NUM_ID => 1,
+    NO_ID        => 1,
+  });
+
+  $TEMPLATE_ARGS{MDAY_SELECT} = $html->form_select('MONTH_DAY', {
+    SELECTED    => $TEMPLATE_ARGS{MONTH_DAY},
+    SEL_OPTIONS => { '' => '' },
+  });
+
+  $TEMPLATE_ARGS{MONTH_SELECT} = $html->form_select('MONTH', {
+    SELECTED     => $TEMPLATE_ARGS{MONTH},
+    SEL_ARRAY    => [ '--', @MONTHES ],
+    ARRAY_NUM_ID => 1,
+    NO_ID        => 1,
+    SEL_OPTIONS  => { '' => '' }
+  });
+
+  #    $TEMPLATE_ARGS{YEAR_SELECT} = $html->form_select( 'YEAR', {
+  #        SELECTED    => $TEMPLATE_ARGS{YEAR},
+  #        SEL_OPTIONS => { '' => '' }
+  #      } );
+
+  $TEMPLATE_ARGS{WEEK_DAY_SELECT} = $html->form_select('WEEK_DAY', {
+    SELECTED     => $TEMPLATE_ARGS{WEEK_DAY},
+    SEL_ARRAY    => [ @REAL_WEEKDAYS ],
+    MULTIPLE     => 1,
+    ARRAY_NUM_ID => 1,
+    NO_ID        => 1,
+    SEL_OPTIONS  => { '' => '' }
+  });
+
+  $TEMPLATE_ARGS{HOLIDAYS_CHECKED} = $TEMPLATE_ARGS{HOLIDAYS} ? 'checked' : '';
+
+  $TEMPLATE_ARGS{MONTH_DAY} ||= '';
+  $TEMPLATE_ARGS{YEAR} ||= '';
+
+  my $template = $html->tpl_show(
+    _include('notepad_periodic_rules', 'Notepad'),
+    {
+      %TEMPLATE_ARGS,
+      %FORM,
+      SUBMIT_BTN_ACTION => ($FORM{chg}) ? 'change' : 'add',
+      SUBMIT_BTN_NAME   => ($FORM{chg}) ? $lang{CHANGE} : $lang{ADD},
+    },
+    {
+      OUTPUT2RETURN => 1
+    }
+  );
+
+  if ($attr && ref $attr && $attr->{OUTPUT2RETURN}) {
+    return $template;
+  }
+
+  print $template;
+}
+
+#**********************************************************
+=head2 notepad_checklist($attr) - show Note checklist
+
+=cut
+#**********************************************************
+sub notepad_checklist {
+  my ($attr) = shift || \%FORM;
+  my $note_id = $attr->{NOTE_ID} || $FORM{NOTE_ID};
+
+  return $lang{ERR_NO_DATA} unless ($note_id);
+
+  my %TEMPLATE_ARGS = ();
+
+  if ($FORM{add}) {
+    $Notepad->checklist_rows_add({ %FORM });
+    show_result($Notepad, $lang{ADDED});
+  }
+  elsif ($FORM{change}) {
+
+    if (defined $FORM{ID} && !$FORM{ID}) {
+      $Notepad->checklist_rows_add({ %FORM });
+    }
+    else {
+      $Notepad->checklist_rows_change({ %FORM });
+    }
+
+    show_result($Notepad, $lang{CHANGED});
+
+  }
+  elsif ($FORM{chg}) {
+    my $checklist_rows = $Notepad->checklist_rows_list({ NOTE_ID => $note_id, SHOW_ALL_COLUMNS => 1, COLS_UPPER => 0 });
+    if (!_error_show($Notepad)) {
+      my $json = JSON->new->utf8(0);
+      $TEMPLATE_ARGS{JSON} = $json->encode($checklist_rows);
+    }
+  }
+  elsif ($FORM{del}) {
+    $Notepad->checklist_rows_del({ ID => $FORM{del} });
+    show_result($Notepad, $lang{DELETED});
+  }
+
+  return 1 if ($FORM{MESSAGE_ONLY});
+
+  return ($attr->{OUTPUT2RETURN})
+    ? $html->tpl_show(
+    _include('notepad_checklist', 'Notepad'),
+    {
+      %TEMPLATE_ARGS,
+      %FORM,
+      NOTE_ID           => $note_id,
+      SUBMIT_BTN_ACTION => ($FORM{chg}) ? 'change' : 'add',
+      SUBMIT_BTN_NAME   => ($FORM{chg}) ? $lang{CHANGE} : $lang{ADD},
+    }, {
+    OUTPUT2RETURN => $attr->{OUTPUT2RETURN}
+  })
+    : 1;
+
+}
+
+#**********************************************************
+=head2 notepad_checklist_modal()
+
+=cut
+#**********************************************************
+sub notepad_checklist_modal {
+  my $note_id = $FORM{NOTE_ID};
+
+  my $note = $Notepad->notes_info($note_id);
+
+  my $checklist_html = notepad_checklist({ NOTE_ID => $note_id, OUTPUT2RETURN => 1 });
+
+  my $message = $note->{TEXT} || '';
+  $message =~ s/[\r\n]+/<br>/;
+
+  $html->tpl_show(_include('notepad_checklist_modal', 'Notepad'),
+    {
+      NAME      => $note->{SUBJECT},
+      MESSAGE   => $message,
+      CHECKLIST => $checklist_html
+    }
+  );
+}
+
+#**********************************************************
+=head2 _notepad_notified()
+
+=cut
+#**********************************************************
+sub _notepad_notified {
+  my ($note_id) = @_;
+  return 0 unless ($note_id);
+
+  # Check if have periodic rule for note
+  my $note_periodic_rule = $Notepad->periodic_rules_info($note_id, { COLS_UPPER => 0 });
+  return 0 if (_error_show($Notepad));
+
+  my $note_info = $Notepad->notes_info($note_id, { COLS_UPPER => 0 });
+  return 0 if (_error_show($Notepad));
+
+  my $note_name = $note_info->{subject} || $lang{NOTE};
+
+  my $result = '';
+  if ($note_periodic_rule && ref $note_periodic_rule && $note_periodic_rule->{id}) {
+    # Calculate next showtime, and update note
+    my $new_time = calculate_next_periodic_time($note_info->{show_at}, $note_periodic_rule, "$DATE $TIME");
+
+    if (!$new_time) {
+      $Notepad->notes_change({
+        ID     => $note_id,
+        STATUS => 2
+      });
+      $result = $note_name . ' - ' . $lang{ERROR};
+    }
+    else {
+      $Notepad->notes_change({
+        ID      => $note_id,
+        SHOW_AT => $new_time
+      });
+      $result = $note_name . ' - ' . "$lang{NEXT_SHOW} $new_time";
+    }
+  }
+  else {
+    # Else , change status to 2 (CLOSED)
+    $Notepad->notes_change({
+      ID     => $note_id,
+      STATUS => 2
+    });
+
+    $result = $note_name . ' - ' . $lang{CLOSED};
+  };
+
+  return $result
+}
+
+
+#**********************************************************
+=head2 notepad_calendar()
+
+=cut
+#**********************************************************
+sub notepad_calendar {
+  my ($attr) = @_;
+
+  my $aid = $attr->{AID} || $admin->{AID};
+  return 0 unless ($aid);
+
+  our $base_dir ||= '/usr/axbills';
+
+  my $locale_code = $html->{content_language};
+  my $locale_script_src = '/styles/default/plugins/fullcalendar/locale-all.js';
+
+  if ($locale_code && -e $base_dir . '/cgi-bin/styles/default/plugins/fullcalendar/locale/' . $locale_code . '.js') {
+    $locale_script_src = "/styles/default/plugins/fullcalendar/locale/$locale_code.js";
+  }
+  else {
+    $html->message('warn', 'File not found', "/styles/default/plugins/fullcalendar/locale/$locale_code.js")
+  }
+
+  $html->tpl_show(_include('notepad_calendar', 'Notepad'),
+    {
+      CALENDAR_LOCALE_SCRIPT => $locale_script_src,
+      CALENDAR_LOCALE        => $locale_code || 'en-gb',
+      #      REMINDERS_LIST         => notepad_calendar_reminders({ EXPORT => 1 })
+    }
+  );
+
+}
+
+#**********************************************************
+=head2 notepad_calendar_reminders($attr)
+
+=cut
+#**********************************************************
+sub notepad_calendar_reminders {
+  my ($attr) = @_;
+
+  my $export = ($attr && ref $attr && $attr->{EXPORT});
+
+  print "Content-Type:application/json;charset=utf-8\n\n" unless $export;
+
+  my $reminders = $Notepad->show_reminders_list({
+    AID         => $admin->{AID},
+    STATUS      => '_SHOW',
+    NEW         => '_SHOW',
+    IS_PERIODIC => '0',
+    SHOW_AT     => ($FORM{start_stat} && $FORM{end_stat})
+      ? $FORM{start_stat} . '/' . $FORM{end_stat}
+      : '_SHOW',
+    COLS_UPPER  => 0
+  });
+  _error_show($Notepad);
+
+  my $periodic_reminders = $Notepad->show_reminders_list({
+    AID              => $admin->{AID},
+    PERIODIC_RULE_ID => '>0',
+    SHOW_AT          => '_SHOW',
+    START_STAT       => '_SHOW',
+    END_STAT         => '_SHOW',
+    STATUS           => '_SHOW',
+    NEW              => '_SHOW',
+    COLS_UPPER       => 0
+  });
+  _error_show($Notepad);
+
+  if ($FORM{start} && $FORM{end}) {
+    my @planned_reminders = ();
+    foreach my $reminder (grep {defined $_->{periodic_rule_id} && $_->{status} eq '0'} @{$periodic_reminders}) {
+      my $rules = $Notepad->periodic_rules_info($reminder->{id}, { COLS_UPPER => 0 });
+      _error_show($Notepad);
+
+      # Should decrement to show first day
+      my $calculate_from_date = _notepad_date_decr(1, $FORM{start}) . " 00:00:00";
+      my $next_show = $reminder->{show_at};
+
+      do {
+        $next_show = calculate_next_periodic_time($next_show, $rules, $calculate_from_date);
+        $calculate_from_date = $next_show;
+        push(@planned_reminders, {
+          %{$reminder},
+          #            real_id => $reminder->{id},
+          #            id      => '',
+          show_at => $next_show,
+          status  => 3
+        });
+      } while (date_diff($next_show, $FORM{end}) >= 0)
+    }
+    push(@{$reminders}, @planned_reminders);
+  }
+  push(@{$reminders}, @{$periodic_reminders});
+
+  my $notepad_index = get_function_index('notepad_main');
+  my $reminder_str = join ',', map {notepad_event_to_json($_, $notepad_index)} @{$reminders};
+
+  my $result = '[' . ($reminder_str || '') . ']';
+
+  if ($export) {
+    $result =~ s/["]/\\"/g;
+    $result =~ s/\r\n|\n/ /gm;
+    return $result;
+  }
+
+  print $result;
+  return 1;
+}
+
+#**********************************************************
+=head2 notepad_new_count()
+
+=cut
+#**********************************************************
+sub notepad_new_count {
+  my ($attr) = @_;
+
+  if ($attr->{AID}) {
+    $Notepad->notepad_get_active_count($attr);
+    if ($Notepad->{TOTAL} && $Notepad->{TODAY} + $Notepad->{ACTIVE} > 0) {
+
+      return "("
+        . ($Notepad->{TODAY} ? $html->color_mark($Notepad->{TODAY}, $_COLORS[6])
+        : $Notepad->{TODAY})
+        . "/$Notepad->{ACTIVE})";
+    }
+  }
+
+  return '';
+}
+
+#**********************************************************
+=head2 notepad_events()
+
+=cut
+#**********************************************************
+sub notepad_events {
+  my ($attr) = @_;
+  my @result_array = ();
+
+  if ($attr->{CLIENT_INTERFACE}) {return ''};
+
+  my $active_list = $Notepad->show_reminders_list({
+    AID            => $admin->{AID},
+    DEBUG          => $FORM{DEBUG},
+    HAVE_CHECKLIST => '_SHOW',
+    %{$attr // {}}
+  });
+  _error_show($Notepad);
+
+  my $notepad_index = get_function_index('notepad_main');
+  foreach my $line (@{$active_list}) {
+    if ($line->{HAVE_CHECKLIST}) {
+      $line->{type} = 'TODOLIST';
+    }
+    push(@result_array, notepad_event_to_json($line, $notepad_index));
+  }
+
+  return join(", ", @result_array);
+}
+
+#**********************************************************
+=head2 notepad_event_to_json($message)
+
+  Function to format message to JSON structure needed in AMessageChecker
+
+  Arguments:
+    $note - hash_ref of message from DB
+      subject   - Subject of note
+      message   - Text of note
+      id        - ID of note
+
+    $notepad_index - index to see note
+
+  Returns:
+    JSON structure for message
+
+=cut
+#**********************************************************
+sub notepad_event_to_json {
+  my ($note, $notepad_index) = @_;
+
+  $SELF_URL ||= '';
+
+  $note->{id} //= '';
+  $note->{subject} //= '';
+  $note->{text} //= '';
+
+  $note->{subject} =~ s/["]/\\"/g;
+  $note->{text} =~ s/["]/\\"/g;
+  $note->{text} =~ s/[\r\n]+|\n/ /gm;
+
+  $note->{type} //= "MESSAGE";
+
+  return qq{
+        {
+          "TYPE"        : "$note->{type}",
+          "TITLE"       : "$note->{subject}",
+          "TEXT"        : "$note->{text}",
+          "STATUS"      : "$note->{status}",
+          "DATE"        : "$note->{show_at}",
+          "ID"          : "$note->{id}",
+          "NOTICED_URL" : "?qindex=$notepad_index&header=2&seen=$note->{id}&json=1",
+          "EXTRA"       : "$SELF_URL?index=$notepad_index&chg=$note->{id}",
+          "MODULE"      : "Notepad"
+        }
+      };
+}
+
+#**********************************************************
+=head2 _notepad_date_decr() -
+
+  Arguments:
+    $attr -
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub _notepad_date_decr {
+  my ($num_of_days, $date_string) = @_;
+
+  return 0 if ($num_of_days < 0);
+  my ($year, $month, $day) = split("-", $date_string);
+
+  while ($num_of_days--) {
+    $day--;
+    if ($day == 0) {
+      $month--;
+      if ($month == 0) {
+        $year--;
+        $month = 12;
+      }
+      $day = days_in_month({ DATE => "$year-$month-01" });
+    }
+  }
+  return "$year" . "-" . ($month) . "-" . ($day < 10 ? "0" . $day : $day);
+}
+
+#**********************************************************
+=head2 notepad_start_page()
+
+=cut
+#**********************************************************
+sub notepad_start_page {
+  {
+    'notepad_notes_sp' => $lang{NOTES},
+  };
+}
+
+#**********************************************************
+=head2 notepad_notes_sp() - speed report for Notepad
+
+=cut
+#**********************************************************
+sub notepad_notes_sp {
+
+  my $notes_list = $Notepad->notes_list({
+    SUBJECT   => '_SHOW',
+    TEXT      => '_SHOW',
+    SHOW_AT   => '_SHOW',
+    START_STAT=> '_SHOW',
+    END_STAT  => '_SHOW',
+    STATUS    => '0',
+    PAGE_ROWS => 7,
+    COLS_NAME => 1,
+    SORT      => 'show_at',
+    DESC      => 'DESC'
+  });
+  _error_show($Notepad) and return $lang{ERROR};
+
+  my $notepad_sp_table = $html->table(
+    {
+      width   => '100%',
+      caption => "Notepad : $lang{NOTES}",
+      title   => [ $lang{NOTE}, $lang{TIME} ],
+      ID      => 'NOTEPAD_NOTES_SP',
+      # EXPORT  => 1
+    }
+  );
+
+  if ($notes_list && ref $notes_list eq 'ARRAY') {
+    foreach my $note (@{$notes_list}) {
+      $notepad_sp_table->addrow(
+        $html->button(
+          $html->element('u', $note->{subject}, { title => $note->{text} }),
+          "get_index=notepad_main&full=1&chg=$note->{id}"
+        ),
+        $note->{show_at}
+      );
+    }
+  }
+
+  $html->tpl_show(_include('notepad_sticker','Notepad'),{
+    ID            => $FORM{ID},
+    INDEX         => $index
+  });
+
+  return $notepad_sp_table->show();
+}
+
+#**********************************************************
+=head2 notepad_show_sticker() - Show sticker for Notepad
+
+=cut
+#**********************************************************
+
+sub notepad_show_sticker {
+  my $list = $Notepad->get_sticker({AID => $admin->{AID}});
+  my $sticker_json;
+
+  if ($FORM{get_stickers} && $FORM{get_stickers}==1) {
+    foreach my $line (@$list) {
+      $line->{index} = get_function_index('notepad_main');
+      $line->{sticker_title} = $lang{STICKER_TITLE};
+    }
+    $sticker_json = JSON->new->encode($list);
+    print $sticker_json;
+    return 1;
+  }
+
+  my $table = $html->table( { width      => '100%',
+    caption    => $lang{NOTE},
+    border     => 1,
+    title      => [$lang{ST_TITLE},$lang{ST_TEXT}],
+    cols_align => ['center', 'center'],
+    pages      => 2,
+    ID         => 1
+  } );
+
+  foreach my $line (@$list) {
+
+    $table->addtd(
+      $table->td($line->{subject},{ID => 'sticker_title_td'}),
+      $table->td($line->{text},{ID => 'sticker_text_td'})
+    );
+  }
+
+  print $table->show();
+
+  $html->tpl_show(_include('notepad_sticker', 'Notepad'),{
+    ID              => $FORM{ID},
+    INDEX           => $index,
+  });
+
+}
+
+1;

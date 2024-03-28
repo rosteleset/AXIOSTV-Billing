@@ -1,0 +1,6 @@
+{
+  "name": "USER_PAYSYS_SYSTEMS",
+  "method": "GET",
+  "path": "user/:uid/paysys/systems/",
+  "params": {}
+}

@@ -1,0 +1,2026 @@
+#!/usr/bin/perl -w
+
+=head1 NAME
+
+  ABillS IVR 
+
+ exten => s,n,AGI(balance_recharge.agi,${CALLERID(num)})
+
+ http://www.ivrvoice.ru/wiki/DownloadFiles
+
+ http://zaf.github.io/asterisk-googletts/
+
+=head1 VERSION
+
+  VERSION: 0.05
+  REVISION: 20190113
+
+=cut
+#**********************************************************
+
+use strict;
+use warnings;
+
+our ( %conf, %log_levels, $DATE, $TIME, $var_dir, %lang, @MODULES, $html );
+
+BEGIN {
+  use FindBin '$Bin';
+  unshift( @INC,
+    $Bin.'/../',
+    $Bin.'/../../../lib/',
+    $Bin.'/../../../libexec/',
+    $Bin."/../../../AXbills/mysql/",
+    $Bin.'/../../../'
+  );
+  do 'config.pl';
+}
+
+my $Cards;
+our $VERSION = 0.05;
+$conf{dbtype} = 'mysql';
+
+my $debug = $conf{VOIP_IVR_DEBUG} || 0;
+$debug += 5;
+my $user_info;
+
+$var_dir = '/usr/axbills/var/' if (! $var_dir);
+
+use Encode;
+use Asterisk::AGI;
+use POSIX qw(strftime);
+use LWP::UserAgent;
+
+use File::Temp qw(tempfile);
+use File::Copy qw(move);
+use File::Path qw(mkpath);
+
+use AXbills::Base qw(in_array gen_time);
+use AXbills::SQL;
+use Admins;
+use Voip;
+use Callcenter;
+use Payments;
+use Users;
+use Log;
+
+# Default language
+#my $lang = "en";
+# Output audio sample rate
+my $samplerate = 8000;
+
+# Output speed factor
+my $speed = 1.2;
+
+# SoX Version                   #
+my $sox_ver = 12;
+my $intkey = "1234567890";
+
+#--------------------------------------
+
+my $AGI = Asterisk::AGI->new();
+my %input = $AGI->ReadParse();
+
+my $pin_verify_param = $conf{VOIP_PIN_VERIFY_PARAM} || 'PASSWORD';
+$conf{'VOIP_IVR_LANG'} = 'ru:russian:�������;'
+  if ( !$conf{'VOIP_IVR_LANG'} );
+
+our $db =
+  AXbills::SQL->connect( $conf{dbtype}, $conf{dbhost}, $conf{dbname},
+    $conf{dbuser}, $conf{dbpasswd},
+    { CHARSET => ( $conf{dbcharset} ) ? $conf{dbcharset} : undef } );
+my $admin    = Admins->new( $db, \%conf );
+$admin->info( $conf{SYSTEM_ADMIN_ID}, { IP => '127.0.0.1' } );
+my $Voip     = Voip->new( $db, $admin, \%conf );
+my $Users    = Users->new( $db, $admin, \%conf );
+my $Payments = Payments->new( $db, $admin, \%conf );
+my $Log      = Log->new( $db, \%conf );
+my $Callcenter = Callcenter->new( $db, $admin, \%conf );
+
+require AXbills::Misc;
+
+my $message_id     = 0;
+my $caller_id      = $ARGV[0];
+my $log_file       = $var_dir.'/log/ivr.log';
+my $say_money_file = $conf{VOIP_IVR_MONEY_FILE} || 0;
+my @action_history = ();
+my $session_start  = time;
+
+$AGI->answer();
+
+if ($debug > 6) {
+  $AGI->verbose( "AGI Environment Dump:" );
+  foreach my $i (sort keys %input) {
+    $AGI->verbose( " -- $i = $input{$i}" );
+  }
+}
+
+if (!$caller_id || $caller_id !~ /^\d+$/) {
+  ivr_log('LOG_WARNING', "Invalid caller number: '$caller_id'", { AGI_VERBOSE => 3 });
+  message('UNKNOWN_USER');
+  # To manager
+  #$AGI->hangup();
+  exit 1;
+}
+
+ivr_log('LOG_INFO', "Phone: $caller_id", { AGI_VERBOSE => 1, USER_NAME => $caller_id });
+
+my @lang_arr = split( /;/, $conf{'VOIP_IVR_LANG'} );
+my $lang_short = 'ru';
+my $lang_file = $conf{default_language};
+
+if ($#lang_arr == 0) {
+  ( $lang_short, $lang_file ) = split( /:/, $conf{'VOIP_IVR_LANG'} );
+}
+
+$AGI->set_variable( 'CHANNEL(language)', $lang_short );
+
+do "language/$lang_file.pl";
+do "Voip/lng_$lang_file.pl";
+
+message('GOOD_DAY');
+if ($#lang_arr > 0) {
+  select_lang( { LANGS => \@lang_arr } );
+}
+
+$AGI->set_variable( 'CHANNEL(language)', $lang_short );
+my $remote_ip = $AGI->get_variable( 'CHANNEL(peerip)' );
+
+do "language/$lang_file.pl";
+do "AXbills/modules/Voip/lng_$lang_file.pl";
+
+#show menu
+my $ivr_menu = add_menu();
+menu($ivr_menu);
+
+_finish({ HANGUP => 1 });
+
+#**********************************************************
+=head2 mk_menu($attr) - Select language
+
+=cut
+#**********************************************************
+sub add_menu {
+
+  my %menu = ();
+
+  #Make custom menu from file
+  my $menu_list = $Callcenter->ivr_menu_list(
+    {
+      DISABLE    => 0,
+      MAIN_ID    => '_SHOW',
+      NUMBER     => '_SHOW',
+      NAME       => '_SHOW',
+      FUNCTION   => '_SHOW',
+      AUDIO_FILE => '_SHOW',
+      COLS_NAME  => 1
+    }
+  );
+
+  if ($Voip->{TOTAL}) {
+    foreach my $line (@{$menu_list}) {
+      my $function =
+          ( $line->{audio_file} )
+        ? 'AUDIO='.$line->{audio_file}
+        : $line->{function};
+      $menu{ $line->{main_id} }{ $line->{number} } =
+        "$function:$line->{name}";
+    }
+    #Load custom rules
+    eval { require Voip::Ivr_extra; };
+  }
+
+  #Make default menu
+  else {
+    %menu = (
+      0 => "main_menu:MAIN_MENU",
+      1 => "show_deposit:SHOW_DEPOSIT",
+      4 => "msgs_add:MSGS_ADD",
+      5 => "full_info:FULL_INFO",
+      9 => "exit:EXIT"
+    );
+
+    #Credit recharge
+    if ($conf{user_credit_change}) {
+      $menu{3} = "use_credit:USE_CREDIT";
+    }
+
+    #Cards recharge
+    eval { require Cards; };
+    if (!$@) {
+      Cards->import();
+      $Cards = Cards->new( $db, $admin, \%conf );
+      $menu{2} = "cards_recharge:CARDS_RECHARGE";
+    }
+    else {
+
+      #  print "Content-Type: text/html\n\n" if ($user->{UID});
+      #  print "Can't load 'Cards'. Purchase this module https://billing.axiostv.ru";
+      #  exit;
+    }
+
+    if ($conf{VOIP_IVR_MARKETING}) {
+      $menu{6} = "marketing_info:MARKETING_INFO";
+    }
+
+    $menu{0} = \%menu;
+  }
+
+  return \%menu;
+}
+
+#**********************************************************
+=head2 select_lang($attr) - Select language
+
+=cut
+#**********************************************************
+sub select_lang {
+  my ($attr) = @_;
+
+  message('CHOOSE_LANGUAGE');
+
+  for (my $i = 1; $i <= $#{ $attr->{LANGS} } + 1; $i++) {
+    my $lang_ = ${ $attr->{LANGS} }[ $i - 1 ];
+
+    # ($lang_short, $lang_file, $lang_name)
+    my ( undef, undef, $lang_name ) = split( /:/, $lang_ );
+    message('DLYA');
+    message($lang_name);
+    message('PRESS');
+    message($i);
+  }
+
+  my $pin = $AGI->get_data( 'beep', "10000", "1" );
+
+  if ($pin) {
+    ( $lang_short, $lang_file ) =
+      split( /:/, $attr->{LANGS}->[ $pin - 1 ] );
+  }
+
+  ivr_log('LOG_INFO', "lang: $pin $lang_short $lang_file",
+    { AGI_VERBOSE => 1 }
+  );
+
+  return $lang_short, $lang_file;
+}
+
+#**********************************************************
+=head2 show_deposit($user_info) - Show user deposit
+
+=cut
+#**********************************************************
+sub show_deposit {
+  my ($user_) = @_;
+
+  ivr_log('LOG_INFO', "Deposit: $user_->{DEPOSIT}",
+    { AGI_VERBOSE => 1, USER_NAME => $caller_id });
+
+  message('YOUR_BALANCE');
+  say_money( $user_->{DEPOSIT} );
+
+  if ($user_->{CREDIT} == 0
+    && $user_->{DEPOSIT} <= 0)
+  {
+    use_credit($user_);
+    message('CREDIT');
+    say_money( $user_->{CREDIT} );
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 use_credit($user_info) - Use Credit
+
+=cut
+#**********************************************************
+sub use_credit {
+  my ($user_) = @_;
+
+  if (!$conf{user_credit_change}) {
+    return 1;
+  }
+
+  my $user = $Users->info( $user_->{UID} );
+
+  my ( $sum, $days, $price, $month_changes, $payments_expr ) =
+    split( /:/, $conf{user_credit_change} );
+
+  if (in_array( 'Internet', \@MODULES ) && $sum == 0) {
+    load_module( 'Internet', $html );
+    my $Internet = Dv->new( $db, $admin, \%conf );
+    $Internet->info( $user->{UID} );
+    $sum = $Internet->{USER_CREDIT_LIMIT} if ( $sum == 0 && $Internet->{USER_CREDIT_LIMIT} > 0 );
+  }
+  elsif (in_array( 'Dv', \@MODULES ) && $sum == 0) {
+    load_module( 'Dv', $html );
+    my $Dv = Dv->new( $db, $admin, \%conf );
+    $Dv->info( $user->{UID} );
+    $sum = $Dv->{USER_CREDIT_LIMIT} if ( $sum == 0 && $Dv->{USER_CREDIT_LIMIT} > 0 );
+  }
+
+  if ($user->{CREDIT} >= sprintf( "%.2f", $sum )) {
+    message('CREDIT_OPENED');
+    ivr_log('LOG_NOTICE', 'Credit already opened',
+      { USER_NAME => $caller_id }
+    );
+    return 1;
+  }
+
+  message('CREDIT_POSSIBILITY');
+  message($days);
+  message('DAYS');
+
+  if ($price > 0) {
+    message('CREDIT_CHARGE');
+    say_money($price);
+  }
+
+  my %FORM = ();
+  my $ret_key = message('PRESS_ONE_TO_OPEN_CREDIT', { BREAK_KEYS => '12' });
+  if (! $ret_key) {
+    $ret_key = message('PRESS_TWO_FOR_ENTER', { BREAK_KEYS => '12' });
+  }
+
+  if (! $ret_key) {
+    $FORM{change_credit} = $AGI->get_data( 'beep', "6000", "1" );
+  }
+  else {
+    $FORM{change_credit} = $ret_key;
+  }
+
+  if ($FORM{change_credit} !~ /1/) {
+    return 1;
+  }
+
+  $FORM{change_credit}=1;
+
+  $month_changes = 0 if ( !$month_changes );
+  my $credit_date =
+    strftime( "%Y-%m-%d", localtime( time + int($days) * 86400 ) );
+
+  if ($month_changes) {
+    my ( $y, $m ) = split( /\-/, $DATE );
+    $admin->action_list(
+      {
+        UID       => $user->{UID},
+        TYPE      => 5,
+        AID       => $admin->{AID},
+        FROM_DATE => "$y-$m-01",
+        TO_DATE   => "$y-$m-31"
+      }
+    );
+
+    if ($admin->{TOTAL} >= $month_changes) {
+      push @action_history, "Credit over ($admin->{TOTAL})";
+      ivr_log( 'LOG_WARNING', 'CREDIT_POSSIBILITY_OVER',
+        { USER_NAME => $caller_id, HISTORY => 1 } );
+
+      message('CREDIT_POSSIBILITY_OVER');
+      return 0;
+    }
+  }
+
+  #PERIOD=days;MAX_CREDIT_SUM=sum;MIN_PAYMENT_SUM=sum;
+  if ($payments_expr && $sum != -1) {
+    my %params = (
+      PERIOD          => 0,
+      MAX_CREDIT_SUM  => 1000,
+      MIN_PAYMENT_SUM => 1,
+      PERCENT         => 100
+    );
+
+    my @params_arr = split( /;/, $payments_expr );
+
+    foreach my $line (@params_arr) {
+      my ( $k, $v ) = split( /=/, $line );
+      $params{$k} = $v;
+    }
+
+    $Payments->list(
+      {
+        UID          => $user->{UID},
+        PAYMENT_DAYS => ">$params{PERIOD}",
+        SUM          => ">=$params{MIN_PAYMENT_SUM}"
+      }
+    );
+
+    if ($Payments->{TOTAL} > 0) {
+      $sum = $Payments->{SUM} / 100 * $params{PERCENT};
+      if ($sum > $params{MAX_CREDIT_SUM}) {
+        $sum = $params{MAX_CREDIT_SUM};
+      }
+    }
+    else {
+      $sum = 0;
+    }
+  }
+
+  if ($user->{DISABLE}) {
+    ivr_log( 'LOG_WARNING', 'Credit disable', { USER_NAME => $caller_id } );
+  }
+  elsif ($user->{CREDIT} < sprintf( "%.2f", $sum )) {
+    if ($FORM{change_credit} && $FORM{change_credit} == 1) {
+      $Users->change(
+        $user->{UID},
+        {
+          UID         => $user->{UID},
+          CREDIT      => $sum,
+          CREDIT_DATE => $credit_date,
+          SKIP_STATUS_CHANGE => 1
+        }
+      );
+
+      if (!$user->{errno}) {
+
+        if ($price && $price > 0) {
+          my $Fees = Finance->fees( $db, $admin, \%conf );
+          $Fees->take( $user, $price,
+            { DESCRIBE => "$lang{CREDIT} $lang{ENABLE}" } );
+        }
+
+        cross_modules_call(
+          '_payments_maked',
+          {
+            USER_INFO => $user,
+            SUM       => $sum,
+            QUITE     => 1,
+            HTML      => { language => $lang_file }
+          }
+        );
+
+        if ($conf{external_userchange}) {
+          if (!_external( $conf{external_userchange}, $user )) {
+            return 0;
+          }
+        }
+      }
+      sleep 1;
+      message('CREDIT_OPENED');
+      push @action_history, "Credit: $sum, $credit_date";
+
+      ivr_log(
+        'LOG_NOTICE',
+        'Credit changed',
+        { USER_NAME => $caller_id, HISTORY => 1 }
+      );
+
+      sleep 1;
+    }
+  }
+
+  return -1;
+}
+
+#**********************************************************
+=head2 cards_recharge($user_info) - Recharge cards
+
+=cut
+#**********************************************************
+sub cards_recharge {
+  my ($user_) = @_;
+
+  message('PIN_SHARP');
+
+  my @status =
+    ( 'ENABLE', 'DISABLE', 'USED', 'DELETED', 'RETURNED', 'PROCESSING' );
+
+  my $user = $Users->info( $user_->{UID} );
+  my DBI $db_ = $db->{db}{db};
+  my $try = 0;
+
+  while ( $try < 3 ) {
+    if ($try > 0) {
+      message('TRY_AGAIN');
+    }
+
+    my $user_pin = $AGI->get_data( 'beep', "10000", "11" );
+
+    #if ($conf{CARDS_SKIP_COMPANY} && $user->{COMPANY_ID}) {
+    #  return 0;
+    #}
+
+    if ($user_pin) {
+      $db_->{AutoCommit} = 0;
+
+      my $BRUTE_LIMIT =
+          ( $conf{CARDS_BRUTE_LIMIT} ) ? $conf{CARDS_BRUTE_LIMIT} : 5;
+      $Cards->bruteforce_list( { UID => $user->{UID} } );
+
+      $Cards->cards_info(
+        {
+          PIN      => $user_pin,
+          UID      => $user->{UID},
+          PAYMENTS => 1
+        }
+      );
+
+      if ($Cards->{error}) {
+        message( 'ADD_ERROR', { ID => 600 } );
+        next;
+      }
+      elsif (int( $Cards->{BRUTE_COUNT} ) >= $BRUTE_LIMIT) {
+        message( '', { utf_text => "BRUTE_ATACK", ID => 601 } );
+        next;
+      }
+      elsif ($Cards->{TOTAL} < 1) {
+        message( '', { utf_text => "NOT_EXIST", ID => 603 } );
+        $Cards->bruteforce_add( { UID => $user, PIN => $user_pin } );
+        $db_->commit();
+      }
+      elsif ($Cards->{EXPIRE_STATUS} == 1) {
+        message(
+          '',
+          {
+            utf_text => "$lang{EXPIRE} '$Cards->{EXPIRE}'",
+            ID       => 602
+          }
+        );
+        next;
+      }
+      elsif ($Cards->{SUM} < 1) {
+        message(
+          '',
+          {
+            utf_text => $lang{ERROR}." $lang{SUM}: $Cards->{SUM}",
+            ID       => 604
+          }
+        );
+        next;
+      }
+      elsif ($Cards->{UID} == $user->{UID}) {
+        message( '', { utf_text => $lang{ERR_WRONG_DATA}, ID => 605 } );
+        next;
+      }
+      elsif ($Cards->{STATUS} != 0) {
+        if ($Cards->{STATUS} == 5) {
+          message( '', { utf_text => "$status[$Cards->{STATUS}]" } );
+        }
+        else {
+          message( '',
+            { utf_text => "$status[$Cards->{STATUS}]", ID => 606 }
+          );
+        }
+
+        next;
+      }
+      else {
+        my $cards_number_length = $conf{CARDS_NUMBER_LENGTH} || 11;
+        $Payments->add(
+          $user,
+          {
+            SUM          => $Cards->{SUM},
+            METHOD       => 2,
+            DESCRIBE     => sprintf(
+              "%s%.".$cards_number_length."d",
+              $Cards->{SERIAL}, $Cards->{NUMBER}
+            ),
+            EXT_ID       => "$Cards->{SERIAL}$Cards->{NUMBER}",
+            CHECK_EXT_ID => "$Cards->{SERIAL}$Cards->{NUMBER}",
+            TRANSACTION  => 1
+          }
+        );
+
+        if (!$Payments->{errno}) {
+          $user->{DEPOSIT} +=
+            sprintf( "%.2f", $Cards->{SUM} - $Cards->{COMMISSION} );
+
+          $Cards->cards_change(
+            {
+              ID     => "$Cards->{ID}",
+              STATUS => 2,
+              UID    => $user->{UID},
+            }
+          );
+
+          if ($Cards->{error}) {
+            $db_->rollback();
+            message( "$status[$Cards->{STATUS}]", { ID => 607 } );
+            next;
+          }
+
+          message( '', { utf_text => "PAYMENT_ADDED" } );
+
+          if ($Cards->{COMMISSION} > 0) {
+            message(
+              '',
+              {
+                utf_text =>
+                "$lang{COMMISSION} $Cards->{COMMISSION}"
+              }
+            );
+          }
+
+          message('DEPOSIT');
+          say_money("$user->{DEPOSIT}");
+
+          #Make external script
+          if ($conf{CARDS_PAYMENTS_EXTERNAL}) {
+            _external( "$conf{CARDS_PAYMENTS_EXTERNAL}",
+              { %{$Cards}, %{$user} } );
+          }
+
+          if ($Cards->{COMMISSION}) {
+            my $Fees = Finance->fees( $db, $admin, \%conf );
+            $Fees->take(
+              $user,
+              $Cards->{COMMISSION},
+              {
+                DESCRIBE =>
+                "$lang{COMMISSION} $lang{ICARDS}: $Cards->{SERIAL}$Cards->{NUMBER}",
+                METHOD   => 0,
+              }
+            );
+          }
+
+          #Disable universal card after payment
+          if ($Cards->{UID} > 0) {
+            my $user_new = Users->new( $db, $admin, \%conf );
+            $user_new->info( $Cards->{UID} );
+            $user_new->del();
+          }
+
+          #        if ($Cards->{DILLER_ID}) {
+          #          $Cards->cards_diller_info({ ID => $Cards->{DILLER_ID} });
+          #          my $diller_fees = 0;
+          #          if ($Cards->{PAYMENT_TYPE} == 2 && $Cards->{OPERATION_PAYMENT} > 0) {
+          #            $diller_fees=$Cards->{SUM} / 100 * $Cards->{OPERATION_PAYMENT};
+          #          }
+          #          elsif ($Cards->{DILLER_PERCENTAGE} > 0) {
+          #            $diller_fees=$Cards->{DILLER_PERCENTAGE};
+          #          }
+          #
+          #          if ($diller_fees > 0) {
+          #            my $user_new = Users->new($db, $admin, \%conf);
+          #            $user_new->info($Cards->{UID});
+          #
+          #            my $Fees = Finance->fees($db, $admin, \%conf);
+          #            $Fees->take(
+          #              $user_new,
+          #              $diller_fees,
+          #              {
+          #                DESCRIBE => "Card activate: $Cards->{ID}",
+          #                METHOD   => 0,
+          #                #                                  EXT_ID       => "$Cards->{SERIAL}$Cards->{NUMBER}",
+          #                #                                  CHECK_EXT_ID => "$Cards->{SERIAL}$Cards->{NUMBER}"
+          #              }
+          #            );
+          #          }
+          #        }
+
+          # Check if not card exist
+          $Payments->list(
+            { EXT_ID => "$Cards->{SERIAL}$Cards->{NUMBER}" } );
+          if ($Payments->{TOTAL} <= 1) {
+            $db_->commit();
+          }
+
+          cross_modules_call(
+            '_payments_maked',
+            {
+              USER_INFO    => $user,
+              SKIP_MODULES => 'Cards,Sqlcmd',
+              QUITE        => 1
+            }
+          );
+          return 0;
+        }
+        elsif ($Payments->{errno}) {
+          $db_->rollback();
+          if ($Payments->{errno} == 7) {
+            message( '', { utf_text => "$status[2]", ID => 608 } );
+            if ($Cards->{STATUS} != 2) {
+              $Cards->cards_change(
+                {
+                  ID       => $Cards->{ID},
+                  STATUS   => 2,
+                  UID      => $user->{UID},
+                  DATETIME => "$DATE $TIME",
+                }
+              );
+            }
+          }
+          else {
+            message(
+              '',
+              {
+                utf_text => "$lang{ERROR} "
+                  .(
+                    ( $user->{UID} )
+                  ? ''
+                  : "$Payments->{errno} $Payments->{errstr}"
+                ),
+                ID       => 609
+              }
+            );
+          }
+        }
+      }
+    }
+
+    $try++;
+  }
+
+  $db_->{AutoCommit} = 1;
+
+  return 1;
+}
+
+#**********************************************************
+=head2 msgs_add() - Add message to support
+
+=cut
+#**********************************************************
+sub msgs_add {
+  my ($user_)=@_;
+
+  message('MESSAGE_AFTER_SIGNAL');
+
+  #Hangup #
+  # Add to /usr/local/share/asterisk/sounds/
+  #my $num      = $Voip->{INSERT_ID} || time();
+  my $file_name = 'msgs_'.$message_id;
+  my $msg_time = 200;
+  my $ret = $AGI->record_file( $file_name, 'wav', '#', ( $msg_time * 1000 ),
+    '0', 0, '2' );
+
+  #add message to maggesas
+  require Msgs;
+  Msgs->import();
+  my $Msgs = Msgs->new( $db, $admin, \%conf );
+
+  if ($ret > -1) {
+    message('APPLICATION_ACCEPTED');
+    $Msgs->message_add(
+      {
+        UID     => $user_->{UID},
+        PHONE   => $caller_id,
+        CHAPTER => $conf{'VOIP_IVR_MSGS_CHAPTER'} || 1,
+        SUBJECT => 'IVR '.$message_id,
+        TEXT    => 'IVR:msgs_'.$message_id,
+      }
+    );
+
+    _finish();
+  }
+  else {
+    message('APPLICATION_DECLINED');
+  }
+
+  ivr_log(
+    'LOG_NOTICE',
+    'Request added status: '.$ret.' file: '.$file_name,
+    { AGI_VERBOSE => 1, USER_NAME => $caller_id }
+  );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 full_info($Voip_info) - Full user service info
+
+  Information:
+    DEPOSIT
+    DV
+    ABON
+    VOIP
+
+  Argumenst:
+    $Voip_info - User main info object
+
+  Returns:
+    TRUE or FALSE
+
+=cut
+#**********************************************************
+sub full_info {
+  my ($user_) = @_;
+
+  show_deposit($user_);
+
+  if (in_array( 'Internet', \@MODULES )) {
+    load_module( 'Internet', $html );
+    my $Internet = Internet->new( $db, $admin, \%conf );
+    $Internet->info( $user_->{UID} );
+    if (!$Internet->{errno}) {
+      message('INTERNET_ACTIVE');
+      message('TARIFF_PLAN');
+      #message( $Dv->{TP_ID} );
+      message( $Internet->{TP_NAME} );
+      if($Internet->{IP} && $Internet->{IP} ne '0.0.0.0') {
+        message('STATIC_IP');
+        message( $Internet->{IP} );
+      }
+    }
+  }
+  elsif (in_array( 'Dv', \@MODULES )) {
+    load_module( 'Dv', $html );
+    my $Dv = Dv->new( $db, $admin, \%conf );
+    $Dv->info( $user_->{UID} );
+    if (!$Dv->{errno}) {
+      message('INTERNET_ACTIVE');
+      message('TARIFF_PLAN');
+      #message( $Dv->{TP_ID} );
+      message( $Dv->{TP_NAME} );
+      if($Dv->{IP} && $Dv->{IP} ne '0.0.0.0') {
+        message('STATIC_IP');
+        message( $Dv->{IP} );
+      }
+    }
+  }
+
+  if (in_array( 'Abon', \@MODULES )) {
+    message('ADDITIONAL_SERVICES');
+  }
+
+  if (in_array( 'Voip', \@MODULES )) {
+    $Voip->user_info( $user_->{UID} );
+    if ($Voip->{TOTAL}) {
+      message('TELEPHONY_ACTIVE');
+    }
+  }
+
+  if (in_array( 'Iptv', \@MODULES )) {
+    require Iptv;
+    Iptv->import();
+    my $Iptv = Iptv->new( $db, $admin, \%conf );
+    $Iptv->user_info( $user_->{UID} );
+    if ($Iptv->{TOTAL}) {
+      message('TV_ACTIVE');
+    }
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 marketing_info($attr) Markering information and discounts
+
+  Attributes:
+
+
+  Returns:
+    TRUE or FALSE
+
+=cut
+#**********************************************************
+sub marketing_info {
+  #my ($attr) = @_;
+
+  my $info_file = $conf{'VOIP_IVR_INFO'} || '';
+
+  if (-f $info_file) {
+    $AGI->stream_file( $info_file );
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 pin_verify($attr)  - Verify pin
+
+  Attributes:
+
+=cut
+#**********************************************************
+sub pin_verify {
+
+  #my ($attr) = @_;
+
+  my $user_pin = '';
+  my $try = 0;
+
+  message('ENTER_PASSWORD');
+
+  while ( length($user_pin) != 8 && $try < 3 ) {
+    if ($try) {
+      message('AUTH_ERROR');
+    }
+
+    $user_pin = $AGI->get_data( 'beep', "10000", "10" );
+
+    if (!defined($user_pin)) {
+      $user_pin = '';
+    }
+
+    ivr_log(
+      'LOG_NOTICE',
+      "Pin verify: $pin_verify_param -> $user_pin",
+      { AGI_VERBOSE => 1, USER_NAME => $caller_id }
+    );
+
+    $user_pin =~ s/#$//;
+
+    my $list = $Users->list(
+      {
+        DEPOSIT           => '_SHOW',
+        CREDIT            => '_SHOW',
+        FIO               => '_SHOW',
+        $pin_verify_param => "$user_pin",
+        COLS_NAME         => 1,
+      }
+    );
+
+    if ($Users->{TOTAL} == 1) {
+      $user_info->{list} = $list;
+      return 1;
+    }
+    elsif ($Users->{TOTAL} > 1) {
+      ivr_log(
+        'LOG_WARNING',
+        "Multi verification Total: $Users->{TOTAL}",
+        { AGI_VERBOSE => 1, USER_NAME => $caller_id }
+      );
+    }
+
+    if ($debug > 5) {
+      $AGI->exec( 'SayDigits', $user_pin );
+    }
+
+    $try++;
+  }
+
+  return 0;
+}
+
+#**********************************************************
+=head2 say_money($array, $attr) - Say money
+
+  Argumments:
+    $array   - Sum
+    $attr
+
+  Results:
+
+=cut
+#**********************************************************
+sub say_money {
+  my ( $array, $attr ) = @_;
+
+  $array = sprintf( "%.2f", $array );
+
+  #Use google speach
+  if (!$say_money_file) {
+    my ( $main_unit, $sub_unit ) = split( /[,.]/, $array );
+    message("$main_unit "
+        .( $conf{MONEY_UNIT_NAMES} ? $conf{MONEY_UNIT_NAMES}->[0] : '' )
+        ."  $sub_unit "
+        .( $conf{MONEY_UNIT_NAMES} ? $conf{MONEY_UNIT_NAMES}->[1] : '' )
+    );
+    return 0;
+  }
+
+  #Use speach files
+  #my $ret    = '';
+  my @result = ();
+
+  my @ones = (
+    '', '1000',
+    '������', '������',
+    '��������'
+  );
+  my @twos = (
+    '', 'thousands-i',
+    '�������', '�������',
+    '���������'
+  );
+  my @fifth = (
+    '', 'thousands',
+    '�������', '�������',
+    '���������'
+  );
+
+  my @one     = ( '', '1', '2', '3', '4', '5', '6', '7', '8', '9' );
+  my @onest   = ( '', '1f', '2f' );
+  my @ten     = ( '', '', '20', '30', '40', '50', '60', '70', '80', '90' );
+  my @tens    = ( '10', '11', '12', '13', '14', '15', '16', '17', '18', '19' );
+  my @hundred = ( '', '100', '200', '300', '400', '500', '600', '700', '800', '900' );
+  #my $money_unit_names = [ 'roubles', 'copecks' ];
+  my $money_unit_names = [ 'GRN', 'KOP' ];
+
+  @ones  = @{ $attr->{ONES} } if ( $attr->{ONES} );
+  @twos  = @{ $attr->{TWOS} } if ( $attr->{TWOS} );
+  @fifth = @{ $attr->{FIFTH} } if ( $attr->{FIFTH} );
+
+  @one              = @{ $attr->{ONE} } if ( $attr->{ONE} );
+  @onest            = @{ $attr->{ONEST} } if ( $attr->{ONEST} );
+  @ten              = @{ $attr->{TEN} } if ( $attr->{TEN} );
+  @tens             = @{ $attr->{TENS} } if ( $attr->{TENS} );
+  @hundred          = @{ $attr->{HUNDRED} } if ( $attr->{HUNDRED} );
+  $money_unit_names = $attr->{MONEY_UNIT_NAMES} if ( $attr->{MONEY_UNIT_NAMES} );
+
+  push @result, 'minus' if ( $array < 0 );
+
+  $array =~ s/,/\./g;
+  $array =~ tr/0-9,.//cd;
+  my $tmp = $array;
+  my $count = ( $tmp =~ tr/.,// );
+
+  if ($count > 1) {
+    push @result, "bad integer format\n";
+    return 1;
+  }
+
+  my $second = "0";
+  my ( $first, $i, @first, $j );
+
+  if (!$count) {
+    $first = $array;
+  }
+  else {
+    $first = $second = $array;
+    $first =~ s/(.*)(\..*)/$1/;
+    $second =~ s/(.*)(\.)(\d\d)(.*)/$3/;
+
+    #$second .= "0" if (length $second < 2);
+    $second = $second + 0;
+  }
+
+  $count = int( ( length $first ) / 3 );
+  my $first_length = length $first;
+
+  for ($i = 1; $i <= $count; $i++) {
+    $tmp = $first;
+    $tmp =~ s/(.*)(\d\d\d$)/$2/;
+    $first =~ s/(.*)(\d\d\d$)/$1/;
+    $first[$i] = $tmp;
+  }
+
+  if ($count < 4 && $count * 3 < $first_length) {
+    $first[$i] = $first;
+    $first_length = $i;
+  }
+  else {
+    $first_length = $i - 1;
+  }
+
+  for ($i = $first_length; $i >= 1; $i--) {
+    $tmp = 0;
+    for ($j = length( $first[$i] ); $j >= 1; $j--) {
+      if ($j == 3) {
+        $tmp = $first[$i];
+        $tmp =~ s/(^\d)(\d)(\d$)/$1/;
+        push @result, $hundred[$tmp];
+
+        if ($tmp > 0) {
+          push @result, " ";
+        }
+      }
+      if ($j == 2) {
+        $tmp = $first[$i];
+        $tmp =~ s/(.*)(\d)(\d$)/$2/;
+        if ($tmp != 1) {
+          push @result, $ten[$tmp];
+          if ($tmp > 0) {
+            push @result, " ";
+          }
+        }
+      }
+      if ($j == 1) {
+        if ($tmp != 1) {
+          $tmp = $first[$i];
+          $tmp =~ s/(.*)(\d$)/$2/;
+          if (( ( $i == 1 ) || ( $i == 2 ) )
+            && ( $tmp == 1 || $tmp == 2 ))
+          {
+            push @result, $onest[$tmp];
+            if ($tmp > 0) {
+              push @result, " ";
+            }
+          }
+          else {
+            push @result, $one[$tmp];
+            if ($tmp > 0) {
+              push @result, " ";
+            }
+          }
+        }
+        else {
+          $tmp = $first[$i];
+          $tmp =~ s/(.*)(\d$)/$2/;
+          push @result, $tens[$tmp];
+          if ($tmp > 0) {
+            push @result, " ";
+          }
+          $tmp = 5;
+        }
+      }
+    }
+
+    push @result, ' ';
+    if ($tmp == 1) {
+      push @result,
+          ( $ones[ $i - 1 ] ) ? $ones[ $i - 1 ] : $money_unit_names->[0];
+    }
+    elsif ($tmp > 1 && $tmp < 5) {
+      push @result,
+          ( $twos[ $i - 1 ] ) ? $twos[ $i - 1 ] : $money_unit_names->[0];
+    }
+    elsif ($tmp > 4) {
+      push @result,
+          ( $fifth[ $i - 1 ] ) ? $fifth[ $i - 1 ] : $money_unit_names->[0];
+    }
+    else {
+      push @result, ( $fifth[0] ) ? $fifth[0] : $money_unit_names->[0];
+    }
+    push @result, ' ';
+  }
+
+  if ($second ne '') {
+    push @result, $second, "$money_unit_names->[1]";
+  }
+  else {
+    push @result, " ";
+  }
+
+  foreach my $r (@result) {
+    next if ( $r eq ' ' || $r eq '' );
+    ivr_log( 'LOG_DEBUG', "Say money: $r", { AGI_VERBOSE => 1 } );
+    $AGI->stream_file( 'digits/'.$r );
+  }
+
+  return \@result;
+}
+
+#**********************************************************
+=head2 message($text, $attr) - Voicing message
+
+  Arguments:
+    $text - Text for plaing
+    $attr - Extra attributes
+      BREAK_KEYS  - break
+      utf_text    - UTF8 text
+      lang_short  - Short lang (ru,ua,en)
+
+  Returns:
+
+=cut
+#**********************************************************
+sub message {
+  my ( $text, $attr ) = @_;
+
+  $AGI->verbose( "1 $text" );
+
+  my $self_sound = 0;
+  $text .= $attr->{utf_text} if ( $attr->{utf_text} );
+
+  my $googletts = ( $conf{VOIP_GOOGLETTS} ) ? $conf{VOIP_GOOGLETTS}
+    : '/usr/axbills/AXbills/modules/Voip/googletts.agi';
+
+  if ($attr->{lang_short}) {
+    $lang_short = $attr->{lang_short};
+  }
+
+  if (defined($text)) {
+    if ($self_sound) {
+      #my $file_name =
+      voice_file( $text, $lang_short );
+    }
+    else {
+      if ($text =~ /^[\$\_]{0,2}([A-Z\_0-9]+)$/) {
+        $text = $1;
+
+        ivr_log( 'LOG_DEBUG', "Base text: $text" ) if ( $debug > 7 );
+        my $result = play_static( $text, $lang_short, $attr);
+
+        if ($result < 0) {
+          if ($text && $text !~ /^\d+$/) {
+            $text = '$_' . $text;
+            $text = _translate($text);
+            if (!defined($text)) {
+              $text = '';
+            }
+          }
+        }
+        else {
+          return $result;
+        }
+
+        Encode::_utf8_off($text);
+      }
+
+#      if($text == 0) {
+#  print STDERR ">>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>>> 0 <<<<<<<<<<<<<<<<<<<<<<<<<<<<<<\n";
+#  exit;
+#}
+      ivr_log( 'LOG_DEBUG', "Googlet text: $text" ) if ( $debug > 7 );
+
+      my $return = $AGI->exec( 'AGI', "$googletts,$text,$lang_short" );
+
+      ivr_log('LOG_DEBUG',  "$googletts,$text,$lang_short Return:" .( ( !defined($return) ) ? 'No return' : $return ),
+        { AGI_VERBOSE => 2, USER_NAME => $caller_id }
+      );
+    }
+  }
+
+  return -1;
+}
+
+#**********************************************************
+=head2 play_static($text, $lang_short_)
+
+  Arguments:
+    $text
+    lang_short_
+    $attr
+      BREAK_KEYS
+
+  Results:
+    TRUE or FALSE
+
+=cut
+#**********************************************************
+sub play_static {
+  my ( $filename, $lang_short_, $attr) = @_;
+
+  my $cachedir = $var_dir."/ivr/$lang_short_/";
+  my $fexten = '';
+  my $break_keys = $intkey;
+  if($attr->{BREAK_KEYS}) {
+    $break_keys = $attr->{BREAK_KEYS};
+  }
+
+  # Setting filename extension according to sample rate.
+  if ($samplerate == 16000) {
+    $fexten = "sln16";
+  }
+  else {
+    $fexten = "sln";
+    $samplerate = 8000;
+  }
+
+  my $return_code = -1;
+  if (-f "$cachedir/".$filename.'.'.$fexten) {
+    $return_code = playfile( "$cachedir/$filename", $break_keys );
+  }
+  elsif (-f "$cachedir/".$filename.'.wav') {
+    convert_file( $filename.'.wav', { LANG => $lang_short_ } );
+    $return_code =  playfile( "$cachedir/$filename", $break_keys );
+  }
+
+  return $return_code;
+}
+
+#**********************************************************
+=head2 convert_file($filename, $attr)
+
+=cut
+#**********************************************************
+sub convert_file {
+  my ( $filename, $attr ) = @_;
+
+  my $lang_short_ = $attr->{LANG} || '';
+  my $name = 'convert_file';
+  #my $tmpdir = '/tmp/';
+  my $sox = `/usr/bin/which sox`;
+  my $mpg123 = `/usr/bin/which mpg123`;
+  my $cachedir = $var_dir."/ivr/$lang_short_/";
+  my $fexten = '';
+
+  chomp( $sox, $mpg123 );
+
+  # Setting filename extension according to sample rate.
+  if ($samplerate == 16000) {
+    $fexten = "sln16";
+  }
+  else {
+    $fexten = "sln";
+    $samplerate = 8000;
+  }
+
+  if (!-d $cachedir) {
+    if (!mkdir($cachedir)) {
+      ivr_log(
+        'LOG_ERR',
+        "Can't create dir: '$cachedir' $!",
+        { AGI_VERBOSE => 2 }
+      );
+      return 0;
+    }
+  }
+
+  warn "$filename Found sox in: $sox, mpg123 in: $mpg123\n" if ($debug);
+  my ( $tmpname, $ext ) = split( /\./, $filename );
+
+  # Convert mp3 file to 16bit 8Khz mono raw #
+  if ($ext =~ /\.mp3/) {
+    system( $mpg123, "-q", "-w", "$cachedir/$tmpname".'.wav',
+      "$cachedir/$filename" ) == 0
+      or die "$name: $mpg123 failed: $?\n";
+  }
+
+  if (!-f "$cachedir/$tmpname.$fexten") {
+    my @soxargs = (
+      $sox, "$cachedir/$filename", "-q", "-r", $samplerate, "-t", "raw",
+      "$cachedir/$tmpname.$fexten"
+    );
+
+    if ($sox_ver >= 14) {
+      push( @soxargs, ( "tempo", "-s", $speed ) ) if ( $speed != 1 );
+    }
+    else {
+      push( @soxargs, ( "stretch", 1 / $speed, "200" ) )
+        if ( $speed != 1 );
+    }
+
+    system(@soxargs) == 0 or die "$filename $sox failed: $?\n";
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 playfile($file, $keys) = @_;
+
+  Arguments:
+    $file
+    $keys
+
+  Returns:
+    Enter code
+
+=cut
+#**********************************************************
+sub playfile {
+  my ( $file, $keys ) = @_;
+
+  print "STREAM FILE $file \"$keys\"\n";
+  my $name = '';
+  my @response = checkresponse();
+  my $return_code;
+
+  if ($response[0] >= 32 && chr( $response[0] ) =~ /[\w*#]/) {
+    warn "$name Got digit ", chr( $response[0] ), "\n" if ($debug);
+    $return_code = chr( $response[0] );
+
+    print "SET EXTENSION ", chr( $response[0] ), "\n";
+    checkresponse();
+    print "SET PRIORITY 1\n";
+    checkresponse();
+  }
+  elsif ($response[0] == -1) {
+    warn "$name Failed to play $file.\n";
+  }
+
+  if($return_code) {
+    return $return_code;
+  }
+
+  return $response[0];
+}
+
+#**********************************************************
+=head2 checkresponse()
+
+=cut
+#**********************************************************
+sub checkresponse {
+  my $input = <STDIN>;
+  my @values;
+  my $name = '';
+
+  chomp $input;
+  if ($input =~ /^200 result=(-?\d+)\s?(.*)$/) {
+    warn "name Command returned: $input\n" if ($debug);
+    @values = ( "$1", "$2" );
+  }
+  else {
+    $input .= <STDIN> if ( $input =~ /^520-Invalid/ );
+    warn "$name Unexpected result: $input\n";
+    @values = ( -1, -1 );
+  }
+
+  return @values;
+}
+
+#**********************************************************
+=head2 voice_file($text, $lang_short_)
+
+=cut
+#**********************************************************
+sub voice_file {
+  my ( $text, $lang_short_ ) = @_;
+
+  my $filename = '';
+  my $tmpdir = '/tmp/';
+
+  #my $result_dir = $var_dir . '/ivr/';
+  my $url = "http://translate.google.com/translate_tts";
+  my $sox = `/usr/bin/which sox`;
+  my $mpg123 = `/usr/bin/which mpg123`;
+  my $usecache = 1;
+  my $cachedir = $var_dir."/ivr/$lang_short_/";
+
+  #my $debug = 1;
+  my $name = '';
+  my $fexten = '';
+  my ( $fh, $tmpname );
+
+  chomp( $sox, $mpg123 );
+  warn "$name Found sox in: $sox, mpg123 in: $mpg123\n" if ($debug);
+
+  # Setting filename extension according to sample rate.
+  if ($samplerate == 16000) {
+    $fexten = "sln16";
+  }
+  else {
+    $fexten = "sln";
+    $samplerate = 8000;
+  }
+
+  my $text_ = $text;
+  if ($text =~ /^[A-Z0-9\_]+$/) {
+    $text_ = eval "\"\$_$text\"";
+    warn "Decode text: $text_\n" if ($debug);
+  }
+
+  $text_ =~ s/[\\|*~<>^\(\)\[\]\{\}[:cntrl:]]/ /g;
+  $text_ =~ s/\s+/ /g;
+  $text_ =~ s/^\s|\s$//g;
+  die "No text passed for synthesis.\n" if ( !length($text) );
+
+  $text_ .= "." unless ( $text =~ /^.+[.,?!:;]$/ );
+  my @text = $text_ =~ /.{1,100}[.,?!:;]|.{1,100}\s/g;
+
+  my $ua = LWP::UserAgent->new;
+  $ua->agent( "Mozilla/5.0 (X11; Linux; rv:8.0) Gecko/20110101" );
+  $ua->timeout( 5 );
+
+  foreach my $line (@text) {
+    $line =~ s/^\s+|\s+$//g;
+    last if ( length($line) == 0 );
+    if ($debug > 5) {
+      warn "$name Text passed for synthesis: $line\n",
+        "$name Language: $lang_short_, Interrupt keys: $intkey, Sample rate: $samplerate\n",
+        "$name Caching: $usecache, Cache dir: $cachedir\n";
+    }
+
+    if ($usecache) {
+      if ($text =~ /^[A-Z0-9\_]+$/) {
+        $filename = $text;
+
+        # Stream file from cache if it exists #
+        if (-r "$cachedir/$filename.$fexten") {
+          return "$cachedir/$filename.$fexten";
+        }
+      }
+    }
+
+    warn "$name URL passed: $url?tl=$lang_short_&q=$line\n" if ( $debug > 5 );
+
+    my $ua_request = HTTP::Request->new( 'GET' => "$url?tl=$lang_short_&q=$line" );
+    my $ua_response = $ua->request( $ua_request );
+    die "$name Failed to fetch file.\n" unless ( $ua_response->is_success );
+
+    ( $fh, $tmpname ) = tempfile( "ggl_XXXXXX", DIR => $tmpdir, UNLINK => 1 );
+    open( $fh, ">", "$tmpname" ) or die "$name Failed to open file: $!\n";
+      print $fh $ua_response->content;
+    close $fh or warn "$name Failed to close file: $!\n";
+
+    # Convert mp3 file to 16bit 8Khz mono raw #
+    system( $mpg123, "-q", "-w", "$tmpname.wav", $tmpname ) == 0
+      or die "$name $mpg123 failed: $?\n";
+
+    my @soxargs = (
+      $sox, "$tmpname.wav", "-q", "-r", $samplerate, "-t", "raw",
+      "$tmpname.$fexten"
+    );
+    if ($sox_ver >= 14) {
+      push( @soxargs, ( "tempo", "-s", $speed ) ) if ( $speed != 1 );
+    }
+    else {
+      push( @soxargs, ( "stretch", 1 / $speed, "200" ) )
+        if ( $speed != 1 );
+    }
+
+    system(@soxargs) == 0 or die "$name $sox failed: $?\n";
+
+    # Playback and save file in cache #
+    #$res = playback($tmpname, $intkey);
+    if ($usecache) {
+      mkpath("$cachedir") unless ( -d "$cachedir" );
+      warn "$name Saving file $filename to cache\n" if ( $debug > 5 );
+      move( "$tmpname.$fexten", "$cachedir/$filename.$fexten" );
+    }
+
+    #unlink glob "$tmpname*";
+    #last if ($res > 0);
+  }
+
+  $filename = "$tmpname.$fexten";
+  return $filename;
+}
+
+#**********************************************************
+=head2 menu($menu) - Main menu
+
+=cut
+#**********************************************************
+sub menu {
+  my ($menu) = @_;
+
+  #Add to log session
+  $Callcenter->log_add({
+    UID   => 0,
+    PHONE => $caller_id,
+    IP    => $remote_ip,
+    UNIQUE_ID => $input{'uniqueid'}
+  });
+
+  $message_id = $Voip->{INSERT_ID};
+
+  my %LIST_PARAMS = (
+    DEPOSIT   => '_SHOW',
+    CREDIT    => '_SHOW',
+    FIO       => '_SHOW',
+    PHONE     => "$caller_id",
+    DISABLE   => '_SHOW',
+    COLS_NAME => 1,
+  );
+
+  if ($conf{VOIP_IVR_MULTI_AUTH}) {
+    foreach my $key (split( /,\s?/, $conf{VOIP_IVR_MULTI_AUTH} )) {
+      $LIST_PARAMS{$key} = $caller_id;
+    }
+
+    $LIST_PARAMS{SKIP_DEL_CHECK} = 1;
+    $LIST_PARAMS{_MULTI_HIT} = 1;
+  }
+
+  ##get user name phone and status
+  my $list = $Users->list( \%LIST_PARAMS );
+
+  $Voip->{list} = $list;
+
+  if ($Users->{error}) {
+    my $error_msg = "Get user error: $Users->{error} $Users->{err_str}";
+    ivr_log('LOG_ERR', $error_msg,
+      { AGI_VERBOSE => 1, USER_NAME => $caller_id });
+
+    _finish({ MESSAGE => $error_msg });
+  }
+  # User not exist
+  elsif ($Users->{TOTAL} == 0) {
+    #Pin require
+    ivr_log('LOG_WARNING', "User not found. ($Users->{TOTAL})",
+      { AGI_VERBOSE => 1, USER_NAME => $caller_id });
+
+    if ($conf{VOIP_IVR_UNAUTH_REDIRECT}) {
+      $Callcenter->log_change(
+        {
+          ID     => $message_id,
+          COMMENT=> "Redirect to support",
+        }
+      );
+      _finish();
+    }
+    elsif (pin_verify()) {
+      ivr_log('LOG_INFO',  "Pin verified # $message_id UID: $Voip->{list}->[0]->{uid}",
+        { AGI_VERBOSE => 1, USER_NAME => $caller_id }
+      );
+    }
+    else {
+      message('YOU_ARE_NOT_AUTHORISED');
+      ivr_log( 'LOG_WARNING', "Pin failed",
+        { AGI_VERBOSE => 1, USER_NAME => $caller_id } );
+      #$AGI->hangup();
+      _finish();
+    }
+  }
+
+  ivr_log('LOG_DEBUG', "UID: $Voip->{list}->[0]->{uid} "
+      ."Voip Phone: "
+      .( $Voip->{list}->[0]->{phone} || q{} )
+      ."Deposit: $Voip->{list}->[0]->{deposit}",
+    { AGI_VERBOSE => 1, USER_NAME => $caller_id }
+  );
+
+  my %USER_INFO = (
+    FIO    => $Voip->{list}->[0]->{fio},
+    UID    => $Voip->{list}->[0]->{uid},
+    LOGIN  => $Voip->{list}->[0]->{phone},
+    PHONE  => $Voip->{list}->[0]->{login},
+    DEPOSIT=> $Voip->{list}->[0]->{deposit},
+  );
+
+  if ($conf{VOIP_IVR_WELCOME}) {
+    message( $conf{VOIP_IVR_WELCOME} );
+  }
+  else {
+    message('WELLCOME');
+    message( $USER_INFO{FIO} );
+  }
+
+  $Callcenter->log_change(
+    {
+      ID     => $message_id,
+      UID    => $USER_INFO{UID},
+      STATUS => 1
+    }
+  );
+
+  if ($USER_INFO{DEPOSIT} < 0) {
+    message('NEGATIVE_BALANCE');
+    say_money( $USER_INFO{DEPOSIT} );
+    use_credit(\%USER_INFO);
+  }
+
+  equipment_test( { USER_INFO => \%USER_INFO } );
+
+  $Voip->{list} = $list;
+
+  my $code;
+  my $cure_menu = $menu;
+  my $try = 0;
+  my $active_code = 0;
+
+  while ( $try < 3 ) {
+    if ($debug > 8) {
+      message('STEP');
+      message($try);
+    }
+
+    if ($code && !$cure_menu->{$code} && $menu->{0}->{$code}) {
+      $cure_menu = $menu->{0};
+    }
+    #my $code2 = $code || '';
+    if($code) {
+      push @action_history, $code;
+      $Callcenter->log_change({
+        COMMENT => join(',', @action_history),
+        ID      => $message_id
+      });
+    }
+
+    if ($code && $cure_menu->{$code}) {
+      ivr_log('LOG_DEBUG', "Menu: '$cure_menu->{$code}' User select code: " . ( ($code) ? $code : '' ),
+        { AGI_VERBOSE => 1, USER_NAME => $caller_id }
+      );
+
+      if (ref $cure_menu->{$code} eq 'HASH') {
+        $cure_menu = $menu->{$code};
+        my $return_code = main_menu($cure_menu);
+        $active_code = $code;
+        if($return_code > 0) {
+          $code = $return_code;
+          next;
+        }
+      }
+      else {
+        my ($function, $message) = split( /:/, $cure_menu->{$code} );
+        if (!$function) {
+          ivr_log('LOG_DEBUG', "Menu: '$cure_menu->{$code}' function not defined",
+            { AGI_VERBOSE => 1, USER_NAME => $caller_id });
+        }
+        elsif ($function eq 'play_menu') {
+          play_menu($message);
+        }
+        elsif ($function =~ /^AUDIO=(.+):?/) {
+          my $audio_file = $1;
+          $audio_file =~ s/\.wav//i;
+          play_static( $audio_file, $lang_short );
+        }
+        else {
+          &{ \&$function }( \%USER_INFO );
+          #$active_code = 0;
+          #$cure_menu   = $menu;
+          $code        = 0;
+          #$active_code = $code;
+        }
+      }
+      $try = 0;
+    }
+    else {
+      $active_code = 0;
+      my $return_code = main_menu( $menu->{0} );
+      if($return_code > -1) {
+        $code = $return_code;
+        next;
+      }
+    }
+
+    #Replay
+    if (!defined( $menu->{ $code || 0 }{0} )) {
+      if (!$conf{VOIP_IVR_SKIP_AUTONUM}) {
+        message('0');
+      }
+      message('REPLAY_MENU');
+    }
+
+    #Main menu
+    if ($active_code != 0) {
+      message('ASTERISK');
+      message('MAIN_MENU');
+    }
+
+    $code = $AGI->get_data( 'beep', "6000", "1" );
+    sleep 1;
+
+    if ($code && $code =~ /\*/) {
+      $cure_menu = $menu;
+      $try = 0;
+      $code = undef;
+    }
+    elsif ($code == 0) {
+      $cure_menu = $menu;
+      $code = $active_code;
+      $try = 0;
+    }
+
+    $try++;
+  }
+
+  return 0;
+}
+
+#**********************************************************
+=head2 main_menu($menu, $attr) - Read menu
+
+  Arguments:
+    $menu
+    $attr
+
+  Returns:
+
+    TRUE or FALSE
+
+=cut
+#**********************************************************
+sub main_menu {
+  my ($menu) = @_;
+
+  if (!$conf{VOIP_IVR_SKIP_AUTONUM}) {
+    message('PRESS');
+  }
+
+  reset %{$menu};
+  my $result = -1;
+  my @codes  = sort keys %{$menu};
+
+  foreach my $code ( @codes ) {
+    if ($code == 0) {
+      next;
+    }
+    my ( undef, $message ) = split( /:/, $menu->{$code} );
+    if (!$conf{VOIP_IVR_SKIP_AUTONUM}) {
+      $result = message($code);
+    }
+    $result =  message($message, { BREAK_KEYS => join('', @codes) });
+    if($result > 0) {
+      return $result;
+    }
+  }
+
+  if (defined( $menu->{0} )) {
+    my ( undef, $message ) = split( /:/, $menu->{0} );
+    if (!$conf{IVR_SKIP_AUTONUM}) {
+      $result =  message(0);
+    }
+    $result =  message($message);
+  }
+
+  #ivr_log( 'LOG_NOTICE', "2222222222222/ $result //", { USER_NAME => $caller_id } );
+
+  return $result;
+}
+
+#**********************************************************
+=head2 call_operator($attr);
+
+extension.conf
+
+  exten => s,100,AGI(/usr/axbills/AXbills/modules/Voip/balance_recharge.agi,${CALLERIID(num)})
+  exten => s,n,Goto(from-did-direct,600,1)
+
+  600 - Operator number
+
+=cut
+#**********************************************************
+sub call_operator {
+  #my ($attr) = @_;
+
+  if ($conf{VOIP_IVR_OPERATOR_CALL}) {
+    my $operator_call = $conf{VOIP_IVR_OPERATOR_CALL};
+    $AGI->exec( 'Goto', $operator_call );
+  }
+
+  ivr_log( 'LOG_NOTICE', 'call_operator', { USER_NAME => $caller_id } );
+
+  _finish();
+}
+
+#**********************************************************
+=head2 callback_request($attr) - Callback functions
+
+=cut
+#**********************************************************
+sub callback_request {
+  my ($attr) = @_;
+
+  #my $num = $Voip->{INSERT_ID} || time();
+
+  my %LIST_PARAMS = (
+    DEPOSIT   => '_SHOW',
+    CREDIT    => '_SHOW',
+    FIO       => '_SHOW',
+    PHONE     => "$caller_id",
+    DISABLE   => '_SHOW',
+    COLS_NAME => 1,
+  );
+
+  my $list = $Users->list( \%LIST_PARAMS );
+  $Voip->{list} = $list;
+
+  #add message to maggesas
+  require Msgs;
+  Msgs->import();
+  my $Msgs = Msgs->new( $db, $admin, \%conf );
+
+  if ($caller_id) {
+    message('APPLICATION_ACCEPTED');
+
+    $Msgs->message_add(
+      {
+        UID     => $Voip->{list}->[0]->{uid},
+        PHONE   => $caller_id,
+        CHAPTER => $conf{'VOIP_ASTERISK_IVR_MSGS_CHAPTER'} || 1,
+        SUBJECT => 'IVR '.$Voip->{list}->[0]->{uid},
+        MESSAGE => 'IVR:msgs_call me'.$caller_id,
+      }
+    );
+
+    _finish({ HANGUP => 1 });
+  }
+  else {
+    message('APPLICATION_DECLINED');
+  }
+
+  ivr_log( 'LOG_NOTICE', 'Request added', $attr );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 play_menu($message, $attr) - Play menu title
+
+  Attributes:
+    $message
+    $attr
+
+  Returns:
+    TRUE or FALSE
+
+=cut
+#**********************************************************
+sub play_menu {
+  my ($message) = @_;
+
+  message($message);
+
+  return 1;
+}
+
+#**********************************************************
+=head2 ivr_log($debug_level, $message, $attr) - IVR debug message
+
+  Arguments:
+    $debug_level  - Debug level
+    $message      - Message
+    $attr         - Extra attr
+      AGI_VERBOSE - Agi verbose level form 1 to 4
+      HISTORY
+
+=cut
+#**********************************************************
+sub ivr_log {
+  my ( $debug_level, $message, $attr ) = @_;
+
+  $debug_level = 'LOG_DEBUG' if ( !$debug_level );
+  if($attr->{HISTORY}) {
+    $Callcenter->log_change({
+      COMMENT => join(',', @action_history),
+      ID      => $message_id
+    });
+  }
+
+  $Log->log_print( $debug_level, $attr->{USER_NAME}, $message,
+    { LOG_FILE => $log_file, LOG_LEVEL => $debug } );
+
+  if ($attr->{AGI_VERBOSE}
+    && $log_levels{$debug_level}
+    && $log_levels{$debug_level} <= $debug)
+  {
+    $AGI->verbose( $message, $attr->{AGI_VERBOSE} );
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 eqipment_test($attr) - IVR debug message
+
+  Arguments:
+    $attr         - Extra attr
+
+  Returns:
+
+=cut
+#**********************************************************
+sub equipment_test {
+  my ($attr) = @_;
+
+  if (!in_array( 'Equipment', \@MODULES )) {
+    return 0;
+  }
+  elsif(! $conf{VOIP_EQUIPMENT_TEST} ) {
+    return 0;
+  }
+
+  my $USER_INFO = $attr->{USER_INFO};
+
+  require Equipment;
+  Equipment->import();
+  my $Equipment = Equipment->new( $db, $admin, \%conf );
+
+  require Internet;
+  Internet->import();
+  my $Internet = Internet->new( $db, $admin, \%conf );
+
+  my $internet_list = $Internet->list({
+    UID       => $USER_INFO->{UID},
+    PORTS     => '_SHOW',
+    NAS_ID    => '>0',
+    COLS_NAME => 1
+  });
+
+  if ($Internet->{TOTAL}) {
+    my $nas_id = $internet_list->[0]->{nas_id};
+
+    #my $ports = $list->[0]->{ports};
+
+    my $equipment_list = $Equipment->_list(
+      {
+        NAS_ID    => $nas_id,
+        STATUS    => '_SHOW',
+        COLS_NAME => 1
+      }
+    );
+
+    if ($Equipment->{TOTAL}) {
+      my $status = $equipment_list->[0]->{status} || 0;
+      ivr_log( "LOG_INFO", "Equipment STATUS: $status" );
+      if ($status) {
+        if ($status == 1 || $status == 3) {
+          message('NAS_DISABLED');
+        }
+        else {
+          message('NAS_TECH_WORK');
+        }
+      }
+    }
+  }
+
+  ivr_log( "LOG_DEBUG", "Equipment test end" );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _finish($attr) - Finish call
+
+  Arguments:
+    $attr         - Extra attr
+      HANGUP
+      MESSAGE     - Log message
+
+  Returns:
+
+=cut
+#**********************************************************
+sub _finish {
+  my ($attr) = @_;
+
+  my $session_duration = time - $session_start;
+  my %inputs = (
+    DURATION=> $session_duration,
+    ID      => $message_id
+  );
+
+  if($#action_history > -1) {
+    $inputs{COMMENT}=join(',', @action_history);
+  }
+
+  if ($attr->{MESSAGE}) {
+    $inputs{COMMENT}=$attr->{MESSAGE};
+  }
+
+  $Callcenter->log_change( \%inputs );
+
+  if($attr->{HANGUP}) {
+    $AGI->hangup();
+  }
+
+  exit 1;
+}
+
+
+1

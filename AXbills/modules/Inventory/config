@@ -1,0 +1,12 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+
+%FUNCTIONS_LIST = (
+  "01:0:INVENTORY:inventory_main:UID"  => 20,
+  "01:0:INVENTORY:inventory_type_add"  => 5,
+  "02:0:INVENTORY:inventory_log"       => 4,
+  "03:2:Hosts:inventory_hosts"         => 4,
+  "04:2:$lang{STATS}:inventory_stats"  => 4,
+  "05:0:Bugs:inventory_bugs:"          => 8,
+);
+
+1;

@@ -1,0 +1,35 @@
+#!/bin/sh
+#============================DOWN====================
+
+IFNAME=$1
+IP=$4
+
+REDIRECT_IP="127.0.0.1"
+AWK=/usr/bin/awk
+IPTABLES_WAIT="-w 20";
+IPTABLES="/sbin/iptables ${IPTABLES_WAIT}"
+DEBUG=
+IPSET_ALLOW_LIST=allowip
+IPSET=`which ipset`;
+
+
+if [ -f /var/run/radattr.$IFNAME ]; then
+  FILTERS=`${AWK}  '/Filter-Id/ {print $2}'  /var/run/radattr.$IFNAME`
+  USER_NAME=`${AWK}  '/User-Name/ {print $2}'  /var/run/radattr.${IFNAME}`
+fi;
+
+#### Filters
+if [ "${FILTERS}" = NEG_DEPOSIT ] ; then
+  $IPTABLES -t nat -D PREROUTING -i ${IFNAME} -p tcp -m tcp --dport 80 -j DNAT --to-destination ${REDIRECT_IP}:80
+  $IPTABLES -D FORWARD -i ${IFNAME} -j DROP
+  if [ "${DEBUG}" != "" ] ; then
+    echo "Down neg filter User: ${USER_NAME} Filter: ${FILTERS} IF: ${IFNAME} IP: ${IP}" >> /tmp/neg
+  fi;
+  exit;
+
+else 
+
+  ${IPSET} del ${IPSET_ALLOW_LIST} ${IP}
+
+
+fi;

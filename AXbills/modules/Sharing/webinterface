@@ -1,0 +1,3464 @@
+#!perl
+=head1 NAME
+
+  Sharing web functions
+
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+
+use Sharing;
+use Tariffs;
+use Shedule;
+use Fees;
+use Log;
+use Time::Local;
+use POSIX qw(strftime mktime);
+use AXbills::Defs;
+use Users;
+use AXbills::Base qw(int2byte sec2time convert mk_unique_value sendmail cmd load_pmodule);
+
+our (
+  $db,
+  $admin,
+  %lang,
+  %conf,
+  %err_strs,
+  %permissions,
+  @bool_vals,
+  @status,
+  @PERIODS,
+  @MONTHES,
+  %ADMIN_REPORT,
+  %LIST_PARAMS
+);
+
+my $Sharing = Sharing->new($db, $admin, \%conf);
+my $Tariffs = Tariffs->new($db, \%conf, $admin);
+my $Fees = Fees->new($db, $admin, \%conf);
+my $Log = Log->new($db, \%conf);
+our AXbills::HTML $html;
+
+#**********************************************************
+# Analize error log
+#**********************************************************
+sub sharing_tp {
+  my $tarif_info;
+
+  my @octets_directions = ("$lang{RECV} + $lang{SEND}", $lang{RECV}, $lang{SEND});
+  my @payment_types = ($lang{PREPAID}, $lang{POSTPAID});
+
+  $tarif_info = $Tariffs->defaults();
+  $tarif_info->{LNG_ACTION} = $lang{ADD};
+  $tarif_info->{ACTION} = 'ADD_TP';
+
+  if ($FORM{ADD_TP}) {
+    $FORM{TP_ID} = $FORM{CHG_TP_ID};
+    if ($FORM{TP_ID} < 1) {
+      $html->message('err', $lang{ERROR}, "$lang{ERROR} ID = 0");
+    }
+    else {
+      $Tariffs->add({ MODULE => 'Sharing', %FORM });
+      if (!$Tariffs->{errno}) {
+        $html->message('info', $lang{ADDED}, "$lang{ADDED} $Tariffs->{TP_ID}");
+      }
+    }
+  }
+  elsif (defined($FORM{TP_ID})) {
+    $tarif_info = $Tariffs->info($FORM{TP_ID}, { MODULE => 'Sharing' });
+    if ($Tariffs->{errno}) {
+      $html->message('err', $lang{ERROR}, "[$Tariffs->{errno}] $err_strs{$Tariffs->{errno}}");
+      return 0;
+    }
+
+    $LIST_PARAMS{TP} = $FORM{TP_ID};
+    $FORM{TP_NUM} = $Tariffs->{ID};
+
+    my %F_ARGS = (TP => $Tariffs);
+
+    $Tariffs->{NAME_SEL} = $html->form_main(
+      {
+        CONTENT => $html->form_select(
+          'TP_ID',
+          {
+            SELECTED  => $FORM{TP_ID},
+            SEL_LIST  => $Tariffs->list({ MODULE => 'Sharing', %LIST_PARAMS, COLS_NAME => 1 }),
+            SEL_KEY   => 'id',
+            SEL_VALUE => 'name',
+          }
+        ),
+        HIDDEN  => { index => "$index" },
+        SUBMIT  => { show => "$lang{SHOW}" }
+      }
+    );
+
+    func_menu(
+      {
+        'ID'        => $Tariffs->{TP_ID},
+        $lang{NAME} => $Tariffs->{NAME_SEL}
+      },
+      [
+
+        #  	 $lang{INFO}          => ":TP_ID=$tariffs->{TP_ID}",
+        #     $lang{USERS}         => "11:TP_ID=$tariffs->{TP_ID}",
+        #     $lang{INTERVALS}     => "73:TP_ID=$tariffs->{TP_ID}",
+        #     $lang{NAS}           => "72:TP_ID=$tariffs->{TP_ID}"
+      ],
+      { f_args => { %F_ARGS } }
+    );
+
+    if ($FORM{subf}) {
+
+      return 0;
+    }
+    elsif ($FORM{change}) {
+      $Tariffs->change($FORM{TP_ID}, { %FORM, MODULE => 'Sharing' });
+
+      if (!$Tariffs->{errno}) {
+        $html->message('info', $lang{CHANGED}, "$lang{CHANGED} $Tariffs->{TP_ID}");
+      }
+    }
+
+    $tarif_info->{LNG_ACTION} = $lang{CHANGE};
+    $tarif_info->{ACTION} = 'change';
+
+  }
+  elsif (defined($FORM{del}) && $FORM{is_js_confirmed}) {
+    $Tariffs->del($FORM{del}, { MODULE => 'Sharing' });
+
+    if (!$Tariffs->{errno}) {
+      $html->message('info', $lang{DELETE}, "$lang{DELETED} $FORM{del}");
+    }
+  }
+
+  if ($Tariffs->{errno}) {
+    $html->message('err', $lang{ERROR}, "[$Tariffs->{errno}] $err_strs{$Tariffs->{errno}}");
+  }
+
+  $tarif_info->{SEL_OCTETS_DIRECTION} = "<select name=OCTETS_DIRECTION>\n";
+  for (my $i = 0; $i <= $#octets_directions; $i++) {
+    $tarif_info->{SEL_OCTETS_DIRECTION} .= "<option value=$i";
+    $tarif_info->{SEL_OCTETS_DIRECTION} .= ' selected' if ($tarif_info->{OCTETS_DIRECTION} eq $i);
+    $tarif_info->{SEL_OCTETS_DIRECTION} .= ">$octets_directions[$i]\n";
+  }
+  $tarif_info->{SEL_OCTETS_DIRECTION} .= "</select>\n";
+
+  $tarif_info->{PAYMENT_TYPE_SEL} = "<select name=PAYMENT_TYPE>\n";
+  for (my $i = 0; $i <= $#payment_types; $i++) {
+    $tarif_info->{PAYMENT_TYPE_SEL} .= "<option value=$i";
+    $tarif_info->{PAYMENT_TYPE_SEL} .= ' selected' if ($tarif_info->{PAYMENT_TYPE} eq $i);
+    $tarif_info->{PAYMENT_TYPE_SEL} .= ">$payment_types[$i]\n";
+    $i++;
+  }
+  $tarif_info->{PAYMENT_TYPE_SEL} .= "</select>\n";
+
+  $tarif_info->{REDUCTION_FEE} = ($tarif_info->{REDUCTION_FEE}) ? 'checked' : '';
+  $tarif_info->{POSTPAID_FEE} = ($tarif_info->{POSTPAID_FEE}) ? 'checked' : '';
+
+  $tarif_info->{GROUPS_SEL} = $html->form_select(
+    'TP_GID',
+    {
+      SELECTED => $tarif_info->{TP_GID},
+      SEL_LIST => $Tariffs->tp_group_list({ COLS_NAME => 1 }),
+    }
+  );
+
+  $html->tpl_show(_include('sharing_tp', 'Sharing'), $tarif_info);
+
+  $LIST_PARAMS{MODULE} = 'Sharing';
+  my $list = $Tariffs->list({ %LIST_PARAMS });
+
+  # Time tariff Name Begin END Day fee Month fee Simultaneously - - -
+  my $table = $html->table(
+    {
+      width   => '100%',
+      caption => "$lang{TARIF_PLANS}",
+      border  => 1,
+      title   =>
+        [ '#', $lang{NAME}, $lang{HOUR_TARIF}, $lang{TRAFIC_TARIFS}, $lang{PAYMENT_TYPE}, $lang{DAY_FEE}, $lang{MONTH_FEE}
+          , $lang{SIMULTANEOUSLY}, $lang{AGE}, $lang{GROUP}, '-', '-', '-', '-' ],
+    }
+  );
+
+  my ($delete, $change);
+  foreach my $line (@{$list}) {
+    my $tp_id = $line->[18] || 0;
+    if ($permissions{4}{1}) {
+      $delete = $html->button($lang{DEL}, "index=$index&del=$tp_id",
+        { MESSAGE => "$lang{DEL} $line->[0]?", BUTTON => 1 });
+      $change = $html->button($lang{CHANGE}, "index=$index&TP_ID=$tp_id", { BUTTON => 1 });
+    }
+
+    if ($FORM{TP_ID} && $FORM{TP_ID} eq $line->[0]) {
+      $table->{rowcolor} = $_COLORS[0];
+    }
+    else {
+      undef($table->{rowcolor});
+    }
+
+    $table->addrow(
+      $html->b($line->[0]),
+      $html->button($line->[1], "index=$index&TP_ID=$tp_id"),
+      $bool_vals[ $line->[2] || 0 ],
+      $bool_vals[ $line->[3] || 0 ],
+      $payment_types[ $line->[4] || 0 ],
+      $line->[5],
+      $line->[6],
+      $line->[7],
+      $line->[8],
+      $line->[9],
+      $html->button($lang{TRAFIC_TARIFS},
+        "index=" . ($index + 2) . "&subf=" . ($index + 2) . "&TRAFFIC=$line->[0]&TP_ID=$tp_id", { BUTTON => 1 }),
+      $html->button($lang{EXTRA_TRAFIC},
+        "index=" . ($index + 3) . "&subf=" . ($index + 3) . "&TRAFFIC=$line->[0]&TP_ID=$tp_id", { BUTTON => 1 }),
+      $change, $delete
+    );
+  }
+
+  print $table->show();
+
+  $table = $html->table({
+    width => '100%',
+    rows  => [ [ "$lang{TOTAL}:", $html->b($Tariffs->{TOTAL}) ] ]
+  });
+
+  print $table->show();
+
+  return 1;
+}
+
+#**********************************************************
+# Analize error log
+#**********************************************************
+sub sharing_traffic_tariffs {
+  my ($attr) = @_;
+
+  $Sharing->{ACTION} = 'add';
+  $Sharing->{LNG_ACTION} = $lang{ADD};
+
+  if (defined($FORM{tt})) {
+    $Sharing->tt_defaults();
+    $Sharing->{TI_ID} = $FORM{tt};
+
+    if ($FORM{add}) {
+      $Sharing->tt_add({ %FORM });
+      if (!$Sharing->{errno}) {
+        $html->message('info', $lang{INFO}, "$lang{ADDED}");
+      }
+    }
+    elsif ($FORM{change}) {
+      $FORM{TI_ID} = $FORM{tt};
+      $Sharing->tt_change({ %FORM });
+
+      if (!$Sharing->{errno}) {
+        $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+      }
+    }
+    elsif (defined($FORM{chg})) {
+      $Sharing->tt_info({ TP_ID => $FORM{tt}, TT_ID => $FORM{chg} });
+      if (!$Sharing->{errno}) {
+        $html->message('info', $lang{INFO}, "$lang{CHANGING}");
+      }
+      $Sharing->{ACTION} = 'change';
+      $Sharing->{LNG_ACTION} = $lang{CHANGE};
+    }
+    elsif (defined($FORM{del}) && defined($FORM{is_js_confirmed})) {
+      $Sharing->tt_del({ TI_ID => $FORM{tt}, TT_ID => $FORM{del} });
+      if (!$Sharing->{errno}) {
+        $html->message('info', $lang{INFO}, "$lang{DELETED}");
+      }
+    }
+
+    if ($Sharing->{errno}) {
+      $html->message('err', $lang{ERROR}, "[$Sharing->{errno}] $err_strs{$Sharing->{errno}}");
+    }
+
+    $Sharing->tt_list({ TP_ID => $FORM{TP_ID}, form => 'yes' });
+    $Sharing->{TT_ID} = $Sharing->{TOTAL} if (!defined($FORM{chg}));
+  }
+  elsif ($attr->{TP}) {
+    $Sharing->tt_defaults();
+
+    if ($FORM{change}) {
+      $Sharing->tt_change(
+        {
+          TT_DESCRIBE_0  => $FORM{TT_DESCRIBE_0},
+          TT_PRICE_IN_0  => $FORM{TT_PRICE_IN_0},
+          TT_PRICE_OUT_0 => $FORM{TT_PRICE_OUT_0},
+          TT_NETS_0      => $FORM{TT_NETS_0},
+          TT_PREPAID_0   => $FORM{TT_PREPAID_0},
+          TT_SPEED_0     => $FORM{TT_SPEED_0},
+
+          TT_DESCRIBE_1  => $FORM{'TT_DESCRIBE_1'},
+          TT_PRICE_IN_1  => $FORM{TT_PRICE_IN_1},
+          TT_PRICE_OUT_1 => $FORM{TT_PRICE_OUT_1},
+          TT_NETS_1      => $FORM{TT_NETS_1},
+          TT_PREPAID_1   => $FORM{TT_PREPAID_1},
+          TT_SPEED_1     => $FORM{TT_SPEED_1},
+
+          TT_DESCRIBE_2  => $FORM{TT_DESCRIBE_2},
+          TT_NETS_2      => $FORM{TT_NETS_2},
+          TT_SPEED_2     => $FORM{TT_SPEED_2},
+
+        }
+      );
+
+      if (!_error_show($Sharing)) {
+        $html->message('info', $lang{INFO}, "$lang{INTERVALS}");
+      }
+    }
+
+    $Sharing->tt_list({ TP_ID => $FORM{TP_ID} });
+  }
+  elsif (defined($FORM{TP_ID})) {
+    $FORM{subf} = $index;
+    sharing_tp();
+    return 0;
+  }
+
+  my $table2 = $html->table({
+    width       => '100%',
+    title_plain =>
+      [ "#", "$lang{TRAFIC_TARIFS} In ", "$lang{TRAFIC_TARIFS} Out ", $lang{PREPAID}, "$lang{SPEED} IN", "$lang{SPEED} OUT",
+        "DESCRIBE", "NETS", "-", "-" ],
+    caption     => $lang{TRAFIC_TARIFS}
+  });
+
+  my $list_tt = $Sharing->tt_list({ TP_ID => $FORM{TP_ID} });
+  my $max_traffic_class_id = 0;
+  foreach my $line (@{$list_tt}) {
+    $max_traffic_class_id = $line->[0] if ($line->[0] > $max_traffic_class_id);
+    $table2->addrow(
+      $line->[0], $line->[1], $line->[2], $line->[3], $line->[4], $line->[5], $line->[6],
+      convert($line->[7], { text2html => 'yes' }),
+      $html->button($lang{CHANGE}, "index=$index&TP_ID=$FORM{TP_ID}&tt=$FORM{TP_ID}&chg=$line->[0]", { BUTTON => 1 }),
+      $html->button($lang{DEL}, "index=$index&TP_ID=$FORM{TP_ID}&tt=$FORM{TP_ID}&del=$line->[0]",
+        { MESSAGE => "$lang{DEL} [$line->[0]]?", BUTTON => 1 })
+    );
+  }
+
+  print $table2->show();
+
+  my %TT_IDS = (
+    0 => "Global",
+    1 => "Extended 1",
+    2 => "Extended 2"
+  );
+
+  if ($max_traffic_class_id >= 2) {
+    for (my $i = 3; $i < $max_traffic_class_id + 2; $i++) {
+      $TT_IDS{$i} = "Extended $i";
+    }
+  }
+
+  $Sharing->{SEL_TT_ID} = $html->form_select(
+    'TT_ID',
+    {
+      SELECTED => $Sharing->{TT_ID},
+      SEL_HASH => \%TT_IDS,
+    }
+  );
+  $html->tpl_show(_include('sharing_tt', 'Sharing'), $Sharing);
+
+  return 1;
+}
+
+#**********************************************************
+=ghead2 sharing_error() Analize error log
+
+=cut
+#**********************************************************
+sub sharing_error {
+  if ($FORM{UID}) {
+    my $user_info = $users->info($FORM{UID});
+    $LIST_PARAMS{LOGIN} = $user_info->{LOGIN};
+  }
+
+  $LIST_PARAMS{SORT} = 1;
+  $LIST_PARAMS{DESC} = 'DESC';
+  my $list = $Sharing->errors_list({ %LIST_PARAMS });
+
+  my $table = $html->table({
+    width   => '100%',
+    caption => "Sharing",
+    border  => 1,
+    title   => [ $lang{DATE}, $lang{LOGIN}, $lang{FILE}, "client_name", "IP", $lang{ERROR} ],
+    qs      => $pages_qs,
+    pages   => $Sharing->{TOTAL}
+  });
+
+  return 0 if (!$list || ref $list ne 'ARRAY');
+  foreach my $line (@{$list}) {
+    $table->addrow("$line->[0]", $html->button("$line->[2]", "index=15&LOGIN=$line->[2]"), "$line->[3]", "$line->[4]"
+      , "$line->[5]", "$line->[6]");
+  }
+  print $table->show();
+
+  $table = $html->table({
+    width => '100%',
+    rows  => [ [ "$lang{TOTAL}:", "$Sharing->{TOTAL}" ] ]
+  });
+
+  print $table->show();
+  return 1;
+}
+
+#**********************************************************
+# Whow sessions from log
+# sharing_users_list()
+#**********************************************************
+sub sharing_users_list {
+  my ($attr) = @_;
+
+  if ($attr->{TP}) {
+    $LIST_PARAMS{TP_ID} = $FORM{TP_ID};
+    #$pages_qs .= "&TP_ID=$FORM{TP_ID}";
+  }
+  elsif ($FORM{TP_ID}) {
+    $FORM{subf} = $index;
+    sharing_tp();
+    return 0;
+  }
+
+  my $group_sel = sel_groups();
+  form_search(
+    {
+      SEARCH_FORM => "<tr><td colspan=2><hr></td></tr>
+   <tr><td>$lang{GROUP}:</td><td>$group_sel</td></tr>
+   <tr><td>IP (>,<):</td><td><input type='text' name='IP' value='%IP%'></td></tr>
+   <tr><td>CID:</td><td><input type='text' name='CID' value='%CID%'></td></tr>
+   \n"
+    }
+  );
+
+  #print $html->letters_list( { pages_qs => $pages_qs } );
+
+  if ($FORM{letter}) {
+    $LIST_PARAMS{LOGIN} = "$FORM{letter}*";
+    $pages_qs .= "&letter=$FORM{letter}";
+  }
+
+  my $list = $Sharing->list({ %LIST_PARAMS });
+
+  my @TITLE = ($lang{LOGIN}, $lang{FIO}, $lang{DEPOSIT}, $lang{CREDIT}, $lang{TARIF_PLANS}, "$lang{TYPE}", $lang{STATUS}
+    , '-', '-');
+  for (my $i = 0; $i < $Sharing->{SEARCH_FIELDS_COUNT}; $i++) {
+    push @TITLE, '-';
+    $TITLE[ 6 + $i ] = "$lang{SEARCH}";
+  }
+
+  if (_error_show($Sharing)) {
+    return 0;
+  }
+  elsif ($Sharing->{TOTAL} == 1) {
+    form_users({ USER => user_info($list->[0]->[ 6 + $Sharing->{SEARCH_FIELDS_COUNT} ]) });
+    return 0;
+  }
+
+  my $table = $html->table(
+    {
+      width   => '100%',
+      caption => "Sharing",
+      border  => 1,
+      title   => \@TITLE,
+      qs      => $pages_qs,
+      pages   => $Sharing->{TOTAL}
+    }
+  );
+
+  foreach my $line (@{$list}) {
+    my $payments = ($permissions{1}) ? $html->button(
+      "$lang{PAYMENTS}",
+      "index=2&UID=" . $line->[ 7 + $Sharing->{SEARCH_FIELDS_COUNT} ], { BUTTON => 1 }) : '';
+
+    my @fields_array = ();
+    for (my $i = 0; $i < $Sharing->{SEARCH_FIELDS_COUNT}; $i++) {
+      push @fields_array, $line->[ 6 + $i ];
+    }
+
+    $table->addrow(
+      $html->button("$line->[0]", "index=15&UID=$line->[7 + $Sharing->{SEARCH_FIELDS_COUNT}]&MODULE=Sharing"),
+      "$line->[1]",
+      "$line->[2]",
+      "$line->[3]",
+      "$line->[4]",
+      "$status[$line->[5]]",
+      @fields_array,
+      $payments,
+      $html->button("$lang{STATS}", "index=" . ($index + 3) . "&UID=" . $line->[ 7 + $Sharing->{SEARCH_FIELDS_COUNT} ],
+        { BUTTON => 1 })
+    );
+  }
+  print $table->show();
+
+  $table = $html->table({
+    width => '100%',
+    rows  => [ [ "$lang{TOTAL}:", $html->b($Sharing->{TOTAL}) ] ]
+  });
+
+  print $table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 sharing_sessions() - Show sessions from log
+
+=cut
+#**********************************************************
+sub sharing_sessions {
+  my ($list) = @_;
+
+  if ($FORM{del} && $FORM{is_js_confirmed}) {
+    if (!defined($permissions{3}{1})) {
+      $html->message('err', $lang{ERROR}, 'ACCESS DENY');
+      return 0;
+    }
+
+    $Sharing->session_del(
+      {
+        USER_NAME => $FORM{USER_NAME},
+        FILE      => $FORM{FILE},
+        START     => $FORM{START}
+      }
+    );
+  }
+
+  if (!$list) {
+    if (!defined($FORM{sort})) {
+      $LIST_PARAMS{SORT} = 2;
+      $LIST_PARAMS{DESC} = 'DESC';
+    }
+
+    #    my $SEL_NAS = $html->form_select(
+    #      'NAS_ID',
+    #      {
+    #        SELECTED          => $FORM{NAS_ID},
+    #        SEL_MULTI_ARRAY   => [ [ '', $lang{ALL} ], @{ $nas->list( { %LIST_PARAMS } ) } ],
+    #        MULTI_ARRAY_KEY   => 0,
+    #        MULTI_ARRAY_VALUE => 1,
+    #      }
+    #    );
+    #
+    #    my $TERMINATE_CAUSE_SEL = $html->form_select(
+    #      'TERMINATE_CAUSE',
+    #      {
+    #        SELECTED => $FORM{TERMINATE_CAUSE},
+    #        SEL_HASH => {
+    #          ''  => '',
+    #          'X' => 'connection aborted before the response completed',
+    #          '+' => 'connection may be kept alive after the response is sent',
+    #          '-' => 'connection will be closed after the response is sent'
+    #        }
+    #      }
+    #    );
+
+    $list = $Sharing->sessions_list({ %LIST_PARAMS });
+  }
+
+  #my @PRIORITY = ('P', 'F');
+
+  my $table = $html->table(
+    {
+      width        => '100%',
+      caption      => "$lang{SESSIONS}",
+      border       => 1,
+      title        =>
+        [ "$lang{USER}", "$lang{START}", "$lang{DURATION}", "$lang{RECV}", "$lang{SENT}", "CID", "NAS", "$lang{STATUS}",
+          "$lang{FILE}", "$lang{SIZE}", "$lang{PRIORITY}", "-" ],
+      qs           => $pages_qs,
+      pages        => $Sharing->{TOTAL},
+      recs_on_page => $LIST_PARAMS{PAGE_ROWS},
+      ID           => 'SHARING_SESSIONS'
+    }
+  );
+
+  return 0 if (!$list || ref $list ne 'ARRAY');
+
+  my $delete = '';
+  foreach my $line (@{$list}) {
+    if ($permissions{3}{1}) {
+      $delete = $html->button($lang{DEL},
+        "index=" . $index . "$pages_qs&del=1&USER_NAME=$line->[0]&FILE=$line->[8]&START=$line->[1]" . (($FORM{UID}) ? "&UID=$FORM{UID}" : '')
+        , { MESSAGE => "$lang{DEL} $lang{LOGIN}: $line->[0] FILE: $line->[8]?", BUTTON => 1 });
+    }
+
+    $table->addrow($html->button("$line->[0]", "index=7&type=11&search=1&LOGIN_EXPR=$line->[0]"), $line->[1],
+      $line->[2], $line->[3], $line->[4], $line->[5], $line->[6], $line->[7], $line->[8], int2byte($line->[9]),
+      $line->[10], $delete);
+  }
+
+  print $table->show();
+
+  return 1;
+}
+
+#*******************************************************************
+#
+#*******************************************************************
+sub sharing_stats {
+  my ($attr) = @_;
+
+  my $uid = $FORM{UID} || $attr->{UID};
+  my $user_info = $users->info($uid);
+  $LIST_PARAMS{LOGIN} = $user_info->{LOGIN};
+
+  if (defined($attr->{USER})) {
+    my $user = $attr->{USER};
+
+    $uid = $user->{UID};
+    $LIST_PARAMS{UID} = $uid;
+    if (!defined($FORM{sort})) {
+      $LIST_PARAMS{SORT} = 2;
+      $LIST_PARAMS{DESC} = 'DESC';
+    }
+
+    if (defined($FORM{OP_SID}) and $FORM{OP_SID} eq $COOKIES{OP_SID}) {
+      $html->message('err', $lang{ERROR}, "$lang{EXIST} $FORM{OP_SID} eq $COOKIES{OP_SID}");
+    }
+    elsif ($FORM{bm}) {
+      use Bills;
+      my $Bill = Bills->new($db);
+      $Bill->action('add', "$FORM{BILL_ID}", $FORM{sum});
+      if (!_error_show($Bill)) {
+        $html->message('info', $lang{INFO}, "$lang{ADDED}: SUM $FORM{sum}, BILL_ID: $FORM{BILL_ID}");
+      }
+    }
+    elsif ($FORM{SESSION_ID}) {
+      $pages_qs .= "&SESSION_ID=$FORM{SESSION_ID}";
+      dv_session_detail({ USER => $attr->{USER} });
+      return 0;
+    }
+  }
+
+  #elsif($FORM{UID}) {
+  #	form_users();
+  #	return 0;
+  #}
+
+  if ($FORM{del} && $FORM{is_js_confirmed}) {
+    if (!defined($permissions{3}{1})) {
+      $html->message('err', $lang{ERROR}, 'ACCESS DENY');
+      return 0;
+    }
+
+    $Sharing->session_del(
+      {
+        USER_NAME => $FORM{USER_NAME},
+        FILE      => $FORM{FILE},
+        START     => $FORM{START}
+      }
+    );
+
+    if (!$Sharing->{errno}) {
+      my $table = $html->table(
+        {
+          width => '100%',
+          rows  => [ [ "$lang{LOGIN}: ", $FORM{USER_NAME} ], [ "$lang{FILE}: ", $FORM{FILE} ] ]
+        }
+      );
+      $html->message('info', $lang{DELETED}, $table->show());
+    }
+  }
+  elsif ($FORM{del} && $FORM{is_js_confirmed}) {
+    if (!defined($permissions{3}{1})) {
+      $html->message('err', $lang{ERROR}, 'ACCESS DENY');
+      return 0;
+    }
+
+    my ($uid_, $session_id, $nas_id, $session_start_date, $session_start_time, $sum, $login) = split(/ /, $FORM{del}, 7);
+    if (!$Sharing->{errno}) {
+      my $table = $html->table(
+        {
+          width => '100%',
+          rows  => [ [ $lang{LOGIN}, $login ],
+            [ 'SESSION_ID', $session_id ],
+            [ 'NAS_ID', $nas_id ],
+            [ 'SESSION_START', "$session_start_date $session_start_time" ],
+            [ $lang{SUM}, $sum ] ]
+        }
+      );
+
+      $html->message('info', $lang{DELETED}, $table->show());
+      form_back_money('log', $sum, { UID => $uid_ });
+      return 0;
+    }
+  }
+
+  _error_show($Sharing);
+
+  if ($FORM{rows}) {
+    $LIST_PARAMS{PAGE_ROWS} = $FORM{rows};
+    $conf{list_max_recs} = $FORM{rows};
+    $pages_qs .= "&rows=$conf{list_max_recs}";
+  }
+
+  if (!$LIST_PARAMS{UID} && $FORM{LOGIN_EXPR}) {
+    my $list = $users->list({
+      LOGIN_EXPR => $FORM{LOGIN_EXPR},
+      ACTIVATE   => '_SHOW',
+      COLS_NAME  => 1
+    });
+
+    if ($users->{TOTAL} == 1) {
+      $LIST_PARAMS{UID} = $list->[0]->{uid};
+      $FORM{UID} = $LIST_PARAMS{UID};
+      $uid = $LIST_PARAMS{UID};
+      $LIST_PARAMS{ACTIVATE} = $list->[0]->{activate};
+    }
+    else {
+      $html->message('err', $lang{ERROR}, "'$FORM{LOGIN_EXPR}' $lang{NOT_EXIST}");
+      return 0;
+    }
+
+    $pages_qs .= "&UID=$LIST_PARAMS{UID}";
+  }
+
+  my $list = $Sharing->periods_totals({ %LIST_PARAMS });
+  my $table = $html->table(
+    {
+      caption     => $lang{PERIOD},
+      width       => '100%',
+      title_plain => [ "$lang{PERIOD}", "$lang{DURATION}", "$lang{RECV}", "$lang{SEND}", "$lang{SUM}" ],
+      rowcolor    => $_COLORS[1],
+      EXT_ID      => "SHARING_STATS_PERIODS"
+    }
+  );
+
+  for (my $i = 0; $i < 5; $i++) {
+    $table->addrow($html->button($PERIODS[$i], "index=$index&PERIOD=$i$pages_qs"),
+      $Sharing->{'duration_' . $i},
+      int2byte($Sharing->{ 'sent_' . $i }),
+      int2byte($Sharing->{ 'recv_' . $i }),
+      int2byte($Sharing->{ 'sum_' . $i }));
+  }
+
+  print $table->show();
+
+  $table = $html->table(
+    {
+      width       => '100%',
+      rowcolor    => $_COLORS[0],
+      title_plain => [
+        "$lang{FROM}: ",
+        $html->date_fld2('from', { MONTHES => \@MONTHES }),
+        "$lang{TO}: ",
+        $html->date_fld2('to', { MONTHES => \@MONTHES }),
+        $html->form_select(
+          'DIMENSION',
+          {
+            SELECTED  => $FORM{DIMENSION},
+            SEL_ARRAY => [ 'Auto', 'Kb', 'Mb', 'Gb' ]
+          }
+        ),
+        "$lang{ROWS}: ",
+        $html->form_input('rows', int($conf{list_max_recs}), { SIZE => 4 }),
+        $html->form_input('show', $lang{SHOW}, { TYPE => 'submit' })
+      ],
+    }
+  );
+
+  print $html->form_main(
+    {
+      CONTENT => $table->show({ OUTPUT2RETURN => 1 }),
+      HIDDEN  => {
+        sid   => $sid,
+        index => $index,
+        UID   => $LIST_PARAMS{UID}
+      }
+    }
+  );
+
+  if (defined($FORM{show})) {
+    $pages_qs .= "&show=1&fromD=$FORM{fromD}&fromM=$FORM{fromM}&fromY=$FORM{fromY}&toD=$FORM{toD}&toM=$FORM{toM}&toY=$FORM{toY}";
+    $FORM{fromM}++;
+    $FORM{toM}++;
+    $FORM{fromM} = sprintf("%.2d", $FORM{fromM}++);
+    $FORM{toM} = sprintf("%.2d", $FORM{toM}++);
+    $LIST_PARAMS{INTERVAL} = "$FORM{fromY}-$FORM{fromM}-$FORM{fromD}/$FORM{toY}-$FORM{toM}-$FORM{toD}";
+  }
+  elsif (defined($FORM{PERIOD})) {
+    $LIST_PARAMS{PERIOD} = $FORM{PERIOD};
+    $pages_qs .= "&PERIOD=$FORM{PERIOD}";
+  }
+  elsif ($FORM{DATE}) {
+    $LIST_PARAMS{DATE} = $FORM{DATE};
+    $pages_qs .= "&DATE=$FORM{DATE}";
+  }
+
+  #Show rest of prepaid traffic
+  if ($Sharing->prepaid_rest({ UID => $LIST_PARAMS{UID} })) {
+    #Prepaid: period, traffic_type
+    $list = $Sharing->{INFO_LIST};
+
+    $table = $html->table(
+      {
+        caption     => $lang{PREPAID},
+        width       => '100%',
+        title_plain =>
+          [ "$lang{TRAFFIC} $lang{TYPE}", "$lang{START}", "$lang{TOTAL} (MB)", "$lang{REST} (MB)", "$lang{OVERQUOTA} (MB)" ]
+          ,
+        rowcolor    => $_COLORS[1]
+      }
+    );
+
+    foreach my $line (@{$list}) {
+      $table->addrow($line->[0], $line->[1], $line->[2],
+        ($line->[2] > 0 && $Sharing->{REST}->{ $line->[0] } > 0) ? $Sharing->{REST}->{ $line->[0] } : 0,
+        ($line->[2] > 0 && $Sharing->{REST}->{ $line->[0] } < 0) ? abs($Sharing->{REST}->{ $line->[0] }) : 0);
+    }
+
+    print $table->show();
+
+    if ($Sharing->{EXTRA_TRAFIC}) {
+      $table = $html->table(
+        {
+          caption  => "$lang{EXTRA_TRAFIC}",
+          width    => '100%',
+          rowcolor => $_COLORS[1],
+          rows     => [ [ "$lang{REST} (Mb):", $Sharing->{EXTRA_TRAFIC} ] ],
+          ID       => 'EXTRA_TAFIC'
+
+        }
+      );
+      print $table->show();
+    }
+  }
+
+  $pages_qs .= "&DIMENSION=$FORM{DIMENSION}" if ($FORM{DIMENSION});
+
+  if (!defined($FORM{sort})) {
+    $LIST_PARAMS{SORT} = 2;
+    $LIST_PARAMS{DESC} = 'DESC';
+  }
+
+  #dv_stats_calculation($Sharing);
+
+  #Session List
+  $list = $Sharing->sessions_list({ %LIST_PARAMS });
+
+  $table = $html->table(
+    {
+      caption     => "$lang{SUM}",
+      width       => '100%',
+      rowcolor    => $_COLORS[1],
+      title_plain => [ "$lang{SESSIONS}", "$lang{DURATION}", "$lang{TRAFFIC} $lang{RECV}", "$lang{TRAFFIC} $lang{SENT}",
+        "$lang{TRAFFIC} $lang{SUM}" ],
+      rows        => [
+        [
+          $Sharing->{TOTAL}, $Sharing->{DURATION},
+          int2byte($Sharing->{TRAFFIC_IN}, { DIMENSION => $FORM{DIMENSION} }),
+          int2byte($Sharing->{TRAFFIC_OUT}, { DIMENSION => $FORM{DIMENSION} }),
+          int2byte(($Sharing->{TRAFFIC_OUT} || 0) + ($Sharing->{TRAFFIC_IN} || 0), { DIMENSION => $FORM{DIMENSION} }),
+          $Sharing->{SUM}
+        ]
+      ],
+    }
+  );
+
+  print $table->show();
+
+  sharing_sessions($list, $Sharing);
+  return 1;
+}
+
+#*******************************************************************
+#
+#*******************************************************************
+sub sharing_user_stats {
+  my ($attr) = @_;
+
+  my $uid = $LIST_PARAMS{UID} || $attr->{UID};
+  $LIST_PARAMS{LOGIN} = $user->{LOGIN};
+
+  if (defined($attr->{USER})) {
+    my Users $user = $attr->{USER};
+
+    $uid = $user->{UID};
+    $LIST_PARAMS{UID} = $uid;
+    if (!defined($FORM{sort})) {
+      $LIST_PARAMS{SORT} = 2;
+      $LIST_PARAMS{DESC} = 'DESC';
+    }
+
+    if (defined($FORM{OP_SID}) and $FORM{OP_SID} eq $COOKIES{OP_SID}) {
+      $html->message('err', $lang{ERROR}, "$lang{EXIST} $FORM{OP_SID} eq $COOKIES{OP_SID}");
+    }
+    elsif ($FORM{bm}) {
+      use Bills;
+      my $Bill = Bills->new($db);
+      $Bill->action('add', "$FORM{BILL_ID}", $FORM{sum});
+      if (!_error_show($Bill)) {
+        $html->message('info', $lang{INFO}, "$lang{ADDED}: SUM $FORM{sum}, BILL_ID: $FORM{BILL_ID}");
+      }
+    }
+    elsif ($FORM{SESSION_ID}) {
+      $pages_qs .= "&SESSION_ID=$FORM{SESSION_ID}";
+      #sharing_session_detail({ USER => $attr->{USER} });
+      return 0;
+    }
+  }
+
+  _error_show($Sharing);
+
+  if ($FORM{rows}) {
+    $LIST_PARAMS{PAGE_ROWS} = $FORM{rows};
+    $conf{list_max_recs} = $FORM{rows};
+    $pages_qs .= "&rows=$conf{list_max_recs}";
+  }
+
+  if (!$LIST_PARAMS{UID} && $FORM{LOGIN_EXPR}) {
+    my $list = $users->list({
+      LOGIN_EXPR => $FORM{LOGIN_EXPR},
+      ACTIVATE   => '_SHOW',
+      COLS_NAME  => 1
+    });
+
+    if ($users->{TOTAL} == 1) {
+      $LIST_PARAMS{UID} = $list->[0]->{uid};
+      $FORM{UID} = $LIST_PARAMS{UID};
+      $uid = $LIST_PARAMS{UID};
+      $LIST_PARAMS{ACTIVATE} = $list->[0]->{activate};
+    }
+    else {
+      $html->message('err', $lang{ERROR}, "'$FORM{LOGIN_EXPR}' $lang{NOT_EXIST}");
+      return 0;
+    }
+
+    $pages_qs .= "&UID=$LIST_PARAMS{UID}";
+  }
+
+  my $list = $Sharing->periods_totals({ LOGIN => $user->{LOGIN} });
+  my $table = $html->table(
+    {
+      caption     => $lang{PERIOD},
+      width       => '100%',
+      title_plain => [ $lang{PERIOD}, $lang{DURATION}, $lang{RECV}, $lang{SEND}, $lang{SUM} ],
+      rowcolor    => $_COLORS[1]
+    }
+  );
+
+  for (my $i = 0; $i < 5; $i++) {
+    $table->addrow($html->button("$PERIODS[$i]", "index=$index&PERIOD=$i$pages_qs"), "$Sharing->{'duration_' . $i}",
+      int2byte($Sharing->{ 'sent_' . $i }), int2byte($Sharing->{ 'recv_' . $i }),
+      int2byte($Sharing->{ 'sum_' . $i }));
+  }
+
+  print $table->show();
+
+  $table = $html->table(
+    {
+      width       => '100%',
+      rowcolor    => $_COLORS[0],
+      title_plain => [
+        "$lang{FROM}: ",
+        $html->date_fld2('from', { MONTHES => \@MONTHES }),
+        "$lang{TO}: ",
+        $html->date_fld2('to', { MONTHES => \@MONTHES }),
+        $html->form_select(
+          'DIMENSION',
+          {
+            SELECTED  => $FORM{DIMENSION},
+            SEL_ARRAY => [ 'Auto', 'Kb', 'Mb', 'Gb' ]
+          }
+        ),
+        "$lang{ROWS}: ",
+        $html->form_input('rows', int($conf{list_max_recs}), { SIZE => 4, OUTPUT2RETURN => 1 }),
+        $html->form_input('show', $lang{SHOW}, { TYPE => 'submit', OUTPUT2RETURN => 1 })
+      ],
+    }
+  );
+
+  print $html->form_main(
+    {
+      CONTENT => $table->show({ OUTPUT2RETURN => 1 }),
+      HIDDEN  => {
+        sid   => "$sid",
+        index => "$index",
+        UID   => "$uid"
+      }
+    }
+  );
+
+  if (defined($FORM{show})) {
+    $pages_qs .= "&show=y&fromD=$FORM{fromD}&fromM=$FORM{fromM}&fromY=$FORM{fromY}&toD=$FORM{toD}&toM=$FORM{toM}&toY=$FORM{toY}";
+    $FORM{fromM}++;
+    $FORM{toM}++;
+    $FORM{fromM} = sprintf("%.2d", $FORM{fromM}++);
+    $FORM{toM} = sprintf("%.2d", $FORM{toM}++);
+    $LIST_PARAMS{INTERVAL} = "$FORM{fromY}-$FORM{fromM}-$FORM{fromD}/$FORM{toY}-$FORM{toM}-$FORM{toD}";
+  }
+  elsif (defined($FORM{PERIOD})) {
+    $LIST_PARAMS{PERIOD} = $FORM{PERIOD};
+    $pages_qs .= "&PERIOD=$FORM{PERIOD}";
+  }
+  elsif ($FORM{DATE}) {
+    $LIST_PARAMS{DATE} = $FORM{DATE};
+    $pages_qs .= "&DATE=$FORM{DATE}";
+  }
+
+  #Show rest of prepaid traffic
+  if ($Sharing->prepaid_rest({ UID => $LIST_PARAMS{UID} })) {
+    #Prepaid: period, traffic_type
+    $list = $Sharing->{INFO_LIST};
+
+    $table = $html->table(
+      {
+        caption     => "$lang{PREPAID}",
+        width       => '100%',
+        title_plain =>
+          [ "$lang{TRAFF} $lang{TYPE}", "$lang{START}", "$lang{TOTAL} (MB)", "$lang{REST} (MB)", "$lang{OVERQUOTA} (MB)" ]
+          ,
+        rowcolor    => $_COLORS[1]
+      }
+    );
+
+    foreach my $line (@{$list}) {
+      $table->addrow($line->[0], $line->[1], $line->[2],
+        ($line->[2] > 0 && $Sharing->{REST}->{ $line->[0] } > 0) ? $Sharing->{REST}->{ $line->[0] } : 0,
+        ($line->[2] > 0 && $Sharing->{REST}->{ $line->[0] } < 0) ? abs($Sharing->{REST}->{ $line->[0] }) : 0);
+    }
+
+    print $table->show();
+
+    if ($Sharing->{EXTRA_TRAFIC}) {
+      $table = $html->table(
+        {
+          caption  => "$lang{EXTRA_TRAFIC}",
+          width    => '100%',
+          rowcolor => $_COLORS[1],
+          rows     => [ [ "$lang{REST} (Mb):", $Sharing->{EXTRA_TRAFIC} ] ]
+        }
+      );
+
+      print $table->show();
+    }
+
+  }
+
+  $pages_qs .= "&DIMENSION=$FORM{DIMENSION}" if ($FORM{DIMENSION});
+
+  if (!defined($FORM{sort})) {
+    $LIST_PARAMS{SORT} = 2;
+    $LIST_PARAMS{DESC} = 'DESC';
+  }
+
+  #dv_stats_calculation($Sharing);
+
+  #Session List
+  $list = $Sharing->sessions_list({ %LIST_PARAMS });
+
+  $table = $html->table(
+    {
+      caption     => "$lang{SUM}",
+      width       => '100%',
+      rowcolor    => $_COLORS[1],
+      title_plain => [ "$lang{SESSIONS}", "$lang{DURATION}", "$lang{TRAFFIC} $lang{RECV}", "$lang{TRAFFIC} $lang{SENT}",
+        "$lang{TRAFFIC} $lang{SUM}" ],
+      rows        => [
+        [
+          $Sharing->{TOTAL}, $Sharing->{DURATION},
+          int2byte($Sharing->{TRAFFIC_IN}, { DIMENSION => $FORM{DIMENSION} }),
+          int2byte($Sharing->{TRAFFIC_OUT}, { DIMENSION => $FORM{DIMENSION} }),
+          int2byte($Sharing->{TRAFFIC_OUT} + $Sharing->{TRAFFIC_IN}, { DIMENSION => $FORM{DIMENSION} }),
+          $Sharing->{SUM}
+        ]
+      ],
+    }
+  );
+
+  print $table->show();
+
+  sharing_sessions($list, $Sharing);
+
+  return 1;
+}
+
+#**********************************************************
+#
+#**********************************************************
+sub sharing_user_info {
+  my $user = $Sharing->info($LIST_PARAMS{UID});
+
+  if ($user->{TOTAL} < 1) {
+    $html->message('info', $lang{INFO}, "$lang{NOT_ACTIVE}");
+    return 0;
+  }
+
+  if ($conf{SHARING_USER_CHG_TP}) {
+    $Sharing->{TP_CHANGE} = $html->button("$lang{CHANGE}", 'index=' . ($index + 1) . '&sid=' . $sid, { BUTTON => 1 });
+  }
+
+  $Sharing->{STATUS} = $status[ $Sharing->{DISABLE} ];
+  $html->tpl_show(_include('sharing_user_info', 'Sharing'), $Sharing);
+
+  #Show rest traffic
+  if ($Sharing->prepaid_rest({ UID => $LIST_PARAMS{UID} })) {
+
+    #Prepaid: period, traffic_type
+    my $list = $Sharing->{INFO_LIST};
+    my $table = $html->table(
+      {
+        caption     => "$lang{PREPAID}",
+        width       => '100%',
+        title_plain =>
+          [ "$lang{TRAFF} $lang{TYPE}", "$lang{START}", "$lang{TOTAL} (MB)", "$lang{REST} (MB)", "$lang{OVERQUOTA} (MB)" ]
+          ,
+        rowcolor    => $_COLORS[1]
+      }
+    );
+
+    foreach my $line (@{$list}) {
+      $table->addrow($line->[0], $line->[1], $line->[2],
+        ($line->[2] > 0 && $Sharing->{REST}->{ $line->[0] } > 0) ? $Sharing->{REST}->{ $line->[0] } : 0,
+        ($line->[2] > 0 && $Sharing->{REST}->{ $line->[0] } < 0) ? abs($Sharing->{REST}->{ $line->[0] }) : 0);
+    }
+
+    print $table->show();
+
+    if ($Sharing->{EXTRA_TRAFIC}) {
+      $table = $html->table(
+        {
+          caption  => $lang{EXTRA_TRAFIC},
+          width    => '100%',
+          rowcolor => $_COLORS[1],
+          rows     => [ [ "$lang{REST} (Mb):", $Sharing->{EXTRA_TRAFIC} ] ]
+        }
+      );
+
+      print $table->show();
+    }
+  }
+
+  return 1;
+}
+
+#*******************************************************************
+# Change user variant form
+# form_chg_vid()
+#*******************************************************************
+sub sharing_chg_tp {
+  my ($attr) = @_;
+
+  my Sharing $user;
+
+  if (defined($attr->{USER})) {
+    $user = $attr->{USER};
+    $user = $Sharing->info($user->{UID});
+    if ($user->{TOTAL} < 1) {
+      $html->message('info', $lang{INFO}, "$lang{NOT_ACTIVE}");
+      return 0;
+    }
+  }
+  else {
+    $html->message('err', $lang{ERROR}, "$lang{USER_NOT_EXIST}");
+    return 0;
+  }
+
+  #my $TARIF_PLAN = $FORM{tarif_plan} || $lang{DEFAULT_TARIF_PLAN};
+  my $period = $FORM{period} || 0;
+  my $message = '';
+  my $shedule = Shedule->new($db, $admin, \%conf);
+
+  if ($FORM{set}) {
+    if ($period == 1) {
+      $FORM{date_M}++;
+      $shedule->add(
+        {
+          UID      => $user->{UID},
+          TYPE     => 'tp',
+          ACTION   => $FORM{TP_ID},
+          D        => $FORM{date_D},
+          M        => $FORM{date_M},
+          Y        => $FORM{date_Y},
+          DESCRIBE => "$message<br>
+                   $lang{FROM}: '$FORM{date_Y}-$FORM{date_M}-$FORM{date_D}'",
+          MODULE   => 'Sharing'
+        }
+      );
+
+      if ($shedule->{errno}) {
+        $html->message('err', $lang{ERROR}, "[$shedule->{errno}] $err_strs{$shedule->{errno}}");
+      }
+      else {
+        $html->message('info', $lang{CHANGED}, "$lang{CHANGED}");
+        $user->info($user->{UID});
+      }
+    }
+    else {
+      $user->change({ %FORM });
+
+      if ($user->{errno}) {
+        $html->message('err', $lang{ERROR}, "[$user->{errno}] $err_strs{$user->{errno}}");
+      }
+      else {
+        $html->message('info', $lang{CHANGED}, "$lang{CHANGED}");
+        $user->info($user->{UID});
+      }
+
+    }
+  }
+  elsif ($FORM{del}) {
+    $shedule->del(
+      {
+        UID => $user->{UID},
+        ID  => $FORM{SHEDULE_ID}
+      }
+    );
+
+    $html->message('info', $lang{DELETED}, "$lang{DELETED} [$FORM{SHEDULE_ID}]");
+  }
+
+  $shedule->info(
+    {
+      UID      => $user->{UID},
+      TYPE     => 'tp',
+      DESCRIBE => "$message\n$lang{FROM}: '$FORM{date_y}-$FORM{date_m}-$FORM{date_d}'",
+      MODULE   => 'Sharing'
+    }
+  );
+
+  if ($shedule->{TOTAL} > 0) {
+    my $table = $html->table(
+      {
+        width   => '100%',
+        caption => "$lang{SHEDULE}",
+        rows    => [ [ "$lang{TARIF_PLAN}:", "$shedule->{ACTION}" ],
+          [ "$lang{DATE}:", "$shedule->{D}-$shedule->{M}-$shedule->{Y}" ], [ "$lang{ADMIN}:", "$shedule->{ADMIN_NAME}" ]
+          , [ "$lang{ADDED}:", "$shedule->{DATE}" ], [ "ID:", "$shedule->{SHEDULE_ID}" ] ]
+      }
+    );
+    $Tariffs->{TARIF_PLAN_SEL} = $table->show() . $html->form_input('SHEDULE_ID', "$shedule->{SHEDULE_ID}",
+      { TYPE => 'HIDDEN' });
+    $Tariffs->{ACTION} = 'del';
+    $Tariffs->{LNG_ACTION} = $lang{DEL};
+  }
+  else {
+    $Tariffs->{TARIF_PLAN_SEL} = $html->form_select(
+      'TP_ID',
+      {
+        SELECTED  => $user->{TP_ID},
+        SEL_LIST  => $Tariffs->list({ MODULE => 'Sharing', COLS_NAME => 1 }),
+        SEL_KEY   => 'id',
+        SEL_VALUE => 'name',
+      }
+    );
+
+    $Tariffs->{PARAMS} .= form_period($period);
+    $Tariffs->{ACTION} = 'set';
+    $Tariffs->{LNG_ACTION} = $lang{CHANGE};
+  }
+
+  my $tp_index = $index - 8;
+
+  $Tariffs->{UID} = $attr->{USER}->{UID};
+  #$Tariffs->{m} = $m;
+  $Tariffs->{TP_ID} = $user->{TP_ID};
+  $Tariffs->{TP_NAME} = "$user->{TP_ID}:$user->{TP_NAME} " . $html->button("$lang{TARIF_PLANS}",
+    "index=$tp_index&TP_ID=$user->{TP_ID}", { TITLE => "$lang{TP}", BUTTON => 1 });
+
+  print $html->tpl_show(templates('form_chg_tp'), $Tariffs);
+
+  return 1;
+}
+
+#**********************************************************
+=head2 sharing_user_chg_tp() sharing_user_info
+
+=cut
+#**********************************************************
+sub sharing_user_chg_tp {
+  my ($attr) = @_;
+
+  if ($FORM{BUY}) {
+    sharing_addition_buy();
+    return 0;
+  }
+
+  my Sharing $user_sharing;
+
+  my $shedule = Shedule->new($db, $admin, \%conf);
+  my $period = $FORM{period} || 0;
+
+  if (!$conf{SHARING_USER_CHG_TP}) {
+    $html->message('err', $lang{ERROR}, "$lang{NOT_ALLOW}");
+    return 0;
+  }
+
+  if (defined($LIST_PARAMS{UID})) {
+    #$user_sharing = $attr->{USER};
+    $user_sharing = $Sharing->info($LIST_PARAMS{UID});
+    if ($user_sharing->{TOTAL} < 1) {
+      $html->message('info', $lang{INFO}, "$lang{NOT_ACTIVE}");
+      return 0;
+    }
+  }
+  else {
+    $html->message('err', $lang{ERROR}, "$lang{USER_NOT_EXIST}");
+    return 0;
+  }
+
+  #Get TP groups
+  $Tariffs->tp_group_info($user_sharing->{TP_GID});
+
+  if (!$Tariffs->{USER_CHG_TP} && $Tariffs->{TOTAL} > 0) {
+    $html->message('err', $lang{ERROR}, "$lang{NOT_ALLOW} / $Tariffs->{USER_CHG_TP} /");
+    return 0;
+  }
+
+  if ($FORM{set}) {
+    if ($conf{SHARING_USER_CHG_TP_NPERIOD} && $user_sharing->{TP_ID} > 0) {
+      my $Y;
+      my $M;
+      my $D;
+      if ($user->{EXPIRE} eq '0000-00-00') {
+
+        # Get next month
+        ($Y, $M, $D) = split(/-/, $DATE, 3);
+        $M++;
+        if ($M == 13) {
+          $M = 1;
+          $Y++;
+        }
+        $D = '01';
+      }
+      else {
+        ($Y, $M, $D) = split(/-/, $user->{EXPIRE}, 3);
+      }
+
+      my $seltime = POSIX::mktime(0, 0, 0, $D, $M - 1, ($Y - 1900));
+
+      if ($seltime > time()) {
+        $shedule->add(
+          {
+            UID      => $LIST_PARAMS{UID},
+            TYPE     => 'tp',
+            ACTION   => $FORM{TP_ID},
+            D        => $D,
+            M        => $M,
+            Y        => $Y,
+            DESCRIBE => "<br>
+                   $lang{FROM}: '$Y-$M-$D'",
+            MODULE   => 'Sharing'
+          }
+        );
+      }
+      else {
+        $FORM{UID} = $LIST_PARAMS{UID};
+
+        if ($user_sharing->{TP_ID} == $FORM{TP_ID}) {
+          my $user = Users->new($db, $admin, \%conf);
+          my $tariffs = Tariffs->new($db, \%conf, $admin);
+          $tariffs->info(0, { ID => $FORM{TP_ID} });
+
+          if ($tariffs->{CHANGE_PRICE} > 0) {
+            $user->info($LIST_PARAMS{UID});
+
+            if ($user->{DEPOSIT} + $user->{CREDIT} < $tariffs->{CHANGE_PRICE}) {
+              $html->message('err', $lang{ERROR}, "$lang{ERR_SMALL_DEPOSIT}");
+              return 0;
+            }
+            else {
+              my $fees = Fees->new($db, $admin, \%conf);
+              $fees->take($user, $tariffs->{CHANGE_PRICE}, { DESCRIBE => "$lang{CHANGE} TP [$FORM{TP_ID}]" });
+            }
+          }
+
+          my $message = '';
+          if ($tariffs->{AGE} > 0) {
+            my $EXPITE_DATE = strftime("%Y-%m-%d", localtime(time + 86400 * $tariffs->{AGE}));
+            my $ACTIVATE_DATE = strftime("%Y-%m-%d", localtime(time));
+            $user->change(
+              $attr->{UID},
+              {
+                EXPIRE   => $EXPITE_DATE,
+                ACTIVATE => $ACTIVATE_DATE,
+                UID      => $LIST_PARAMS{UID}
+              }
+            );
+
+            $message = ": $ACTIVATE_DATE $lang{EXPIRE}: $EXPITE_DATE";
+          }
+
+          $html->message('info', $lang{INFO}, "$lang{ACTIVATE} $message");
+        }
+        else {
+          $user_sharing->change(
+            {
+              UID   => $LIST_PARAMS{UID},
+              TP_ID => $FORM{TP_ID}
+            }
+          );
+
+          if ($user_sharing->{errno}) {
+            $html->message('err', $lang{ERROR}, "[$user_sharing->{errno}] $err_strs{$user_sharing->{errno}}");
+          }
+          else {
+            $html->message('info', $lang{CHANGED}, "$lang{CHANGED}");
+            $user_sharing->info($user_sharing->{UID});
+          }
+        }
+      }
+    }
+    elsif ($period == 1 && $conf{SHARING_USER_CHG_TP_SHEDULE} && $user_sharing->{TP_ID} > 0) {
+
+      my $seltime = POSIX::mktime(0, 0, 0, $FORM{date_D}, $FORM{date_M}, ($FORM{date_Y} - 1900));
+
+      if ($seltime <= time()) {
+        $html->message('info', $lang{INFO},
+          "$lang{ERR_WRONG_DATA} ($FORM{date_D}, $FORM{date_M}, $FORM{date_Y}  )/" . $seltime . "-" . time());
+        return 0;
+      }
+
+      $FORM{date_M}++;
+      $shedule->add(
+        {
+          UID      => $LIST_PARAMS{UID},
+          TYPE     => 'tp',
+          ACTION   => $FORM{TP_ID},
+          D        => $FORM{date_D},
+          M        => $FORM{date_M},
+          Y        => $FORM{date_Y},
+          DESCRIBE => "<br>
+                   $lang{FROM}: '$FORM{date_Y}-$FORM{date_M}-$FORM{date_D}'",
+          MODULE   => 'Dv'
+        }
+      );
+
+      if ($shedule->{errno}) {
+        $html->message('err', $lang{ERROR}, "[$shedule->{errno}] $err_strs{$shedule->{errno}}");
+      }
+      else {
+        $html->message('info', $lang{CHANGED}, "$lang{CHANGED}");
+        $user_sharing->info($user->{UID});
+      }
+    }
+    else {
+      $FORM{UID} = $LIST_PARAMS{UID};
+      $user_sharing->change({ %FORM });
+      if ($user_sharing->{errno}) {
+        if ($user_sharing->{errno} == 15) {
+          $html->message('err', $lang{ERROR}, "$lang{ERR_SMALL_DEPOSIT}");
+        }
+        else {
+          $html->message('err', $lang{ERROR}, "[$user_sharing->{errno}] $err_strs{$user_sharing->{errno}}");
+        }
+      }
+      else {
+        $html->message('info', $lang{CHANGED}, "$lang{CHANGED} $lang{TARIF_PLAN}");
+        $user_sharing->info($user->{UID});
+      }
+    }
+  }
+  elsif ($FORM{del}) {
+    $shedule->del(
+      {
+        UID => $LIST_PARAMS{UID},
+        ID  => $FORM{SHEDULE_ID}
+      }
+    );
+
+    $html->message('info', $lang{DELETED}, "$lang{DELETED} [$FORM{SHEDULE_ID}]");
+  }
+
+  $shedule->info(
+    {
+      UID      => $user_sharing->{UID},
+      TYPE     => 'tp',
+      DESCRIBE => "\n$lang{FROM}: '$FORM{date_y}-$FORM{date_m}-$FORM{date_d}'",
+      MODULE   => 'Sharing'
+    }
+  );
+
+  if ($shedule->{TOTAL} > 0) {
+    $Tariffs->info($shedule->{ACTION}, { MODULE => 'Sharing' }),
+
+      my $table = $html->table(
+        {
+          width   => '100%',
+          caption => "$lang{SHEDULE}",
+          rows    => [ [ "$lang{TARIF_PLAN}:", "# $shedule->{ACTION} : $Tariffs->{NAME}" ],
+            [ "$lang{DATE}:", "$shedule->{D}-$shedule->{M}-$shedule->{Y}" ], [ "$lang{ADDED}:", "$shedule->{DATE}" ],
+            [ "ID:", "$shedule->{SHEDULE_ID}" ] ]
+        }
+      );
+    $Tariffs->{TARIF_PLAN_SEL} = $table->show({ OUTPUT2RETURN => 1 }) . $html->form_input('SHEDULE_ID',
+      "$shedule->{SHEDULE_ID}", { TYPE => 'HIDDEN', OUTPUT2RETURN => 1 });
+    $Tariffs->{ACTION} = 'del';
+    $Tariffs->{LNG_ACTION} = $lang{DEL};
+  }
+  else {
+    $Tariffs->{TARIF_PLAN_SEL} = $html->form_select(
+      'TP_ID',
+      {
+        SELECTED  => $user->{TP_ID},
+        SEL_LIST  => $Tariffs->list({ TP_GID => $user->{TP_GID}, MODULE => 'Sharing', COLS_NAME => 1 }),
+        SEL_KEY   => 0,
+        SEL_VALUE => 1,
+      }
+    );
+
+    $Tariffs->{PARAMS} .= form_period($period) if ($conf{SHARING_USER_CHG_TP_SHEDULE});
+    $Tariffs->{ACTION} = 'set';
+    $Tariffs->{LNG_ACTION} = $lang{CHANGE};
+  }
+
+  $Tariffs->{UID} = $attr->{USER}->{UID};
+  #  $Tariffs->{m} = $m;
+  $Tariffs->{TP_ID} = $user->{TP_ID};
+  $Tariffs->{TP_NAME} = "$user_sharing->{TP_ID}:$user_sharing->{TP_NAME}";
+  $html->tpl_show(templates('form_chg_tp'), $Tariffs);
+
+  sharing_addition_buy();
+
+  return 1
+}
+
+#*******************************************************************
+#
+#*******************************************************************
+sub sharing_user {
+  $Sharing->{UID} = $FORM{UID};
+
+  if ($FORM{add}) {
+    $Sharing->add({ %FORM });
+    if (!$Sharing->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{ADDED}");
+      if ($conf{SHARING_SAMBA_ADD}) {
+        $users->info($FORM{UID}, { SHOW_PASSWORD => 1 });
+
+        my $cmd = $conf{SHARING_SAMBA_ADD};
+        $cmd =~ s/\%USERNAME\%/$users->{LOGIN}/;
+        $cmd =~ s/\%PASSWORD\%/$users->{PASSWORD}/;
+        my $a = `$cmd`;
+        print "<textarea rows=6 cols=70>$a</textarea>\n";
+      }
+    }
+  }
+  elsif ($FORM{set}) {
+    $Sharing->change({ %FORM });
+    if (!$Sharing->{errno}) {
+      if ($conf{SHARING_SAMBA_ADD}) {
+        $users->info($FORM{UID}, { SHOW_PASSWORD => 1 });
+
+        my $res = cmd($conf{SHARING_SAMBA_ADD}, {
+          PARAMS => {
+            USERNAME => $users->{LOGIN},
+            PASSWORD => $users->{PASSWORD}
+          }
+        });
+        print "<textarea rows=6 cols=70>$res</textarea>\n";
+      }
+
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+  elsif ($FORM{del}) {
+    $Sharing->del();
+    if (!$Sharing->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+
+  if ($Sharing->{errno}) {
+    $html->message('err', $lang{ERROR}, "[$Sharing->{errno}] $err_strs{$Sharing->{errno}}");
+  }
+
+  my $user = $Sharing->info($FORM{UID});
+
+  if ($user->{TOTAL} < 1) {
+    $html->message('info', $lang{INFO}, $lang{NOT_ACTIVE});
+    $Sharing = $Sharing->defaults();
+
+    $Sharing->{TP_ID} = $html->form_select(
+      'TP_ID',
+      {
+        SELECTED  => $Sharing->{TP_ID},
+        SEL_LIST  => $Tariffs->list(
+          {
+            MODULE    => 'Sharing',
+            EX_TABLE  => 'sharing_tp',
+            COLS_NAME => 1
+          }
+        ),
+        SEL_KEY   => 'id',
+        SEL_VALUE => 'name',
+      }
+    );
+
+    $Sharing->{ACTION} = 'add';
+    $Sharing->{LNG_ACTION} = $lang{ACTIVATE};
+  }
+  else {
+    $Sharing->{ACTION} = 'set';
+    $Sharing->{LNG_ACTION} = $lang{CHANGE};
+    $Sharing->{CHANGE_TP_BUTTON} = $html->button($lang{CHANGE}, 'UID=' . $FORM{UID} . '&index=' . ($index + 4),
+      { BUTTON => 1 });
+
+    if ($conf{SHARING_SAMBA_ADD}) {
+      my $user_info = $users->info($FORM{UID});
+      $LIST_PARAMS{LOGIN} = $user_info->{LOGIN};
+
+      $Sharing->samba_info({ %LIST_PARAMS });
+
+      my $info = '';
+      if ($Sharing->{TOTAL} < 1) {
+        $info = '[Not Active]';
+      }
+
+      $Sharing->{SAMBA_ADD} = "<tr><td>SAMBA:</td><td><input type=checkbox name=SAMBA value=1 checked> $info</td></tr>\n";
+    }
+
+  }
+
+  $Sharing->{DISABLE} = ($Sharing->{DISABLE} == 1) ? ' checked' : '';
+
+  $html->tpl_show(_include('sharing_user', 'Sharing'), $Sharing);
+
+  return 1;
+}
+
+#**********************************************************
+=head2 sharing_online() - Get download files from apache web server
+
+=cut
+#**********************************************************
+sub sharing_online {
+  my ($attr) = @_;
+
+  if (_error_show($Sharing)) {
+    return 0;
+  }
+  elsif ($Sharing->{TOTAL} && $Sharing->{TOTAL} == 1) {
+    #form_users( { USER => user_info( $list->[0]->[ 6 + $Sharing->{SEARCH_FIELDS_COUNT} ] ) } );
+    #return 0;
+  }
+
+  use IO::Socket::INET;
+
+  my $timeout = defined($attr->{'TimeOut'}) ? $attr->{'TimeOut'} : 5;
+  my $port = defined($attr->{'Port'}) ? $attr->{'Port'} : 80;
+
+  my $host = '127.0.0.1';
+  my $request = "GET /axbills-status HTTP/1.0\r\n\r\n";
+
+  my $socket = IO::Socket::INET->new(
+    PeerAddr => $host,
+    PeerPort => $port,
+    Proto    => 'tcp',
+    TimeOut  => $timeout
+  ) or $Log->log_print('LOG_DEBUG', "", "ERR: Can't connect to '$host:$port' $!", {});
+
+  return 0 if (!$socket);
+
+  $socket->send("$request");
+  my $res = '';
+  while (<$socket>) {
+    $res .= $_;
+  }
+  close($socket);
+
+  my @content_arr = split(/\n\n/, $res);
+  $res = '';
+  my $pattern =
+    '<tr><td>(\S+)<\/td>'
+      . '<td>(\S+)<\/td>'
+      . '<td>(\d+\/\d+\/\d+)<\/td>'
+      . '<td>(\S+)<\/td>'
+      . '<td>(\S+)<\/td><td>(\d+)<\/td>'
+      . '<td>(\d+)<\/td><td>(\S+)<\/td><td>(\S+)<\/td>'
+      . '<td>(\S+)<\/td>'
+      . '<td>(\S+)<\/td>'
+      . '<td nowrap>(\S+)</td>'
+      . '<td nowrap>(\S+) ([a-zA-Z0-9\.\-\=\?\/\%!_ ]{1,100})([ HTTP\/\d\.\d]{0,10})</td>';
+
+  #               '<td nowrap>(\S+) (\S+| )([!% \S]{0,10})</td>'
+
+  my $table = $html->table(
+    {
+      width   => '100%',
+      caption => "$lang{SESSIONS}",
+      border  => 1,
+      title   =>
+        [ 'IP', 'Request', "$lang{DURATION}", 'IN/OUT (Mb)', 'Method', 'Proto', 'Pid', 'CPU', $lang{STATUS}, 'HOST' ],
+      qs      => $pages_qs,
+      pages   => $Sharing->{TOTAL},
+      ID      => 'SHARING_MONITOR'
+    }
+  );
+
+  my %status_hash = (
+    "_" => 'Waiting for Connection',
+    "S" => 'Starting up',
+    "R" => 'Reading Request',
+    "W" => 'Sending Reply',
+    "K" => 'Keepalive (read)',
+    "D" => 'DNS Lookup',
+    "C" => 'Closing connection',
+    "L" => 'Logging',
+    "G" => 'Gracefully finishing',
+    "I" => 'Idle cleanup of worker',
+    "." => 'open slot with no current process'
+  );
+
+  my $not_expr = '';
+  my $total = 0;
+  foreach my $line (@content_arr) {
+    $line =~ s/\n|\r|<b>|<\/b>//g;
+    if ($line =~ /$pattern/) {
+      $res .= "$1 | PID: $2 | $3 | $4 | $5 | $6 | $7 | $8 | Transfer: $9 | $10 | IP: $11 | Host: $12 |Type: $13 | Request: $14 | Proto: $15\n";
+      $table->addrow($11, $14, sec2time($6, { str => 1 }), $9, $13, $15, $2, $5, $status_hash{$4}, $12);
+      $total++;
+    }
+    else {
+      $not_expr .= $line . "\n\n";
+    }
+  }
+
+  print $table->show();
+
+  $table = $html->table(
+    {
+      width => '100%',
+      rows  => [ [ "$lang{TOTAL}:", $html->b($total) ] ]
+    }
+  );
+
+  print $table->show();
+
+  if ($not_expr ne '') {
+    print "<textarea cols=150 rows=10>$not_expr</textarea>";
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 sharing_registration()
+
+=cut
+#**********************************************************
+sub sharing_registration {
+  #my ($attr) = @_;
+
+  if ($FORM{reg}) {
+    if ($FORM{EMAIL} !~ /^(([^<>()[\]\\.,;:\s\@\"]+(\.[^<>()[\]\\.,;:\s\@\"]+)*)|(\".+\"))\@((\[[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\.[0-9]{1,3}\])|(([a-zA-Z\-0-9]+\.)+[a-zA-Z]{2,}))$/) {
+      $html->{NO_PRINT} = 1;
+      $Sharing->{MESSAGE} = $html->message('err', $lang{ERROR}, "$lang{WRONG_EMAIL}");
+      $html->{NO_PRINT} = undef;
+      $html->tpl_show(_include('sharing_registration', 'Sharing'), undef);
+
+      return 0;
+    }
+
+    my $password = mk_unique_value($conf{PASSWD_LENGTH} || 8, { SYMBOLS => $conf{PASSWD_SYMBOLS} || undef });
+
+    my $user = $users->add({
+      LOGIN       => $FORM{LOGIN},
+      CREATE_BILL => 1,
+      PASSWORD    => $password
+    });
+
+    if (!$user->{errno}) {
+      my $uid = $user->{UID};
+      $user = $user->info($uid);
+
+      #3 personal info
+      $user->pi_add({
+        UID   => $uid,
+        FIO   => $FORM{FIO},
+        EMAIL => $FORM{EMAIL}
+      });
+
+      if ($user->{errno}) {
+        $Sharing->{MESSAGE} = $html->message('err', $lang{ERROR}, "[$user->{errno}] $err_strs{$user->{errno}}");
+        $html->tpl_show(_include('sharing_registration', 'Sharing'), undef, { notprint => 1 });
+        return 0;
+      }
+
+      $conf{SHARING_DEFAULT_TP} = 0 if (!$conf{SHARING_DEFAULT_TP});
+      $Sharing->add({
+        UID   => $uid,
+        TP_ID => $FORM{TP_ID} || $conf{SHARING_DEFAULT_TP}
+      });
+
+      if (!$Sharing->{errno}) {
+        $html->tpl_show(_include('sharing_reg_complete', 'Sharing'), { %{$Sharing}, %FORM });
+
+        #Send mail
+        my $message = $html->tpl_show(_include('sharing_reg_complete_mail', 'Sharing'),
+          { %{$Sharing}, %FORM, PASSWORD => "$password" }, { OUTPUT2RETURN => 1 });
+
+        sendmail("$conf{ADMIN_MAIL}", "$FORM{EMAIL}", "REGISTRATION", "$message", "$conf{MAIL_CHARSET}", '');
+      }
+      else {
+        $html->message('err', $lang{ERROR}, "[$Sharing->{errno}] $err_strs{$Sharing->{errno}}");
+      }
+      return 0;
+    }
+    else {
+      if ($user->{errno} == 7) {
+        $html->message('err', $lang{ERROR}, "$lang{USER_EXIST}");
+      }
+      else {
+        $html->message('err', $lang{ERROR}, "[$user->{errno}] $err_strs{$user->{errno}}");
+      }
+    }
+  }
+
+  $Sharing->{TP_SEL} = $html->form_select(
+    'TP_ID',
+    {
+      SELECTED  => $FORM{TP_ID},
+      SEL_LIST  => $Tariffs->list({ %LIST_PARAMS, MODULE => 'Sharing', TP_GID => '>0', COLS_NAME => 1 }),
+      SEL_KEY   => 'id',
+      SEL_VALUE => 'name',
+    }
+  );
+
+  $html->tpl_show(_include('sharing_registration', 'Sharing'), undef);
+
+  return 0;
+}
+
+#**********************************************************
+#
+#**********************************************************
+sub sharing_additions {
+  my ($attr) = @_;
+  $Sharing->{ACTION} = 'add';
+  $Sharing->{LNG_ACTION} = $lang{ADD};
+
+  if (defined($FORM{tt})) {
+
+    #$Sharing = $attr->{TP};
+    $Sharing->additions_defaults();
+    $Sharing->{TI_ID} = $FORM{tt};
+
+    if ($FORM{add}) {
+      $Sharing->additions_add({ %FORM });
+      if (!$Sharing->{errno}) {
+        $html->message('info', $lang{INFO}, "$lang{ADDED}");
+      }
+    }
+    elsif ($FORM{change}) {
+      $Sharing->additions_change({ %FORM });
+      if (!$Sharing->{errno}) {
+        $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+      }
+    }
+    elsif (defined($FORM{chg})) {
+      $Sharing->additions_info($FORM{chg}, { TP_ID => $FORM{tt} });
+      if (!$Sharing->{errno}) {
+        $html->message('info', $lang{INFO}, "$lang{CHANGING}");
+      }
+
+      $Sharing->{ACTION} = 'change';
+      $Sharing->{LNG_ACTION} = $lang{CHANGE};
+    }
+    elsif (defined($FORM{del}) && defined($FORM{is_js_confirmed})) {
+      $Sharing->additions_del({ TI_ID => $FORM{tt}, TT_ID => $FORM{del} });
+      if (!$Sharing->{errno}) {
+        $html->message('info', $lang{INFO}, "$lang{DELETED}");
+      }
+    }
+
+    if ($Sharing->{errno}) {
+      $html->message('err', $lang{ERROR}, "[$Sharing->{errno}] $err_strs{$Sharing->{errno}}");
+    }
+
+    my $list = $Sharing->additions_list({ TP_ID => $FORM{TP_ID}, form => 'yes' });
+    $Sharing->{TT_ID} = $Sharing->{TOTAL} if (!defined($FORM{chg}));
+  }
+  elsif ($attr->{TP}) {
+
+    #$Sharing = $attr->{TP};
+    $Sharing->additions_defaults();
+
+    if ($FORM{change}) {
+      $Sharing->tt_change(
+        {
+          TT_DESCRIBE_0  => $FORM{TT_DESCRIBE_0},
+          TT_PRICE_IN_0  => $FORM{TT_PRICE_IN_0},
+          TT_PRICE_OUT_0 => $FORM{TT_PRICE_OUT_0},
+          TT_NETS_0      => $FORM{TT_NETS_0},
+          TT_PREPAID_0   => $FORM{TT_PREPAID_0},
+          TT_SPEED_0     => $FORM{TT_SPEED_0},
+
+          TT_DESCRIBE_1  => $FORM{'TT_DESCRIBE_1'},
+          TT_PRICE_IN_1  => $FORM{TT_PRICE_IN_1},
+          TT_PRICE_OUT_1 => $FORM{TT_PRICE_OUT_1},
+          TT_NETS_1      => $FORM{TT_NETS_1},
+          TT_PREPAID_1   => $FORM{TT_PREPAID_1},
+          TT_SPEED_1     => $FORM{TT_SPEED_1},
+
+          TT_DESCRIBE_2  => $FORM{TT_DESCRIBE_2},
+          TT_NETS_2      => $FORM{TT_NETS_2},
+          TT_SPEED_2     => $FORM{TT_SPEED_2},
+
+        }
+      );
+
+      if (!_error_show($Sharing)) {
+        $html->message('info', $lang{INFO}, "$lang{INTERVALS}");
+      }
+    }
+
+    $Sharing->tt_list({ TP_ID => $FORM{TP_ID} });
+  }
+  elsif (defined($FORM{TP_ID})) {
+    $FORM{subf} = $index;
+    sharing_tp();
+    return 0;
+  }
+
+  my $table = $html->table(
+    {
+      width       => '100%',
+      title_plain => [ "#", "$lang{NAME}", "$lang{TRAFFIC}", "$lang{SUM}", "-", "-" ],
+      caption     => $lang{EXTRA_TRAFFIC}
+    }
+  );
+
+  my $tp_id = $FORM{TP_ID} || 0;
+  my $list_tt = $Sharing->additions_list({ TP_ID => $tp_id });
+  foreach my $line (@{$list_tt}) {
+    $table->addrow(
+      $line->[0],
+      $line->[1],
+      $line->[2],
+      $line->[3],
+      $html->button($lang{CHANGE}, "index=$index&TP_ID=$tp_id&tt=$tp_id&chg=$line->[0]", { BUTTON => 1 }),
+      $html->button($lang{DEL}, "index=$index&TP_ID=$tp_id&tt=$tp_id&del=$line->[0]",
+        { MESSAGE => "$lang{DEL} [$line->[0]]?", BUTTON => 1 })
+    );
+  }
+
+  print $table->show();
+  $html->tpl_show(_include('sharing_addition', 'Sharing'), $Sharing);
+
+  return 1;
+}
+
+#**********************************************************
+#
+#**********************************************************
+sub sharing_addition_buy {
+
+  my $user_si = $Sharing->info($LIST_PARAMS{UID});
+
+  if (!$user_si->{TP_ID}) {
+    return 0;
+  }
+
+  if ($Sharing->{TOTAL} > 0) {
+    if ($FORM{BUY}) {
+      $Sharing->additions_info($FORM{ID});
+      if ($Sharing->{PRICE} > $user->{DEPOSIT}) {
+        $html->message('err', $lang{ERROR}, "$lang{ERR_SMALL_DEPOSIT} / $Sharing->{PRICE} > $user->{DEPOSIT}");
+      }
+      else {
+        my $mb = $Sharing->{QUANTITY};
+        my $price = $Sharing->{PRICE};
+
+        $Sharing->change(
+          {
+            UID          => $user_si->{UID},
+            EXTRA_TRAFIC => $user_si->{EXTRA_TRAFIC} + $mb
+          }
+        );
+
+        if (!$Sharing->{errno}) {
+          $html->message('info', $lang{ADDED}, "$lang{ADDED}:  $mb Mb.");
+          $Fees = Fees->new($db, $admin, \%conf);
+          $Fees->take($user, $price, { DESCRIBE => "$lang{EXTRA_TRAFIC}" });
+        }
+      }
+    }
+
+    $html->form_main(
+      {
+        CONTENT => "$lang{EXTRA_TRAFIC}: "
+          . $html->form_select(
+          'ID',
+          {
+            SELECTED => 0,
+            SEL_LIST => $Sharing->additions_list({ TP_ID => $user_si->{TP_ID}, COLS_NAME => 1 }),
+          }
+        ),
+        HIDDEN  => { index => "$index" },
+        SUBMIT  => { BUY => "$lang{BUY}" }
+      }
+    );
+  }
+
+  return 1;
+}
+
+#**********************************************************
+# monthly_fees
+#**********************************************************
+sub sharing_periodic_monthly_fees {
+  my ($attr) = @_;
+
+  my $debug = $attr->{DEBUG} || 0;
+  my $debug_output = '';
+  $debug_output .= "Sharing - Monthly pariodic payments\n" if ($debug > 1);
+
+  my $users = Users->new($db, $admin, \%conf);
+  my $list = $Tariffs->list({ MODULE => 'Sharing', %LIST_PARAMS });
+
+  $ADMIN_REPORT{DATE} = $DATE if (!$ADMIN_REPORT{DATE});
+  my ($y, $m, $d) = split(/-/, $ADMIN_REPORT{DATE}, 3);
+  $m--;
+
+  my $date_unixtime = mktime(0, 0, 0, $d, $m, $y - 1900, 0, 0, 0);
+
+  foreach my $line (@{$list}) {
+    my $TP_ID = $line->[0];
+    if ($line->[6] > 0) {
+      $debug_output .= "TP ID: $line->[0] MF: $line->[6] POSTPAID: $line->[12] REDUCTION: $line->[11]\n" if ($debug > 1);
+      my $ulist = $Sharing->list(
+        {
+          ACTIVATE  => "0000-00-00,>=$ADMIN_REPORT{DATE}",
+          EXPIRE    => "<$ADMIN_REPORT{DATE}",
+          DISABLE   => '0',
+          TP_ID     => $TP_ID,
+          SORT      => 1,
+          PAGE_ROWS => 100000
+        }
+      );
+
+      #u.id, u.fio, if(acct.id IS NULL, u.deposit, acct.deposit), u.credit, tp.name, u.disable,
+      #      u.uid, u.account_id, u.email, u.tp_id, u.activate, u.expire
+
+      foreach my $u (@{$ulist}) {
+        $debug_output .= " Login: $u->[0] TP_ID: $u->[10] Fees: $line->[6] REDUCTION: $u->[14]  $u->[2] $u->[3] $u->[11] - $u->[11]\n" if ($debug > 4);
+
+        if ($u->[13] > 0 && defined($u->[2])) {
+          my %user = (
+            LOGIN     => $u->[0],
+            UID       => $u->[7],
+            BILL_ID   => $u->[13],
+            REDUCTION => $u->[14],
+            ACTIVATE  => $u->[11],
+            DEPOSIT   => $u->[2],
+            CREDIT    => ($u->[3] > 0) ? $u->[3] : $line->[14]
+          );
+
+          #Make sum
+          my $sum = $line->[6];
+
+          if ($line->[11] == 1 && $u->[14] > 0) {
+            $sum = $sum * (100 - $u->[14]) / 100;
+          }
+
+          my %FEES_PARAMS = (
+            DESCRIBE => "$lang{MONTH_FEE} (Sharing/$TP_ID)",
+            DATE     => $ADMIN_REPORT{DATE},
+            METHOD   => 1
+          );
+
+          #If deposit is above-zero or TARIF PALIN is POST PAID or PERIODIC PAYMENTS is POSTPAID
+          if ($line->[4] == 1 || $user{DEPOSIT} + $user{CREDIT} > 0 || $line->[12] == 1) {
+
+            #                print " $u->[0] $line->[6] $u->[2] $u->[3] $u->[10] - $u->[11] /$DATE $d == 1\n";
+            #take fees in first day of month
+            if ($user{ACTIVATE} eq '0000-00-00' and $d == 1) {
+              if ($debug > 4) {
+                $debug_output .= " UID: $user{UID} SUM: $sum REDUCTION: $user{REDUCTION}\n";
+              }
+              else {
+                $Fees->take(\%user, $sum, { %FEES_PARAMS });
+                $debug_output .= " $user{LOGIN}  UID: $user{UID} SUM: $sum REDUCTION: $user{REDUCTION}\n" if ($debug > 0);
+              }
+            }
+
+            # If activation set to monthly fees taken throught 30 days
+            elsif ($user{ACTIVATE} ne '0000-00-00') {
+              my ($activate_y, $activate_m, $activate_d) = split(/-/, $user{ACTIVATE}, 3);
+
+              $activate_m--;
+              my $active_unixtime = POSIX::mktime(0, 0, 0, $activate_d, $activate_m, $activate_y - 1900, 0, 0, 0);
+              if ($date_unixtime - $active_unixtime > 30 * 86400) {
+                if ($debug > 4) {
+                  $debug_output .= " UID: $user{UID} SUM: $sum REDUCTION: $user{REDUCTION}\n";
+                }
+                else {
+                  $Fees->take(\%user, $sum, { %FEES_PARAMS });
+                  $users->change(
+                    $user{UID},
+                    {
+                      UID      => $user{UID},
+                      ACTIVATE => $ADMIN_REPORT{DATE}
+                    }
+                  );
+                  $debug_output .= " $user{LOGIN}  UID: $user{UID} SUM: $sum REDUCTION: $user{REDUCTION} CHANGE: ACTIVATE\n" if ($debug > 0);
+                }
+              }
+
+              #print "   $u->[0] $line->[6] $u->[2] $u->[3] $u->[10] - $u->[11]\n";
+            }
+          }
+        }
+        else {
+          print "[ $u->[7] ] $u->[0] - Don't have money account\n";
+        }
+      }
+    }
+  }
+
+  $DEBUG .= $debug_output;
+  return $debug_output;
+}
+
+#**********************************************************
+#
+#**********************************************************
+sub sharing_periodic_logrotate {
+  my ($attr) = @_;
+  my $debug = $attr->{DEBUG} || 0;
+  my $debug_output = '';
+  $debug_output .= "Log rotate\n" if ($debug > 1);
+
+  $DEBUG .= $debug_output;
+  return $debug_output;
+}
+
+#**********************************************************
+#
+#**********************************************************
+sub sharing_periodic {
+  my ($attr) = @_;
+
+  my $debug = $attr->{DEBUG} || 0;
+  my $debug_output = '';
+  $debug_output .= "Expire perid calculation\n" if ($debug > 1);
+
+  my $ulist = $Sharing->list(
+    {
+      EXPIRE       => "!0000-00-00,<$ADMIN_REPORT{DATE}",
+      DISABLE      => '0',
+      SORT         => 1,
+      PAGE_ROWS    => 100000,
+      EXTRA_TRAFIC => ">0"
+    }
+  );
+
+  if ($Sharing->{errno}) {
+    print "[$Sharing->{errno}] $Sharing->{errstr}\n";
+    exit;
+  }
+
+  foreach my $u (@{$ulist}) {
+    my $extra_traffic = $u->[7];
+    $debug_output .= "LOGIN: $u->[0] ($u->[8]) EXTRA_BYTE: $extra_traffic  DEPOSIT: $u->[2] ACTIVATE: $u->[12] EXPIRE: $u->[13] " if ($debug > 2);
+
+    #Get traffic
+    #$Sharing->sessions_list({ LOGIN     => $u->[0],
+    #	                        FROM_DATE => $u->[12],
+    #	                        TO_DATE   => $u->[13]
+    #	                      });
+
+    $Sharing->prepaid_rest({ UID => $u->[8] });
+
+    my $overquota = ($Sharing->{REST}->{0}) ? abs($Sharing->{REST}->{0}) : 0;
+    $debug_output .= "OVERQUOTA: $overquota\n" if ($debug > 2);
+    if ($overquota > 0) {
+      $Sharing->change(
+        {
+          UID          => $u->[8],
+          EXTRA_TRAFIC => $extra_traffic - $overquota
+        }
+      );
+    }
+  }
+
+  $DEBUG .= $debug_output;
+  return $debug_output;
+}
+
+#***********************************************************
+# sharing_sheduler
+#***********************************************************
+sub sharing_sheduler {
+  my ($type, $action, $uid) = @_;
+
+  $Sharing->info($uid);
+  if ($type eq 'tp') {
+    $Sharing->change({
+      UID   => $uid,
+      TP_ID => $action
+    });
+
+    if ($Sharing->{errno} && $Sharing->{errno} == 15) {
+      return $Sharing->{errno};
+    }
+  }
+
+  return 0;
+}
+
+#***********************************************************
+# sharing_sheduler
+#***********************************************************
+sub sharing_priority {
+
+  #my ($type, $action, $uid)=@_;
+
+  $Sharing->{ACTION} = 'add';
+  $Sharing->{LNG_ACTION} = $lang{ADD};
+
+  if ($FORM{add}) {
+    $Sharing->priority_add({ %FORM });
+    if (!$Sharing->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{ADDED}");
+    }
+  }
+  elsif ($FORM{change}) {
+
+    $Sharing->priority_change({ %FORM });
+
+    if (!$Sharing->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGED}");
+    }
+  }
+  elsif ($FORM{chg}) {
+    $Sharing->priority_info($FORM{chg}, { TP_ID => $FORM{tt} });
+    if (!$Sharing->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{CHANGING}");
+    }
+
+    $Sharing->{ACTION} = 'change';
+    $Sharing->{LNG_ACTION} = $lang{CHANGE};
+  }
+  elsif (defined($FORM{del}) && defined($FORM{is_js_confirmed})) {
+    my %DEL = ();
+
+    if ($FORM{IDS}) {
+      $DEL{IDS} = $FORM{IDS};
+    }
+    else {
+      $DEL{ID} = $FORM{del};
+    }
+
+    $Sharing->priority_del({ %DEL });
+
+    if (!$Sharing->{errno}) {
+      $html->message('info', $lang{INFO}, "$lang{DELETED}");
+    }
+  }
+
+  if ($Sharing->{errno}) {
+    $html->message('err', $lang{ERROR}, "[$Sharing->{errno}] $err_strs{$Sharing->{errno}}");
+  }
+
+  $html->tpl_show(_include('sharing_priority', 'Sharing'), $Sharing);
+
+  form_search({ SIMPLE => { $lang{FILE} => "FILE" } });
+
+  my $list = $Sharing->priority_list({ %LIST_PARAMS });
+
+  my $table = $html->table(
+    {
+      width   => '100%',
+      caption => "$lang{PRIORITY}",
+      border  => 1,
+      title   => [ "Server", "$lang{FILE}", "$lang{SIZE}", "$lang{PRIORITY}", "$lang{DATE}", '-', '-' ],
+      qs      => $pages_qs,
+      pages   => $Sharing->{TOTAL},
+      header  => "<script language=\"JavaScript\" type=\"text/javascript\">
+<!--
+function CheckAllINBOX() {
+  for (var i = 0; i < document.file_list.elements.length; i++) {
+    if(document.file_list.elements[i].type == 'checkbox' && document.file_list.elements[i].name == 'IDS'){
+      document.file_list.elements[i].checked =         !(document.file_list.elements[i].checked);
+    }
+  }
+}
+//-->
+</script>\n::<a href=\"javascript:void(0)\" onClick=\"CheckAllINBOX();\">$lang{SELECT_ALL}</a>::\n"
+    }
+  );
+  return 0 if (!$list || ref $list ne 'ARRAY');
+  foreach my $line (@{$list}) {
+    $table->addrow(
+      $html->form_input('IDS', "$line->[5]", { TYPE => 'checkbox' }) . "$line->[0]",
+      "$line->[1]", "$line->[2]", "$line->[3]", "$line->[4]",
+      $html->button($lang{CHANGE}, "index=$index&chg=$line->[5]", { BUTTON => 1 }),
+      $html->button($lang{DEL}, "index=$index&del=$line->[5]", { MESSAGE => "$lang{DEL} $line->[1]?", BUTTON => 1 })
+    );
+  }
+
+  print $html->form_main(
+    {
+      CONTENT => $table->show({ OUTPUT2RETURN => 1 }) . $html->form_input('del', "$lang{DEL}",
+        { TYPE => 'submit', MESSAGE => "$lang{DEL}?" }),
+      HIDDEN  => {
+        index           => $index,
+        is_js_confirmed => 1
+      },
+      NAME    => 'file_list'
+    }
+  );
+
+  $table = $html->table({
+    width => '100%',
+    rows  => [ [ "$lang{TOTAL}:", $html->b($Sharing->{TOTAL}) ] ]
+  });
+
+  print $table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 sharing_add_file() -
+
+  Arguments:
+    $attr -
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub sharing_add_file {
+
+  my $btn_name = "add";
+  my $btn_value = "$lang{ADD}";
+
+  if ($FORM{add}) {
+    $Sharing->file_add({ %FORM });
+
+    if (!$Sharing->{errno}) {
+      $html->message('success', "$lang{FILE} $lang{ADDED}", $lang{SUCCESS});
+    }
+    else {
+      $html->message('err', "$lang{FILE_NOT_ADDED}", $lang{ERROR});
+    }
+  }
+  elsif ($FORM{change}) {
+    $Sharing->file_change({ %FORM });
+
+    if (!$Sharing->{errno}) {
+      $html->message('success', "$lang{FILE} $lang{CHANGED}", $lang{SUCCESS});
+    }
+    else {
+      $html->message('err', "$lang{FILE_NOT_CHANGED}", $lang{ERROR});
+    }
+  }
+
+  my %SHARING;
+
+  if ($FORM{chg}) {
+    $btn_name = "change";
+    $btn_value = "$lang{CHANGE}";
+    my $file_info = $Sharing->file_info({ ID => $FORM{chg}, COLS_NAME => 1 });
+    $SHARING{NAME} = $file_info->{NAME};
+    $SHARING{COMMENT} = $file_info->{COMMENT};
+    $SHARING{LINK_TIME} = $file_info->{LINK_TIME};
+    $SHARING{FILE_TIME} = $file_info->{FILE_TIME};
+    $SHARING{REMIND_FOR} = $file_info->{REMIND_FOR};
+    $SHARING{AMOUNT} = $file_info->{AMOUNT};
+    $SHARING{ID} = $file_info->{ID};
+    $SHARING{VERSION} = $file_info->{VERSION};
+    $SHARING{GROUP_SELECTED} = $file_info->{GROUP_ID};
+  }
+
+  $SHARING{GROUP} = $html->form_select(
+    'GROUP_ID',
+    {
+      SELECTED    => $FORM{GROUP_ID} || $SHARING{GROUP_SELECTED},
+      SEL_LIST    => $Sharing->group_list({ NAME => '_SHOW', COLS_NAME => 1 }),
+      SEL_KEY     => 'id',
+      SEL_VALUE   => 'name',
+      NO_ID       => 1,
+      SEL_OPTIONS => { '' => '' },
+    });
+
+  if ($FORM{del}) {
+    $Sharing->file_delete({ ID => $FORM{del} });
+
+    if (!$Sharing->{errno}) {
+      $html->message('success', "$lang{FILE} $lang{DELETED}", $lang{SUCCESS});
+    }
+    else {
+      $html->message('err', "$lang{FILE_NOT_DELETED}", $lang{ERROR});
+    }
+  }
+
+  $html->tpl_show(
+    _include('sharing_add_file', 'Sharing'),
+    {
+      BTN_NAME  => $btn_name,
+      BTN_VALUE => $btn_value,
+      %SHARING
+    }
+  );
+
+  result_former({
+    INPUT_DATA      => $Sharing,
+    FUNCTION        => 'file_list',
+    BASE_FIELDS     => 0,
+    DEFAULT_FIELDS  => "ID, NAME, AMOUNT, VERSION, GROUP_NAME, LINK_TIME, FILE_TIME, REMIND_FOR, COMMENT",
+    FUNCTION_FIELDS => "change, del",
+    EXT_TITLES      => {
+      'id'         => "ID",
+      'name'       => "$lang{NAME}",
+      'amount'     => "$lang{AMOUNT}",
+      'version'    => "$lang{VERSION}",
+      'group_name' => "$lang{GROUP}",
+      'link_time'  => "$lang{TIME_FOR_LINK}",
+      'file_time'  => "$lang{TIME_FOR_FILE}",
+      'remind_for' => "$lang{TIME_FOR_REMIND}",
+      'comment'    => "$lang{COMMENTS}"
+    },
+    TABLE           => {
+      width   => '100%',
+      caption => $lang{FILE},
+      qs      => $pages_qs,
+      ID      => 'SHARING',
+      header  => '',
+      EXPORT  => 1,
+      SHOW_FULL_LIST => 1,
+      #MENU    => "$lang{ADD}:index=" . get_function_index('ring_rule_add') . ':add' . ";$lang{SEARCH}:index=$index&search_form=1:search;",
+    },
+    MAKE_ROWS       => 1,
+    SEARCH_FORMER   => 1,
+    SKIP_USER_TITLE => 1,
+    MODULE          => 'SHARING',
+    TOTAL           => 1
+  });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 sharing_client_info() -
+
+  Arguments:
+    $attr -
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub sharing_client_info {
+  #my ($attr) = @_;
+
+  my $files_list = $Sharing->file_list({
+    COLS_NAME => 1,
+    NAME      => '_SHOW',
+    AMOUNT    => '_SHOW',
+    COMMENT   => '_SHOW',
+    FILE_TIME => '_SHOW',
+    VERSION   => '_SHOW',
+    LINK_TIME => '_SHOW',
+    GROUP_ID  => $FORM{GROUP_ID},
+  });
+
+  if ($FORM{DOWNLOAD}) {
+    $Sharing->sharing_log_add({
+      UID     => $user->{UID},
+      FILE_ID => $FORM{DOWNLOAD},
+      IP      => $ENV{REMOTE_ADDR},
+      # SYSTEM_ID => ,
+    });
+
+    file_download($FORM{DOWNLOAD}, $FORM{hash}, $FORM{TIMESTAMP}, $FORM{link_time});
+    return 1;
+  }
+  elsif ($FORM{BUY}) {
+    my $file_info = $Sharing->file_info({ ID => $FORM{BUY} });
+
+    if ($Sharing->{errno}) {
+      $html->message('err', $lang{ERROR}, $Sharing->{errstr});
+      return 0;
+    }
+
+    if (!$file_info->{AMOUNT} || $user->{CREDIT} + $user->{DEPOSIT} >= $file_info->{AMOUNT}) {
+      my $time_to = time() + ($file_info->{FILE_TIME} * 24 * 60 * 60);
+
+      my $date_to = strftime("%Y-%m-%d", localtime($time_to));
+
+      $Sharing->add_user({ UID => $user->{UID}, FILE_ID => $FORM{BUY}, DATE_TO => $date_to });
+
+      if (!$Sharing->{errno}) {
+        $html->message('info', "$lang{SUCCESS}", "$lang{SUCCESS_BUY} $date_to");
+        $Fees->take($user, $file_info->{AMOUNT}, { DESCRIBE => "Sharing $file_info->{NAME}" });
+        $admin->action_add($user->{UID}, "Buy $file_info->{NAME}", { TYPE => 2 });
+      }
+      else {
+        $Sharing->change_user({ UID => $user->{UID}, FILE_ID => $FORM{BUY}, DATE_TO => $date_to, DEMO => 0 });
+        if (!$Sharing->{errno}) {
+          $html->message('info', "$lang{SUCCESS}", "$lang{SUCCESS_BUY} $date_to");
+          $Fees->take($user, $file_info->{AMOUNT}, { DESCRIBE => "Sharing $file_info->{NAME}" });
+          $admin->action_add($user->{UID}, "Buy $file_info->{NAME}", { TYPE => 2 });
+        }
+      }
+    }
+    else {
+      $html->message('err', "$lang{ERROR}", "$lang{NOT_ENOUGH_MONEY}");
+    }
+  }
+  elsif ($FORM{GET_LINK}) {
+    my $qindex = get_function_index('sharing_client_info');
+    my $time_stamp = time();
+    load_pmodule('Digest::MD5');
+    my $md5 = Digest::MD5->new();
+    $md5->add($user->{UID} . $FORM{GET_LINK} . $time_stamp . $FORM{link_time});
+    my $hash = $md5->hexdigest();
+
+    #my $button = $html->button("$lang{DOWNLOAD}", "$link", {ex_params => "class = 'btn btn-primary full-width'"});
+
+    my $link = "qindex=$qindex&DOWNLOAD=$FORM{GET_LINK}&TIMESTAMP=$time_stamp&hash=$hash&link_time=$FORM{link_time}";
+
+    $html->message('info', "$lang{TIME_FOR_LINK} - $FORM{link_time} " . ($lang{SECONDS} || ''));
+    $html->tpl_show(
+      _include('sharing_file_download', 'Sharing'),
+      {
+        URL       => "$SELF_URL?" . "$link",
+        QINDEX    => $qindex,
+        FILE_ID   => $FORM{GET_LINK},
+        HASH      => $hash,
+        TIMESTAMP => $time_stamp,
+        LINK_TIME => $FORM{link_time},
+      }
+    );
+    return 1;
+  }
+
+  my @file_panels = ();
+  my @demo_file_panels = ();
+  my @bought_file_panels = ();
+  my @expired_file_panels = ();
+  my @not_bought_file_panels = ();
+
+  my $sharing_user_main_index = get_function_index('sharing_client_info');
+  my $purchased_button_name = $lang{GET_LINK};
+  my $purchased_button_link = 'GET_LINK';
+
+  my $available_button_name = $lang{BUY};
+  my $available_button_link = 'BUY';
+  my $available_panel_type = 'primary';
+
+  my @files_table = ();
+
+  foreach my $file (@$files_list) {
+    # MAYBE: should change to list
+    my $user_sharing_info = $Sharing->info_user({ UID => $user->{UID}, FILE_ID => $file->{id} });
+    my $purchased_panel_type = 'success';
+
+    my $basename = $file->{name};
+    $basename =~ s/.*\///;
+
+    $file->{comment} = convert($file->{comment} || q{}, { text2html => 1, SHOW_URL => 1 }),
+
+    my %file_table = (
+      name      => $basename,
+      comment   => $file->{comment},
+      amount    => $file->{amount},
+      version   => $file->{version},
+      date_to   => ($user_sharing_info->{DATE_TO}) ? "$lang{DATE_TO} $user_sharing_info->{DATE_TO}" : '',
+      file_time => $file->{file_time} . " $lang{DAYS}",
+    );
+
+    # User has access to module
+    if (! $user_sharing_info->{errno} && $user_sharing_info->{DATE_TO} && $user_sharing_info->{DATE_TO} ge $DATE) {
+      if ($user_sharing_info->{DEMO}) {
+        $purchased_panel_type = 'warning';
+      }
+
+      my $get_link = "?qindex=$sharing_user_main_index&$purchased_button_link=$file->{id}&header=2&link_time=$file->{link_time}";
+      my $button = $html->button("$purchased_button_name", undef, {
+        JAVASCRIPT     => '',
+        SKIP_HREF      => 1,
+        NO_LINK_FORMER => 1,
+        class          => "btn btn-$purchased_panel_type full-width",
+        # ICON           => 'fa fa-download',
+        title          => $purchased_button_name,
+        ex_params      => qq/onclick=loadToModal('$get_link')/
+      });
+
+      my $file_panel = $html->tpl_show(
+        _include('sharing_file_body', 'Sharing'),
+        {
+          FILE_NAME         => $basename,
+          COMMENT           => $file->{comment},
+          AMOUNT            => $file->{amount},
+          VERSION           => $file->{version},
+          DATE_TO           => ($user_sharing_info->{DATE_TO}) ? "$lang{DATE_TO} $user_sharing_info->{DATE_TO}" : '',
+          AVAILABLE_AS_DEMO => ($user_sharing_info->{DEMO}) ? $lang{AVAILABLE_AS_DEMO} : '',
+          FILE_TIME         => $file->{file_time} . " $lang{DAYS}",
+          PANEL_TYPE        => $purchased_panel_type,
+          BUTTON            => $button,
+        },
+        { OUTPUT2RETURN => 1 }
+      );
+
+      $file_table{button} = $button;
+
+      if ($user_sharing_info->{DEMO}) {
+        push(@demo_file_panels, $file_panel);
+      }
+      else {
+        push(@bought_file_panels, $file_panel);
+      }
+    }
+    else {
+      my $button = $html->button($available_button_name, "$available_button_link=$file->{id}&index=$index", {
+        CONFIRM => "$lang{BUY}?",
+        class   => "btn btn-$available_panel_type full-width"
+      });
+
+      my $file_panel = $html->tpl_show(
+        _include('sharing_file_body', 'Sharing'),
+        {
+          FILE_NAME  => $basename,
+          COMMENT    => $file->{comment},
+          AMOUNT     => $file->{amount},
+          VERSION    => $file->{version},
+          DATE_TO    => ($user_sharing_info->{DATE_TO}) ? "$lang{DATE_TO} $user_sharing_info->{DATE_TO}" : '',
+          FILE_TIME  => $file->{file_time} . " $lang{DAYS}",
+          PANEL_TYPE => $available_panel_type,
+          BUTTON     => $button,
+        },
+        { OUTPUT2RETURN => 1 }
+      );
+
+      $file_table{button} = $button;
+
+      if ($user_sharing_info->{DATE_TO} && $user_sharing_info->{DATE_TO} lt $DATE) {
+        push(@expired_file_panels, $file_panel);
+      }
+      else {
+        push(@not_bought_file_panels, $file_panel);
+      }
+    }
+
+    push @files_table, \%file_table
+  }
+
+  push(@file_panels, @demo_file_panels, @bought_file_panels, @expired_file_panels, @not_bought_file_panels);
+
+  my $group_select = $html->form_select(
+    'GROUP_ID',
+    {
+      SELECTED    => $FORM{GROUP_ID},
+      SEL_LIST    => $Sharing->group_list({ NAME => '_SHOW', COLS_NAME => 1 }),
+      SEL_KEY     => 'id',
+      SEL_VALUE   => 'name',
+      NO_ID       => 1,
+      SEL_OPTIONS => { '' => '' },
+      EX_PARAMS   => "data-auto-submit='form'"
+    }
+  );
+
+  my $table = $html->table({
+    width   => '100%',
+    caption => $lang{FILES},
+    title   => [ $lang{NAME}, $lang{COMMENTS}, $lang{AMOUNT}, $lang{VERSION}, $lang{TIME_FOR_FILE} ],
+    ID      => 'FILE_LIST',
+  });
+
+  my $table_mode = '';
+  if ($FORM{TABLE_FILE} || $FORM{sort}) {
+    foreach my $file (@files_table) {
+      $table->addrow(
+        $file->{name},
+        $file->{comment},
+        $file->{amount},
+        $file->{version},
+        $file->{file_time},
+        $file->{button}
+      );
+    }
+  }
+
+  $table_mode = '&TABLE_FILE=1' unless ($FORM{TABLE_FILE} || $FORM{sort});
+
+  $html->tpl_show(
+    _include('sharing_user_main', 'Sharing'),
+    {
+      GROUP_SELECT => $group_select,
+      ROW          => ($FORM{TABLE_FILE} || $FORM{sort}) ? '' : 'row',
+      FILES        => ($FORM{TABLE_FILE} || $FORM{sort}) ? $table->show({ OUTPUT2RETURN => 1 }) : join(($FORM{json} ? ', ' : ' '), @file_panels),
+      BUTTON_STYLE => $html->button(($FORM{TABLE_FILE} || $FORM{sort}) ? ' ' . $lang{PLATE_MODE} : ' ' . $lang{TABLE_MODE},
+        "index=$index$table_mode",
+        { class => ($FORM{TABLE_FILE} || $FORM{sort}) ? 'btn btn-primary fas fa-file' : 'btn btn-primary fas fa-table' })
+    },
+  );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 file_download() -
+
+  Arguments:
+    $attr -
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub file_download {
+  my ($file_id, $hash, $time_stamp, $link_time) = @_;
+
+  my $file_path = $conf{SHARING_DOWNLOAD_PATH};
+  my $file_info = $Sharing->file_info({ ID => $file_id });
+  my $filename = $file_info->{NAME};
+  my $basename = $filename;
+
+  if ($filename =~ m/\//) {
+    $basename =~ s/(.*\/)//;
+    $file_path .= $1;
+  }
+
+  if ($file_path =~ /\.\.\//) {
+    #file_op allows '../' in file path, which allows to access any file in system
+    print "Content-Type: text/html;\n\n";
+    print "Path can't contain '../'\n\n";
+    exit(1);
+  }
+
+  my $user_sharing_info = $Sharing->info_user({ UID => $user->{UID}, FILE_ID => $file_id });
+  # User has not access to module
+  if (!($user_sharing_info->{DATE_TO} && $user_sharing_info->{DATE_TO} ge $DATE)) {
+    print "Content-Type: text/html;\n\n";
+    print "Wrong user\n\n";
+    exit(1);
+  }
+
+  load_pmodule('Digest::MD5');
+  my $md5 = Digest::MD5->new();
+  $md5->add($user->{UID} . $file_id . $time_stamp . $link_time);
+
+  if (($time_stamp + $link_time) < time()) {
+    print "Content-Type: text/html;\n\n";
+    print "Link not valid\n\n";
+    exit(1);
+  }
+
+  if ($hash eq $md5->hexdigest()) {
+    my ($size) = (stat($filename))[7];
+
+    # Read file
+    my $content = '';
+    $content = file_op({
+      FILENAME   => $basename,
+      PATH       => $file_path,
+      SKIP_CHECK => 1
+    });
+
+    if ($content eq '') {
+      print "Content-Type: text/html;\n";
+      print "Status: 404 Not found \n\n";
+      print "<h4>No such file</h4>";
+      exit(1);
+    }
+
+    # Retrive file size
+    my $size_header = ($size) ? "  size=$size" : '';
+    print "Content-Type: text/plain;  filename=\"$basename\"\n" . "Content-Disposition:  attachment;  filename=\"$basename\";$size_header\n\n";
+    print $content;
+
+    # End of download
+    exit(0);
+  }
+  else {
+    print "Content-Type: text/html;\n\n";
+    print "Wrong user\n\n";
+    exit(1);
+  }
+}
+
+#**********************************************************
+=head2 sharing_user_service() -
+
+  Arguments:
+    $attr -
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub sharing_user_service {
+
+  my $uid = $FORM{UID} || 0;
+  my $files_list = $Sharing->file_list({
+    COLS_NAME => 1,
+    NAME      => '_SHOW',
+    COMMENT   => '_SHOW',
+    FILE_TIME => '_SHOW',
+  });
+
+  if ($FORM{BUY_FILE}) {
+    my $file_info = $Sharing->file_info({ ID => $FORM{BUY_FILE} });
+
+    if ($file_info->{TOTAL} > 0) {
+      my $time_to = time() + ($file_info->{FILE_TIME} * 24 * 60 * 60);
+      my $date_to = strftime("%Y-%m-%d", localtime($time_to));
+      my $demo = $FORM{DEMO};
+      my $success = ($demo) ? $lang{SUCCESS_DEMO} : $lang{SUCCESS_BUY};
+
+      $Sharing->info_user({ UID => $uid, FILE_ID => $FORM{BUY_FILE} });
+
+      if ($Sharing->{DATE_TO}) {
+        $Sharing->change_user({
+          UID     => $uid,
+          FILE_ID => $FORM{BUY_FILE},
+          DATE_TO => $date_to,
+          DEMO    => $demo
+        });
+
+        if (!_error_show($Sharing)) {
+          $html->message('info', $lang{SUCCESS}, "$success $date_to");
+          #$admin->action_add($uid, "Sharing $file_info->{NAME}", { TYPE => 1 });
+        }
+      }
+      else {
+        $Sharing->add_user({
+          UID     => $uid,
+          FILE_ID => $FORM{BUY_FILE},
+          DATE_TO => $date_to,
+          DEMO    => $demo
+        });
+
+        if (!$Sharing->{errno}) {
+          $html->message('success', $lang{SUCCESS}, "$success $date_to");
+        }
+      }
+    }
+  }
+  elsif ($FORM{DEL_FILE}) {
+    $Sharing->del_user({ UID => $uid, FILE_ID => $FORM{DEL_FILE} });
+    if (!$Sharing->{errno}) {
+      $html->message('success', "$lang{SUCCESS}", "$lang{DELETED}");
+    }
+  }
+  elsif ($FORM{CONTINUE} && $FORM{ID}) {
+    my @ids = split(',', $FORM{ID});
+    foreach my $id (@ids) {
+      $Sharing->change_user({ UID => $uid, FILE_ID => $id, DATE_TO => $FORM{DATE} });
+    }
+
+    _error_show($Sharing);
+  }
+
+  my @own_files;
+  my @expired_files;
+  my @demo_files;
+  my @demo_expired_files;
+  my @not_own_files;
+
+  foreach my $file (@$files_list) {
+    my $sharing_user_info = $Sharing->info_user({ UID => $uid, FILE_ID => $file->{id} });
+
+    my $button = q{};
+    my $checkbox = q{};
+    my $date = $lang{NOT_AVAILABLE};
+    my $demo;
+
+    if ($sharing_user_info->{DATE_TO}) {
+      $demo = ($sharing_user_info->{DEMO}) ? $lang{YES} : '';
+    }
+
+    if ($sharing_user_info->{errno}) {
+      my $btn_class = 'primary';
+
+      my $url = "?BUY_FILE=$file->{id}&index=$index&UID=" . $uid;
+      $button = $html->tpl_show(_include('sharing_dropdown_button_split', 'Sharing'),
+        {
+          BUTTON_CLASS   => $btn_class,
+          TITLE          => $lang{BUY},
+          URL            => $url,
+          DROPDOWN_TITLE => $lang{DEMO},
+          DROPDOWN_URL   => $url . "&DEMO=1"
+        },
+        {
+          OUTPUT2RETURN => 1
+        }
+      );
+
+      push @not_own_files, [ $checkbox, $file->{name}, $file->{comment}, $file->{file_time}, $date, $button ];
+    }
+    elsif ($DATE gt $sharing_user_info->{DATE_TO}) {
+      $date .= $sharing_user_info->{DATE_TO} ? "($sharing_user_info->{DATE_TO})" : '';
+
+      my $btn_name = $lang{BUY};
+      if ($sharing_user_info->{DATE_TO}) {
+        if ($sharing_user_info->{DEMO}) {
+          $btn_name = $lang{CONTINUE_DEMO};
+        }
+        else {
+          $btn_name = $lang{CONTINUE};
+        }
+      }
+
+      my $btn_class = $sharing_user_info->{DATE_TO} ? 'info' : 'primary';
+
+      if ($sharing_user_info->{DEMO}) {
+        $button = $html->tpl_show(_include('sharing_dropdown_button_split', 'Sharing'),
+          {
+            BUTTON_CLASS   => $btn_class,
+            TITLE          => $btn_name,
+            URL            => "?BUY_FILE=$file->{id}&index=$index&DEMO=1&UID=$uid",
+            DROPDOWN_TITLE => $lang{BUY},
+            DROPDOWN_URL   => "?BUY_FILE=$file->{id}&index=$index&DEMO=0&UID=" . $uid
+          },
+          {
+            OUTPUT2RETURN => 1
+          }
+        );
+      }
+      else {
+        $button = $html->button($btn_name, "BUY_FILE=$file->{id}&index=$index&UID=" . $uid, { ex_params => "class = 'btn btn-$btn_class'" });
+      }
+
+      if ($sharing_user_info->{DEMO}) {
+        push @demo_expired_files, [ $checkbox, $file->{name}, $file->{comment}, $file->{file_time}, $date, $button ];
+      }
+      else {
+        push @expired_files, [ $checkbox, $file->{name}, $file->{comment}, $file->{file_time}, $date, $button ];
+      }
+    }
+    else {
+      if ($sharing_user_info->{DATE_TO}) {
+        $date = "$lang{TO} $sharing_user_info->{DATE_TO}";
+      }
+
+      if ($sharing_user_info->{DEMO}) {
+        $button = $html->tpl_show(_include('sharing_dropdown_button', 'Sharing'),
+          {
+            BUTTON_CLASS    => 'warning',
+            TITLE           => $lang{DEMO},
+            DROPDOWN_TITLE1 => $lang{DEL},
+            DROPDOWN_URL1   => "?DEL_FILE=$file->{id}&index=$index&UID=$uid",
+            DROPDOWN_TITLE2 => $lang{BUY},
+            DROPDOWN_URL2   => "?BUY_FILE=$file->{id}&index=$index&DEMO=0&UID=" . $uid
+          },
+          {
+            OUTPUT2RETURN => 1
+          }
+        );
+      }
+      else {
+        $button = $html->button("$lang{DEL}", "DEL_FILE=$file->{id}&index=$index&UID=$uid", { ex_params => "class = 'btn btn-danger'" });
+      }
+
+      $checkbox = $html->form_input("ID", $file->{id}, { TYPE => 'checkbox', FORM_ID => "SHARING_CONTINUE" });
+
+      if ($sharing_user_info->{DEMO}) {
+        push @demo_files, [ $checkbox, $file->{name}, $file->{comment}, $file->{file_time}, $date, $button ];
+      }
+      else {
+        push @own_files, [ $checkbox, $file->{name}, $file->{comment}, $file->{file_time}, $date, $button ];
+      }
+    }
+  }
+
+  my $files_table = $html->table({
+    width      => '100%',
+    caption    => $lang{FILES},
+    title      => [ $lang{NAME}, $lang{COMMENTS}, $lang{DAYS}, $lang{DATE_TO}, '-' ],
+    ID         => 'SHARING_USER_FILES_',
+    SELECT_ALL => "files_list:ID:ID",
+    MENU       => "$lang{ADD}:index=" . get_function_index('sharing_add_file') . ':add',
+    rows       => [ @demo_files,
+      @demo_expired_files,
+      @own_files,
+      @expired_files,
+      @not_own_files
+    ]
+  });
+
+  print $files_table->show();
+
+  $html->tpl_show(_include('sharing_user_continue', 'Sharing'), {});
+
+  print '<script>$(function () {
+  var $table = $(\'#SHARING_USER_FILES__\');
+  var correct = ($table.find(\'tbody\').find(\'tr\').first().find(\'td\').length - $table.find(\'thead th\').length );
+  for (var i = 0; i < correct; i++) {
+    $table.find(\'thead th:last-child\').after(\'<th></th>\');
+  }
+    var dataTable = $("#SHARING_USER_FILES__")
+      .DataTable({
+        "language": {
+          paginate: {
+              first:    "«",
+              previous: "‹",
+              next:     "›",
+              last:     "»",
+          },
+          "zeroRecords":    "' . $lang{NOT_EXIST} . '",
+          "lengthMenu":     "' . $lang{SHOW} . ' _MENU_",
+          "search":         "' . $lang{SEARCH} . ':",
+          "info":           "' . $lang{SHOWING} . ' _START_ - _END_ ' . $lang{OF} . ' _TOTAL_ ",
+          "infoEmpty":      "' . $lang{SHOWING} . ' 0",
+          "infoFiltered":   "(' . $lang{TOTAL} . ' _MAX_)",
+        },
+        "ordering": false,
+        "lengthMenu": [[25, 50, -1], [25, 50, "' . $lang{ALL} . '"]]
+      });
+    });</script>';
+
+  return 1;
+}
+
+#**********************************************************
+=head2 sharing_log_table () -
+
+  Arguments:
+    ATTRIBUTES -
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub sharing_download_log {
+  my ($attr) = @_;
+
+  # my $download_list = $Sharing->sharing_log_list({
+  #                   FILE_ID   => '_SHOW',
+  #                   DATE      => '_SHOW',
+  #                   UID       => '_SHOW',
+  #                   IP        => '_SHOW',
+  #                   COLS_NAME => 1
+  # });
+
+  # _bp("total", $download_list, );
+
+
+  #  $html->tpl_show(_include('sharing_download_filters', 'Sharing'),
+  #    {
+  #      DATE_START => $FORM{DATE_START} || $DATE,
+  #      DATE_END   => $FORM{DATE_END} || $DATE,
+  #    },);
+
+  require Control::Reports;
+  reports({
+    PERIOD_FORM => 1,
+    DATE_RANGE  => 1,
+    NO_GROUP    => 1,
+    NO_TAGS     => 1,
+  });
+
+  $LIST_PARAMS{DATE_START} = $FORM{FROM_DATE} ? $FORM{FROM_DATE} : $DATE;
+  $LIST_PARAMS{DATE_END} = $FORM{TO_DATE} ? $FORM{TO_DATE} : $DATE;
+  $pages_qs = $pages_qs . "&TO_DATE=$LIST_PARAMS{DATE_END}&FROM_DATE=$LIST_PARAMS{DATE_END}";
+
+  result_former(
+    {
+      INPUT_DATA      => $Sharing,
+      FUNCTION        => 'sharing_log_list',
+      BASE_FIELDS     => 0,
+      DEFAULT_FIELDS  => 'DATE, IP, FILE_NAME, LOGIN',
+      #FUNCTION_FIELDS => 'del',
+      EXT_TITLES      => {
+        # id       => '#',
+        login     => $lang{USER},
+        date      => $lang{DATE},
+        file_name => $lang{FILE},
+        ip        => "IP",
+      },
+      TABLE           => {
+        width   => '100%',
+        caption => "$lang{LOG} $lang{DOWNLOADS}",
+        qs      => $pages_qs,
+        pages   => $Sharing->{TOTAL},
+        ID      => 'SHARING_DOWNLOAD_LOG',
+        #MENU    => "$lang{ADD}:add_form=1&index=" . $index . ':add' . ";",
+        EXPORT  => 1
+      },
+      MAKE_ROWS       => 1,
+      SEARCH_FORMER   => 1,
+      TOTAL           => 1,
+      SKIP_USER_TITLE => 1
+    }
+  );
+
+  my ($ys, $ms, $ds) = split(/-/, $LIST_PARAMS{DATE_START});
+  my ($ye, $me, $de) = split(/-/, $LIST_PARAMS{DATE_END});
+  my $date_param = '';
+  my @array = ();
+  my $chart_name = '';
+
+  if (($ys == $ye) && ($ms == $me) && ($ds == $de)) {
+    $date_param = "'%H'";
+    @array = (0 ... 23);
+  }
+  elsif (($ys == $ye) && ($ms == $me) && ($ds != $de)) {
+    $date_param = "'%d'";
+    @array = (1 ... AXbills::Base::days_in_month({ DATE => $ms }));
+    $chart_name = "$lang{GRAPH_DOWNLOAD_DYNAMICS} $PERIODS[3] $MONTHES[$ms - 1]";
+  }
+  elsif (($ys == $ye) && ($ms != $me)) {
+    $date_param = "'%m'";
+    @array = (1 ... 12);
+    $chart_name = "$lang{GRAPH_DOWNLOAD_DYNAMICS} $lang{PER_MONTH} $ys";
+  }
+  elsif (($ys != $ye)) {
+    $date_param = "'%Y'";
+    @array = ($ys ... $ye);
+    $chart_name = "$lang{GRAPH_DOWNLOAD_DYNAMICS} $lang{PER_YEAR} $ys - $ye";
+  }
+  my %result = ();
+  my @array_y = ();
+  my @array_x = ();
+
+  my $data = $Sharing->sharing_download_dynamic({
+    DATE      => "$LIST_PARAMS{DATE_START}/$LIST_PARAMS{DATE_END}",
+    PARAM     => $date_param,
+    LIST2HASH => 'my_data,count',
+  });
+
+  foreach my $item (keys %$data) {
+    $data->{int $item} = delete $data->{$item}
+  }
+
+  foreach my $item (@array) {
+    push @array_x, $item;
+    if ($data->{$item}) {
+      push @array_y, $data->{$item};
+    }
+    else {
+      push @array_y, 0;
+    }
+  }
+
+  if (($ys == $ye) && ($ms != $me)) {
+    $result{ARRAY_X} = \@main::MONTHES;
+  }
+  else {
+    $result{ARRAY_X} = \@array_x;
+  }
+
+  $result{ARRAY_Y} = \@array_y;
+
+  my $chart = $html->chart({
+    TYPE       => 'bar',
+    DATA_CHART => {
+      datasets => [ {
+        data            => \@array_y,
+        label           => $lang{DOWNLOADS},
+        borderColor     => '#e54',
+        fill            => 'false',
+        backgroundColor => '#e54',
+        lineTension     => 0
+      }
+      ],
+      labels   => $result{ARRAY_X}
+    },
+    OPTIONS    => {
+      bezierCurve => 'false',
+      scales      => {
+        yAxes => [ {
+          type  => 'linear',
+          ticks => {
+            min         => 0,
+            beginAtZero => 'true'
+          }
+        } ]
+      }
+    }
+  });
+
+  $html->tpl_show(_include('sharing_download_filters', 'Sharing'),
+    {
+      CHART => $chart,
+      NAME  => $chart_name,
+    },);
+
+  return 1
+}
+
+#**********************************************************
+=head2 sharing_add_group() -
+
+  Arguments:
+    $attr -
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub sharing_add_group {
+
+  my $btn_name = "add";
+  my $btn_value = "$lang{ADD}";
+
+  if ($FORM{add}) {
+    $Sharing->group_add({ %FORM });
+
+    if (!$Sharing->{errno}) {
+      $html->message('success', "$lang{GROUP} $lang{ADDED}", $lang{SUCCESS});
+    }
+    else {
+      $html->message('err', "$lang{FILE_NOT_ADDED}", $lang{ERROR});
+    }
+  }
+  elsif ($FORM{change}) {
+    $Sharing->group_change({ %FORM });
+
+    if (!$Sharing->{errno}) {
+      $html->message('success', "$lang{GROUP} $lang{CHANGED}", $lang{SUCCESS});
+    }
+    else {
+      $html->message('err', "$lang{FILE_NOT_CHANGED}", $lang{ERROR});
+    }
+  }
+
+  my %SHARING;
+  if ($FORM{chg}) {
+    $btn_name = "change";
+    $btn_value = "$lang{CHANGE}";
+    my $file_info = $Sharing->group_info({ ID => $FORM{chg}, COLS_NAME => 1 });
+    $SHARING{NAME} = $file_info->{NAME};
+    $SHARING{COMMENT} = $file_info->{COMMENT};
+    $SHARING{LINK_TIME} = $file_info->{LINK_TIME};
+    $SHARING{FILE_TIME} = $file_info->{FILE_TIME};
+    $SHARING{AMOUNT} = $file_info->{AMOUNT};
+    $SHARING{ID} = $file_info->{ID};
+    $SHARING{VERSION} = $file_info->{VERSION};
+  }
+
+  if ($FORM{del}) {
+    $Sharing->group_delete({ ID => $FORM{del} });
+
+    if (!$Sharing->{errno}) {
+      $html->message('success', "$lang{GROUP} $lang{DELETED}", $lang{SUCCESS});
+    }
+    else {
+      $html->message('err', "$lang{FILE_NOT_DELETED}", $lang{ERROR});
+    }
+  }
+
+  $html->tpl_show(_include('sharing_add_group', 'Sharing'),
+    {
+      BTN_NAME  => $btn_name,
+      BTN_VALUE => $btn_value,
+      %SHARING
+    },);
+
+  result_former(
+    {
+      INPUT_DATA      => $Sharing,
+      FUNCTION        => 'group_list',
+      BASE_FIELDS     => 0,
+      DEFAULT_FIELDS  => 'ID, NAME, COMMENT, LOGIN',
+      FUNCTION_FIELDS => 'change,del',
+      EXT_TITLES      => {
+        id      => '#',
+        name    => $lang{NAME},
+        comment => $lang{COMMENTS},
+      },
+      TABLE           => {
+        width   => '100%',
+        caption => "$lang{GROUP}",
+        qs      => $pages_qs,
+        pages   => $Sharing->{TOTAL},
+        ID      => 'SHARING_GROUPS',
+        #MENU    => "$lang{ADD}:add_form=1&index=" . $index . ':add' . ";",
+        EXPORT  => 1
+      },
+      MAKE_ROWS       => 1,
+      SEARCH_FORMER   => 1,
+      TOTAL           => 1,
+      # SKIP_USER_TITLE => 1
+    }
+  );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 sharing_report()
+
+
+=cut
+#**********************************************************
+sub sharing_report {
+  my $bought_files_count = $Sharing->sharing_get_bought_files_count();
+  my $downloaded_files_count = $Sharing->sharing_get_downloaded_files_count();
+  my $subscriptions_count = $Sharing->sharing_get_subscriptions({ DATE => $DATE });
+
+  if (defined($FORM{SH_FILE})) {
+    $LIST_PARAMS{SH_FILE} = $FORM{SH_FILE};
+
+    my ($user_table, undef) = result_former({
+      INPUT_DATA      => $Sharing,
+      FUNCTION        => 'sharing_user_list',
+      BASE_FIELDS     => 1,
+      DEFAULT_FIELDS  => 'ID,LOGIN,DATE,DEMO',
+      FUNCTION_FIELDS => 'del',
+      EXT_TITLES      => {
+        uid     => "UID",
+        date_to => $lang{DATE},
+        login   => $lang{USER},
+        demo    => $lang{DEMO}
+      },
+      SKIP_USER_TITLE => 1,
+      TABLE           => {
+        width   => '100%',
+        caption => "$lang{MODULE} - $lang{USERS}",
+        qs      => $pages_qs,
+        ID      => 'SHARING_USER_LIST',
+        EXPORT  => 1,
+      },
+      MAKE_ROWS       => 1,
+      MODULE          => 'Sharing'
+    });
+
+    my $user_table_end = $html->table({
+      width => '100%',
+      rows  => [
+        [ "$lang{TOTAL}:", $html->b($Sharing->{TOTAL}), "$lang{SUM}: ", $html->b($Sharing->{TOTAL_SUM} * $Sharing->{TOTAL}) ]
+      ]
+    });
+
+    print $user_table->show() . $user_table_end->show();
+  }
+
+  my %table_info = ();
+
+  my @popular_data = ();
+  my @popular_labels = ();
+  my @popular_colors = ();
+
+  foreach my $file (@$bought_files_count) {
+    my $filename = $file->{name} || q{};
+    push @popular_labels, $filename;
+    push @popular_data, $file->{count} || 0;
+    push @popular_colors, 'rgba(120, 99, 132, 0.6)';
+    $table_info{$filename}{bought_info} = $file->{count} || q{};
+    $table_info{$filename}{file_id} = $file->{file_id};
+  }
+
+  my $popular_chart = $html->chart({
+    TYPE       => 'bar',
+    DATA_CHART => {
+      labels   => \@popular_labels,
+      datasets => [ {
+        label           => $lang{PURCHASES},
+        data            => \@popular_data,
+        borderWidth     => 2,
+        borderColor     => \@popular_colors,
+        backgroundColor => \@popular_colors,
+      } ]
+    },
+    OPTIONS    => {
+      scales => {
+        yAxes => [ {
+          ticks => {
+            beginAtZero => "true",
+          }
+        }
+        ]
+      }
+    }
+  });
+
+  my @download_data = ();
+  my @download_labels = ();
+  my @download_colors = ();
+
+  foreach my $file (@$downloaded_files_count) {
+    push @download_labels, $file->{name};
+    push @download_data, $file->{count};
+    push @download_colors, 'rgba(99, 120, 50, 0.6)';
+
+    $table_info{($file->{name} || $file->{file_id})}{download_info} = $file->{count};
+  }
+
+  my $download_chart = $html->chart({
+    TYPE       => 'bar',
+    DATA_CHART => {
+      labels   => \@download_labels,
+      datasets => [ {
+        label           => $lang{DOWNLOADS},
+        data            => \@download_data,
+        borderWidth     => 2,
+        borderColor     => \@download_colors,
+        backgroundColor => \@download_colors,
+      } ]
+    },
+    OPTIONS    => {
+      scales => {
+        yAxes => [ {
+          ticks => {
+            beginAtZero => "true",
+          }
+        }
+        ]
+      }
+    }
+  });
+
+  my $table = $html->table({
+    width      => '100%',
+    caption    => $lang{INFO},
+    title      => [ $lang{NAME}, $lang{PURCHASES}, $lang{DOWNLOADS} ],
+    ID         => 'SHARING_INFO',
+    DATA_TABLE => { "order" => [ [ 1, "desc" ], [ 2, "desc" ] ] },
+  });
+
+  $index = get_function_index('sharing_report');
+
+  foreach my $file (keys %table_info) {
+    $table->addrow(
+      $html->element('a', $file, { href => "index.cgi?index=$index&SH_FILE=" . ($table_info{$file}->{file_id} || q{}) }),
+      ($table_info{$file} && $table_info{$file}{bought_info} ? $table_info{$file}{bought_info} : 0),
+      ($table_info{$file} && $table_info{$file}{download_info} ? $table_info{$file}{download_info} : 0)
+    );
+  }
+
+  $html->tpl_show(_include('sharing_reports', 'Sharing'),
+    {
+      POPULAR_CHART    => $popular_chart,
+      DOWNLOAD_CHART   => $download_chart,
+      ACTIVE_COUNT     => $subscriptions_count->[0]{active_subscriptions},
+      NOT_ACTIVE_COUNT => $subscriptions_count->[0]{not_active_subscriptions},
+      TABLE            => $table->show()
+    },
+  );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 sharing_demo_report()
+
+
+=cut
+#**********************************************************
+sub sharing_demo_report {
+  my $demo_files = $Sharing->sharing_get_demo_files();
+
+  my $table = $html->table({
+    width   => '100%',
+    caption => $lang{FILES_DEMO},
+    title   => [ $lang{USER}, $lang{DATE_TO}, $lang{FILE} ],
+  });
+
+  foreach my $file (@$demo_files) {
+    my $user_button = $html->button($file->{id}, "index=15&UID=$file->{uid}", { BUTTON => 1, ICON => "fa fa-user" });
+    $user_button .= $html->button($file->{id}, "index=15&UID=$file->{uid}");
+    $table->addrow($user_button, $file->{date_to}, $file->{name});
+  }
+
+  print $table->show();
+
+  return 1;
+}
+
+1;
+

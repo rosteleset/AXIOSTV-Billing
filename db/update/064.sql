@@ -1,0 +1,12 @@
+RENAME TABLE `cashbox_cashboxes` TO `employees_cashboxes`,
+              `cashbox_spending` TO `employees_spending`,
+              `cashbox_spending_types` TO `employees_spending_types`,
+              `cashbox_coming` TO `employees_coming`,
+              `cashbox_coming_types` TO `employees_coming_types`,
+              `crm_bet` TO `employees_bet`,
+              `crm_salaries_payed` TO `employees_salaries_payed`,
+              `crm_reference_works` TO `employees_reference_works`,
+              `crm_works` TO `employees_works`,
+              `crm_working_time_norms` TO `employees_working_time_norms`,
+              `crm_bonus_types` TO `employees_bonus_types`,
+              `crm_salary_bonus` TO `employees_salary_bonus`;

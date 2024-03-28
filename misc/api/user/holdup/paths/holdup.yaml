@@ -1,0 +1,69 @@
+post:
+  tags:
+    - holdup
+  summary: Приостановление всех услуг (или интернет)
+  description: Приостановление всех услуг, если включен параметр $conf{HOLDUP_ALL} или только инетернет, если есть параметр $conf{INTERNET_USER_SERVICE_HOLDUP}, если включены оба параметра тогда $conf{INTERNET_USER_SERVICE_HOLDUP} игнорируется!
+  parameters:
+    - name: ID
+      in: path
+      description: ID услуги Интернет, если параметр $conf{HOLDUP_ALL}, тогда передавать любую цифру, параметр игнорируется
+      required: true
+      schema:
+        type: number
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: "../schemas/holdupRequest.yaml"
+    required: true
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/holdupResponse.yaml"
+  security:
+    - USERSID: [ ]
+delete:
+  tags:
+    - holdup
+  summary: Удаление рассписания на приостановление всех услуг (или интернет)
+  description: Удаление рассписания на приостановление всех услуг, если включен параметр $conf{HOLDUP_ALL} или только инетернет, если есть параметр  $conf{INTERNET_USER_SERVICE_HOLDUP}, если включены оба параметра $conf{INTERNET_USER_SERVICE_HOLDUP} игнорируется!
+  parameters:
+    - name: ID
+      in: path
+      description: ID услуги Интернет, если параметр $conf{HOLDUP_ALL}, тогда передавать любую цифру, параметр игнорируется
+      required: true
+      schema:
+        type: number
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/holdupResponse.yaml"
+  security:
+    - USERSID: [ ]
+get:
+  tags:
+    - holdup
+  summary: Инфомация о приостановлении всех услуг (или интернет)
+  description: Информация о приостановлении всех услуг, если включен параметр $conf{HOLDUP_ALL} или только инетернет, если есть параметр $conf{INTERNET_USER_SERVICE_HOLDUP}, если включены оба параметра, тогда $conf{INTERNET_USER_SERVICE_HOLDUP} игнорируется!
+  parameters:
+    - name: ID
+      in: path
+      description: ID услуги Интернет, если параметр $conf{HOLDUP_ALL}, тогда передавать любую цифру, параметр игнорируется
+      required: true
+      schema:
+        type: number
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/holdupInfo.yaml"
+  security:
+    - USERSID: [ ]

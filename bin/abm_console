@@ -1,0 +1,1402 @@
+#!/usr/bin/perl
+
+=head1 NAME
+
+  abm_console
+
+  ABillS Console manager solution
+
+  Command line and interactive mode
+
+=head1 VERSION
+
+  VERSION: 0.40
+  REVISION: 20221003
+
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+our (
+  %lang,
+  %FORM,
+  %conf,
+  $admin,
+  @MODULES,
+  $DATE,
+  $TIME,
+  @_COLORS
+);
+
+BEGIN {
+  use FindBin '$Bin';
+  require $Bin . '/../libexec/config.pl';
+  unshift(@INC,
+    $Bin . '/../lib/',
+    $Bin . '/../',
+    $Bin . '/../AXbills',
+    $Bin . '/../AXbills/modules/',
+    $Bin . "/../AXbills/" . $conf{dbtype});
+}
+
+use AXbills::Base qw(check_time parse_arguments in_array convert);
+#my $begin_time = check_time();
+use Users;
+use Fees;
+use Payments;
+use Internet;
+use Admins;
+use AXbills::SQL;
+use AXbills::HTML;
+use AXbills::Defs;
+
+use AXbills::Misc;
+use AXbills::Templates;
+
+my $version = 0.34;
+my $debug = 1;
+my $user;
+
+if ($#ARGV > -1 && $ARGV[0] eq 'help') {
+  help();
+  exit 0;
+}
+
+our $db = AXbills::SQL->connect($conf{dbtype}, $conf{dbhost}, $conf{dbname}, $conf{dbuser},
+  $conf{dbpasswd}, { CHARSET => ($conf{dbcharset}) ? $conf{dbcharset} : undef });
+
+$admin = Admins->new($db, \%conf);
+our $html = AXbills::HTML->new({ CONF => \%conf });
+
+my $ip = '127.0.0.1';
+if ($ENV{SSH_CLIENT} && $ENV{SSH_CLIENT} =~ /(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/) {
+  $ip = $1;
+}
+else {
+  $ip = `if [ \`uname\` = 'FreeBSD' ]; then cure_tty=\`tty | sed  's/.*\\(p\\d*\\)/\\1/g'\`; w -n | grep \${cure_tty} | awk '{ print \$3 }' else  who -m --ips | awk '{ print \$5 }'; fi`;
+}
+
+chomp($ip);
+
+if (!$ip) {
+  $ip = '127.0.0.1';
+}
+
+$admin->{SESSION_IP} = $ip;
+
+my $argv = parse_arguments(\@ARGV);
+my $retries = 0;
+my $max_acccess_rets = 3;
+my $language = 'english';
+
+our %permissions = ();
+do $Bin . "/../language/$language.pl";
+my $admin_info = get_admin_info();
+
+if ($argv->{language}) {
+  $language = $argv->{language};
+}
+elsif ($admin_info->{LANGUAGE}) {
+  $language = $admin_info->{LANGUAGE};
+}
+
+do $Bin . "/../language/$language.pl";
+my @status = ($lang{ENABLE}, $lang{DISABLE});
+
+my $users = Users->new($db, $admin, \%conf);
+my $Fees = Fees->new($db, $admin, \%conf);
+my $Payments = Payments->new($db, $admin, \%conf);
+my $Internet = Internet->new($db, $admin, \%conf);
+
+my %LIST_PARAMS = ();
+
+if ($argv->{DEBUG}) {
+  $debug = $argv->{DEBUG};
+  if ($argv->{DEBUG} > 6) {
+    $users->{debug} = 1;
+    $Fees->{debug} = 1;
+    $Payments->{debug} = 1;
+  }
+}
+
+$LIST_PARAMS{PAGE_ROWS} = ($argv->{PAGE_ROWS}) ? $argv->{PAGE_ROWS} : 1000000;
+my DBI $db_ = $db->{db};
+if (defined($argv->{FULL_DELETE})) {
+  if (!$argv->{SKIP_TRANSACTION}) {
+    print "Enable transactions\n";
+    $db_->{AutoCommit} = 0;
+    $db->{TRANSACTION} = 1;
+  }
+
+  $LIST_PARAMS{DELETED} = 1;
+  if ($argv->{EXPIRED}) {
+    $LIST_PARAMS{EXPIRE} = "!0000-00-00;<$DATE";
+  }
+
+  if (!$admin->{permissions}->{0}->{8}) {
+    print "Don't have permission for full delete\n";
+    exit;
+  }
+}
+
+foreach my $key (keys %$argv) {
+  $LIST_PARAMS{$key} = $argv->{$key};
+}
+
+#Intercat mode
+my $interact = 0;
+
+if ($#ARGV == -1) {
+  $interact = 1;
+  while (1) {
+    my $input = '';
+    print "$lang{USER} > ";
+    $input = <STDIN>;
+    if ($input) {
+      chop($input);
+    }
+    else {
+      last;
+    }
+
+    if ($input eq '?') {
+      console_help();
+    }
+    elsif ($input =~ /exit|q|quit/) {
+      exit;
+    }
+    else {
+      $LIST_PARAMS{LOGIN} = $input;
+      form_users();
+    }
+  }
+}
+
+if ($argv->{INTERNET_USER}) {
+  internet_users();
+}
+elsif ($argv->{PAYMENTS}) {
+  form_payments();
+}
+elsif ($argv->{FEES}) {
+  form_fees();
+}
+elsif ($argv->{LOGIN} || $argv->{ADD_USER}) {
+  form_users({ %$argv });
+}
+elsif ($argv->{PI}) {
+  $LIST_PARAMS{LOGIN} = $argv->{PI};
+  form_users({ %$argv });
+}
+elsif ($argv->{LOGIN_CHANGE}) {
+  $LIST_PARAMS{LOGIN} = $argv->{LOGIN_CHANGE};
+  form_users({ %$argv });
+}
+elsif ($argv->{IMPORT}) {
+  form_login_import();
+}
+elsif ($argv->{BONUS}) {
+  mk_bonus($argv);
+}
+elsif ($argv->{INTERNET}) {
+  internet_main();
+}
+
+if (!$db->{db}->{AutoCommit}) {
+  $db_->commit();
+  $db_->{AutoCommit} = 1;
+  print "Transaction End : '$db_' / $db_->{AutoCommit}\n" if ($debug > 3);
+}
+
+if ($debug > 3) {
+  print "Queries: $admin->{db}->{queries_count}\n";
+}
+
+#************************************************
+=head2 internet_users($attr)
+
+=cut
+#************************************************
+sub internet_users {
+  #my ($attr) = @_;
+
+  my $list;
+  if ($argv->{CONTRACT_ID}) {
+    $list = $users->list({ CONTRACT_ID => $argv->{CONTRACT_ID}, COLS_NAME => 1 });
+    $argv->{INTERNET_USER} = $list->[0]->{login};
+  }
+
+  $users->info(0, { LOGIN => $argv->{ADD_USER} || $argv->{INTERNET_USER} || $list->[0]->{login} });
+
+  if ($users->{TOTAL}) {
+    print "LOGIN: $users->{LOGIN} UID: $users->{UID}\n";
+  }
+
+  if ($argv->{add} || $argv->{ADD_USER}) {
+    form_users($argv);
+
+    $Internet->user_add($argv);
+    if (!$Internet->{errno}) {
+      print "Added\n";
+    }
+  }
+  elsif ($argv->{change}) {
+    $Internet->change({ UID => $users->{UID}, $argv });
+
+    if ($Internet->{TP_INFO}->{MONTH_FEE} > 0) {
+      $Internet->{ACTIVATE} = ($argv->{ACTIVATE}) ? $argv->{ACTIVATE} : $users->{ACTIVATE};
+      internet_get_month_fee($Internet);
+    }
+
+    if (!$Internet->{errno}) {
+      print "Change\n";
+    }
+  }
+
+  if ($Internet->{errno}) {
+    print "Error: [$Internet->{errno}] $Internet->{errstr}\n";
+  }
+
+  return 1;
+}
+
+
+#**********************************************************
+=head2 internet_get_month_fee($Internet, $attr) - Make month feee
+
+=cut
+#**********************************************************
+sub internet_get_month_fee {
+  my ($Internet_) = @_;
+
+  $users = Users->new($db, $admin, \%conf);
+
+  if ($Internet_->{TP_INFO}->{ACTIV_PRICE}) {
+    $user = $users->info($Internet_->{UID});
+
+    $Fees->take(
+      $user,
+      $Internet_->{TP_INFO}->{ACTIV_PRICE},
+      {
+        DESCRIBE => "$lang{ACTIVATE} $lang{TARIF_PLAN}",
+        DATE     => "$DATE $TIME"
+      }
+    );
+
+    print "$lang{ACTIVATE} $lang{TARIF_PLAN}";
+  }
+
+  if ($Internet_->{TP_INFO}->{MONTH_FEE} > 0) {
+    my $sum = $Internet_->{TP_INFO}->{MONTH_FEE};
+    $user = $users->info($Internet_->{UID});
+
+    if ($Internet_->{TP_INFO}->{EXT_BILL_ACCOUNT}) {
+      $user->{BILL_ID} = $user->{EXT_BILL_ID} if ($user->{EXT_BILL_ID});
+    }
+
+    my $message = '';
+
+    #Current Month
+    my ($y, $m, $d) = split(/-/, $DATE, 3);
+    my ($active_y, $active_m, $active_d) = split(/-/, $Internet_->{ACTIVATE}, 3);
+
+    if ($Internet_->{TP_INFO}->{PERIOD_ALIGNMENT}) {
+      $message = "$lang{MONTH_ALIGNMENT}, ";
+      my $days_in_month = ($m != 2 ? (($m % 2) ^ ($m > 7)) + 30 : (!($y % 400) || !($y % 4) && ($y % 25) ? 29 : 28));
+
+      if ($Internet_->{ACTIVATE} && $Internet_->{ACTIVATE} ne '0000-00-00') {
+        $days_in_month = ($active_m != 2 ? (($active_m % 2) ^ ($active_m > 7)) + 30 : (!($active_y % 400) || !($active_y % 4) && ($active_y % 25) ? 29 : 28));
+        $d = $active_d;
+      }
+
+      $conf{START_PERIOD_DAY} = 1 if (!$conf{START_PERIOD_DAY});
+      $sum = sprintf("%.2f", $sum / $days_in_month * ($days_in_month - $d + $conf{START_PERIOD_DAY}));
+    }
+
+    return 0 if ($sum == 0);
+
+    my $periods = 0;
+    if ($active_m > 0 && $active_m < $m) {
+      $periods = $m - $active_m;
+    }
+    elsif ($active_m > 0 && ($active_m > $m && $active_y < $y)) {
+      $periods = 12 - $active_m + $m;
+    }
+
+    $message .= "$lang{MONTH_FEE}: $sum ($Internet_->{TP_INFO}->{TP_ID})";
+
+    for (my $i = 0; $i <= $periods; $i++) {
+
+      if ($active_m + $i > 12) {
+        $active_m = 0;
+        $active_y = $active_y + 1;
+      }
+
+      $m = sprintf("%.2d", $active_m + $i);
+
+      if ($i > 0) {
+        $sum = $Internet_->{TP_INFO}->{MONTH_FEE};
+        $message = "$lang{MONTH_FEE}: $sum ($Internet_->{TP_INFO}->{TP_ID})";
+        $DATE = "$active_y-$m-01";
+        $TIME = "00:00:00";
+      }
+      elsif ($Internet_->{ACTIVATE} && $Internet_->{ACTIVATE} ne '0000-00-00') {
+        $DATE = "$active_y-$m-$active_d";
+        $TIME = "00:00:00";
+
+        if ($Internet_->{TP_INFO}->{PERIOD_ALIGNMENT}) {
+          $users->change(
+            $Internet_->{UID},
+            {
+              ACTIVATE => '0000-00-00',
+              UID      => $Internet_->{UID}
+            }
+          );
+        }
+      }
+
+      $Fees->take(
+        $users, $sum,
+        {
+          DESCRIBE => $message,
+          METHOD   => 1,
+          DATE     => "$DATE $TIME"
+        }
+      );
+
+      if ($Fees->{errno}) {
+        if ($Fees->{errno} == 14) {
+          print "Error: $lang{BILLS} $lang{NOT_EXISTS}\n";
+        }
+        else {
+          print "[$Fees->{errno}] $Fees->{errstr} ";
+        }
+      }
+      else {
+        print "$message";
+      }
+    }
+  }
+
+  return 1;
+}
+
+##**********************************************************
+#=head2 mk_menu_console()
+#
+#=cut
+##**********************************************************
+#sub mk_menu_console {
+#  my %module_fl  = ();
+#  my %menu_names = ();
+#  my %module     = ();
+#  my %functions  = ();
+#  my %uf_menus   = ();
+#  my %menu_args  = ();
+#  my %menu_items = ();
+#
+#  my $maxnumber = 0;
+#
+#  foreach my $m (@MODULES) {
+#    if (my $return = do "AXbills/modules/$m/config") {
+#    }
+#
+#    next if (keys %FUNCTION_LIST < 1);
+#    my @sordet_module_menu = sort keys %FUNCTION_LIST;
+#
+#    foreach my $line (@sordet_module_menu) {
+#      $maxnumber++;
+#      my ($ID, $SUB, $NAME, $FUNTION_NAME, $argv) = split(/:/, $line, 5);
+#      $ID = int($ID);
+#      my $v = $FUNCTION_LIST{$line};
+#
+#      $module_fl{"$ID"} = $maxnumber;
+#
+#      #$fl .= "$FUNTION_NAME $maxnumber\n";
+#      $menu_args{$maxnumber} = $argv;
+#
+#      if ($SUB > 0) {
+#        $menu_items{$maxnumber}{ $module_fl{$SUB} } = $NAME;
+#      }
+#      else {
+#        $menu_items{$maxnumber}{$v} = $NAME;
+#        if ($SUB == -1) {
+#          $uf_menus{$maxnumber} = $NAME;
+#        }
+#      }
+#
+#      $menu_names{$maxnumber} = $NAME;
+#      $functions{$maxnumber}  = $FUNTION_NAME if ($FUNTION_NAME ne '');
+#      $module{$maxnumber}     = $m;
+#    }
+#
+#    %FUNCTION_LIST = ();
+#  }
+#}
+
+#**********************************************************
+=head2 get_admin_info($login)
+
+=cut
+#**********************************************************
+sub get_admin_info {
+  #my ($login)    = @_;
+  my %admin_info = ();
+  my $content = '';
+
+  if (-f "$ENV{HOME}/.abm") {
+    open(my $fh, '<', "$ENV{HOME}/.abm") or die "Can't open file '$ENV{HOMEDIR}/.abm' $! \n";
+    while (<$fh>) {
+      $content .= $_;
+    }
+    close($fh);
+  }
+
+  my @rows = split(/\n/, $content);
+
+  foreach my $line (@rows) {
+    next if ($line =~ /^#/);
+    my ($k, $v) = split(/=/, $line, 2);
+    $k =~ s/ //g if ($k);
+    $v =~ s/ //g if ($v);
+    $admin_info{$k} = $v;
+  }
+
+  while ($retries < $max_acccess_rets + 1) {
+    my $res = check_permissions($admin_info{USERNAME}, $admin_info{PASSWD});
+    if ($res == 1) {
+      print "Wrong Password!!!\n";
+      $retries++;
+      exit if ($max_acccess_rets < $retries);
+    }
+    else {
+      print "$lang{ADMIN}: $admin->{A_FIO}. $lang{DATE}: $DATE $TIME\n";
+      return \%admin_info;
+      #last;
+    }
+
+    print "_ADMIN: ";
+    chop($admin_info{USERNAME} = <STDIN>);
+    print "_PASSWD: ";
+    chop($admin_info{PASSWD} = <STDIN>);
+  }
+
+  return \%admin_info;
+}
+
+#**********************************************************
+=head2 check_permissions($login, $password, $attr)
+
+=cut
+#**********************************************************
+sub check_permissions {
+  my ($login, $password) = @_;
+
+  if (!$login) {
+    return 1;
+  }
+
+  $login =~ s/"/\\"/g;
+  $login =~ s/'/\''/g;
+  $password =~ s/"/\\"/g;
+  $password =~ s/'/\\'/g;
+
+  my %PARAMS = (
+    LOGIN     => "$login",
+    PASSWORD  => "$password",
+    SECRETKEY => $conf{secretkey},
+    IP        => $ip
+  );
+
+  $admin->info(0, { %PARAMS });
+
+  if ($admin->{errno}) {
+    return 1;
+  }
+  elsif ($admin->{DISABLE} == 1) {
+    $admin->{errno} = 2;
+    $admin->{errstr} = 'DISABLED';
+    return 2;
+  }
+
+  if ($admin->{WEB_OPTIONS}) {
+    my @WO_ARR = split(/;/, $admin->{WEB_OPTIONS});
+    foreach my $line (@WO_ARR) {
+      my ($k, $v) = split(/=/, $line);
+      $admin->{SETTINGS}{$k} = $v if($k);
+    }
+  }
+
+  %permissions = %{$admin->get_permissions()};
+
+  return 0;
+}
+
+#**********************************************************
+=head2 help()
+
+=cut
+#**********************************************************
+sub help {
+
+  print <<"[END]";
+abm_console console ABillS managment. Version: $version
+  PAYMENTS=[login] - Payments: info (default), ADD=[sum], DEL
+   Extended:
+    DATE           - DATE
+    METHOD         - Method ID
+    UID            - UID
+    ID             - Payments id
+    ....
+  FEES=[login]     - Fees. info (default), GET=[sum], DEL
+    UID            - UID
+    ID             - Fees id
+    Extended:
+    ....
+  BONUS=[SQL file] - SQL file with bonus accounts
+    EXT_ID=        - Use EXT id for skip dublicate adding
+                       extra options for EXT_ID "%UID%"
+
+  IMPORT           - import service (Default: Iptv)
+  IMPORT_RULE      - Import rule
+
+  PI=              - Personal info
+  LOGIN=           - show user info
+
+  SKIP_TRANSACTION - Don\'t use tranactions (Default transaction enable)
+  FULL_DELETE      - Full Delete Users
+    EXPIRED        - Expired les then cur date
+  DEL=1            - Mark user for delete
+  DEBUG            - Debug mode
+
+[END]
+
+}
+
+#**********************************************************
+=head2 internet_user_main($uid)
+
+=cut
+#**********************************************************
+sub internet_user_main {
+  #my ($uid, $attr) = @_;
+
+  print ">> $lang{INTERNET}\n";
+
+  $Internet->user_info($user->{UID});
+
+  print <<"[END]";
+=========================
+$lang{TARIF_PLAN}: [$Internet->{TP_ID}] $Internet->{TP_NAME}
+$lang{SIMULTANEOUSLY}: $Internet->{LOGINS}
+IP: $Internet->{IP}
+MASK: $Internet->{NETMASK}
+$lang{SPEED}: $Internet->{SPEED}
+Filter-ID: $Internet->{FILTER_ID}
+CID: $Internet->{CID}
+$lang{STATUS}: $Internet->{STATUS}
+Callback: $Internet->{CALLBACK}
+$lang{PORT}: $Internet->{PORT}
+$lang{JOIN_SERVICE}: $Internet->{JOIN_SERVICE}
+#=========================
+[END]
+
+  return 1;
+}
+
+#**********************************************************
+=head2 user_info($uid)
+
+=cut
+#**********************************************************
+sub user_info {
+  my ($uid) = @_;
+
+  $user = $users->info($uid);
+  $user->pi({ UID => $uid });
+
+  print "    $lang{USER}: $user->{LOGIN} ("
+    . convert((($user->{FIO}) ? $user->{FIO} : ''), { txt2translit => 1 }) . ") $user->{UID}\n"
+    . "    $lang{DEPOSIT}: $user->{DEPOSIT}\n"
+    . "[1] $lang{CREDIT}:  $user->{CREDIT}\n"
+    . "[2] $lang{STATUS}: "
+    . $status[ $user->{DISABLE} ] . "\n";
+
+  return $user;
+}
+
+#**********************************************************
+=head2 form_pi($uid)
+
+=cut
+#**********************************************************
+sub form_pi {
+  my ($uid) = @_;
+
+  $user = $users->pi($uid);
+
+  my $build_delimiter = $conf{BUILD_DELIMITER} || ', ';
+  print "$lang{FIO}: " . (($user->{FIO}) ? $user->{FIO} : '') . "\n" . "$lang{PHONE}: " . (($user->{PHONE}) ? $user->{PHONE} : '') . "\n" . "$lang{ADDRESS}:   $user->{ADDRESS_STREET}$build_delimiter$user->{ADDRESS_BUILD}$build_delimiter$user->{ADDRESS_FLAT}\n" . "$lang{CONTRACT}:  $user->{CONTRACT_ID} $user->{CONTRACT_DATE}\n";
+
+}
+
+#**********************************************************
+=head2 form_users_change($attr)
+
+=cut
+#**********************************************************
+sub form_users_change {
+  #my ($attr) = @_;
+
+  if ($interact) {
+    print ">> $lang{CHANGE}:\n";
+
+    my @params = ("$lang{CREDIT} [$user->{CREDIT}]:CREDIT:$user->{CREDIT}",
+      "$lang{DISABLE} [$status[$user->{DISABLE}]] (y/n):DISABLE:$user->{DISABLE}", "$lang{CONFIRM} (y/n):CONFIRM");
+
+    my $FORM = form_parse2(\@params);
+
+    if ($FORM->{CONFIRM}) {
+      $users->change($user->{UID}, { UID => $user->{UID}, %$FORM });
+
+      if (!$users->{errno}) {
+        print "$lang{CHANGED}\n";
+      }
+      else {
+        if ($users->{errno} == 14) {
+          print "Error: $lang{BILLS} $lang{NOT_EXISTS}\n";
+        }
+        else {
+          print "$lang{ERROR}: [$users->{errno}]\n"; #$err_strs{$users->{errno}}":      }
+        }
+      }
+    }
+
+    return 0;
+  }
+}
+
+#**********************************************************
+=head2 form_users($attr)
+
+=cut
+#**********************************************************
+sub form_users {
+  my ($attr) = @_;
+
+  if ($argv->{ADD_USER}) {
+    $argv->{LOGIN} = $argv->{ADD_USER};
+    $argv->{CREATE_BILL} = 1;
+
+    $users->add($argv);
+    if (!$users->{errno}) {
+      $argv->{UID} = $users->{UID};
+      $users->pi_add($argv);
+
+      if (!$users->{errno}) {
+        print "$argv->{ADD_USER} added\n";
+        $argv->{SUM} = $argv->{DEPOSIT};
+        delete($argv->{DEPOSIT});
+        if ($argv->{SUM} > 0) {
+          $argv->{ADD} = 1;
+          form_payments();
+        }
+        elsif ($argv->{SUM} < 0) {
+          $argv->{GET} = 1;
+          form_fees();
+        }
+      }
+      else {
+        print "[$users->{errno}] $users->{errstr}\n";
+      }
+      return 0;
+    }
+    else {
+      print "[$users->{errno}] $users->{errstr}\n";
+    }
+
+    return 0;
+  }
+
+  my $user_info;
+
+  if ($interact) {
+    my @user_functions = ("<-:help", "EXIT:exit");
+
+    push @user_functions, "$lang{USER_INFO}:form_pi";
+    push @user_functions, "$lang{CHANGE}:form_users_change" if ($permissions{0});
+    push @user_functions, "$lang{PAYMENTS}:form_payments" if ($permissions{1});
+    push @user_functions, "$lang{FEES}:form_fees" if ($permissions{3});
+    push @user_functions, "$lang{INTERNET}:internet_user_main" if (in_array('Internet', \@MODULES));
+
+    my $list = $users->list({
+      DEPOSIT      => '_SHOW',
+      CREDIT       => '_SHOW',
+      LOGIN_STATUS => '_SHOW',
+      %LIST_PARAMS,
+      FIO          => '_SHOW',
+      COLS_NAME    => 1
+    });
+
+    if ($users->{TOTAL} == 1) {
+      my $uid = $list->[0]->{uid};
+      $user_info = user_info($uid);
+      print "$lang{FUNCTIONS_LIST}: \n";
+
+      while (1) {
+        for (my $i = 0; $i <= $#user_functions; $i++) {
+          my ($function_name, undef) = split(/:/, $user_functions[$i], 2);
+          print " [$i] $function_name\n";
+        }
+
+        print "$lang{USER}: $user->{LOGIN}> ";
+        my $input = <STDIN>;
+        $input //= q{};
+        chop($input);
+        chomp($input);
+        if ($input eq '') {
+
+        }
+        elsif ($input =~ /exit|quite|q/ || ($input =~ /\d+/ && $input == 1)) {
+          return 0;
+        }
+        elsif ($input =~ /(\d+)/) {
+          my $function_id = $1;
+          if ($user_functions[$function_id]) {
+            my (undef, $function) = split(/:/, $user_functions[$function_id], 2);
+            &{\&$function}({ USER_INFO => $users });
+          }
+        }
+
+        $user_info = user_info($uid);
+      }
+    }
+    elsif ($users->{TOTAL} < 1) {
+      print "$lang{ERROR}: '$LIST_PARAMS{LOGIN}' $lang{NOT_EXIST}\n";
+    }
+    else {
+      foreach my $line (@$list) {
+        print "$line->{login}, "
+          . (($line->{fio}) ? $line->{fio} : '') . ', '
+          . (($line->{deposit}) ? $line->{deposit} : '') . ', '
+          . (($line->{credit}) ? $line->{credit} : '') . ', '
+          . (($status[ $line->{login_status} ]) ? $status[ $line->{login_status} ] : $line->{login_status}) . "\n";
+      }
+      print "Total: $users->{TOTAL}\n";
+    }
+    return 0;
+  }
+
+  my $users_list;
+  if (!$attr->{UID}) {
+    my $total = 0;
+    if ($conf{INTERNET_EXPIRED_FD}) {
+      $LIST_PARAMS{DELETED} = '_SHOW' if ($LIST_PARAMS{EXPIRE});
+      $LIST_PARAMS{INTERNET_EXPIRE} = $LIST_PARAMS{EXPIRE};
+      delete $LIST_PARAMS{EXPIRE};
+      $users_list = $Internet->user_list({
+        DELETED   => '1',
+        %LIST_PARAMS,
+        COLS_NAME => 1
+      });
+      $total = $Internet->{TOTAL};
+    }
+    else {
+      $users_list = $users->list({ %LIST_PARAMS, COLS_NAME => 1 });
+      $total = $users->{TOTAL};
+    }
+
+    if ($total) {
+      if ($total == 1) {
+        $LIST_PARAMS{UID} = $users_list->[0]->{uid};
+      }
+
+      if( $argv->{FULL_DELETE}) {
+        my $deleted = 0;
+
+        foreach my $line (@$users_list) {
+          $deleted++;
+          print "User: $line->{uid} (DELETED: ". ($line->{deleted} || q{}) .")\n";
+          if (defined($argv->{FULL_DELETE})) {
+            if ($line->{deleted}) {
+              $users->info($line->{uid});
+              print "DELETED ($deleted)\n";
+              $users->{UID} = $line->{uid};
+              $users->del({ FULL_DELETE => 1 });
+            }
+            elsif ($conf{INTERNET_EXPIRED_FD}) {
+              $users->change($line->{uid}, { UID => $line->{uid}, DELETED => 1 });
+            }
+          }
+
+          #Modules del
+          my $mods = '';
+          foreach my $mod (@MODULES) {
+            $mods .= "$mod,";
+            load_module($mod, { language => 'english' });
+
+            my $function = lc($mod) . '_user_del';
+
+            if (defined(&$function)) {
+              &{\&$function}($users->{UID}, $user_info || $users);
+            }
+          }
+        }
+
+        if ($debug > 1) {
+          print "Deleted: $deleted\n";
+        }
+
+        return 0;
+      }
+
+    }
+    else {
+      print "User not found. LOGIN: '$LIST_PARAMS{LOGIN}'\n";
+      return 0;
+    }
+  }
+
+  if ($attr->{PI}) {
+    $users->pi_change({ %$attr, UID => $LIST_PARAMS{UID} });
+  }
+  elsif($LIST_PARAMS{UID}) {
+    $users->change($LIST_PARAMS{UID}, { %$attr, UID => $LIST_PARAMS{UID} });
+  }
+  else {
+    foreach my $line ( @$users_list ) {
+      printf(" %-16s|%20s|%11f|%-5d|\n", $line->{login}, $line->{fio} || q{}, $line->{deposit} || 0, $line->{uid});
+
+      if($argv->{DEL}) {
+        $users->change($line->{uid}, { UID => $line->{uid}, DELETED => 1 });
+      }
+    }
+  }
+
+  if (!$users->{errno}) {
+    print "Change! \n";
+  }
+  else {
+    print "[$users->{errno}] $users->{errstr}\n";
+  }
+
+
+  return 0;
+}
+
+#**********************************************************
+=head2 form_fees
+
+=cut
+#**********************************************************
+sub form_fees {
+  #my ($attr) = @_;
+
+  if ($interact) {
+    print ">> $lang{FEES}:\n";
+    my @params = ("$lang{SUM} (0.00):SUM", "$lang{DESCRIBE}:DESCRIBE", "$lang{CONFIRM} (y/n):CONFIRM");
+
+    my $FORM = form_parse2(\@params);
+
+    if ($FORM->{CONFIRM}) {
+      #FEES:
+      $Fees->take($user, $FORM->{SUM}, { %$FORM });
+      if (!$Fees->{errno}) {
+        print "$lang{GETTED} $lang{SUM}: $FORM->{SUM} ID: $Fees->{INSERT_ID}\n";
+      }
+      else {
+        if ($Fees->{errno} == 14) {
+          print "$lang{ERROR}: $lang{BILLS} $lang{NOT_EXISTS}\n";
+        }
+        else {
+          print "$lang{ERROR}: [$Fees->{errno}]\n"; #$err_strs{$payments->{errno}}":
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  if ($argv->{GET}) {
+    if (!$argv->{UID}) {
+      $argv->{LOGIN} = $argv->{FEES} if (!$argv->{LOGIN});
+    }
+
+    delete $argv->{FEES};
+    my $list = $users->list({
+      BILL_ID   => '_SHOW',
+      %$argv,
+      %LIST_PARAMS,
+      COLS_NAME => 1,
+      FEES      => undef
+    });
+
+    my $FORM;
+    $FORM->{SUM} = abs($argv->{SUM} || $argv->{GET});
+    $FORM->{DESCRIBE} = $argv->{DESCRIBE} || '';
+    $FORM->{METHOD} = $argv->{METHOD} || '';
+
+    if ($users->{TOTAL} > 0) {
+      foreach my $line (@$list) {
+        my $user_ = {
+          UID     => $line->{uid},
+          BILL_ID => $line->{bill_id},
+        };
+
+        print "LOGIN: $line->{login} UID: $user_->{UID} BILL_ID: $user_->{BILL_ID} SUM: $FORM->{SUM}\n" if ($debug > 0);
+
+        $Fees->take($user_, $FORM->{SUM}, { %$FORM, %$argv });
+
+        if ($Fees->{errno}) {
+          print "Error: $Fees->{errno}";
+        }
+      }
+    }
+    return 0;
+  }
+
+  my @args = ('GET', 'DEL', 'METHOD', 'DATE', 'DESCRIBE', 'LOGIN', 'UID');
+  foreach my $arg (@args) {
+    if (defined($argv->{$arg})) {
+      $LIST_PARAMS{$arg} = $argv->{$arg};
+    }
+  }
+
+  my $list = $Fees->list({
+    LOGIN     => '_SHOW',
+    DATETIME  => '_SHOW',
+    SUM       => '_SHOW',
+    DSC       => '_SHOW',
+    %LIST_PARAMS,
+    COLS_NAME => 1
+  });
+
+  my $total_fees = 0;
+  foreach my $line (@$list) {
+    printf("%-5d| %-16s|%19s|%11.2f|%-20s|\n", $line->{id}, $line->{login}, $line->{datetime}, $line->{sum}, $line->{dsc});
+
+    if ($argv->{DEL}) {
+      $Fees->del({ UID => $line->{uid} }, $line->{id});
+      print "$lang{DEL}\n";
+    }
+    $total_fees += $line->{sum};
+  }
+
+  print "Total quantity: $Fees->{TOTAL}\n";
+  if ($Fees->{TOTAL}){
+    printf("%-1s: %.2f\n", "Total amount", $total_fees);
+  }
+
+  return 0;
+}
+
+#**********************************************************
+=head2 form_payments($attr)
+
+=cut
+#**********************************************************
+sub form_payments {
+  #my ($attr) = @_;
+
+  my $FORM;
+
+  if ($interact) {
+    print ">> $lang{PAYMENTS}:\n";
+
+    my @params = ("$lang{SUM} (0.00):SUM", "$lang{DESCRIBE}:DESCRIBE", "$lang{CONFIRM} (y/n):CONFIRM");
+
+    $FORM = form_parse2(\@params);
+
+    if ($FORM->{CONFIRM}) {
+      #PAYMENTS:
+
+      $Payments->add($user, { %$FORM });
+      if (!$Payments->{errno}) {
+        print "$lang{ADDED} $lang{SUM}: $FORM->{SUM} ID: $Payments->{INSERT_ID}\n";
+      }
+      else {
+        if ($Payments->{errno} == 14) {
+          print "$lang{ERROR}: $lang{BILLS} $lang{NOT_EXIST}\n";
+        }
+        else {
+          print "$lang{ERROR}: [$Payments->{errno}] $Payments->{errstr}\n"; #$err_strs{$payments->{errno}}":      }
+        }
+      }
+    }
+
+    return 0;
+  }
+
+  if ($argv->{ADD}) {
+    if (!$argv->{UID}) {
+      $argv->{LOGIN} = $argv->{PAYMENTS} if (!$argv->{LOGIN});
+    }
+
+    delete $argv->{PAYMENTS};
+    delete $LIST_PARAMS{PAYMENTS};
+
+    if ($argv->{GROUP_NAME}) {
+      my $groups_list = $users->groups_list({
+        G_NAME          => $argv->{GROUP_NAME},
+        COLS_NAME       => 1,
+        GID             => '_SHOW',
+        NAME            => '_SHOW',
+        DESCR           => '_SHOW',
+        ALLOW_CREDIT    => '_SHOW',
+        DISABLE_PAYSYS  => '_SHOW',
+        DISABLE_CHG_TP  => '_SHOW',
+        USERS_COUNT     => '_SHOW',
+      });
+
+      if ($groups_list->{TOTAL} > 0) {
+        $LIST_PARAMS{GID} = $groups_list->[0]{gid};      
+      }
+    }
+
+    my $list = $users->list({
+      BILL_ID   => '_SHOW',
+      %$argv,
+      %LIST_PARAMS,
+      COLS_NAME => 1
+    });
+
+    $FORM->{SUM} = $argv->{ADD} || $argv->{SUM};
+    $FORM->{DESCRIBE} = $argv->{DESCRIBE} || '';
+    $FORM->{METHOD} = $argv->{METHOD} || '';
+
+    my $ext_id = $argv->{EXT_ID};
+
+    if ($users->{TOTAL} > 0) {
+      foreach my $line (@$list) {
+        my $user_ = {
+          UID     => $line->{uid},
+          BILL_ID => $line->{bill_id},
+        };
+
+        if ($ext_id) {
+          $FORM->{EXT_ID} = $ext_id || '';
+          $FORM->{EXT_ID} =~ s/\%UID\%/$line->{uid}/g;
+          $FORM->{CHECK_EXT_ID} = $FORM->{EXT_ID} || '';
+        }
+
+        print "LOGIN: $line->{login} UID: $user_->{UID} BILL_ID: $user_->{BILL_ID} " . (($ext_id) ? "EXT_ID: $FORM->{EXT_ID}" : '') . "\n" if ($debug > 0);
+        $Payments->add(
+          $user_,
+          {
+            SUM    => $FORM->{SUM},
+            %$FORM,
+            %$argv,
+            EXT_ID => ($ext_id) ? $FORM->{EXT_ID} : ''
+          }
+        );
+      }
+    }
+    return 0;
+  }
+
+  my @args = ('ADD', 'DEL', 'METHOD', 'DATE', 'DESCRIBE');
+  foreach my $arg (@args) {
+    if (defined($argv->{$arg})) {
+      $LIST_PARAMS{$arg} = $argv->{$arg};
+    }
+  }
+
+  my $list = $Payments->list({
+    SUM       => '_SHOW',
+    DSC       => '_SHOW',
+    DATETIME  => '_SHOW',
+    %LIST_PARAMS,
+    COLS_NAME => 1
+  });
+
+  my $total_amount = 0;
+  foreach my $line (@$list) {
+    printf("%-5d| %-16s|%19s|%-20s|%11.2f|\n",
+      $line->{id},
+      $line->{login} || q{},
+      $line->{datetime} || q{},
+      $line->{dsc} || q{},
+      $line->{sum} || 0);
+
+    if ($argv->{DEL}) {
+      $Payments->del({ UID => $line->{uid} }, $line->{id});
+      print "$lang{DEL}\n";
+    }
+    $total_amount += $line->{sum};
+  }
+
+  print "Total quantity: $Payments->{TOTAL}\n";
+  if ($Payments->{TOTAL}){
+    printf("%-1s: %.2f\n", "Total amount", $total_amount);
+  }
+
+  return 0;
+}
+
+#**********************************************************
+=head2 form_parse2()
+
+=cut
+#**********************************************************
+sub form_parse2 {
+  my ($keys) = @_;
+  my %values = ();
+  foreach my $k (@$keys) {
+    my ($describe, $key, $default) = split(/:/, $k);
+    print "$describe:";
+    my $val = '';
+    chop($val = <STDIN>);
+
+    if ($key eq 'CONFIRM' && $val =~ /n/i) {
+
+    }
+    elsif ($val eq '') {
+      $values{$key} = $default;
+    }
+    elsif ($key eq 'DISABLE') {
+      $values{$key} = ($val =~ /n/i) ? 0 : 1;
+    }
+    else {
+      $values{$key} = $val;
+    }
+
+  }
+
+  return \%values;
+}
+
+#**********************************************************
+#
+#**********************************************************
+sub console_help {
+  print <<"[END]";
+ABM Console Help. Version: $version:
+ s           - user search menu
+ exit|q|quit - exit
+
+[END]
+}
+
+#**********************************************************
+=head2 mk_bonus($attr)
+
+=cut
+#**********************************************************
+sub mk_bonus {
+  my ($attr) = @_;
+
+  my $query = '';
+  if (-f "$attr->{BONUS}") {
+    open(my $fh, '<', "$attr->{BONUS}") or die "Can't open file '$attr->{BONUS}'";
+    while (<$fh>) {
+      $query .= $_;
+    }
+    close($fh);
+  }
+
+  $admin->query($query, undef, { COLS_NAME => 1, COLS_UPPER => 1 });
+
+  my $num = 1;
+  foreach my $line (@{$admin->{list}}) {
+    if ($debug > 2) {
+      print ">> ";
+      foreach my $row (sort keys %$line) {
+        print "$row: $line->{$row} \t";
+      }
+      print "\n";
+    }
+
+    $argv->{ADD} = 1;
+
+    $argv->{UID} = $line->{UID};
+    $argv->{SUM} = $line->{SUM} || $argv->{SUM};;
+    #BILL_ID  LAST_DEPOSIT METHOD NOW() SUM UID
+    $argv->{DESCRIBE} = $line->{DESCRIBE} || $argv->{DESCRIBE};
+    $argv->{METHOD} = $line->{METHOD} || $argv->{METHOD};
+
+    form_payments();
+
+    print "$num\n";
+    $num++;
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 form_login_import($attr)
+
+=cut
+#**********************************************************
+sub form_login_import {
+  my ($attr) = @_;
+
+  my $import_type = $attr->{IMPORT} || '';
+  #my $import_rule = $attr->{IMPORT_RULE} || '';
+
+  if ($import_type eq 'Iptv') {
+
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 internet_main
+  main function for internet operations
+
+=cut
+#**********************************************************
+sub internet_main {
+
+  if ($argv->{CREDIT}) {
+    print "\nCredit: ";
+    print internet_credit();
+  }
+  elsif ($argv->{CHANGE_TP}) {
+    print "\nChange_tp: ";
+    print internet_change_tp();
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 internet_credit
+  activate credit
+
+=cut
+#**********************************************************
+sub internet_credit {
+
+  my ($sum, $days, $price, $month_changes, $payments_expr) = split(/:/, $conf{user_credit_change});
+
+  return "Error. Wrong UID.\n" unless ($argv->{UID});
+
+  $users->info($argv->{UID});
+  $Internet->user_info($argv->{UID});
+
+  if ($user->{DISABLE}) {
+    return "_{DISABLE}_\n";
+  }
+
+  if ($month_changes) {
+    my ($y, $m, undef) = split(/\-/, $DATE);
+    $admin->action_list(
+      {
+        UID       => $users->{UID},
+        TYPE      => 5,
+        AID       => $admin->{AID},
+        FROM_DATE => "$y-$m-01",
+        TO_DATE   => "$y-$m-31"
+      }
+    );
+
+    if ($admin->{TOTAL} >= $month_changes) {
+      return "_{ERR_CREDIT_CHANGE_LIMIT_REACH}_\n";
+    }
+  }
+
+  my $credit_date = POSIX::strftime("%Y-%m-%d", localtime(time + int($days) * 86400));
+
+  $sum = $Internet->{USER_CREDIT_LIMIT} if ($sum == 0 && $Internet->{USER_CREDIT_LIMIT} > 0);
+
+  if ($payments_expr && $sum != -1) {
+    my %params = (
+      PERIOD          => 0,
+      MAX_CREDIT_SUM  => 1000,
+      MIN_PAYMENT_SUM => 1,
+      PERCENT         => 100
+    );
+
+    my @params_arr = split(/;/, $payments_expr);
+
+    foreach my $line (@params_arr) {
+      my ($k, $v) = split(/=/, $line);
+      $params{$k} = $v;
+    }
+
+    $Payments->list(
+      {
+        UID          => $users->{UID},
+        PAYMENT_DAYS => ">$params{PERIOD}",
+        SUM          => ">=$params{MIN_PAYMENT_SUM}"
+      }
+    );
+
+    if ($Payments->{TOTAL} > 0) {
+      $sum = $Payments->{SUM} / 100 * $params{PERCENT};
+      if ($sum > $params{MAX_CREDIT_SUM}) {
+        $sum = $params{MAX_CREDIT_SUM};
+      }
+    }
+    else {
+      $sum = 0;
+    }
+  }
+
+  if ($users->{CREDIT} < sprintf("%.2f", $sum)) {
+
+    $users->change(
+      $user->{UID},
+      {
+        UID         => $users->{UID},
+        CREDIT      => $sum,
+        CREDIT_DATE => $credit_date
+      }
+    );
+
+    if (!$users->{errno}) {
+      if ($price && $price > 0) {
+        $Fees->take($users, $price, { DESCRIBE => "$lang{CREDIT} $lang{ENABLE}" });
+      }
+      cross_modules('payments_maked', {
+        USER_INFO => $users,
+        SUM       => $sum,
+        QUITE     => 1
+      });
+      return "_{CHANGED}_\n";
+    }
+
+  }
+  else {
+    return "_{CREDIT}_ _{UNAVAILABLE}_\n";
+  }
+}
+
+#**********************************************************
+=head2 internet_change_tp
+  activate credit
+
+=cut
+#**********************************************************
+sub internet_change_tp {
+
+  return "UID not specified\n" if (!$argv->{UID});
+
+  $users->info($argv->{UID});
+  use Internet::Service_mng;
+  my $Service = Internet::Service_mng->new({ db => $db, admin => $admin, conf => \%conf });
+  $Service->service_chg_tp({
+    UID          => $argv->{UID},
+    ID           => $argv->{SERVICE},
+    TP_ID        => $argv->{CHANGE_TP},
+    SERVICE      => $Internet,
+    USER         => $users,
+    set          => 1,
+    ACCEPT_RULES => 'maybe, dont know',
+  });
+
+  if ($Service->{errno}) {
+    if ($Service->{errno} == 151) {
+      return "Изменение тарифа уже запланировано.";
+    }
+    else {
+      return "_{ERROR}_ $Service->{message}\n";
+    }
+  }
+
+  return "_{CHANGED}_\n";
+}
+
+1

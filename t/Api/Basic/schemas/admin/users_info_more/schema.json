@@ -1,0 +1,138 @@
+{
+  "definitions": {},
+  "type": "object",
+  "title": "The Root Schema",
+  "required": [
+    "uid"
+  ],
+  "properties": {
+    "uid": {
+      "$id": "#/properties/uid",
+      "type": "number"
+    },
+    "email": {
+      "$id": "#/properties/email",
+      "type": "array"
+    },
+    "contractDate": {
+      "$id": "#/properties/contractDate",
+      "type": "string"
+    },
+    "fio": {
+      "$id": "#/properties/fio",
+      "type": "string"
+    },
+    "regAddress": {
+      "$id": "#/properties/regAddress",
+      "type": "string"
+    },
+    "addressBuild": {
+      "$id": "#/properties/addressBuild",
+      "type": "string"
+    },
+    "addressStreet": {
+      "$id": "#/properties/addressStreet",
+      "type": "string"
+    },
+    "telegram": {
+      "$id": "#/properties/telegram",
+      "type": "array"
+    },
+    "phone": {
+      "$id": "#/properties/phone",
+      "type": "array"
+    },
+    "contactsNewAppended": {
+      "$id": "#/properties/contactsNewAppended",
+      "type": "number"
+    },
+    "comments": {
+      "$id": "#/properties/comments",
+      "type": "string"
+    },
+    "contractId": {
+      "$id": "#/properties/contractId",
+      "type": "string"
+    },
+    "locationId": {
+      "$id": "#/properties/locationId",
+      "type": "number"
+    },
+    "total": {
+      "$id": "#/properties/total",
+      "type": "number"
+    },
+    "pasportNum": {
+      "$id": "#/properties/pasportNum",
+      "type": "string"
+    },
+    "entrance": {
+      "$id": "#/properties/entrance",
+      "type": "number"
+    },
+    "taxNumber": {
+      "$id": "#/properties/taxNumber",
+      "type": "string"
+    },
+    "zip": {
+      "$id": "#/properties/zip",
+      "type": "string"
+    },
+    "birthDate": {
+      "$id": "#/properties/birthDate",
+      "type": "string"
+    },
+    "countryId": {
+      "$id": "#/properties/countryId",
+      "type": "number"
+    },
+    "pasportDate": {
+      "$id": "#/properties/pasportDate",
+      "type": "string"
+    },
+    "fio2": {
+      "$id": "#/properties/fio2",
+      "type": "string"
+    },
+    "city": {
+      "$id": "#/properties/city",
+      "type": "string"
+    },
+    "addressFlat": {
+      "$id": "#/properties/addressFlat",
+      "type": "string"
+    },
+    "contractSufix": {
+      "$id": "#/properties/addressFlat",
+      "type": "string"
+    },
+    "fio3": {
+      "$id": "#/properties/fio3",
+      "type": "string"
+    },
+    "floor": {
+      "$id": "#/properties/floor",
+      "type": "number"
+    },
+    "skype": {
+      "$id": "#/properties/skype",
+      "type": "array"
+    },
+    "affected": {
+      "$id": "#/properties/affected",
+      "type": "number"
+    },
+    "icq": {
+      "$id": "#/properties/icq",
+      "type": "array"
+    },
+    "viber": {
+      "$id": "#/properties/viber",
+      "type": "array"
+    },
+    "pasportGrant": {
+      "$id": "#/properties/pasportGrant",
+      "type": "string"
+    }
+  }
+}

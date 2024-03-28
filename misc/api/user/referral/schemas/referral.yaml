@@ -1,0 +1,48 @@
+type: object
+properties:
+  referralLink:
+    type: string
+    example: http://192.168.99.2:9443/registration.cgi?REFERRER=1
+  referrals:
+    type: array
+    items:
+      type: object
+      properties:
+        address:
+          type: string
+          example: fweefwe
+        disable:
+          type: number
+          example: 1
+        fio:
+          type: string
+          example: fwe
+        id:
+          type: number
+          example: 97
+        isUser:
+          type: boolean
+        paymentBonus:
+          type: number
+          example: 0
+        phone:
+          type: string
+          example: fwef
+        spendingBonus:
+          type: number
+          example: 0
+        status:
+          type: number
+          example: 0
+        statusName:
+          type: string
+          example: open
+  referralsTotal:
+    type: number
+    example: 11
+  result:
+    type: string
+    example: OK
+  totalBonus:
+    type: number
+    example: 0

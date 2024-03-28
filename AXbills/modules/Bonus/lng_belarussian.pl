@@ -1,0 +1,11 @@
+$lang{TRAFFIC_IN_BONUS_MB}='Аплата за выходны трафік (Mb)';
+$lang{TRAFFIC_OUT_BONUS_MB}='Аплата за ўваходны трафік (Mb)';
+$lang{TRAFFIC_SUM_BONUS_MB}='Аплата за сумарны трафік (Mb)';
+$lang{BONUS_PERCENT}='Бонусны працэнт папаўнення';
+$lang{ACCEPT_RULES}='З правіламі азнаёмлены';
+$lang{BONUS_TP_USING}='Акцыйны тарыфны план';
+$lang{SCORES}='Балы';
+$lang{ERR_SMALL_SUM}='Занадта маленькая сума';
+$lang{BONUS_DISABLED_FOR_GROUP}='Бонус адключаны для групы';
+$lang{ONETIME_PAYMENT_SUM}='Аднаразовы плацёж';
+$lang{ACCOUMULATION}='Акумуляцыйны';

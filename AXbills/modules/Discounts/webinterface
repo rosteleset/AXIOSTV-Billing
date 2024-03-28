@@ -1,0 +1,315 @@
+=head1 Discounts
+
+  Date: 2019-11-05
+  Change date: 2023-11-14
+
+  Version: 9.01 КТК-39
+
+=cut
+
+use Discounts;
+use AXbills::Base qw(load_pmodule);
+
+load_pmodule('HTML::Barcode::Code128');
+
+use strict;
+use warnings FATAL => 'all';
+
+require AXbills::Defs;
+
+our ($db,
+  $admin,
+  %conf,
+  %lang,
+  $html
+);
+
+my $Discounts = Discounts->new($db, $admin, \%conf);
+
+#**********************************************************
+=head2 discounts_add_status() -
+
+  Arguments:
+    attr -
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub discounts_add_status {
+	 my ($attr) = @_;
+	 my $action = 'add';
+	 my $action_lang = "$lang{ADD}";
+	 my %STATUS;
+	 
+ if($FORM{add}){
+    $Discounts->add_status({%FORM});
+    if(!$Discounts->{errno}){
+      $html->message("success", "$lang{SUCCESS}", "$lang{DISCOUNT_ADDED}");
+    }
+    else{
+      $html->message("err", "$lang{ERROR}", "$lang{DISCOUNT_NOT_ADDED}");
+    }
+  }
+  elsif($FORM{change}){
+
+    $Discounts->change_status({%FORM});
+    if(!$Discounts->{errno}){
+      $html->message("success", "$lang{SUCCESS}", "$lang{DISCOUNT_CHANGED}");
+    }
+    else {
+      $html->message("err", "$lang{ERROR}", "$lang{DISCOUNT_NOT_CHANGED}");
+    }
+  }
+  
+    if($FORM{chg}){
+    my $status_info = $Discounts->info_status({ID => $FORM{chg}});
+    $html->message("info", "$lang{CHANGE_DATA}");
+
+    if(!$Discounts->{errno}){
+	$action				= 'change';
+	$action_lang		= "$lang{CHANGE}";
+	$STATUS{ID}			= $status_info->{ID};
+	$STATUS{STAT_TITLE}	= $status_info->{STAT_TITLE};
+	$STATUS{COLOR}		= $status_info->{COLOR};
+	$STATUS{STAT_DESC}	= $status_info->{STAT_DESC};
+    }
+  }
+  
+    if($FORM{del}){
+    $Discounts->delete_status({ID => $FORM{del}});
+
+    if(!$Discounts->{errno}){
+      $html->message("success", "$lang{SUCCESS}", "$lang{DISCOUNT_DELETED}");
+    }
+    else {
+      $html->message("err", "$lang{ERROR}", "$lang{DISCOUNT_NOT_DELETED}");
+    }
+  } 
+
+  $html->tpl_show(_include('discounts_add_status', 'Discounts'),{
+    %STATUS,
+    ACTION      => $action,
+    ACTION_LANG => $action_lang,
+	});
+
+  result_former(
+    {
+      INPUT_DATA		=> $Discounts,
+      FUNCTION			=> 'list_status',
+      DEFAULT_FIELDS	=> 'ID,STAT_TITLE,COLOR,STAT_DESC',
+	  BASE_FIELDS		=> 4,
+	  HIDDEN_FIELDS		=> 'ID,STAT_TITLE,COLOR,STAT_DESC',
+      FUNCTION_FIELDS	=> 'change, del',
+	  SKIP_USER_TITLE	=> 1,
+      EXT_TITLES		=> {
+		'id'            => 'ID',
+        'stat_title'	=> $lang{NAME},
+        'color'			=> $lang{COLOR},
+        'stat_desc'		=> $lang{DISCOUNT_SDESCR}
+      },
+      TABLE => {
+        width   => '100%',
+        caption => "$lang{DISCOUNT_STATUS}",
+        qs      => $pages_qs,
+        ID      => 'STATUS',
+        header  => '',
+        EXPORT  => 1,
+      },
+      MAKE_ROWS     => 1,
+      TOTAL         => 1
+    }
+  );
+
+  return 1;
+  
+  
+}
+
+#**********************************************************
+=head2 discounts_add_discounts() -
+
+  Arguments:
+    attr -
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub discounts_add_discounts {
+  my ($attr) = @_;
+  my $action = 'add';
+  my $action_lang = "$lang{ADD}";
+  my %DISCOUNT;
+
+  if($FORM{add}){
+    $Discounts->add_discount({%FORM});
+    if(!$Discounts->{errno}){
+      $html->message("success", "$lang{SUCCESS}", "$lang{DISCOUNT_ADDED}");
+    }
+    else{
+      $html->message("err", "$lang{ERROR}", "$lang{DISCOUNT_NOT_ADDED}");
+    }
+  }
+  elsif($FORM{change}){
+
+    $Discounts->change_discount({%FORM});
+    if(!$Discounts->{errno}){
+      $html->message("success", "$lang{SUCCESS}", "$lang{DISCOUNT_CHANGED}");
+    }
+    else {
+      $html->message("err", "$lang{ERROR}", "$lang{DISCOUNT_NOT_CHANGED}");
+    }
+  }
+
+  if($FORM{chg}){
+    my $discount_info = $Discounts->info_discount({ID => $FORM{chg}});
+    $html->message("info", "$lang{CHANGE_DATA}");
+
+    if(!$Discounts->{errno}){
+	$action					= 'change';
+	$action_lang			= "$lang{CHANGE}";
+	$DISCOUNT{NAME}			= $discount_info->{NAME};
+	$DISCOUNT{SIZE}			= $discount_info->{SIZE};
+	$DISCOUNT{DESCRIPTION}	= $discount_info->{DESCRIPTION};
+	$DISCOUNT{LOGO}			= $discount_info->{LOGO};
+	$DISCOUNT{PROMOCODE}	= $discount_info->{PROMOCODE};
+	$DISCOUNT{DISC_STAT}	= $discount_info->{DISC_STAT};
+	$DISCOUNT{URL}			= $discount_info->{URL};
+	$DISCOUNT{ID}			= $discount_info->{ID};
+    }
+  }
+
+  if($FORM{del}){
+    $Discounts->delete_discount({ID => $FORM{del}});
+
+    if(!$Discounts->{errno}){
+      $html->message("success", "$lang{SUCCESS}", "$lang{DISCOUNT_DELETED}");
+    }
+    else {
+      $html->message("err", "$lang{ERROR}", "$lang{DISCOUNT_NOT_DELETED}");
+    }
+  }
+	$DISCOUNT{DISC_STAT} = $html->form_select('DISC_STAT',
+    {
+	SELECTED  => $DISCOUNT{DISC_STAT} || 1,
+	SEL_LIST  => $Discounts->discount_status_list({COLS_NAME => 1}),
+	SEL_KEY   => 'id',
+	SEL_VALUE => 'stat_title',
+	NO_ID	  => 1
+    }
+  );
+
+  $html->tpl_show(_include('discounts_add_discounts', 'Discounts'),{
+    %DISCOUNT,
+    ACTION      => $action,
+    ACTION_LANG => $action_lang,
+  });
+
+  result_former(
+    {
+	INPUT_DATA		=> $Discounts,
+	FUNCTION		=> 'list_discount',
+	DEFAULT_FIELDS  => 'ID,NAME,SIZE,DESCRIPTION,STAT_TITLE,COLOR',
+	BASE_FIELDS		=> 9,
+	HIDDEN_FIELDS	=> 'ID,NAME,SIZE,DESCRIPTION,LOGO,PROMOCODE,URL,DISC_STAT,STAT_ID,STAT_TITLE,COLOR',
+	FUNCTION_FIELDS	=> 'change, del',
+	SKIP_USER_TITLE	=> 1,
+	EXT_TITLES		=> {
+        'id'			=> 'ID',
+        'name'          => $lang{NAME},
+        'size'          => "$lang{SIZE}(%)",
+        'description'	=> $lang{DISCOUNT_DESCRIPTION},
+        'stat_title'		=> $lang{DISCOUNT_STATUS},
+        'color'			=> $lang{COLOR}
+      },
+      TABLE => {
+        width   => '100%',
+        caption => "$lang{DISCOUNTS}",
+        qs      => $pages_qs,
+        ID      => 'DISCOUNTS',
+        header  => '',
+        EXPORT  => 1,
+       },
+      MAKE_ROWS     => 1,
+      TOTAL         => 1
+    }
+  );
+
+  return 1;
+  
+}
+
+#**********************************************************
+=head2 discounts_user($attr)
+
+  Arguments:
+    $attr -
+
+  Returns:
+    -
+=cut
+#**********************************************************
+sub discounts_user {
+  my $qrcode_hash = sprintf("%0*d", 13, $user->{UID});
+
+  my $Bar_code = Barcode::Code128->new->FNC1;
+
+  my $text = $Bar_code . $qrcode_hash;
+  my $code = HTML::Barcode::Code128->new(
+    text      => $text,
+    show_text => 0
+  );
+
+  my $fio_user = $Discounts->discounts_user_query({
+    UID => $user->{UID}
+  });
+
+  my $logo = '<span style="color: red;">АСР </span>AXIOSTV';
+
+
+  if ($user->{DISABLE}) {
+    $html->message( 'err', $lang{ERROR}, $lang{WARR_DEPOSIT} );
+  } else {
+	 	  
+    $html->tpl_show(
+      _include('discounts_user_card', 'Discounts'), {
+      CARD_SIGN => $lang{CARD_ABON},
+      FIO       => $fio_user->{list}->[0]->{fio},
+      UID       => $user->{UID},
+      CODE_SCAN => $code->render,
+      LOGO      => $logo,
+    });
+	
+    my $discounts_list = $Discounts->discounts_user_list_web({UID => $user->{UID}});
+    my $info_box;
+	foreach my $line (@$discounts_list) {
+    my $info_box_content = qq{ 
+    <img alt="$line->{name}" style="max-width: 80px; max-height: 80px; object-fit: contain" src="$line->{logo}">
+    <div class="info-box-content">
+		<h2>$line->{name}</h2>
+		<h4>$lang{DISCOUNT_DISC}: $line->{size} %</h4>
+		<p>$line->{description}
+        <div class="progress"></p>
+            <div class="bg-info" style="width: 100%"></div>
+        </div>
+		<ul>
+		<li>$lang{DISCOUNT_PCODE}: <a data-tooltip-onclick="1" onclick="copyToBuffer('$line->{promocode}', true)" data-tooltip="$lang{COPIED}!" data-tooltip-position="top" data-content='$lang{COPIED}!' data-html="true" data-toggle="popover" data-trigger="manual" data-placement="top" data-container="body">
+             <b>$line->{promocode}</b></a></li>
+		<li><a href="$line->{url}" target="_blank" class="card-link">$lang{DISCOUNT_SITE}</a></li>
+        </ul>
+    </div>
+    };
+
+    $info_box = $html->element('div', $info_box_content, { class => 'info-box' });
+
+   }
+   
+	}
+
+  return 1;
+}
+
+1

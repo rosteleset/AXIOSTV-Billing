@@ -1,0 +1,4 @@
+%MESSAGE%
+
+_{LINK}_:
+%NEWS_LINK%

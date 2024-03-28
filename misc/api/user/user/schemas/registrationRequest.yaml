@@ -1,0 +1,39 @@
+type: object
+properties:
+  login:
+    type: string
+    example: testuser
+  email:
+    type: string
+    example: test@gmail.com
+  phone:
+    type: string
+    example: 380912324212
+  userIp:
+    type: string
+    example: 0.0.0.0
+    description: Нужный параметр если включена опция INTERNET_REGISTRATION_IP
+  fio:
+    type: string
+    example: Test user
+    description: ФИО пользователя
+  captcha:
+    type: string
+    example: 03AD1IbLAhEjaMxnNY-m6DyIHKs10plKY7gS6aETuUdsbaGunxsGjJoZWyTGov7xHZEb5yU-BrZaL7qgbXKSGNHU6Gx0ewyijpAT4iJgFvnsxypMBeJWRb-k6A13nVBCbhxd8SX3YHDOa8_nQfhXwNgG2m81jOzFT822G-cXUG0ys4yvw_1CKJfn3HxPFmbcx7mr3xtbp19Y2jXbRZ4N6w84-I6I1qjL8BUcf-sgTrFOwaL2DNQvh57kxRKvG7dG2_pMAmpgX8_ur3sB7DG2ql0Ar_oiB-dBZwZlJ2UZEDd2H8Y9z3X_TH_pffONl3OQRcOIumWGZW0R3HZ1wO2OX5mYZdFQivp4PdFQrGThChzW57Hmlssm3qnq2afl8n8JmoZw2LXC9hyg3kBqWjB_HAKS3NjSyIKvqVnsrynhbfY29cYH97q8rzp0W8W0obDGxD9EPPZae2e5bTwRNozfVsqxD3t7_BNXTP6sRBeqGtO2aT2skz2jzc3J17dMNNJTgf4GJI0i_rp3gp
+    description: Нужный параметр если включена опция GOOGLE_CAPTCHA_KEY, код reCaptcha який віддав google
+  password:
+    type: string
+    example: testpass
+    description: Нужный параметр если включена опция REGISTRATION_PASSWORD
+  socialNetwork:
+    type: string
+    example: google
+    description: регистрация через социальную сеть
+  token:
+    type: string
+    example: ya29.a0123GB123y890m2fRmDPn_GQYu8kIHraA1Y123Fc9JBi6oJe4RLPQ8CuPR6tIsGH0KINFpPcAiVBx7yap_Jdclgm5vHsvwSMBQZOqYFP3j3R-pUnJPiMa4rO37kq4dXxUcIbXX7DHfRbqmIJV9QDSXvNSU_Y1wwaCgYK123SARASFQHUCsbCxVyg37kTJkIPWDW_KDE84Q0165
+    description: токен полученный от социальной сети
+  referrer:
+    type: number
+    example: 1
+    description: пригласивший пользователь (работает если включен модуль Referral)

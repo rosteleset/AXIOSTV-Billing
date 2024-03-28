@@ -1,0 +1,79 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+our %FUNCTIONS_LIST = ("01:0:$lang{DV}:dv_users_list:" => 11,
+  "02:0:$lang{DV}:dv_user:UID"                     => 20,
+  "03:2:$lang{TARIF_PLANS}:dv_chg_tp:UID"          => 11,
+  "04:2:$lang{STATS}:dv_stats:UID"                 => 11,
+  "05:2:$lang{ERROR}:dv_error:UID"                 => 11,
+  "06:2:$lang{SHEDULE}:dv_form_shedule:UID"        => 11,
+  "10:0:$lang{DV}:null:"                           => 5,
+  "11:10:$lang{TARIF_PLANS}:dv_tp:"                => 5,
+  #                   "12:11:$lang{ADD}:dv_tp:"                      => 5,
+  "13:11:$lang{INTERVALS}:form_intervals:TP_ID"    => 5,
+  "14:11:$lang{NASS}:form_nas_allow:TP_ID"         => 5,
+  "15:11:$lang{USERS}:dv_users_list:TP_ID"         => 5,
+  "17:11:$lang{GROUPS}:form_tp_groups:"            => 5,
+  "18:11:$lang{TRAFFIC_CLASS}:dv_traffic_classes:" => 5,
+  "19:0:$lang{DV}:null:"                           => 4,
+  "22:19:$lang{LAST_LOGIN}:dv_error:"              => 4,
+  "23:19:$lang{SESSIONS}:dv_sessions:"             => 4,
+  "24:19:$lang{USED} old:dv_use:"                  => 4,
+  "28:19:$lang{USED}:dv_report_use:"               => 4,
+  "25:24:$lang{MONTH}:dv_use_allmonthes:"          => 4,
+  "26:19:$lang{DEBETORS}:dv_report_debetors:"      => 4,
+  "27:19:$lang{TARIF_PLANS}:dv_report_tp:"         => 4,
+  "28:19:IP Pools:dv_pools_report:"         => 4,
+
+  "36:0:$lang{DV}:dv_online:"                      => 6,
+  "38:0:$lang{DV} $lang{STATS}:dv_use:COMPANY_ID"  => 13
+);
+
+if ($conf{DV_TURBO_MODE}) {
+  $FUNCTIONS_LIST{"37:0:Turbo:dv_turbo_mode:"} = 6;
+  $FUNCTIONS_LIST{"26:19:Turbo:dv_turbo_mode_report:"} = 4;
+}
+
+if ($permissions{0}) {
+  if ($permissions{0}{1}) {
+    $FUNCTIONS_LIST{"20:1:$lang{USERS} $lang{ADD}:dv_wizard_user:"} = 11;
+    if (in_array('Cards', \@MODULES)) {
+      $FUNCTIONS_LIST{"21:1:$lang{ICARDS}:dv_cards:"} = 11;
+    }
+  }
+  if ($permissions{0}{16}) {
+    $FUNCTIONS_LIST{"07:2:$lang{COMPENSATION}:dv_compensation:UID"} = 11;
+  }
+}
+
+our %USER_FUNCTION_LIST = ("01:0:$lang{DV}:dv_user_info:" => 0,
+  "03:1:$lang{STATS}:dv_user_stats:"                  => 0
+);
+
+if ($conf{DV_ISG}) {
+  delete $USER_FUNCTION_LIST{"01:0:$lang{DV}:dv_user_info:"};
+  $USER_FUNCTION_LIST{"01:0:$lang{DV}:dv_user_info:defaultindex"} = 0;
+}
+elsif ($conf{DV_IP_DISCOVERY}) {
+  delete $USER_FUNCTION_LIST{"01:0:$lang{DV}:dv_user_info:"};
+  $USER_FUNCTION_LIST{"01:0:$lang{DV}:dv_user_info:defaultindex"} = 0;
+}
+
+if ($conf{RADIUS_TEST_IP}) {
+  $FUNCTIONS_LIST{"08:2:$lang{TEST}:dv_test:UID"} = 11;
+}
+
+$USER_FUNCTION_LIST{"04:1:$lang{TARIF_PLAN}:dv_user_chg_tp:"} = 0 if ($conf{DV_USER_CHG_TP});
+
+our %PERIODIC = (
+  daily   => [ 'dv_monthly_next_tp', 'dv_daily_fees', 'dv_users_warning_messages', 'dv_holdup_fees' ],
+  monthly => [ 'dv_monthly_next_tp', 'dv_monthly_fees', 'dv_periodic_logrotate' ],
+  report  => [ 'dv_report' ]
+);
+
+if ($conf{DV_BONUS}) {
+  $FUNCTIONS_LIST{"16:11:$lang{BONUS}:dv_rating_tp:TP_ID"} = 5;
+  $FUNCTIONS_LIST{"8:2:$lang{BONUS}:dv_rating_user:UID"} = 11;
+  $USER_FUNCTION_LIST{"05:1:Bonus:dv_rating_user:"} = 0;
+  $PERIODIC{daily} = [ @{ $PERIODIC{daily} }, 'dv_rating_periodic' ];
+}
+
+1

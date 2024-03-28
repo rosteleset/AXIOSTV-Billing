@@ -1,0 +1,12 @@
+<?xml version="1.0" encoding="UTF-8" ?>
+<pay-response>
+<balance>92.095900</balance>
+<name>test  Test user</name>
+<account>1</account>
+<service_id>102</service_id>
+<abonplata>0</abonplata>
+<min_amount>1</min_amount>
+<max_amount>1000</max_amount>
+<status_code>21</status_code>
+<time_stamp>19.01.2015 15:26:00</time_stamp>
+</pay-response>

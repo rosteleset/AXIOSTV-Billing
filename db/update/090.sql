@@ -1,0 +1,1 @@
+ALTER TABLE `cablecat_commutation_equipment` ADD COLUMN `commutation_rotation` SMALLINT NOT NULL DEFAULT 0;

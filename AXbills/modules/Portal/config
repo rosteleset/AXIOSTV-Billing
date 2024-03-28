@@ -1,0 +1,10 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+  "01:0:$lang{PORTAL}:null"                            => 5,
+  "02:1:$lang{MENU_PORTAL}:portal_manage_menu:"             => 5,
+  "03:1:$lang{PORTAL_ARTICLES}:portal_articles:"       => 5,
+  "04:0:$lang{PORTAL}:null"                            => 4,
+  "05:4:$lang{PORTAL_NEWSLETTERS}:portal_newsletters:" => 4,
+);
+
+1;

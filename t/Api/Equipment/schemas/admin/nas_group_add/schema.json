@@ -1,0 +1,21 @@
+{
+  "definitions": {},
+  "type": "object",
+  "title": "The Root Schema",
+  "required": [
+  ],
+  "properties": {
+    "affected": {
+      "$id": "#/properties/affected",
+      "type": "number"
+    },
+    "insertId": {
+      "$id": "#/properties/insertId",
+      "type": "number"
+    },
+    "total": {
+      "$id": "#/properties/total",
+      "type": "number"
+    }
+  }
+}

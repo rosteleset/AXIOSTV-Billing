@@ -1,0 +1,387 @@
+EPON-UNI-CONFIG-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    IpAddress, Unsigned32, Integer32, Counter32, TimeTicks, Gauge32, Counter64,
+    MODULE-IDENTITY, OBJECT-IDENTITY, OBJECT-TYPE, enterprises     
+      FROM SNMPv2-SMI     
+    DateAndTime, MacAddress, TimeStamp, RowStatus, TruthValue, DisplayString, TEXTUAL-CONVENTION
+      FROM SNMPv2-TC
+    eponUniCfg  FROM  EPON-CONFIG-MIB  ;
+    
+--------ONU UNI TABLE---------------------------------------------------------- 
+    
+eponUniAttributeTable OBJECT-TYPE
+   SYNTAX       SEQUENCE OF EponUniAttributeEntry    
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+    "onu uni attribute table"
+   ::= {eponUniCfg 1}  
+    
+eponUniAttributeEntry OBJECT-TYPE
+   SYNTAX       EponUniAttributeEntry    
+   MAX-ACCESS   not-accessible
+   STATUS       current
+   DESCRIPTION
+    "onu uni attribute table"
+   INDEX{ eponUniAttributeCardIndex, eponUniAttributePonIndex, eponUniAttributeOnuIndex, eponUniAttributeUniIndex}
+   ::= {eponUniAttributeTable 1}  
+    
+EponUniAttributeEntry ::= SEQUENCE{
+     eponUniAttributeCardIndex     INTEGER,
+     eponUniAttributePonIndex      INTEGER,
+     eponUniAttributeOnuIndex      INTEGER,
+     eponUniAttributeUniIndex      INTEGER,
+     eponUniAdminStatus            INTEGER,
+     eponUniOperationStatus        INTEGER,
+     }    
+
+eponUniAttributeCardIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponUniAttributeEntry  1}
+
+eponUniAttributePonIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "pon index"
+   ::= {eponUniAttributeEntry  2}
+
+eponUniAttributeOnuIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu index"
+   ::= {eponUniAttributeEntry  3}
+   
+eponUniAttributeUniIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu uni index"
+   ::= {eponUniAttributeEntry  4}      
+
+eponUniAdminStatus   OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       disable(1),
+       enable(2)
+   }
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu port admin status"
+   ::= {eponUniAttributeEntry  5}    
+
+eponUniOperationStatus  OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       linkUp(1),
+       linkDown(0)
+   }
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "onu port link status"
+   ::= {eponUniAttributeEntry  6}    
+   
+------ONU VLAN MODE TABLE------------------------------------------------------------
+eponOnuPortVlanModeGroup   OBJECT-IDENTITY
+   STATUS      current
+   DESCRIPTION
+   "onu port vlan table"
+   ::= {eponUniCfg 2}
+
+eponOnuPortVlanTable  OBJECT-TYPE
+   SYNTAX        SEQUENCE OF EponOnuPortVlanEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "port vlan mode table"
+   ::= {eponOnuPortVlanModeGroup 1}
+   
+eponOnuPortVlanEntry  OBJECT-TYPE
+   SYNTAX        EponOnuPortVlanEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "port vlan mode table"
+   INDEX { eponOnuPortVlanCardIndex, eponOnuPortVlanPonIndex, eponOnuPortVlanOnuIndex, eponOnuPortVlanUniIndex }
+   ::= {eponOnuPortVlanTable 1}
+   
+EponOnuPortVlanEntry ::=
+    SEQUENCE{
+       eponOnuPortVlanCardIndex     INTEGER,
+       eponOnuPortVlanPonIndex      INTEGER,
+       eponOnuPortVlanOnuIndex      INTEGER,
+       eponOnuPortVlanUniIndex      INTEGER,
+       eponOnuPortVlanTagTpid       OCTET STRING,
+       eponOnuPortVlanTagCfi        TruthValue,
+       eponOnuPortVlanTagPriority   INTEGER,
+       eponOnuPortVlanPVid          INTEGER,
+       eponOnuPortVlanMode          INTEGER
+       }
+   
+eponOnuPortVlanCardIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuPortVlanEntry 1}
+   
+eponOnuPortVlanPonIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "pon port index"
+   ::= {eponOnuPortVlanEntry 2}  
+   
+eponOnuPortVlanOnuIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+    "onu index"
+   ::= {eponOnuPortVlanEntry 3}  
+   
+eponOnuPortVlanUniIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "uni index"
+   ::= {eponOnuPortVlanEntry 4}  
+   
+eponOnuPortVlanTagTpid  OBJECT-TYPE
+   SYNTAX        OCTET STRING
+   MAX-ACCESS    read-write
+   STATUS        current
+   DESCRIPTION
+       "tpid       
+        It shall be presented in hexadecimal format. For example, 81 00
+        to indicate 0x8100"
+   ::= {eponOnuPortVlanEntry 5} 
+   
+eponOnuPortVlanTagCfi  OBJECT-TYPE
+   SYNTAX        TruthValue
+   MAX-ACCESS    read-write
+   STATUS        current
+   DESCRIPTION
+    "cfi"
+   ::= {eponOnuPortVlanEntry 6} 
+
+eponOnuPortVlanTagPriority  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-write
+   STATUS        current
+   DESCRIPTION
+   "vlan pri"
+   ::= {eponOnuPortVlanEntry 7}          
+
+eponOnuPortVlanPVid  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-write
+   STATUS        current
+   DESCRIPTION
+    " uni default vlan"
+   ::= {eponOnuPortVlanEntry 8}       
+   
+eponOnuPortVlanMode  OBJECT-TYPE
+   SYNTAX        INTEGER
+       {
+        transparent(0),
+        tag(1),
+        translation(2),
+        aggregation(3),
+        trunk(4)
+       }
+   MAX-ACCESS    read-write
+   STATUS        current
+   DESCRIPTION
+    " vlan mode"
+   ::= {eponOnuPortVlanEntry 9}    
+   
+         
+------ONU VLAN TRANSLATION TABLE-------------------------------------------------
+
+eponOnuPortVlanTranslationTable  OBJECT-TYPE
+   SYNTAX        SEQUENCE OF EponOnuPortVlanTranslationEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "onu vlan translation table"
+   ::= {eponOnuPortVlanModeGroup 2}  
+
+eponOnuPortVlanTranslationEntry  OBJECT-TYPE
+   SYNTAX        EponOnuPortVlanTranslationEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "onu vlan translation table"
+   INDEX {eponOnuPvtCardIndex, eponOnuPvtPonIndex, eponOnuPvtOnuIndex, eponOnuPvtUniIndex, eponOnuPvtListIndex}
+   ::= {eponOnuPortVlanTranslationTable 1}
+
+EponOnuPortVlanTranslationEntry ::= SEQUENCE{
+       eponOnuPvtCardIndex     INTEGER,
+       eponOnuPvtPonIndex      INTEGER,
+       eponOnuPvtOnuIndex      INTEGER,
+       eponOnuPvtUniIndex      INTEGER,
+       eponOnuPvtListIndex     INTEGER,
+       eponOnuPvtOldVid        INTEGER,
+       eponOnuPvtNewVid        INTEGER,
+       eponOnuPvtRowStatus     RowStatus
+       }
+
+eponOnuPvtCardIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuPortVlanTranslationEntry 1}
+   
+eponOnuPvtPonIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuPortVlanTranslationEntry 2}
+   
+eponOnuPvtOnuIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "onu index"
+   ::= {eponOnuPortVlanTranslationEntry 3}
+   
+eponOnuPvtUniIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "uni index"
+   ::= {eponOnuPortVlanTranslationEntry 4}
+   
+eponOnuPvtListIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "translation list index"
+   ::= {eponOnuPortVlanTranslationEntry 5}
+
+eponOnuPvtOldVid  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+   "translation old vlan"
+   ::= {eponOnuPortVlanTranslationEntry 6}
+   
+eponOnuPvtNewVid  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+   "translation new vlan"
+   ::= {eponOnuPortVlanTranslationEntry 7}   
+                  
+eponOnuPvtRowStatus  OBJECT-TYPE
+   SYNTAX        RowStatus
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+   "rowStatus"
+   ::= {eponOnuPortVlanTranslationEntry 8}   
+         
+------ONU VLAN TRUNK TABLE--------------------------------------------------------
+ 
+eponOnuPortVlanTrunkTable  OBJECT-TYPE
+   SYNTAX        SEQUENCE OF EponOnuPortVlanTrunkEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "onu vlan trunk table"
+   ::= {eponOnuPortVlanModeGroup 3}  
+
+eponOnuPortVlanTrunkEntry  OBJECT-TYPE
+   SYNTAX        EponOnuPortVlanTrunkEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "onu vlan trunk table"
+   INDEX { eponOnuVlanTrunkCardIndex, eponOnuVlanTrunkPonIndex, eponOnuVlanTrunkOnuIndex, eponOnuVlanTrunkUniIndex }
+   ::= {eponOnuPortVlanTrunkTable 1}
+
+EponOnuPortVlanTrunkEntry ::= SEQUENCE{
+       eponOnuVlanTrunkCardIndex     INTEGER,
+       eponOnuVlanTrunkPonIndex      INTEGER,
+       eponOnuVlanTrunkOnuIndex      INTEGER,
+       eponOnuVlanTrunkUniIndex      INTEGER,
+       eponOnuVlanTrunkList          OCTET STRING,
+       eponOnuVlanTrunkRowStatus     RowStatus
+       }
+       
+eponOnuVlanTrunkCardIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "olt slot index"
+   ::= {eponOnuPortVlanTrunkEntry 1}
+   
+eponOnuVlanTrunkPonIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "pon index"
+   ::= {eponOnuPortVlanTrunkEntry 2}
+   
+eponOnuVlanTrunkOnuIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "onu index"
+   ::= {eponOnuPortVlanTrunkEntry 3}
+   
+eponOnuVlanTrunkUniIndex  OBJECT-TYPE
+   SYNTAX        INTEGER
+   MAX-ACCESS    read-only
+   STATUS        current
+   DESCRIPTION
+   "uni index"
+   ::= {eponOnuPortVlanTrunkEntry 4}
+
+eponOnuVlanTrunkList  OBJECT-TYPE
+   SYNTAX        OCTET STRING(SIZE(0..255))
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+   "trunk list"
+   ::= {eponOnuPortVlanTrunkEntry 5}
+   
+eponOnuVlanTrunkRowStatus  OBJECT-TYPE
+   SYNTAX        RowStatus
+   MAX-ACCESS    read-create
+   STATUS        current
+   DESCRIPTION
+   "rowStatus"
+   ::= {eponOnuPortVlanTrunkEntry 6}       
+   
+--
+-- END of EPON-UNI-CONFIG-MIB
+--  
+END    

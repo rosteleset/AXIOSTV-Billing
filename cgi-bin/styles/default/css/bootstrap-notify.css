@@ -1,0 +1,117 @@
+.animated {
+  animation-duration: 1s;
+  animation-fill-mode: both;
+}
+
+.animated.infinite {
+  animation-iteration-count: infinite;
+}
+
+@keyframes fadeInRight {
+  from {
+    opacity: 0;
+    transform: translate3d(100%, 0, 0);
+  }
+
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.fadeInRight {
+  animation-name: fadeInRight;
+}
+
+@keyframes fadeOutRight {
+  from {
+    opacity: 1;
+  }
+
+  to {
+    opacity: 0;
+    transform: translate3d(100%, 0, 0);
+  }
+}
+
+.fadeOutRight {
+  animation-name: fadeOutRight;
+}
+
+
+
+.alert-bootstrap {
+  padding: 15px;
+  margin-bottom: 20px;
+  border: 1px solid transparent;
+  border-radius: 4px;
+}
+.alert-bootstrap h4 {
+  margin-top: 0;
+  color: inherit;
+}
+.alert-bootstrap .alert-bootstrap-link {
+  font-weight: bold;
+}
+.alert-bootstrap > p,
+.alert-bootstrap > ul {
+  margin-bottom: 0;
+}
+.alert-bootstrap > p + p {
+  margin-top: 5px;
+}
+.alert-bootstrap-dismissable,
+.alert-bootstrap-dismissible {
+  padding-right: 35px;
+}
+.alert-bootstrap-dismissable .close,
+.alert-bootstrap-dismissible .close {
+  position: relative;
+  top: -2px;
+  right: -21px;
+  color: inherit;
+}
+.alert-bootstrap-success {
+  color: #3c763d;
+  background-color: #dff0d8;
+  border-color: #d6e9c6;
+}
+.alert-bootstrap-success hr {
+  border-top-color: #c9e2b3;
+}
+.alert-bootstrap-success .alert-bootstrap-link {
+  color: #2b542c;
+}
+.alert-bootstrap-info {
+  color: #31708f;
+  background-color: #d9edf7;
+  border-color: #bce8f1;
+}
+.alert-bootstrap-info hr {
+  border-top-color: #a6e1ec;
+}
+.alert-bootstrap-info .alert-bootstrap-link {
+  color: #245269;
+}
+.alert-bootstrap-warning {
+  color: #8a6d3b;
+  background-color: #fcf8e3;
+  border-color: #faebcc;
+}
+.alert-bootstrap-warning hr {
+  border-top-color: #f7e1b5;
+}
+.alert-bootstrap-warning .alert-bootstrap-link {
+  color: #66512c;
+}
+.alert-bootstrap-danger {
+  color: #a94442;
+  background-color: #f2dede;
+  border-color: #ebccd1;
+}
+.alert-bootstrap-danger hr {
+  border-top-color: #e4b9c0;
+}
+.alert-bootstrap-danger .alert-bootstrap-link {
+  color: #843534;
+}

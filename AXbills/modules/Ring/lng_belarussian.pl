@@ -1,0 +1,19 @@
+$lang{RING}='Ring';
+$lang{RULE}='Правіла';
+$lang{RULES}='Правілы';
+$lang{ADD_RULE}='Дадаць правіла';
+$lang{FILE}='Файл';
+$lang{UPLOAD}='Загрузіць файл';
+$lang{MESSAGE}='Паведамленне';
+$lang{FILTER}='Фільтры карыстальнікаў';
+$lang{SELECT}='Выбраць';
+$lang{RULES_LIST}='Спіс правіл';
+$lang{WAITING}='Чакае';
+$lang{SUCCESS}='Паспяхова';
+$lang{INTERRUPTED}='Перапынена';
+$lang{ANSWERPHONE}='Аўтаадказчык';
+$lang{NOT_AVAILABLE}='Не даступны';
+$lang{EVERY_MONTH}='Кожны месяц';
+$lang{UPDATE_DAY} = 'Дзень абнаўлення';
+$lang{SQL_QUERY} = 'SQL запыт';
+1

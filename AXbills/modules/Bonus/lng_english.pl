@@ -1,0 +1,11 @@
+$lang{TRAFFIC_IN_BONUS_MB}='Incoming traffic bonus payments (Mb)';
+$lang{TRAFFIC_OUT_BONUS_MB}='Outgoing traffic bonus payments (Mb)';
+$lang{TRAFFIC_SUM_BONUS_MB}='Total traffic bonus payments (Mb)';
+$lang{BONUS_PERCENT}='Bonus percent';
+$lang{ACCEPT_RULES}='Accept Rules';
+$lang{BONUS_TP_USING}='Bonus tariff using';
+$lang{SCORES}='Scores';
+$lang{ERR_SMALL_SUM}='Too small sum';
+$lang{BONUS_DISABLED_FOR_GROUP}='Bonus disable for groups';
+$lang{ONETIME_PAYMENT_SUM}='One time payment';
+$lang{ACCOUMULATION}='Accumulation';

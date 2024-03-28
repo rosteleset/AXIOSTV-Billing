@@ -1,0 +1,11 @@
+type: object
+properties:
+  version:
+    type: string
+    example: 0.91.0
+  apiVersion:
+    type: string
+    example: "0.01"
+  billing:
+    type: string
+    example: AXbills

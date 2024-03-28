@@ -1,0 +1,13 @@
+type: array
+items:
+  type: object
+  properties:
+    inSpeed:
+      type: integer
+      example: 2999
+    outSpeed:
+      type: integer
+      example: 3000
+    tpNum:
+      type: integer
+      example: 155

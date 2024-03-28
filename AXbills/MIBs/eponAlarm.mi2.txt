@@ -1,0 +1,73 @@
+
+EPON-ALARM-MGMT-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    IpAddress, Unsigned32, Integer32, Counter32, TimeTicks, Gauge32, Counter64,
+    MODULE-IDENTITY, OBJECT-IDENTITY, OBJECT-TYPE, enterprises     
+      FROM SNMPv2-SMI     
+    DateAndTime, MacAddress, TimeStamp, RowStatus, TruthValue, DisplayString, TEXTUAL-CONVENTION
+      FROM SNMPv2-TC
+    eponAlarmMgmt  FROM  EPON-CONFIG-MIB  ;
+    
+--------------------------------------------------------------------------------
+--  eponAlarm[EPON告警管理项](1.3.6.1.4.1.27514.1.13.10)
+--------------------------------------------------------------------------------    
+    
+    notifications OBJECT IDENTIFIER ::= { eponAlarmMgmt 1 }
+    
+    alarmNotification NOTIFICATION-TYPE
+      OBJECTS { trapOccurTime, trapCode, trapInstance, trapType, trapAdditionalText}
+      STATUS current
+      DESCRIPTION 
+        "Alarm TRAP definition"
+      ::= { notifications 1 }
+
+    trapObjects OBJECT IDENTIFIER ::= { notifications 2 }
+    
+    trapOccurTime OBJECT-TYPE
+      SYNTAX DateAndTime
+      MAX-ACCESS accessible-for-notify
+      STATUS current
+      DESCRIPTION
+        "
+        告警产生时间。"
+      ::= { trapObjects 1 } 
+      
+    trapCode OBJECT-TYPE
+      SYNTAX INTEGER
+      MAX-ACCESS accessible-for-notify
+      STATUS current
+      DESCRIPTION
+        "告警代码"
+      ::= { trapObjects 2 }
+      
+    trapInstance OBJECT-TYPE
+      SYNTAX   OCTET STRING ( SIZE (8) )
+      MAX-ACCESS accessible-for-notify
+      STATUS current
+      DESCRIPTION
+        "Alarm instance, indicates the detailed managed object, which
+        detects faults.
+        "
+      ::= { trapObjects 3 }
+      
+    trapType  OBJECT-TYPE
+      SYNTAX   INTEGER
+      MAX-ACCESS accessible-for-notify
+      STATUS current
+      DESCRIPTION
+        "1:alarm raise, 2:alarm clear
+        "
+      ::= { trapObjects 4 }
+        
+    trapAdditionalText OBJECT-TYPE
+      SYNTAX OCTET STRING ( SIZE (0..256) )
+      MAX-ACCESS accessible-for-notify
+      STATUS current
+      DESCRIPTION
+        "Additional info to the alarm, for further desciption of the
+        alarm. The format of it shall be related to each kind alarm
+        defined in alarm reference table"
+      ::= { trapObjects 5 }
+      
+END

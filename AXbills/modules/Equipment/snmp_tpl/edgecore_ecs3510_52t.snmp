@@ -1,0 +1,75 @@
+{
+  "DEVICE": "edge_core",
+  "info": {
+    "FIRMWARE": {
+      "OIDS": ".1.3.6.1.4.1.259.10.1.27.1.1.3.1.6.1",
+      "PARSER": ""
+    },
+    "SERIAL": {
+      "OIDS": ".1.3.6.1.4.1.259.10.1.27.1.1.3.1.10.1",
+      "PARSER": ""
+    }
+  },
+  "ports": {
+    "RUN_CABLE_TEST_SET_PORT": {
+      "OIDS": "1.3.6.1.4.1.259.10.1.27.1.2.3.1.0",
+      "PAIR_STATUS_IN_PROGRESS": 12,
+      "PARSER": "hidden"
+    },
+    "LENGTH_PAIR_A": {
+      "NAME": "Pair A length",
+      "OIDS": "1.3.6.1.4.1.259.10.1.27.1.2.3.2.1.6",
+      "PARSER": "",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "LENGTH_PAIR_B": {
+      "NAME": "Pair B length",
+      "OIDS": "1.3.6.1.4.1.259.10.1.27.1.2.3.2.1.7",
+      "PARSER": "",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "LENGTH_PAIR_C": {
+      "NAME": "Pair C length",
+      "OIDS": "1.3.6.1.4.1.259.10.1.27.1.2.3.2.1.8",
+      "PARSER": "",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "LENGTH_PAIR_D": {
+      "NAME": "Pair D length",
+      "OIDS": "1.3.6.1.4.1.259.10.1.27.1.2.3.2.1.9",
+      "PARSER": "",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "STATUS_PAIR_A": {
+      "NAME": "Pair A status",
+      "OIDS": "1.3.6.1.4.1.259.10.1.27.1.2.3.2.1.2",
+      "PARSER": "_edge_core_convert_pair_status",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "STATUS_PAIR_B": {
+      "NAME": "Pair B status",
+      "OIDS": "1.3.6.1.4.1.259.10.1.27.1.2.3.2.1.3",
+      "PARSER": "_edge_core_convert_pair_status",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "STATUS_PAIR_C": {
+      "NAME": "Pair C status",
+      "OIDS": "1.3.6.1.4.1.259.10.1.27.1.2.3.2.1.4",
+      "PARSER": "_edge_core_convert_pair_status",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "STATUS_PAIR_D": {
+      "NAME": "Pair D status",
+      "OIDS": "1.3.6.1.4.1.259.10.1.27.1.2.3.2.1.5",
+      "PARSER": "_edge_core_convert_pair_status",
+      "REQUIRES_CABLE_TEST": "1"
+    },
+    "LAST_CABLE_TEST_TIME": {
+      "NAME": "Last cable test time",
+      "OIDS": "1.3.6.1.4.1.259.10.1.27.1.2.3.2.1.11",
+      "PARSER": "",
+      "REQUIRES_CABLE_TEST": "1"
+    }
+  }
+}
+

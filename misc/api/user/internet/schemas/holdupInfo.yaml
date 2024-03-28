@@ -1,0 +1,14 @@
+type: object
+properties:
+  canCancel:
+    type: boolean
+    example: true
+  dateFrom:
+    type: string
+    example: "2022-06-12"
+  dateTo:
+    type: string
+    example: "2022-07-12"
+  delIds:
+    type: string
+    example: "1, 2, 3"

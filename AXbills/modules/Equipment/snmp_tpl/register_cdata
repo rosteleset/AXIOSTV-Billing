@@ -1,0 +1,177 @@
+#!/usr/bin/perl -w
+=head1 NAME
+
+ Cdata configuration utility
+
+=head2 VERSION
+
+  VERSION: 2
+  DATE: 20210705
+
+=head2 REGISTRATION
+
+Default templates:
+
+EPON:
+olt %OLT_ID%
+no-bind onu-id %ONU_ID%
+
+=cut
+
+use strict;
+BEGIN {
+  use FindBin '$Bin';
+  our $libpath = $Bin . '/../../../../';
+  unshift(@INC,
+    $libpath . 'lib/',
+    $libpath,
+    $libpath . 'AXbills/',
+    $libpath . 'AXbills/mysql/',
+    $libpath . 'AXbills/modules',
+  );
+}
+
+use AXbills::Base qw(parse_arguments load_pmodule);
+our (
+  %conf,
+  $DATE,
+  $TIME
+);
+
+do 'libexec/config.pl';
+use Equipment::Misc;
+my $debug = 0;
+my $argv = parse_arguments(\@ARGV);
+
+if ($argv->{DEBUG}) {
+  $debug = $argv->{DEBUG};
+}
+
+if ($debug > 5) {
+  print @ARGV;
+  `echo "@ARGV" >> /tmp/register`;
+}
+
+load_pmodule('Net::Telnet');
+exec_template($argv);
+exit 1;
+
+#**********************************************************
+=head2 exec_template($attr) - login to OLT via telnet and execute commands from template (delete ONU)
+
+  Arguments:
+    $attr
+      NAS_MNG_USER
+      NAS_MNG_PASSWORD
+      NAS_MNG_IP_PORT
+      PON_TYPE
+
+      TEMPLATE - telnet template filename
+        default:
+          cdata_deregistration_$pon_type.tpl - if $attr->{del_onu}
+
+      del_onu  - delete ONU instead of register if true
+=cut
+#**********************************************************
+sub exec_template {
+  my ($attr) = @_;
+
+  my $host      = $attr->{NAS_MNG_IP_PORT} || '';
+  my $user_name = $attr->{NAS_MNG_USER};
+  my $password  = $attr->{NAS_MNG_PASSWORD};
+
+  my $template  = $attr->{TEMPLATE} || "cdata_deregistration_epon.tpl";
+
+  my $enable_password = $conf{EQUIPMENT_BDCOM_ENABLE_PASSWORD} || $password;
+
+  my ($ip) = split(/:/, $host);
+  my $port = 23;
+
+  my $branch  = $attr->{BRANCH};
+  my $onu_id  = $attr->{ONU_ID};
+
+  if (!$ip) {
+    print "OLT IP not defined\n";
+    exit 0;
+  }
+
+  if (!$attr->{del_onu}) {
+    print "Only delete ONUs support\n";
+    exit 0;
+  }
+
+  if ($branch && $onu_id) {
+       my $cmds = equipment_get_telnet_tpl({
+           %$attr,
+           TEMPLATE   => $template
+       });
+
+       if (!@$cmds) {
+           $cmds = equipment_get_telnet_tpl({
+           %$attr,
+           TEMPLATE   => "$template.default"
+           });
+       }
+
+       if (!@$cmds) {
+           print "Can't read template\n";
+           exit 0;
+       }
+
+       my $Telnet = Net::Telnet->new(
+           Timeout => '15',
+           Errmode => 'return'
+       );
+
+       #$Telnet->dump_log('-'); # if ($debug > 3);
+
+       $Telnet->open(
+           Host => $ip,
+           Port => $port,
+       );
+
+       if ($Telnet->errmsg) {
+           print "Problem connecting to $ip, port: $port\n";
+           return 0;
+       }
+
+       $Telnet->waitfor('/Username:/i');
+       if ($Telnet->errmsg) {
+           print ">Problem connecting to $ip, port: $port\n";
+           return 0;
+       }
+
+       if ($debug > 4) {
+           print "$ip : $port U: $user_name P: $password\n";
+       }
+
+      $Telnet->print($user_name);
+      $Telnet->waitfor('/Password:/i');
+      $Telnet->print($password);
+
+      if ($Telnet->errmsg) {
+           print "Telnet login or password incorrect\n";
+           return 0;
+      }
+
+      $Telnet->waitfor('/#/i');
+
+      foreach my $cmd (@$cmds) {
+           print "$cmd\n" if ($debug);
+           $Telnet->waitfor('/#/i');
+           $Telnet->print("$cmd");
+
+           if ($cmd =~ /sleep:(\d+)/) {
+           sleep $1;
+           }
+      }
+
+   if ($attr->{del_onu}) {
+          print "ONU CDATA: $branch:$onu_id DELETED\n";
+   }
+
+   $Telnet->close();
+ } else { print 'ONU CDATA Not deleted from OLT'; } 
+}
+
+1;

@@ -1,0 +1,70 @@
+our AXbills::HTML $html;
+our ($db, $admin, %conf);
+use Crm::db::Crm;
+my $Crm = Crm->new($db, $admin, \%conf);
+
+$Crm->crm_dialogues_list({ AID => $admin->{AID}, STATE => 0 });
+my $info = $html->badge($Crm->{TOTAL}, { TYPE => 'bg-primary' });
+
+%FUNCTIONS_LIST = (
+  "01:0:CRM:null:"                                                => 5,
+  "14:0:CRM:null:"                                                => 4,
+  "15:0:$lang{LEADS}:null:"                                       => 1,
+  "16:15:$lang{LEADS}:crm_leads:"                                 => 1,
+  "17:15:$lang{SEARCH}:crm_lead_search:"                          => 1,
+  "19:15:$lang{LOG}:crm_log:"                                     => 1,
+  "27:15:$lang{IMPORT}:crm_leads_import:"                         => 1,
+  "18:16:$lang{INFO}:crm_lead_info:LEAD_ID"                       => 1,
+  "23:16:Short Lead Info:crm_short_info:PHONE"                    => 1,
+  "25:16:Lead Convert:crm_lead_convert:FROM_LEAD_ID"              => 1,
+  "20:1:$lang{SOURCE} $lang{ADD}:crm_source_types:"               => 5,
+
+  "22:14:$lang{LEADS}:crm_reports_leads:"                         => 4,
+  "24:14:$lang{LEADS} $lang{PROGRESS}:crm_leads_progress_report:" => 4,
+  "26:14:$lang{SALES_FUNNEL}:crm_sales_funnel"                    => 4,
+  "32:14:$lang{COMPETITORS}:null"                                 => 4,
+  "33:32:$lang{COMPETITORS}:crm_competitors_report"               => 4,
+  "34:32:$lang{TARIF_PLANS}:crm_competitors_tp_report"            => 4,
+  "35:32:$lang{USERS}:crm_competitors_users_report"               => 4,
+
+  "27:1:$lang{ACTION}:crm_actions_main"                           => 5,
+  "28:1:$lang{COMPETITORS}:null"                                  => 5,
+  "29:28:$lang{COMPETITORS}:crm_competitors"                      => 5,
+  "30:28:$lang{COMPETITORS_TP}:crm_competitors_tp"                => 5,
+  "31:15:$lang{CRM_MASS_ADDING}:crm_mass_adding"                  => 5,
+  "29:1:$lang{TEMPLATES_RESPONSE}:crm_response_templates"         => 5,
+
+  "40:1:$lang{INFO_FIELDS}:null"                                  => 5,
+  "41:40:$lang{LEADS}:crm_info_fields"                            => 5,
+  "42:40:$lang{TARIF_PLANS}:crm_tp_info_fields"                   => 5,
+
+  "43:1:$lang{OPEN_LINES}:crm_open_lines"                         => 5,
+
+  "44:1:$lang{WORKFLOWS}:crm_workflow:"                           => 5,
+
+  "50:0:CRM:crm_user_service:UID"                                 => 0,
+  "51:0:CRM:crm_competitor_tps_select:AJAX"                       => 0,
+  "52:0::crm_tp_geolocation_tree:AJAX"                            => 0,
+  "53:0::crm_users_by_lead_email:AJAX"                            => 0,
+  "54:0::crm_lead_map_multiple_update:AJAX"                       => 0,
+
+  "70:0:$lang{DIALOGUES} $info:crm_dialogues"                     => 8,
+  "71:70:$lang{DIALOGUE}:crm_dialogue:ID"                         => 8,
+
+  "72:0:$lang{DEALS}:crm_deals_list:"                             => 11,
+  "73:0:$lang{DEALS}:crm_users:UID"                               => 20,
+  "74:73:$lang{DEAL}:crm_deal_info:DEAL_ID"                       => 1,
+
+  "75:0:$lang{LEADS}:null"                                        => 8,
+  "76:75:$lang{SCHEDULE_BOARD}:crm_tasks_board"                   => 8,
+
+  "33:-1:$lang{LEAD}:crm_leads:UID"                               => 15,
+);
+
+if ($permissions{7} && $permissions{7}{2}) {
+  $FUNCTIONS_LIST{"80:1:$lang{PROGRESS_BAR}:null:"} = 5;
+  $FUNCTIONS_LIST{"81:80:$lang{LEADS}:crm_progressbar_steps:"} = 5;
+  $FUNCTIONS_LIST{"82:80:$lang{DEALS}:crm_deals_progressbar_steps:"} = 5;
+}
+
+1

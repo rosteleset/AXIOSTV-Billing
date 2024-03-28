@@ -1,0 +1,2 @@
+MYADDR:
+ !bg /usr/axbills/libexec/linkupdown up INTERFACE USER HISADDR

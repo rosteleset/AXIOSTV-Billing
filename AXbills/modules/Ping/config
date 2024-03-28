@@ -1,0 +1,9 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+                   "01:0:Ping:ping_reports:"                     => 20,
+                   "02:0:Ping:ping_main:"                        => 5,
+                   "03:0:Ping:ping_reports:"                     => 4,
+                   "04:2:$lang{LIST}:ping_users_reports_table:"  => 4,
+                   );
+
+1

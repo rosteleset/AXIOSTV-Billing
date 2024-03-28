@@ -1,0 +1,96 @@
+#!/usr/local/bin/expect
+# NAS_IP PORT_ID TP_ID LOGIN PASSWORD
+set SWITCH [lindex $argv 0]
+set PORT [lindex $argv 1]
+set TP_ID [lindex $argv 2]
+
+# must be loginable to swithches (local or tacacs)
+set name [lindex $argv 3]
+set password [lindex $argv 4]
+
+
+spawn ssh $SWITCH
+expect yes/no)? {send "yes\r"}
+expect Name: {send "$name\r"}
+expect assword: {send "$password\r"}
+
+if { $TP_ID == 71 } {
+
+expect "#" {send "conf
+ip access-list scool
+        permit  any any host 239.1.6.4
+        permit  any any host 239.1.6.2
+        permit  any any host 239.1.6.3
+        permit  any any host 239.1.6.5
+        permit  any any host 239.1.6.1
+        permit  any any host 239.1.6.15
+        permit  any any host 239.1.1.1
+        permit  any any host 239.1.1.2
+        permit  any any host 239.1.1.3
+        permit  any any host 239.1.1.4
+        permit  any any host 239.1.1.5
+        permit  any any host 239.1.1.6
+        permit  any any host 239.1.1.7
+        permit  any any host 239.1.1.8
+        permit  any any host 239.1.1.9
+        permit  any any host 239.1.1.10
+        permit  any any host 239.1.1.11
+        deny    any any 224.0.0.0 15.255.255.255
+        permit  any any any	
+        interface ethernet e$PORT
+	!
+	no shut
+	!
+	service-acl input scool
+	!
+	end
+	!
+	copy run start
+	exit\r"}
+expect oef
+
+} elseif { $TP_ID == 72 } {
+
+}
+else {
+
+expect "#" {send "conf
+ip access-list econom
+  permit  any any host 239.1.6.4
+  permit  any any host 239.1.6.2
+  permit  any any host 239.1.6.3
+  permit  any any host 239.1.6.5
+  permit  any any host 239.1.6.1
+  permit  any any host 239.1.6.15
+  permit  any any host 239.1.1.1
+  permit  any any host 239.1.1.2
+  permit  any any host 239.1.1.3
+  permit  any any host 239.1.1.4
+  permit  any any host 239.1.1.5
+  permit  any any host 239.1.1.6
+  permit  any any host 239.1.1.7
+  permit  any any host 239.1.1.8
+  permit  any any host 239.1.1.9
+  permit  any any host 239.1.1.10
+  permit  any any host 239.1.1.11
+  permit  any any host 239.1.58.1
+  permit  any any host 239.1.58.2
+  permit  any any host 239.1.58.3
+  permit  any any host 239.1.58.4
+  permit  any any host 239.1.58.5
+  permit  any any host 239.1.58.6
+  permit  any any host 239.1.58.7
+  deny    any any 224.0.0.0 15.255.255.255
+  permit  any any any
+  interface ethernet e$PORT
+  !
+  no shut
+  !
+  service-acl input scool
+  !
+  end
+  !
+  copy run start
+  exit\r"}
+
+}

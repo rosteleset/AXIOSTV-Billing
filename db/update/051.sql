@@ -1,0 +1,2 @@
+ALTER TABLE `crm_works` ADD COLUMN `fees_id` INT(11)  UNSIGNED NOT NULL DEFAULT 0;
+ALTER TABLE `sharing_files` ADD COLUMN `remind_for` INT(10) NOT NULL DEFAULT 0;

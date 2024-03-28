@@ -1,0 +1,2 @@
+ALTER TABLE `crm_actions` MODIFY COLUMN `name` char(60) NOT NULL DEFAULT '';
+ALTER TABLE `iptv_calls` ADD COLUMN `service_id` INT(11) UNSIGNED NOT NULL DEFAULT '0';

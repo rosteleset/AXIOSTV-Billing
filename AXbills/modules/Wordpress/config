@@ -1,0 +1,21 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+  "01:0:Wordpress:null:"                                 => 5,
+
+  "02:1:$lang{POSTS}:wordpress_posts_main:"                     => 5,
+  "03:1:$lang{PAGES}:wordpress_pages_main:"                     => 5,
+
+  "04:1:$lang{OPTIONS}:wordpress_options_main:"                 => 5,
+
+  "05:1:Msgs:wordpress_to_msgs::EXTERNAL"                => 5,
+
+  "06:1:$lang{GALLERY}:null:"                                   => 5,
+  "07:6:$lang{IMAGE_UPLOAD}:wordpress_gallery_image_upload:"    => 5,
+  "08:6:$lang{CHOOSE_IMAGES}:wordpress_gallery_images_choosen:" => 5,
+
+  "09:1:$lang{EXPORT}:wordpress_export:"                        => 5,
+  "10:1:$lang{EXPORT} Internet:wordpress_export_dv_tariffs:EXPORT"    => 5,
+  "11:1:$lang{EXPORT} Abon:wordpress_export_abon:EXPORT"        => 5,
+);
+
+1

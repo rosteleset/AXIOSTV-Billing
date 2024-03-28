@@ -1,0 +1,435 @@
+#!perl
+=head1 NAME
+
+  Expert module
+
+=cut
+
+
+use strict;
+use warnings FATAL => 'all';
+
+use Expert::db::Expert;
+use AXbills::Base qw(urlencode urldecode);
+use JSON qw(decode_json);
+use AXbills::Fetcher qw(web_request);
+
+our(
+  %lang,
+  $html,
+  $admin,
+  $user,
+  $db,
+  %conf,
+);
+
+my $Expert   = Expert->new($db, $admin, \%conf);
+
+#**********************************************************
+=head2 expert_registration
+  for registration.cgi
+=cut
+#**********************************************************
+sub expert_registration {
+  expert_system();
+}
+
+#**********************************************************
+=head2 expert_system
+
+=cut
+#**********************************************************
+sub expert_system {
+  my $COOKIES = $html->get_cookies();
+
+  if ($FORM{links}) {
+    $html->tpl_show(_include('expert_system_links', 'Expert'), {
+      server => urldecode($COOKIES{server}),
+      api_key => $COOKIES{api_key},
+    });
+    return 1;
+  }
+  elsif ($FORM{change_links}) {
+    $html->set_cookies('server', urlencode($FORM{server}), 86400);
+    $html->set_cookies('api_key', $FORM{api_key}, 86400);
+    $FORM{ID} = 999;
+    $FORM{UID} = 123;
+  }
+  elsif (!$FORM{UID}) {
+    $html->tpl_show(_include('expert_system', 'Expert'), {
+      QUESTION    => $lang{ENTER_IDENTIFIER},
+      ANSWERS     => $html->form_input('UID', $FORM{UID}, {OUTPUT2RETURN => 1}),
+      DESCRIPTION => $html->form_input('Next', 'Дальше', {TYPE => 'submit', OUTPUT2RETURN => 1}),
+    });
+    return 1;
+  }
+
+  $FORM{ID} //= 0;
+  $FORM{show} //= '';
+  my $answers_list = $Expert->answers_list($FORM{ID});
+  $Expert->{ANSWERS} = answers_html($answers_list);
+  $Expert->question_info($FORM{ID});
+
+  while ($Expert->{DESCRIPTION} && $Expert->{DESCRIPTION} =~ /\[(.*?)\]/g) {
+    my $button_field = $1;
+    my $button = $html->button($button_field, "index=$index&ID=$FORM{ID}&UID=$FORM{UID}&show=$button_field",{ class => 'btn btn-primary btn-xs' });
+    if (!$index) {
+      $button = $html->button($button_field, "module=Expert&ID=$FORM{ID}&UID=$FORM{UID}&show=$button_field",{ class => 'btn btn-primary btn-xs' });
+    }
+    $Expert->{DESCRIPTION} =~ s/\[$button_field\]/$button/;
+  }
+  
+  if ($COOKIES{api_key} && $COOKIES{server}) {
+    if ($FORM{show} eq 'service_info') {
+      my $hash_result = _get_info();
+      $Expert->{INFO} = $html->tpl_show(_include('expert_service_info', 'Expert'), $hash_result->{form_user}, {OUTPUT2RETURN => 1});
+    }
+    elsif ($FORM{show} eq 'auth_info') {
+      my $hash_result = _get_info();
+      $Expert->{INFO} = $html->message("$hash_result->{internet_user}->{__LAST_LOGIN_MSG}->{MESSAGE}->{type}",
+      $hash_result->{internet_user}->{__LAST_LOGIN_MSG}->{MESSAGE}->{messaga},"", {OUTPUT2RETURN => 1});
+    }
+    elsif ($FORM{show} eq 'user_info') {
+      my $hash_result = _get_info();
+
+      $Expert->{INFO} = $html->tpl_show(_include('expert_user_info', 'Expert'), $hash_result->{user_pi}, {OUTPUT2RETURN => 1});
+    }
+  }
+  
+  $html->tpl_show(_include('expert_system', 'Expert'), $Expert);
+
+  return 1;
+}
+
+#**********************************************************
+=head2 expert_edit
+
+=cut
+#**********************************************************
+sub expert_edit {
+  if ($FORM{change}) {
+    _expert_change_question();
+    return 1;
+  }
+  elsif ($FORM{add_answer} || $FORM{change_answer}) {
+    _expert_change_answer();
+    return 1;
+  }
+  elsif ($FORM{QUESTION_ADD}) {
+    $Expert->question_add(\%FORM);
+  }
+  elsif ($FORM{QUESTION_CHANGE}) {
+    $Expert->question_change(\%FORM);
+  }
+  elsif ($FORM{ANSWER_ADD}) {
+    $Expert->answer_add({ QUESTION_ID => $FORM{ID}, ANSWER => $FORM{ANSWER} });
+  }
+  elsif ($FORM{ANSWER_CHANGE}) {
+    $Expert->answer_change(\%FORM);
+  }
+
+  $FORM{ID} //= 0;
+  my $answers_list = $Expert->answers_list($FORM{ID});
+  $Expert->{ANSWERS} = answers_edit($answers_list);
+  $Expert->{ANSWERS} .= $html->button($lang{ADD},
+    "qindex=$index&header=2&ID=$FORM{ID}&add_answer=1",
+    {
+      LOAD_TO_MODAL  => 1,
+      NO_LINK_FORMER => 1,
+      class          => 'add',
+      TITLE          => 'answer'
+    }
+  );
+
+  $Expert->question_info($FORM{ID});
+   
+  $Expert->{QUESTION} //= "";
+  $Expert->{DESCRIPTION} //= "";
+  $Expert->{CHANGE_QUESTION_BUTTON} = $html->button($lang{CHANGE},
+    "qindex=$index&header=2&ID=$FORM{ID}&change=1",
+    {
+      LOAD_TO_MODAL  => 1,
+      NO_LINK_FORMER => 1,
+      class          => 'change',
+      TITLE          => 'question'
+    }
+  );
+
+  $html->tpl_show(_include('expert_edit', 'Expert'), $Expert);
+
+  my $list = $Expert->question_list();
+
+  my $table = $html->table({
+    width      => '100%',
+    caption    => $lang{QUESTIONS},
+    title      => [ "ID", $lang{QUESTION}, "Варианты ответов"],
+    ID         => 'Questions',
+  });
+  
+  foreach my $line (@$list) {
+    $Expert->answers_list($line->{id});
+    $table->addrow(
+      $line->{id},
+      $html->button($line->{question}, "index=$index&ID=$line->{id}", { }),
+      $Expert->{TOTAL},
+    );
+  }
+  
+ print $table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 answers_edit (@answers_list)
+
+=cut
+#**********************************************************
+sub answers_edit {
+  my ($answers_list) = @_;
+
+  my $answers_html = "";
+
+  foreach my $answer (@$answers_list) {
+    $answers_html .= $html->button($answer->{answer}, "index=$index&ID=$answer->{id}", { });
+    $answers_html .= " ";
+    $answers_html .= $html->button($lang{CHANGE},
+      "qindex=$index&header=2&ID=$FORM{ID}&change_answer=$answer->{id}",
+      {
+        LOAD_TO_MODAL  => 1,
+        NO_LINK_FORMER => 1,
+        class          => 'change',
+        TITLE          => 'question'
+      }
+    );
+    $answers_html .= $html->br();
+  }
+
+  return  $answers_html;
+}
+
+#**********************************************************
+=head2 answers_html (@answers_list)
+
+=cut
+#**********************************************************
+sub answers_html {
+  my ($answers_list) = @_;
+
+  my $answers_html = "";
+
+  my $params = $index
+                 ? "index=$index"
+                 : "module=Expert";
+
+  foreach my $answer (@$answers_list) {
+    $answers_html .= $html->button($answer->{answer}, "$params&UID=$FORM{UID}&ID=$answer->{id}", { class => 'btn btn-secondary btn-block' });
+  }
+
+  return  $answers_html;
+}
+
+#**********************************************************
+=head2 _expert_change_question (@answers_list)
+
+=cut
+#**********************************************************
+sub _expert_change_question {
+  $Expert->question_info($FORM{ID});
+
+  my $button_name  = "QUESTION_ADD";
+  my $button_value = $lang{ADD};
+
+  if ($Expert->{TOTAL} ) {
+    $button_name  = "QUESTION_CHANGE";
+    $button_value = $lang{CHANGE};
+  }
+
+  $html->tpl_show(_include('expert_change_question', 'Expert'), {
+      INDEX        => $index,
+      ID           => $FORM{ID},
+      BUTTON_NAME  => $button_name,
+      BUTTON_VALUE => $button_value,
+      %$Expert,
+    }, {  });
+
+return 1;
+}
+
+#**********************************************************
+=head2 _expert_change_answer (@answers_list)
+
+=cut
+#**********************************************************
+sub _expert_change_answer {
+ 
+  my $button_name = "ANSWER_ADD";
+  my $button_value = $lang{ADD};
+  my $answer_id   = '';
+  my $answer      = '';
+
+  if ($FORM{change_answer}) {
+    $Expert->answers_info($FORM{change_answer});
+    $button_name = "ANSWER_CHANGE";
+    $button_value = $lang{CHANGE};
+    $answer_id   = $FORM{change_answer};
+    $answer      = $Expert->{ANSWER};
+  }
+
+  $html->tpl_show(_include('expert_add_answer', 'Expert'), {
+      INDEX        => $index,
+      BUTTON_NAME  => $button_name,
+      BUTTON_VALUE => $button_value,
+      ANSWER_ID    => $answer_id,
+      PARRENT_ID   => $FORM{ID},
+      ID           => $FORM{ID},
+      ANSWER       => $answer,
+    }, {  });
+
+return 1;
+}
+
+#**********************************************************
+=head2 _get_info 
+
+=cut
+#**********************************************************
+sub _get_info {
+  
+  my $server = urldecode($COOKIES{server}) || $SELF_URL;
+  my $url = "$server?qindex=15&json=1&header=1&UID=$FORM{UID}&API_KEY=$COOKIES{api_key}";
+
+  my $result = web_request($url, {
+    CURL_OPTIONS => '-k',
+    GET          => 1,
+  });
+  utf8::encode($result);
+  
+  # $result =~ s/[\n|\r]//g;
+  # $result =~ s/<[^"]+>//g;
+  # $result =~ s/{[^}]{/{ "test": {/;
+  # $result =~ s/,,/,/;
+  # $result =~ s/,\{/, "test1": {/;
+  # print $result;
+
+  my $hash_result = decode_json($result);
+
+  return $hash_result;
+}
+
+#**********************************************************
+=head2 expert_faq
+
+=cut
+#**********************************************************
+sub expert_faq {
+
+  my %faq_types = (
+    0 => $lang{MODAL},
+    1 => $lang{WEBPAGE},
+    2 => $lang{PAGE},
+  );
+
+  my %extra_params = (
+    LNG_ACTION => $lang{ADD},
+    ACTION     => 'add',
+    ICON_DOCS  => 'https://oblador.github.io/react-native-vector-icons/'
+  );
+
+  if ($FORM{add}) {
+    my $icons = web_request('https://raw.githubusercontent.com/oblador/react-native-vector-icons/master/glyphmaps/MaterialCommunityIcons.json', {
+      METHOD      => 'GET',
+      JSON_RETURN => 1,
+    });
+
+    if ($FORM{ICON} && !$icons->{$FORM{ICON}}) {
+      $html->message('err', $lang{ERROR}, "$lang{NOT_EXIST} $lang{ICON} $FORM{ICON}", { ID => 9001 });
+    }
+    else {
+      $Expert->faq_add(\%FORM);
+      $html->message('info', $lang{ADDED}) if (!_error_show($Expert));
+    }
+  }
+  elsif ($FORM{chg}) {
+    $extra_params{LNG_ACTION} = $lang{CHANGE};
+    $extra_params{ACTION} = 'change';
+    $FORM{add_form}=1;
+
+    my $faq_info = $Expert->faq_list({
+      ID               => $FORM{chg},
+      SHOW_ALL_COLUMNS => 1,
+      COLS_UPPER       => 1,
+    });
+    %extra_params = (%extra_params, %{$faq_info->[0] || {}});
+  }
+  elsif ($FORM{change}) {
+    my $icons = web_request('https://raw.githubusercontent.com/oblador/react-native-vector-icons/master/glyphmaps/MaterialCommunityIcons.json', {
+      METHOD      => 'GET',
+      JSON_RETURN => 1,
+    });
+
+    if ($FORM{ICON} && !$icons->{$FORM{ICON}}) {
+      $html->message('err', $lang{ERROR}, "$lang{NOT_EXIST} $lang{ICON} $FORM{ICON}", { ID => 9001 });
+    }
+    else {
+      $Expert->faq_change(\%FORM);
+      $html->message('info', $lang{SUCCESS}, $lang{CHANGED}) if (!_error_show($Expert));
+    }
+  }
+  elsif ($FORM{del}) {
+    $Expert->faq_del($FORM{del});
+    $html->message('info', $lang{SUCCESS}, $lang{DELETED}) if (!_error_show($Expert));
+  }
+
+  if ($FORM{add_form}) {
+    my $faq_types = $html->form_select('TYPE', {
+      SELECTED    => $extra_params{TYPE} || 1,
+      SEL_HASH    => \%faq_types,
+      SEL_OPTIONS => { '' => '--' },
+      ID          => 'FAQ_TYPES',
+    });
+
+    $html->tpl_show(_include('expert_faq_add', 'Expert'), {
+      FAQ_TYPES => $faq_types,
+      %extra_params
+    });
+  }
+
+  my ($table) = result_former({
+    INPUT_DATA        => $Expert,
+    FUNCTION          => 'faq_list',
+    BASE_FIELDS       => 0,
+    FUNCTION_FIELDS   => 'change,del',
+    DEFAULT_FIELDS    => 'ID,TITLE,TYPE,ICON',
+    EXT_TITLES        => {
+      id    => 'ID',
+      type  => $lang{TYPE},
+      body  => $lang{TEXT},
+      title => $lang{HEADER},
+      icon  => $lang{ICON}
+    },
+    FILTER_VALUES => {
+      type        => sub {
+        my (undef, $values) = @_;
+        return $faq_types{$values->{type} || 0};
+      },
+    },
+    SKIP_USER_TITLE   => 1,
+    SKIP_STATUS_CHECK => 1,
+    TABLE             => {
+      width   => '100%',
+      caption => $lang{FAQ},
+      qs      => $pages_qs,
+      ID      => 'EXPERT_FAQ',
+      pages   => $Expert->{TOTAL},
+      MENU    => "$lang{ADD}:index=$index&add_form=1:add",
+      EXPORT  => 1,
+    },
+    MODULE            => 'Expert',
+    MAKE_ROWS         => 1,
+  });
+
+  print $table->show();
+}
+
+1;

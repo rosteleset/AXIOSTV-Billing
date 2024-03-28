@@ -1,0 +1,747 @@
+#!perl
+
+=head1 NAME
+
+  Timetracker
+
+=cut
+
+use strict;
+use warnings;
+use Time::Piece;
+use AXbills::Base qw(time2sec);
+use Timetracker::db::Timetracker;
+use Admins;
+use JSON;
+use utf8;
+use Encode qw(encode_utf8);
+use AXbills::Fetcher qw/web_request/;
+require AXbills::Misc;
+require Timetracker::Reports;
+
+our (%FORM, $db, %conf, $admin, %lang, @WEEKDAYS);
+our AXbills::HTML $html;
+my $Timetracker = Timetracker->new($db, $admin, \%conf);
+my $Admins = Admins->new($db, \%conf);
+my @external_systems = ($lang{NO}, 'Support', 'Redmine');
+
+#**********************************************************
+=head2 timetracker() - Accounting and time allocation. Report.
+
+=cut
+#**********************************************************
+sub timetracker {
+
+  require Control::Reports;
+  reports({
+      DATE        => $FORM{FROM_DATE_TO_DATE},
+      PERIOD_FORM => 1,
+      NO_GROUP    => 1,
+      NO_TAGS     => 1,
+      DATE_RANGE  => 1,
+      COLS_NAME   => 1,
+  });
+
+  my %admins_time = ();
+  my @elements = ();
+  my $Timetracker_list = $Timetracker->list_for_timetracker({
+    COLS_NAME => 1,
+    DATE      => $FORM{FROM_DATE_TO_DATE}
+  });
+
+  _error_show($Timetracker);
+  my $timetracker_list_element = $Timetracker->list_element({ COLS_NAME => 1 });
+  _error_show($Timetracker);
+  my $Admin_name;
+  my @priority = ();
+
+  foreach my $element (@$timetracker_list_element) {
+    push @elements, $element->{element};
+    if ($element->{priority} == 1) {
+      push @priority, $element->{element};
+    }
+    foreach my $item (@$Timetracker_list) {
+      $Admin_name = $Admins->info($item->{aid});
+      if ($element->{id} == $item->{element_id}) {
+        $admins_time{ $Admin_name->{A_FIO} }->{ $element->{element} } += $item->{time_per_element};
+      }
+    }
+  }
+
+  my $table = $html->table({
+      width   => "100%",
+      caption => $lang{TIMETRACKER},
+      title   => [ $lang{EXECUTOR}, $lang{ALL_TIME}, @elements, $lang{COEFFICIENT} ],
+      qs      => $pages_qs,
+      ID      => "TABLE_ID",
+      MENU    => "$lang{ADD}:index=" . get_function_index('add_time') . "&add_form=1&$pages_qs:add",
+      export  => 1,
+  });
+
+  my $coefficient;
+  my @num_elements;
+  my $sum_num_elements;
+
+  foreach my $name (sort keys %admins_time) {
+    @num_elements = ();
+    $coefficient = 0;
+    $sum_num_elements = 0;
+
+    foreach my $item (@elements) {
+      $sum_num_elements += $admins_time{$name}->{$item};
+      push @num_elements, sprintf('%.2f', ($admins_time{$name}->{$item}) / 100);
+      foreach my $element (@priority) {
+        if ($element eq $item) {
+          $coefficient += $admins_time{$name}->{$item};
+        }
+      }
+    }
+
+    $coefficient = ($coefficient) ? sprintf('%0.1f', (($coefficient * 100) / $sum_num_elements)) : 0;
+    my $sum_time = sprintf('%.2f', ($sum_num_elements || 0) / 100);
+    $table->addrow($name, $sum_time, @num_elements, $coefficient);
+  }
+
+
+  print $table->show();
+  return 1;
+}
+
+
+#**********************************************************
+=head2 add_time() - Filling out a report.
+
+=cut
+#**********************************************************
+sub add_time {
+
+  my $date_for_picker = ($FORM{DATE} || $DATE);
+  my $timetracker_list_element = $Timetracker->list_element({ COLS_NAME => 1 });
+  _error_show($Timetracker);
+  my $form_group = 0;
+  my @element = ();
+  my @element_id = ();
+  my @num_element = ();
+  my $btn_action = 'add';
+  #my $btn_change = 'search';
+  my $btn_value = $lang{ADD};
+  my %elements_value = ();
+  my ($year, undef, undef) = split('-', $DATE);
+
+  if ($FORM{get_time_for_date}) {
+
+    my $dev_element = '';
+    my $support_element = '';
+
+    foreach my $element (@$timetracker_list_element) {
+      if ($element->{element} eq 'dev') {
+        $dev_element = $element->{id};
+      }
+      elsif ($element->{element} eq 'support') {
+        $support_element = $element->{id};
+      }
+    }
+
+    my $dev_time = get_redmine_time($FORM{get_time_for_date});
+    my $support_time = get_support_time($FORM{get_time_for_date});
+
+    print "Content-Type: application/javascript\n\n";
+    print qq{
+       {
+        "$support_element" : $support_time,
+        "$dev_element"     : $dev_time
+       }
+    };
+
+    return 1;
+  }
+
+  if ($FORM{add}) {
+    $Timetracker->del({
+      AID  => $admin->{AID},
+      DATE => $FORM{DATE},
+    });
+
+    foreach my $element (@$timetracker_list_element) {
+      $FORM{ $element->{id} } =~ s/,/./g;
+      $Timetracker->add({
+        AID              => $admin->{AID},
+        ELEMENT_ID       => $element->{id},
+        TIME_PER_ELEMENT => (sprintf('%.2f', $FORM{ $element->{id} })) * 100,
+        DATE             => $FORM{DATE},
+      });
+    }
+    $html->message("info", $lang{ADD_MASSAGE}, $lang{OPERATION});
+    $date_for_picker = $FORM{DATE};
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Timetracker->del({
+      AID  => $admin->{AID},
+      DATE => $FORM{del},
+    });
+    if (!_error_show($Timetracker)) {
+      $html->message("info", $lang{DELETE_MASSAGE}, $lang{OPERATION});
+    }
+  }
+  elsif ($FORM{change}) {
+    $Timetracker->del({
+      AID  => $admin->{AID},
+      DATE => $FORM{DATE},
+    });
+    _error_show($Timetracker);
+
+    foreach my $element (@$timetracker_list_element) {
+
+      $Timetracker->add({
+        AID              => $admin->{AID},
+        ELEMENT_ID       => $element->{id},
+        TIME_PER_ELEMENT => ($FORM{ $element->{id} } * 100),
+        DATE             => $FORM{DATE},
+      });
+    }
+    if (!_error_show($Timetracker)) {
+      $html->message("info", $lang{CHANGE_MASSAGE}, $lang{OPERATION});
+    }
+  }
+
+  my $Timetracker_list = $Timetracker->list_for_timetracker(
+    {
+      COLS_NAME => 1,
+      DESC      => "desc",
+      DATE      => ">=$year-01-01",
+      AID       => $admin->{AID}
+    }
+  );
+  _error_show($Timetracker);
+
+  my $datepicker = $html->form_datepicker("DATE", $date_for_picker);
+  my $datepicker_form = $html->tpl_show(
+    _include("timetracker_datepicker_form", "Timetracker"),
+    { DATEPICKER => $datepicker },
+    { OUTPUT2RETURN => 1 }
+  );
+
+  if ($Timetracker->{errno}) {
+    $html->message("err", $lang{ERROR}, $lang{NOTABLES});
+    return 1;
+  }
+
+  if ($FORM{chg}) {
+    $btn_action = 'change';
+    $btn_value = $lang{CHANGE};
+    foreach my $item (@$Timetracker_list) {
+      if ($item->{aid} eq $FORM{NAME} && $item->{date} eq $FORM{chg}) {
+        $elements_value{$item->{element_id}} = sprintf('%.2f', $item->{time_per_element} / 100);
+      }
+    }
+    $datepicker_form = "<input type='hidden' name='DATE' value='$FORM{chg}'>";
+  }
+
+  foreach my $element (@$timetracker_list_element) {
+    my $num_element = '';
+    if ($elements_value{ $element->{id} }) {
+      $num_element = $elements_value{ $element->{id} };
+    }
+    elsif ($element->{external_system} == 1 && !$FORM{chg}) {
+      $num_element = get_support_time(($FORM{get_time_for_date} || $DATE));
+    }
+    elsif ($element->{external_system} == 2 && !$FORM{chg}) {
+      $num_element = get_redmine_time(($FORM{get_time_for_date} || $DATE));
+      $num_element = sprintf('%.2f', $num_element);
+    }
+    $form_group .= $html->tpl_show(
+      _include("timetracker_add_form_group", "Timetracker"),
+      {
+        ELEMENT     => $element->{element},
+        ID          => $element->{id},
+        NUM_ELEMENT => $num_element
+      },
+      { OUTPUT2RETURN => 1 }
+    );
+
+    push @element, $element->{element};
+    push @element_id, $element->{id};
+  }
+  ###...
+  $html->tpl_show(
+    _include("timetracker_add_form", "Timetracker"),
+    {
+      ADMIN      => $admin->{AID},
+      DATEPICKER => $datepicker_form,
+      FORM_GROUP => $form_group,
+      BTN        => $btn_value,
+      ACTION     => $btn_action,
+      CAPTION    => $FORM{chg} || ''
+    }
+  );
+
+  my %dates = ();
+  my $tables = '';
+  my $count = 0;
+  my %weeks = ();
+
+  foreach my $item (@$Timetracker_list) {
+    my Time::Piece $d = Time::Piece->strptime($item->{date}, "%Y-%m-%d");
+    $dates{$item->{date}} = 1;
+    $weeks{$d->week}->{ $item->{date} }->{ $item->{element_id} } = $item->{time_per_element};
+  }
+
+  my %tables = ();
+  foreach my $week (reverse sort {$a <=> $b} keys %weeks) {
+    $tables{$week} = $html->table({
+        width   => "100%",
+        caption => $lang{WEEK} . ": " . $week,
+        title   => [ $lang{DATE}, @element ],
+        qs      => $pages_qs,
+        ID      => "TABLE_ID",
+        export  => 1
+    });
+
+    foreach my $date (sort keys %{$weeks{$week}}) {
+      @num_element = ();
+      my Time::Piece $d = Time::Piece->strptime($date, "%Y-%m-%d");
+      $d->day_list(@WEEKDAYS);
+      foreach my $item (@element_id) {
+        push @num_element, sprintf('%.2f', ($weeks{$week}->{$date}->{$item} || 0) / 100);
+      }
+      my $del_button = $html->button($lang{DELETE}, "index=$index&del=$date", {
+          class => 'del',
+          MESSAGE => "$lang{DEL}"
+      });
+      my $edit_button = $html->button("", "index=$index&chg=$date&NAME=$admin->{AID}", {
+          class => "",
+          ADD_ICON => "fa fa-pencil-alt"
+      });
+      $tables{$week}->addrow($d->wdayname . " " . $d->dmy, @num_element, "$edit_button$del_button");
+    }
+
+    $tables .= $html->element('div', $tables{$week}->show(), { class => "col-md-12" });
+    $count++;
+    if (int($count / 3) == $count / 3 || $count == (scalar keys(%weeks))) {
+      print $html->element('div', $tables, { class => "row" });
+      $tables = '';
+    }
+  }
+  $html->element('div', $tables, { class => "row" });
+
+  return 1;
+}
+
+#**********************************************************
+=head2 add_item() - Setting the number of elements and priority.
+
+=cut
+#**********************************************************
+sub add_item {
+
+  my $btn_action = 'add';
+  my $btn_value = $lang{ADD};
+
+  if ($FORM{add}) {
+    $Timetracker->add_element({
+        ELEMENT         => $FORM{ELEMENT},
+        PRIORITY        => $FORM{PRIORITY},
+        EXTERNAL_SYSTEM => $FORM{EXTERNAL_SYSTEM},
+    });
+
+    if (!_error_show($Timetracker)) {
+      $html->message("info", $lang{ADD_MASSAGE}, $lang{OPERATION});
+    }
+  }
+  elsif ($FORM{del} && $FORM{COMMENTS}) {
+    $Timetracker->del_element($FORM{del});
+
+    if (!_error_show($Timetracker)) {
+      $html->message("info", $lang{DELETE_MASSAGE}, $lang{OPERATION});
+    }
+  }
+  elsif ($FORM{change}) {
+    $Timetracker->change_element({
+        ID              => $FORM{ID},
+        ELEMENT         => $FORM{ELEMENT},
+        PRIORITY        => $FORM{PRIORITY},
+        EXTERNAL_SYSTEM => $FORM{EXTERNAL_SYSTEM},
+    });
+
+    if (!_error_show($Timetracker)) {
+      $html->message("info", $lang{CHANGE_MASSAGE}, $lang{OPERATION});
+    }
+  }
+
+  my $timetracker_list_element = $Timetracker->list_element();
+
+  if ($Timetracker->{errno}) {
+    $html->message("err", $lang{ERROR}, $lang{NOTABLES});
+    return 1;
+  }
+
+  if ($FORM{chg}) {
+    $btn_action = 'change';
+    $btn_value = $lang{CHANGE};
+    foreach my $item (@$timetracker_list_element) {
+      if ($item->{id} == $FORM{chg}) {
+        my $external_system = $html->form_select(
+          'EXTERNAL_SYSTEM',
+          {
+            SELECTED          => $item->{external_system},
+            SEL_ARRAY         => \@external_systems,
+            ARRAY_NUM_ID      => 1,
+            SEL_OPTIONS       => { "" => "" }
+          }
+        );
+
+        $html->tpl_show(
+          _include("timetracker_add_item_form", "Timetracker"),
+          {
+            FORM_NAME        => "EDIT_ITEM",
+            TITLE            => $lang{EDIT_ITEM},
+            BTN              => $btn_value,
+            ACTION           => $btn_action,
+            ID               => $item->{id},
+            PRIORITY         => $item->{priority},
+            ELEMENT          => $item->{element},
+            EXTERNAL_SYSTEMS => $external_system,
+          }
+        );
+        last;
+      }
+    }
+  }
+  else {
+    my $external_system = $html->form_select(
+      'EXTERNAL_SYSTEM',
+      {
+        SELECTED         => 0,
+        SEL_ARRAY        => \@external_systems,
+        ARRAY_NUM_ID     => 1,
+        SEL_OPTIONS      => { "" => "" }
+      }
+    );
+
+    $html->tpl_show(
+      _include("timetracker_add_item_form", "Timetracker"),
+      {
+        FORM_NAME        => "ADD_ITEM",
+        TITLE            => $lang{ADD_ITEM},
+        BTN              => $btn_value,
+        ACTION           => $btn_action,
+        EXTERNAL_SYSTEMS => $external_system,
+      });
+  }
+
+  my $table = $html->table({
+      width   => "100%",
+      caption => $lang{ELEMENTS},
+      title   => [ "ID", $lang{ELEMENT}, $lang{EXTERNAL_SYSTEM}, $lang{FOCUS_FACTOR}, "" ],
+      qs      => $pages_qs,
+      ID      => "TABLE_ID",
+      export  => 1
+  });
+
+  foreach my $item (@$timetracker_list_element) {
+    my $del_button = $html->button($lang{DELETE}, "index=$index&del=$item->{id}", {
+      class => 'del',
+      MESSAGE => "$lang{DEL}"
+    });
+    my $edit_button = $html->button("", "index=$index&chg=$item->{id}", {
+      class => "",
+      ADD_ICON => "fa fa-pencil-alt"
+    });
+    $table->addrow(
+      $item->{id},
+      $item->{element},
+      $external_systems[$item->{external_system}],
+      ($item->{priority}) ? $lang{YES} : $lang{NO},
+      "$edit_button$del_button");
+  }
+
+  print $table->show();
+  return 1;
+}
+
+#**********************************************************
+=head2 decomposition() - decomposition for task in %hash
+
+=cut
+#**********************************************************
+sub decomposition {
+  my %hash = (
+    HTML          => 1,
+    Perl          => 1,
+    SQL           => 1,
+    JS            => 2,
+    "Service external API" => 3,
+    'New extra futures' => 5,
+    'New module'  => 8
+  );
+
+  my $checkboxes;
+  my $totalcount = 0;
+  my $label_color;
+  my $checked = '';
+
+  my @SwitchOptionCheck = split ", ", $FORM{"SwitchOption"} // "";
+  my $balcount = 0;
+
+  my $count = 0;
+
+  foreach my $value (sort {$hash{$a} <=> $hash{$b} or $a cmp $b} keys %hash) {
+    $checked = '';
+    if ($hash{$value} == 1) {
+      $label_color = "label-success";
+    }
+    elsif ($hash{$value} == 2) {
+      $label_color = "label-warning";
+    }
+    elsif ($hash{$value} > 2) {
+      $label_color = "label-danger";
+    }
+    else {
+      $label_color = "label-default";
+    }
+    for (@SwitchOptionCheck) {
+      if ($_ == $count) {
+        $balcount += $hash{$value};
+        $checked = 'checked';
+      }
+    }
+
+    $checkboxes .= $html->tpl_show(
+      _include("timetracker_decomposition_checkbox", "Timetracker"),
+      {
+        NAME          => $value,
+        ID            => $count,
+        DIFFICULT     => $count,
+        LABEL_COLOR   => $label_color,
+        CHECKED       => $checked
+      },
+      { OUTPUT2RETURN => 1 }
+    );
+    $totalcount += $hash{$value};
+    $count++;
+  }
+
+  my $percentbal = ($balcount > 0 && $totalcount > 0) ? int(($balcount * 100) / $totalcount) : 0;
+
+  my $fibonacci = fibonacci($balcount);
+
+  if ($percentbal == 0) {
+    $html->message("info", "$lang{FIBONACHI}", undef);
+  }
+  else {
+    $html->message("info", "$lang{FIBONACHI} $fibonacci",
+      "<strong>$percentbal%</strong> $lang{YOUR_FINAL_SCORE}. $lang{YOURFINAL_SUM} <strong>$balcount</strong>");
+  }
+
+  print $html->tpl_show(
+    _include("timetracker_decomposition_form", "Timetracker"),
+    { CHECKBOXES => $checkboxes },
+    { OUTPUT2RETURN => 1 }
+  );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 fibonacci($attr)
+
+  Arguments:
+    $attr   - Extra attributes
+
+  Returns:
+   TRUE or FALSE
+
+  Example:
+
+    fibonacci({ ATTR => 13 });
+
+=cut
+#**********************************************************
+sub fibonacci {
+  my ($n) = @_;
+
+  if (!$n || $n < 3) {
+    return 1;
+  }
+  else {
+    return fibonacci($n - 1) + fibonacci($n - 2);
+  }
+}
+
+#**********************************************************
+=head2 get_redmine_time($attr)
+
+  Arguments:
+    $attr   - date
+
+  Returns:
+    spent_hours (%.2f)
+
+  Example:
+    get_redmine_time('2018-01-01');
+
+=cut
+#**********************************************************
+sub get_redmine_time {
+  my ($date) = @_;
+
+  require XML::Simple;
+
+  if (!$conf{TIMETRACKER_REDMINE_URL} || !$conf{TIMETRACKER_REDMINE_KEY}) {
+    $html->message("err", $lang{ERROR}, '$conf{TIMETRACKER_REDMINE} ' . $lang{NO_FIELD});
+    return 0;
+  }
+
+  my $users_xml = web_request(
+    $conf{TIMETRACKER_REDMINE_URL} . '/users.xml',
+    {
+      CURL    => 1,
+      HEADERS => [ 'X-Redmine-API-Key: ' . ($conf{TIMETRACKER_REDMINE_KEY}) ]
+    }
+  );
+  if (!$users_xml || $users_xml =~ /^Timeout/ || $users_xml =~ /<\/h1>/ || $users_xml =~ /<\/p>/ || $users_xml =~ /<\div>/) {
+    $html->message("err", $lang{ERROR}, $lang{ERROR_API_KEY});
+    exit;
+  }
+
+  my $users_hash = XML::Simple::XMLin($users_xml, ForceArray => 1, KeyAttr => 1);
+  my $admins_list = $Admins->list({
+    AID       => $admin->{AID},
+    EMAIL     => '_SHOW',
+    PAGE_ROWS => 1,
+    COLS_NAME => 1
+  });
+  _error_show($Admins) and return 0;
+
+  my $admin_mail = $admins_list->[0]{email};
+
+  my $params_user_id = 0;
+  foreach my $redmine_user (@{$users_hash->{user}}) {
+    if ($admin_mail eq $redmine_user->{mail}->[0]) {
+      $params_user_id = $redmine_user->{id}->[0];
+      last;
+    }
+  }
+
+  if (!$params_user_id) {
+    $html->message("err", $lang{ERROR}, "$lang{ERROR_EMAIL} : '$admin_mail'");
+    return 0;
+  }
+
+  my $time_entries_xml = web_request(
+    ($conf{TIMETRACKER_REDMINE_URL}) . 'time_entries.xml?limit=100&user_id=' . $params_user_id,
+    {
+      CURL    => 1,
+      HEADERS => [ 'X-Redmine-API-Key: ' . ($conf{TIMETRACKER_REDMINE_KEY}) ]
+    }
+  );
+
+  my $result = 0;
+  my $time_entries_hash = XML::Simple::XMLin($time_entries_xml, ForceArray => 1, KeyAttr => 1);
+  foreach my $redmine_time (@{$time_entries_hash->{time_entry}}) {
+    if ($redmine_time->{updated_on}->[0] =~ /$date/) {
+      $result += $redmine_time->{hours}->[0];
+    }
+  }
+
+  return $result;
+}
+
+#**********************************************************
+=head2 get_support_time($attr)
+
+  Arguments:
+    $attr   - date
+
+  Returns:
+    spent_hours (%.2f)
+
+  Example:
+    get_support_time('2018-01-01');
+
+=cut
+#**********************************************************
+sub get_support_time {
+  my ($date) = @_;
+
+  require Msgs;
+  my $Msgs = Msgs->new($db, $admin, \%conf);
+
+  my $messages_reply_list = $Msgs->messages_reply_list({
+      COLS_NAME => 1,
+      AID       => $admin->{AID},
+      DATETIME  => ">=$date 00:00:00;<=$date 23:59:59",
+  });
+  _error_show($Msgs);
+
+  my $support_time = 0;
+
+  foreach my $data (@$messages_reply_list) {
+    $support_time += time2sec($data->{run_time});
+  }
+
+  return sprintf('%.2f', $support_time / 3600);
+}
+
+#**********************************************************
+=head2 get_ticket_work() - Returns the number of
+                            completed tasks from
+                            Support and Redmine
+
+=cut
+#**********************************************************
+sub get_ticket_work {
+  my $from_data_ = localtime->strftime('%Y-%m-%d');
+  my (undef, undef, undef, $mday, $mon, $year, undef, undef, undef) = localtime(time);
+  my $to_date_ = sprintf "%.4d-%.2d-%.2d", $year + 1900, $mon + 1, $mday = 1;
+
+  if ($conf{TIMETRACKER_REDMINE_URL}) {
+
+    require Control::Reports;
+    reports({
+      NO_GROUP    => 1,
+      NO_TAGS     => 1,
+      DATE_RANGE  => 1,
+      DATE        => $FORM{DATE},
+      REPORT      => '',
+      PERIOD_FORM => 1,
+    });
+
+    if ($FORM{TO_DATE} == undef) {
+      $FORM{TO_DATE} = $from_data_;
+      $FORM{FROM_DATE} = $to_date_;
+    }
+
+    my $table_support = $html->table({
+        width   => "100%",
+        caption => $lang{TASK_EXECUTION},
+        title   => [ $lang{ADMIN}, $lang{SUPPORT}, $lang{REDMINE}, "" ],
+        qs      => $pages_qs,
+        ID      => "TABLE_ID",
+        export  => 1
+    });
+
+    my $size_support = $Timetracker->change_element_work({
+      DATA_DAY    => $FORM{FROM_DATE},
+      TO_DATA_DAY => $FORM{TO_DATE},
+    });
+
+    foreach my $item (@$size_support) {
+      my $url =
+        $conf{TIMETRACKER_REDMINE_URL}
+          . "/issues.json?offset=0&limit=100&status_id=closed&assigned_to.cf_8=$item->{aid}&closed_on=><$FORM{FROM_DATE}|$FORM{TO_DATE}";
+      my $json_close_ticket = web_request($url, { CURL => 1, JSON_RETURN => 1 });
+      if (defined($json_close_ticket)) {
+        $table_support->addrow($item->{NAME}, $item->{admins_count}, $json_close_ticket->{total_count} ? $json_close_ticket->{total_count} : 0);
+      }
+    }
+    print $table_support->show();
+  }
+  else {
+    $html->message('err', $lang{NOT_CONFIGURED}, "$lang{NOT_FOUND} \$conf{TIMETRACKER_REDMINE_URL}");
+  }
+
+  return 1;
+}
+
+1;

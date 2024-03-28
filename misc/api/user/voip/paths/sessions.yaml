@@ -1,0 +1,34 @@
+get:
+  tags:
+    - voip
+  summary: Получить информацию о сессиях
+  parameters:
+    - name: pageRows
+      in: query
+      description: Количество записей
+      schema:
+        type: number
+        default: 25
+    - name: fromDate
+      in: query
+      description: С даты
+      schema:
+        type: string
+        example: '2022-12-12'
+        default: '0000-00-00'
+    - name: toDate
+      in: query
+      description: По какую дату
+      schema:
+        type: string
+        example: '2022-12-12'
+        default: '0000-00-00'
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            $ref: "../schemas/sessions.yaml"
+  security:
+    - USERSID: []

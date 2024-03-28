@@ -1,0 +1,47 @@
+
+#%FUNCTIONS_LIST = ("1:0:Sharing:sharing_users_list:"         => 11,
+#                   "2:0:Sharing:sharing_user:UID"            => 20,
+#  "3:2:$lang{STATS}:sharing_stats:UID"                       => 20,
+#  "4:2:$lang{ERROR}:sharing_error:UID"                       => 20,
+#  "5:2:$lang{TARIF_PLAN}:sharing_chg_tp:UID"                 => 20,
+#                   "10:0:Sharing:sharing_sessions:"          => 4,
+#  "11:10:$lang{ERROR}:sharing_error:"                        => 4,
+#                   "20:0:Sharing:null:"                      => 5,
+#  "21:20:$lang{TARIF_PLANS}:sharing_tp:"                     => 5,
+#  "22:21:$lang{GROUPS}:form_tp_groups:"                      => 5,
+#  "23:21:$lang{TRAFIC_TARIFS}:sharing_traffic_tariffs:TP_ID" => 5,
+#  "24:21:Ext $lang{TRAFFIC}:sharing_additions:TP_ID"         => 5,
+#  "25:20:$lang{PRIORITY}:sharing_priority:"                  => 5,
+#                   "30:0:Sharing:sharing_online:"            => 6
+#                   );
+#
+#%USER_FUNCTION_LIST = ("01:0:Sharing:sharing_user_info:" => 0,
+#  "03:1:$lang{STATS}:sharing_user_stats:"                => 0,
+#  # "04:1:$lang{TRAFFIC}:sharing_addition_buy:"  => 0
+#                       );
+#
+#%PERIODIC = (
+#             #daily   => [ 'dv_daily_fees',   'dv_users_warning_messages' ],
+#             monthly  => [ 'sharing_periodic_logrotate', 'sharing_periodic_monthly_fees', 'sharing_periodic' ],
+#             #report  => [ 'dv_report'       ]
+#             );
+#
+#$USER_FUNCTION_LIST{"02:1:$lang{TARIF_PLAN}:sharing_user_chg_tp:"} = 0 if ($conf{SHARING_USER_CHG_TP});
+
+
+%FUNCTIONS_LIST = (
+  "1:0:Sharing:null:"                               => 5,
+  "2:1:$lang{ADD} $lang{FILE}:sharing_add_file:"    => 5,
+  "3:1:$lang{ADD} $lang{GROUP}:sharing_add_group:"  => 5,
+  "4:0:$lang{FILES}:sharing_user_service:UID"              => 20,
+  "5:0:Sharing $lang{LOG}:null:"                           => 4,
+  "6:5:$lang{LOG} $lang{DOWNLOADS}:sharing_download_log:"  => 4,
+  "7:5:$lang{STATS}:sharing_report:"                       => 4,
+  "8:5:$lang{DEMO}:sharing_demo_report:"                   => 4,
+);
+
+%USER_FUNCTION_LIST = (
+  "01:0:$lang{FILES}:sharing_client_info:" => 0,
+);
+
+1

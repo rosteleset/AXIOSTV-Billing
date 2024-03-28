@@ -1,0 +1,143 @@
+--  *****************************************************************
+--  DLINKPV2-DDP-CLIENT-MIB.mib : DLINK discovery protocol MIB
+--
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKPV2-DDP-CLIENT-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY,
+        OBJECT-TYPE,
+        NOTIFICATION-TYPE,
+        Unsigned32
+                FROM SNMPv2-SMI
+        TruthValue
+                FROM SNMPv2-TC 
+        dlinkDGS1100CommonV2
+            FROM DGS1100SERMGMT-MIB;
+            
+            
+    primeV2DdpClientMIB MODULE-IDENTITY
+        LAST-UPDATED "201404260000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for D-Link Discovery Protocol client."
+
+        REVISION "201404260000Z"
+        DESCRIPTION
+            " This is the first version of the MIB file.
+            "
+        ::= { dlinkDGS1100CommonV2 2 }
+
+-- -----------------------------------------------------------------------------
+    v2DdpClientNotifications    OBJECT IDENTIFIER ::= { primeV2DdpClientMIB 0 }
+    v2DdpClientObjects          OBJECT IDENTIFIER ::= { primeV2DdpClientMIB 1 }
+    v2DdpClientConformance      OBJECT IDENTIFIER ::= { primeV2DdpClientMIB 2 }
+
+-- -----------------------------------------------------------------------------
+-- Notifications
+-- -----------------------------------------------------------------------------
+
+-- -----------------------------------------------------------------------------
+-- Objects
+-- -----------------------------------------------------------------------------
+    v2DdpClientCtrl            OBJECT IDENTIFIER ::= { v2DdpClientObjects 1 }
+
+    v2DdpClientGlobalState  OBJECT-TYPE
+        SYNTAX        TruthValue    
+        MAX-ACCESS    read-write
+        STATUS        current
+        DESCRIPTION
+            "This object represents the DDP client's global state
+                true - Indicates the DDP client is enabled
+                false - Indicates the DDP client is disabled"
+       DEFVAL { true }      
+        ::= { v2DdpClientCtrl 1 }
+       
+    v2DdpClientReportTimer OBJECT-TYPE 
+        SYNTAX          Unsigned32 (0|30|60|90|120)
+        UNITS           "second"
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object specifies the interval at which DDP report messages are sent
+            by the device.
+            Setting the object to 0 prohibits the device from sending DDP report message."
+        DEFVAL { 0 }   
+        ::= { v2DdpClientCtrl 2 }
+    
+-- -----------------------------------------------------------------------------
+    v2DdpClientIfCtrlTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2DdpClientIfEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A list of DDP information entries."
+        ::= { v2DdpClientObjects 2 }
+
+    v2DdpClientIfCtrlEntry OBJECT-TYPE
+        SYNTAX          V2DdpClientIfEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry indicates the setting of DDP function on an interface."
+        INDEX    { ifIndex }
+        ::= { v2DdpClientIfCtrlTable 1 }
+
+    V2DdpClientIfEntry ::= SEQUENCE {                             
+        v2DdpClientIfCfgEnabled      TruthValue               
+    }
+      
+    v2DdpClientIfCfgEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write 
+        STATUS          current
+        DESCRIPTION
+            "This object indicates whether the DDP is enabled on the interface."
+        ::= { v2DdpClientIfCtrlEntry 1 }   
+        
+-- -----------------------------------------------------------------------------
+-- Conformance
+-- ------------------------------------------------------------------------------- 
+
+    v2DdpClientCompliances OBJECT IDENTIFIER ::= { v2DdpClientConformance 1 }
+    v2DdpClientGroups      OBJECT IDENTIFIER ::= { v2DdpClientConformance 2 }
+    
+--  compliance statements
+v2DdpClientCompliance MODULE-COMPLIANCE
+        STATUS         current
+        DESCRIPTION
+            "The compliance statement for entities which implement the
+            DLINKPV2-DDP-CLIENT-MIB."
+
+        MODULE  -- this module
+        MANDATORY-GROUPS 
+            { 
+                v2DdpClientControlGroup
+            }
+        GROUP v2DdpClientControlGroup
+            DESCRIPTION
+                "This group is mandatory for those devices support DLINK discovery protocol."     
+        ::= { v2DdpClientCompliances 1 }
+        
+--  units of conformance
+
+    v2DdpClientControlGroup OBJECT-GROUP
+        OBJECTS             {
+            v2DdpClientGlobalState
+        }
+        STATUS  current
+        DESCRIPTION
+            "A collection of objects providing accessing to global status and report time or the status of a port."
+        ::= { v2DdpClientGroups 1 } 
+
+END

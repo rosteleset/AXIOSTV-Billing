@@ -1,0 +1,33 @@
+$lang{MEGOGO} = 'MEGOGO. Кіно і ТБ';
+$lang{ADD_TP} = 'Додати';
+$lang{USER_LIST} = 'Показати користувачів';
+$lang{TPS} = 'Підписки';
+$lang{ACTIVE_TP} = 'Активувати підписку';
+$lang{TP} = 'Підписка';
+$lang{AMOUNT} = 'Абонплата';
+$lang{SERVICEID} = 'Сервіс ID';
+$lang{ID} = 'ID';
+$lang{SHOW} = 'Показати';
+$lang{USERS} = 'Користувачі';
+$lang{DATE_REGISTER} = 'Дата реєстрації';
+$lang{FREE_PERIOD} = 'Бесплатний період';
+$lang{AVAILABLE} = 'Доступний';
+$lang{NOTAVAILABLE} = 'Не доступний';
+$lang{ON} = 'Включений';
+$lang{OFF} = 'Призупинений';
+$lang{SUB} = 'Підписати';
+$lang{UNSUB} = 'Відписати';
+$lang{PRIMARY} = 'Основна';
+$lang{SECONDARY} = 'Додаткова';
+$lang{GO_TO_MEGOGO} = 'Перейти на MEGOGO';
+$lang{MEGOGO_WARNING} = 'Для перегляду купленої підписки зареєструйтесь або авторизуйтесь на Megogo.net, натиснувши кнопку нижче:';
+$lang{IN_MONTH} = 'в місяць';
+$lang{IN_DAY} = 'в день';
+$lang{IN_NEXT_MONTH} = 'на наступний місяць';
+$lang{ANSWER}='відповідь';
+$lang{NOT_ENOUGH_MONEY}='Недостатньо коштів';
+$lang{NOT_USED}='Невикористанний';
+$lang{USED_FROM}='Використаний з';
+$lang{NO_TPS}='Підписки відсутні';
+
+1

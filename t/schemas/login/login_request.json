@@ -1,0 +1,9 @@
+{
+  "name": "LOGIN",
+  "method": "POST",
+  "path": "users/login/",
+  "body":{
+    "login": "test",
+    "password": "123456"
+  }
+}

@@ -1,0 +1,758 @@
+#!perl
+=head1 NAME
+
+  Wordpress control
+
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+use Wordpress::Wordpress;
+
+use Encode qw/decode_utf8 encode_utf8/;
+
+use AXbills::Base qw /_bp mk_unique_value in_array convert load_pmodule/;
+
+our (%conf, $html, %lang, $db, $admin);
+
+my %POST_STATUS = (
+  'publish' => 'Published', #TODO: localize
+
+);
+
+my @BASE_OPTIONS = ('blog_title', 'default_comment_status', 'users_can_register', 'blog_tagline');
+
+my @CUSTOM_OPTIONS = (
+  'axbills_has_coa',
+  'axbills_bootswitch_theme',
+  'axbills_coa_work_days',
+  'axbills_coa_work_hours',
+  'axbills_coa_holiday_days',
+  'axbills_coa_holiday_hours',
+  'axbills_coa_address',
+  'axbills_provider_mail',
+  'axbills_billing_url',
+  'axbills_api_key',
+  'axbills_gallery_images',
+  'axbills_slideshow_on',
+);
+
+my Wordpress::Wordpress $Wordpress = Wordpress::Wordpress->new( $db, $admin, \%conf );
+
+if (!$Wordpress){
+  $html->message('err', 'Wordpress', 'Install XML::RPC');
+  return 0;
+}
+
+
+#**********************************************************
+=head2 wordpress_options_main($attr)
+
+=cut
+#**********************************************************
+sub wordpress_options_main {
+
+  if ( $FORM{action} ) {
+    my %base_options;
+    foreach my $option_name ( @BASE_OPTIONS ) {
+      $base_options{$option_name} = decode_utf8($FORM{$option_name}) if (exists $FORM{$option_name});
+    }
+    $Wordpress->set_options( \%base_options );
+
+    my %custom_options;
+    foreach my $option_name ( @CUSTOM_OPTIONS ) {
+      $custom_options{$option_name} = $FORM{$option_name} if (exists $FORM{$option_name});
+    }
+
+    $Wordpress->update_custom_options( \%custom_options );
+
+    $html->message('info', $lang{SUCCESS}, $html->button( $lang{SHOW}, '', {
+          GLOBAL_URL     => $conf{WORDPRESS_URL},
+          NO_LINK_FORMER => 1,
+          target         => '_blank'
+        } ));
+  }
+
+  my $options = $Wordpress->options_list( \@BASE_OPTIONS );
+
+  #Check if defined admin API_KEY
+  my $hidden_inputs_html = '';
+  my $system_admin_id = $conf{SYSTEM_ADMIN_ID} || 2;
+
+  unless ( $options->{axbills_api_key} ) {
+    # Get api_key for system_admin;
+    my $admins_list = $admin->list( {
+        AID       => $system_admin_id,
+        API_KEY   => '_SHOW',
+        COLS_NAME => 1
+      } );
+    _error_show($admin);
+
+    if ( $admins_list && ref $admins_list eq 'ARRAY' && scalar @{$admins_list} ) {
+      my $system_admin = $admins_list->[0];
+      my $api_key = $system_admin->{api_key};
+
+      if ( !$api_key ) {
+        $api_key = mk_unique_value(20);
+        $admin->change( { AID => $system_admin_id, API_KEY => $api_key } );
+        _error_show($admin);
+      }
+
+      $hidden_inputs_html .= $html->form_input( 'axbills_api_key', $api_key, { TYPE => 'hidden' } );
+    }
+    else {
+      $html->message( 'err', 'System admin not defined. Use $conf{SYSTEM_ADMIN_ID}' );
+    }
+  }
+
+  my $custom_colors_list = $Wordpress->get_themes();
+
+  #TODO: make all_custom_options retrieve method
+  my $custom_options = $Wordpress->get_custom_options();
+
+  my $themes_select = $html->form_select( 'axbills_bootswitch_theme', {
+      SELECTED  => $custom_options->{axbills_bootswitch_theme} || '',
+      SEL_ARRAY => $custom_colors_list,
+      NO_ID     => 1
+    } );
+
+  $html->tpl_show( _include( 'wp_options', 'Wordpress' ), {
+
+      # Localized option descriptions
+      BLOG_TITLE_DESC                => $options->{blog_title}->{desc},
+      BLOG_TAGLINE_DESC              => $options->{blog_tagline}->{desc},
+      USERS_CAN_REGISTER_DESC        => $options->{users_can_register}->{desc},
+      DEFAULT_COMMENT_STATUS_DESC    => $options->{default_comment_status}->{desc},
+
+      # Values retrieved from Wordpress
+      BLOG_TITLE                     => $options->{blog_title}->{value},
+      BLOG_TAGLINE                   => $options->{blog_tagline}->{value},
+
+      THEMES_SELECT                  => $themes_select,
+
+      # Checkboxes needs special handling
+      DEFAULT_COMMENT_STATUS_CHECKED => $options->{default_comment_status}->{value} eq 'open' ? 'checked' : '',
+      USERS_CAN_REGISTER_CHECKED     => $options->{users_can_register}->{value} ? 'checked' : '',
+      HAS_COA_CHECKED                => $custom_options->{axbills_has_coa} ? 'checked' : '',
+      ABILLS_SLIDESHOW_ON_CHECKED    => $custom_options->{axbills_slideshow_on} ? 'checked' : '',
+      # Custom options
+      %{ ($custom_options && ref $custom_options eq 'HASH') ? $custom_options : { } },
+
+      HIDDEN_INPUTS                  => $hidden_inputs_html
+    } );
+}
+
+
+#**********************************************************
+=head2 wordpress_posts_main($attr)
+
+=cut
+#**********************************************************
+sub wordpress_posts_main {
+  my $posts = $Wordpress->posts_list();
+  my $authors = $Wordpress->authors_list();
+
+  my %author_by_id = ();
+  foreach my $author ( @{$authors} ) {
+    $author_by_id{$author->{user_id}} = $author;
+  }
+
+  my $add_button = $html->button( "$lang{ADD}", '',
+    { GLOBAL_URL => "$conf{WORDPRESS_URL}wp-admin/post-new.php?", NO_LINK_FORMER => 1, class => "add", target =>
+      '_blank' } );
+
+  my $table = $html->table( {
+      width      => '100%',
+      caption    => "Wordpress $lang{POSTS}",
+      title      => [ 'ID', "$lang{TITLE}", "$lang{AUTHOR}", "$lang{STATUS}", '-' ], # TODO: Localize
+      pages      => scalar @{$posts},
+      qs         => $pages_qs,
+      ID         => 'WORDPRESS_POSTS_ID',
+      MENU       => [ $add_button ],
+    } );
+
+  foreach my $post ( @{$posts} ) {
+    my $link = $html->button( $post->{post_title}, $post->{link},
+      { GLOBAL_URL => $post->{link}, NO_LINK_FORMER => 1 } );
+
+    my $author = $author_by_id{$post->{post_author}};
+    my $change_button = $html->button( "$lang{CHANGE}", '',
+      { GLOBAL_URL => "$conf{WORDPRESS_URL}wp-admin/post.php?post=$post->{post_id}&action=edit", NO_LINK_FORMER => 1,
+        class      => "change", target => '_blank' } );
+
+    $table->addrow(
+      $post->{post_id},
+      $link,
+      $author->{display_name},
+      $POST_STATUS{$post->{post_status}},
+      $change_button
+    );
+  }
+
+  print $table->show();
+}
+
+#**********************************************************
+=head2 wordpress_pages_main($attr)
+
+=cut
+#**********************************************************
+sub wordpress_pages_main {
+  my $pages = $Wordpress->posts_list( { post_type => 'page' } );
+
+  my $authors = $Wordpress->authors_list();
+
+  my %author_by_id = ();
+  foreach my $author ( @{$authors} ) {
+    $author_by_id{$author->{user_id}} = $author;
+  }
+
+  my $add_button = $html->button( "$lang{ADD}", '', {
+      GLOBAL_URL     => "$conf{WORDPRESS_URL}wp-admin/post-new.php?post_type=page",
+      NO_LINK_FORMER => 1,
+      class          => "add",
+      target         => '_blank'
+    } );
+
+  my $table = $html->table( {
+      width      => '100%',
+      caption    => "Wordpress $lang{PAGES}",
+      title      => [ 'ID', "$lang{TITLE}", "$lang{AUTHOR}", "$lang{STATUS}", '-' ], # TODO: Localize
+      pages      => scalar @{$pages},
+      qs         => $pages_qs,
+      ID         => 'WORDPRESS_PAGES_ID',
+      MENU       => [ $add_button ],
+    } );
+
+  foreach my $page ( @{$pages} ) {
+    my $link = $html->button( $page->{post_title}, $page->{link}, {
+        GLOBAL_URL     => $page->{link},
+        NO_LINK_FORMER => 1
+      } );
+
+    my $author = $author_by_id{$page->{post_author}};
+    my $change_button = $html->button( "$lang{CHANGE}", '', {
+        GLOBAL_URL     => "$conf{WORDPRESS_URL}wp-admin/post.php?post=$page->{post_id}&action=edit",
+        NO_LINK_FORMER => 1,
+        class          => "change",
+        target         => '_blank'
+      } );
+
+    $table->addrow(
+      $page->{post_id},
+      $link,
+      $author->{display_name},
+      $POST_STATUS{$page->{post_status}},
+      $change_button
+    );
+  }
+
+  print $table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 wordpress_to_msgs() -
+
+  Arguments:
+    $attr -
+  Returns:
+
+  Examples:
+
+=cut
+#**********************************************************
+sub wordpress_to_msgs {
+  use Msgs;
+  my $Msgs = Msgs->new( $db, $admin, \%conf );
+
+  # Call request
+  if ( $FORM{REQUEST_CALL} && $FORM{REQUEST_CALL} == 1 ) {
+
+    my $time = POSIX::strftime("%Y-%m-%d %H:%M:%S", localtime());
+    my $ip = $FORM{IP} || '';
+    my $message = "$time : $ip : $FORM{PHONE}";
+
+    $Msgs->message_add( {
+        USER_SEND => 1,
+        SUBJECT   => '[ Wordpress ] Call request',
+        PRIORITY  => 3,
+        MESSAGE   => $message,
+        INNER_MSG => 1
+      } );
+
+    _error_show($Msgs);
+    print 'success';
+  }
+
+  # Feedback
+  if ( $FORM{REQUEST_MSG} && $FORM{REQUEST_MSG} == 1 ) {
+    my $time = POSIX::strftime("%Y-%m-%d %H:%M:%S", localtime());
+    my $ip = $FORM{IP} || '';
+    my $message = "$time \n $ip \n $FORM{MESSAGE} \n\n FROM : $FORM{EMAIL} \n";
+    $Msgs->message_add( {
+        USER_SEND => 1,
+        SUBJECT   => '[ Wordpress ] Feedback',
+        PRIORITY  => 3,
+        MESSAGE   => $message,
+        INNER_MSG => 1
+      } );
+
+    _error_show($Msgs);
+    print 'success';
+  }
+
+  if ( $FORM{REGISTRATION} && $FORM{REGISTRATION} == 1){
+    my $time = POSIX::strftime("%Y-%m-%d %H:%M:%S", localtime());
+    my $ip = $FORM{IP} || '';
+    my $message = "$time \n $ip \n $lang{FIO}:  $FORM{FIO} \n $lang{ADDRESS}:  $FORM{ADDRESS}\n $lang{PHONE}:  $FORM{PHONE} \n Дата желаемоего покдлючения:  $FORM{DATE}";
+
+    $Msgs->message_add( {
+        USER_SEND => 1,
+        SUBJECT   => '[ Wordpress ] Registration',
+        PRIORITY  => 3,
+        MESSAGE   => $message,
+        INNER_MSG => 1
+      } );
+
+    _error_show($Msgs);
+    print 'success';
+  }
+
+  # Registration
+  # Made via registration.cgi
+
+  return 1;
+}
+
+#**********************************************************
+=head2 wordpress_gallery_image_upload() -
+
+=cut
+#**********************************************************
+sub wordpress_gallery_image_upload {
+
+  if ( $FORM{FILE} ) {
+
+    upload_file($FORM{FILE}, { PREFIX => 'wordpress' });
+
+  }
+
+  $html->tpl_show( _include( 'wordpress_upload_image', 'Wordpress' ), { } );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 wordpress_gallery_images_choosen() -
+
+=cut
+#**********************************************************
+sub wordpress_gallery_images_choosen {
+  my $wordpress_images_path = "$conf{TPL_DIR}wordpress/";
+  # $Wordpress->update_custom_options({axbills_gallery_images =>  ''});
+  my $files_ref = _get_files_in($wordpress_images_path);
+  my @files = ();
+
+  if (!$files_ref){
+    if(mkdir $wordpress_images_path){
+      $html->message('success', "$lang{DIR_CREATED}");
+    }
+  }
+  else {
+    @files = @{ $files_ref };
+  }
+
+  my $files_templates;
+
+  if ( my $error = load_pmodule( "JSON", { RETURN => 1 } ) ) {
+      print $error;
+      return 0;
+    }
+
+    my $json = JSON->new->utf8;
+
+  if ( $FORM{image_choose} ) {
+
+    my @SETTINGS_FOR_EXPORT = ();
+
+    foreach my $file (@files){
+      if($FORM{$file}){
+        my %img_info = (
+          url      => $FORM{"$file\_URL"},
+          describe => $FORM{"$file\_DESCRIBE"},
+          name     => $file,
+          );
+        push (@SETTINGS_FOR_EXPORT, \%img_info);
+      }
+    }
+    my $export_string = $json->encode( \@SETTINGS_FOR_EXPORT );
+    my $utf_decoded_export_string = decode_utf8($export_string);
+
+    $Wordpress->update_custom_options( { axbills_gallery_images => $utf_decoded_export_string } );
+    $html->message( 'success', "$lang{CHANGED}" );
+  }
+
+  my $wp_options = $Wordpress->get_custom_options();
+
+  my %files_choosen = ();
+  if ( $wp_options->{axbills_gallery_images} ) {
+
+    # my $settings = $json->decode( $wp_options->{axbills_gallery_images} );
+    my $settings;
+    ###########################
+    eval{ $settings = from_json($wp_options->{axbills_gallery_images}, {utf8 => 0}) };
+    #eval{ $settings = $json->decode( $wp_options->{axbills_gallery_images} ) };
+
+    if ($@){
+      $html->message('error', "$lang{ERROR} JSON");
+    }
+
+    foreach my $file (@$settings){
+      $files_choosen{$file->{name}} = $file;
+    }
+  }
+
+  foreach my $file ( @files ) {
+
+    my $file_info = $files_choosen{$file} || {};
+
+    my $name = $file_info->{name} || '';
+    my $url = $file_info->{url} || q{};
+    my $describe = $file_info->{describe} || q{};
+    my $checked = exists $files_choosen{$name} ? 'checked' : '';
+
+    $files_templates .= $html->tpl_show( _include( 'wordpress_file_template', 'Wordpress' ), {
+        FILE_NAME          => $file,
+        FILE_SRC           => "/images/wordpress/$file",
+        FILE_NAME_URL      => $url,
+        FILE_NAME_DESCRIBE => $describe,
+        CHECKED            => $checked,
+      }, { OUTPUT2RETURN => 1 } );
+
+  }
+
+  $html->tpl_show( _include( 'wordpress_images_choosen', 'Wordpress' ), {
+      IMAGES => $files_templates,
+
+    } );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 wordpress_export()
+
+=cut
+#**********************************************************
+sub wordpress_export {
+
+  my @exportable_modules = (
+    'Abon',
+    'Internet',
+    #    'Storage', 'Equipment'
+  );
+
+  our @MODULES;
+  my %is_enabled_and_exportable = map { $_ => in_array($_, \@MODULES)} @exportable_modules;
+
+  if ( $is_enabled_and_exportable{'Internet'} ) {
+    wordpress_export_dv_tariffs();
+  }
+
+  if ( $is_enabled_and_exportable{'Abon'} ) {
+    wordpress_export_abon();
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 wordpress_export_dv_tariffs()
+
+=cut
+#**********************************************************
+sub wordpress_export_dv_tariffs {
+  # Take tarrifs
+  require Tariffs;
+  Tariffs->import();
+
+  $FORM{IDS} =~ s/,\s?/;/g if ($FORM{IDS});
+
+  if ( $FORM{EXPORT} ) {
+
+    if ( $FORM{EXPORT_FINAL} ) {
+      # Read data from from
+      my $utf_decoded_export_string = _wordpress_read_cards_from_FORM();
+
+      $Wordpress->update_custom_options( {
+          'axbills_exported_tariffs' => $utf_decoded_export_string
+        } );
+
+      $html->message( 'info', $lang{SUCCESS}, $html->button( $lang{SHOW}, '', {
+            GLOBAL_URL     => $conf{WORDPRESS_URL} . '/tarify',
+            NO_LINK_FORMER => 1,
+            target         => '_blank'
+          } )
+      );
+
+      return 1;
+    }
+
+    my $Tariffs = Tariffs->new( $db, \%conf, $admin );
+
+    my $tariffs_list = $Tariffs->list( {
+        TP_ID       => $FORM{IDS} || '_SHOW',
+        ACTIV_PRICE => '_SHOW',
+        COMMENTS    => '_SHOW',
+        MODULE      => 'Internet',
+        COLS_UPPER  => 1,
+        COLS_NAME   => 1
+      } );
+
+    _wordpress_show_cards_form($tariffs_list, "$lang{EXPORT} INternet $lang{TARIF_PLANS}", { });
+    return 1;
+  }
+  else {
+    my $Tariffs = Tariffs->new( $db, \%conf, $admin );
+
+    my $tariffs_list = $Tariffs->list( {
+        ACTIV_PRICE => '_SHOW',
+        COMMENTS    => '_SHOW',
+        MODULE      => 'Internet',
+        COLS_NAME   => 1
+      } );
+
+    my $table = $html->table( {
+        width      => '100%',
+        caption    => 'Internet ' . $lang{TARIF_PLANS},
+        title      =>
+        [ '#', $lang{NAME}, $lang{DAY_FEE}, $lang{MONTH_FEE}, $lang{ACTIVATE}, $lang{GROUP}, $lang{DESCRIBE} ],
+        pages      => $Tariffs->{TOTAL},
+        qs         => $pages_qs,
+        ID         => 'WORDPRESS_DV_TARRIFS_ID',
+
+        SELECT_ALL => "dv_tarrifs_list:IDS:$lang{SELECT_ALL}",
+      } );
+
+    foreach my $tarif ( @{$tariffs_list} ) {
+      $table->addrow(
+        $html->form_input( 'IDS', $tarif->{id}, { TYPE => 'checkbox' } ),
+        $tarif->{id},
+        $tarif->{name},
+        $tarif->{day_fee},
+        $tarif->{month_fee},
+        $tarif->{activate_price},
+        $tarif->{tp_group_name} || q{},
+          ($tarif->{comments}) ? $html->element( 'abbr', $lang{DESCRIBE}, {
+              'data-tooltip'          => $tarif->{comments},
+              'data-tooltip-position' => 'bottom'
+            }
+          )                    : '',
+      );
+    }
+
+    print $html->form_main( {
+          CONTENT => $html->element( 'div', $table->show(), { class => 'row' } ),
+          HIDDEN  => {
+            index  => get_function_index('wordpress_export_dv_tariffs'),
+            EXPORT => 1
+          },
+          SUBMIT  => {
+            DV_TARIFFS_EXPORT => "$lang{EXPORT} Internet $lang{TARIF_PLANS}"
+          }
+        } );
+
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 wordpress_export_abon()
+
+=cut
+#**********************************************************
+sub wordpress_export_abon {
+  # Take tarrifs
+  require Abon;
+  Abon->import();
+
+  $FORM{IDS} = $FORM{ABON_IDS};
+  $FORM{IDS} =~ s/,\s?/;/g if ($FORM{IDS});
+
+  if ( $FORM{EXPORT} ) {
+
+    if ( $FORM{EXPORT_FINAL} ) {
+      # Read data from from
+      my $utf_decoded_export_string = _wordpress_read_cards_from_FORM();
+
+      $Wordpress->update_custom_options( {
+          'axbills_exported_services' => $utf_decoded_export_string
+        } );
+
+      $html->message( 'info', $lang{SUCCESS}, $html->button( $lang{SHOW}, '', {
+            GLOBAL_URL     => $conf{WORDPRESS_URL} . '/services',
+            NO_LINK_FORMER => 1,
+            target         => '_blank'
+          } )
+      );
+
+      return 1;
+    }
+
+    my $Abon = Abon->new( $db, $admin, \%conf );
+
+    my $services_list = $Abon->tariff_list( {
+        ID          => $FORM{IDS} || '_SHOW',
+        COLS_UPPER  => 1,
+        COLS_NAME   => 1
+      } );
+
+    my @services_list = map { my $service = $_; $service->{ID} = $_->{TP_ID}; $service } @$services_list;
+
+    _wordpress_show_cards_form(\@services_list, "$lang{EXPORT} Abon $lang{TARIF_PLANS}", { ABON_IDS => $FORM{IDS} });
+
+    return 1;
+  }
+  else {
+    my $Abon = Abon->new( $db, $admin, \%conf );
+
+    my $services_list = $Abon->tariff_list( {
+        ID          => $FORM{IDS} || '_SHOW',
+        COLS_NAME   => 1
+      } );
+
+    my $table = $html->table( {
+        width      => '100%',
+        caption    => 'Abon ' . $lang{TARIF_PLANS},
+        title      =>
+        [ '#', $lang{NAME}, $lang{DAY_FEE}, $lang{MONTH_FEE}],
+        pages      => $Abon->{TOTAL},
+        qs         => $pages_qs,
+        ID         => 'WORDPRESS_ABON_TARIFFS_ID',
+
+        SELECT_ALL => "abon_tarrifs_list:ABON_IDS:$lang{SELECT_ALL}",
+      } );
+
+    foreach my $service ( @{$services_list} ) {
+      $service->{id} = $service->{tp_id};
+
+      $table->addrow(
+        $html->form_input( 'ABON_IDS', $service->{id}, { TYPE => 'checkbox' } ),
+        $service->{id},
+        $service->{tp_name},
+        ($service->{period} == 0) ? $service->{price} : '',
+        ($service->{period} == 1) ? $service->{price} : '',
+      );
+    }
+
+    print $html->form_main( {
+          CONTENT => $html->element( 'div', $table->show(), { class => 'row' } ),
+          HIDDEN  => {
+            index  => get_function_index('wordpress_export_abon'),
+            EXPORT => 1
+          },
+          SUBMIT  => {
+            DV_TARIFFS_EXPORT => "$lang{EXPORT} Abon $lang{TARIF_PLANS}"
+          }
+        } );
+
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _wordpress_show_cards_form($list, $submit_name, $hidden_inputs_hash_ref)
+
+  Arguments:
+    $list                   - list to form cards
+    $submit_name            - name form button
+    $hidden_inputs_hash_ref - hidden inputs to HTML::form_main
+
+  Returns
+    1
+
+=cut
+#**********************************************************
+sub _wordpress_show_cards_form {
+  my ($list, $submit_name, $hidden_inputs_hash_ref) = @_;
+
+  my $cards_html = '';
+
+  foreach my $item ( @{$list} ) {
+    $cards_html .= $html->tpl_show( _include('wordpress_card_export', 'Wordpress'), $item, {
+        OUTPUT2RETURN => 1
+      }
+    );
+  }
+
+  print $html->form_main( {
+        CONTENT => $html->element( 'div', $cards_html, { class => 'row' } ),
+        HIDDEN  => {
+          index        => $index,
+          EXPORT       => 1,
+          EXPORT_FINAL => 1,
+          IDS          => $FORM{IDS} || q{},
+          %{(defined $hidden_inputs_hash_ref) ? $hidden_inputs_hash_ref : { }}
+        },
+        SUBMIT  => {
+          action => $submit_name
+        },
+        class   => 'form form-horizontal'
+      } );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _wordpress_read_cards_from_FORM() - returns string
+
+  Returns:
+    string
+
+=cut
+#**********************************************************
+sub _wordpress_read_cards_from_FORM {
+  my ($id_parameter_name) = @_;
+
+  $id_parameter_name ||= 'IDS';
+
+  my $ids = $FORM{$id_parameter_name};
+  unless ( $ids ) {
+    $html->message( 'err', $lang{NO_DATA}, 'no data' );
+    return 0;
+  }
+
+  my @item_ids = split (';', $ids);
+
+  my @Cards_for_export = ();
+  foreach my $item_id ( @item_ids ) {
+    my %card_info = (
+      title => $FORM{"$item_id\_NAME"} || undef,
+      text  => $FORM{"$item_id\_DESCRIBE"} || undef,
+      link  => $FORM{"$item_id\_URL"} || undef,
+      img   => $FORM{"$item_id\_ICON"} || undef,
+    );
+    push(@Cards_for_export, \%card_info);
+  }
+
+  if ( my $error = load_pmodule( "JSON", { RETURN => 1 } ) ) {
+    print $error;
+    return 0;
+  }
+
+  my $json = JSON->new->utf8;
+  my $export_string = $json->encode( \@Cards_for_export );
+
+  # Need to decode UTF8 to safely send it via XML RPC
+  my $utf_decoded_export_string = decode_utf8($export_string);
+
+  return $utf_decoded_export_string;
+}
+
+
+
+1;

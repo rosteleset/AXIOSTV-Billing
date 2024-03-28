@@ -1,0 +1,35 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+  "required": [
+  ],
+  "properties": {
+    "properties": {
+      "id": {
+        "$id": "#/properties/id",
+        "type": "number"
+      },
+      "datetime": {
+        "$id": "#/properties/datetime",
+        "type": "string"
+      },
+      "rfid": {
+        "$id": "#/properties/rfid",
+        "type": "number"
+      },
+      "admin": {
+        "$id": "#/properties/admin",
+        "type": "string"
+      },
+      "admin_name": {
+        "$id": "#/properties/admin_name",
+        "type": "string"
+      },
+      "admin_id": {
+        "$id": "#/properties/admin_id",
+        "type": "number"
+      }
+    }
+  }
+}

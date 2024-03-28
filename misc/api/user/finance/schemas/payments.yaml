@@ -1,0 +1,20 @@
+type: object
+properties:
+  datetime:
+    type: string
+    example: "2021-12-04 17:58:35"
+  dsc:
+    type: string
+    example: "Payments ID: 10323469 ФИО - Иванов Виктор Викторович Логин - ivanov_v # 380509152"
+  extId:
+    type: string
+    example: Liqpay:10323469
+  id:
+    type: number
+    example: 2237
+  sum:
+    type: number
+    example: 451
+  uid:
+    type: number
+    example: 6550

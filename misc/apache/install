@@ -1,0 +1,13 @@
+:OS=FREEBSD:apache24_enable="YES"  >> [/etc/]/rc.conf
+:OS=FREEBSD:exec:chown www /usr/axbills/cgi-bin /usr/axbills/cgi-bin/admin /usr/axbills/AXbills/templates
+::exec:/usr/axbills/misc/certs_create.sh apache 1>&2
+::exec:mkdir /var/log/httpd
+:OS=FREEBSD:FILE=axbills_httpd.conf > [%APACHE_CONF_DIR%]/axbills_httpd.conf
+:OS=FREEBSD:FILE=axbills_hotspot.conf > [%APACHE_CONF_DIR%]/axbills_hotspot.conf
+:OS=FREEBSD:exec: %RESTART_APACHE% restart
+:OS=LINUX:FILE=axbills_httpd.conf > [%APACHE_CONF_DIR%]/axbills_httpd.conf
+:OS=LINUX:FILE=axbills_hotspot.conf > [%APACHE_CONF_DIR%]/axbills_hotspot.conf
+:OS=LINUX:exec: %RESTART_APACHE% restart
+:OS=LINUX:exec:chown %WEB_SERVER_USER% /usr/axbills/cgi-bin /usr/axbills/cgi-bin/admin /usr/axbills/AXbills/templates
+
+

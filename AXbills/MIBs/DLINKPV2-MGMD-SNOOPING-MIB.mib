@@ -1,0 +1,306 @@
+--  *****************************************************************
+--  DLINKPV2-MGMD-SNOOPING-MIB.mib : MGMD (IGMP/MLD) Snooping MIB
+-- 
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+DLINKPV2-MGMD-SNOOPING-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-TYPE,
+        NOTIFICATION-TYPE, IpAddress,
+        TimeTicks, Counter64, Unsigned32      FROM SNMPv2-SMI
+        RowStatus, DisplayString, TruthValue  FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP       FROM SNMPv2-CONF
+        InterfaceIndex, InterfaceIndexOrZero  FROM IF-MIB
+        InetAddress, InetAddressType          FROM INET-ADDRESS-MIB		
+        VlanId, VlanIdOrNone, PortList        FROM Q-BRIDGE-MIB
+        dlinkDGS1100CommonV2                  FROM DGS1100SERMGMT-MIB;
+
+
+    primeV2MgmdSnoopingMIB MODULE-IDENTITY
+        LAST-UPDATED "201404260000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for MGMD (Multicast Group
+            Membership Discovery) snooping."
+            
+        REVISION "201404260000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file for 'MGMD snooping'
+            functionality."
+    ::= { dlinkDGS1100CommonV2 9 }
+
+-- 
+-- Textual Conventions
+--
+SnoopingType ::= TEXTUAL-CONVENTION
+    STATUS       current
+    DESCRIPTION
+        "The snooping type.
+
+        'igmpSnooping' -- IGMP (IPv4 MGMD) snooping. 
+
+        'mldSnooping' -- MLD (IPv6 MGMD) snooping.
+        "    
+            
+    SYNTAX     INTEGER {
+        igmpSnooping(1),
+        mldSnooping(2)
+    }
+-- -----------------------------------------------------------------------------
+    v2MgmdSnpMIBNotifications   OBJECT IDENTIFIER ::= { primeV2MgmdSnoopingMIB 0 }
+    v2MgmdSnpMIBObjects         OBJECT IDENTIFIER ::= { primeV2MgmdSnoopingMIB 1 }
+    v2MgmdSnpMIBConformance     OBJECT IDENTIFIER ::= { primeV2MgmdSnoopingMIB 2 }
+
+-- -----------------------------------------------------------------------------
+    v2MgmdSnpGlobalCtrl         OBJECT IDENTIFIER ::= { v2MgmdSnpMIBObjects 1 }
+    
+    v2MgmdSnpStateGblEnabled OBJECT-TYPE
+        SYNTAX BITS {
+            ipv4(0),
+            ipv6(1)  }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "An object indicates which type of MGMD is globally enabled.
+            Setting a type's bit to 1 means the type of MGMD is globally 
+            enabled.
+            ipv4 (0)    - IGMP snooping
+            ipv6 (1)    - MLD snooping." 
+        ::= { v2MgmdSnpGlobalCtrl 1 }
+        
+        
+-- -----------------------------------------------------------------------------
+    v2MgmdSnpVlanIfCtrl           OBJECT IDENTIFIER ::= { v2MgmdSnpMIBObjects 2 }
+    
+    v2MgmdSnpIfTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2MgmdSnpIfEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table lists the MGMD snooping settings per interface. 
+            An entry is created to configure the MGMD snooping related settings
+            to different value than the default per interface.
+            When an entry is deleted, all the MGMD snooping settings will be
+            reverted to default settings."
+        ::= { v2MgmdSnpVlanIfCtrl 1 }
+
+    v2MgmdSnpIfEntry OBJECT-TYPE
+        SYNTAX          V2MgmdSnpIfEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "A table entry represents the MGMD snooping state on a VLAN
+             basis."
+        INDEX    { 
+            v2MgmdSnpIfVlanIfIndex 
+        }
+        ::= { v2MgmdSnpIfTable 1 }
+
+    V2MgmdSnpIfEntry ::= SEQUENCE {
+        v2MgmdSnpIfVlanIfIndex               InterfaceIndex,            
+        v2MgmdSnpIfStateEnabled              TruthValue,
+        v2MgmdSnpIfQuerierStateEnabled       TruthValue
+    }
+         
+    v2MgmdSnpIfVlanIfIndex OBJECT-TYPE
+        SYNTAX          InterfaceIndex
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Indicates the specific VLAN interface."
+        ::= { v2MgmdSnpIfEntry 1 }   
+
+    v2MgmdSnpIfStateEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the state of MGMD snooping of the entry."
+        DEFVAL      { false }
+        ::= { v2MgmdSnpIfEntry 2 }
+
+    v2MgmdSnpIfQuerierStateEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the MGMD query function in Layer 2 networks."
+        DEFVAL      { false }
+        ::= { v2MgmdSnpIfEntry 3 }
+    
+    
+-- -----------------------------------------------------------------------------
+    v2MgmdSnpGroupCtrl           OBJECT IDENTIFIER ::= { v2MgmdSnpMIBObjects 3 }
+    
+    v2MgmdSnpGroupTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2MgmdSnpGroupEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "The table listing the MGMD snooping dynamic groups."
+        ::= { v2MgmdSnpGroupCtrl 1 }
+
+    v2MgmdSnpGroupEntry OBJECT-TYPE
+        SYNTAX          V2MgmdSnpGroupEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry in the v2MgmdSnpGroupTable."
+        INDEX  { 
+            v2MgmdSnpGroupVlanIfIndex,
+            v2MgmdSnpGroupAddress            
+        }
+        ::= { v2MgmdSnpGroupTable 1 }
+
+    V2MgmdSnpGroupEntry ::=   SEQUENCE {
+        v2MgmdSnpGroupVlanIfIndex            InterfaceIndex,
+        v2MgmdSnpGroupAddress                InetAddress,
+        v2MgmdSnpGroupIfIndex                PortList
+    }
+
+	v2MgmdSnpGroupVlanIfIndex OBJECT-TYPE
+        SYNTAX          InterfaceIndex
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Indicates the specific VLAN interface."
+        ::= { v2MgmdSnpGroupEntry 1 }
+        
+
+    v2MgmdSnpGroupAddress OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object identifies the group address of the entry."
+        ::= { v2MgmdSnpGroupEntry 2}
+            
+    v2MgmdSnpGroupIfIndex OBJECT-TYPE
+        SYNTAX          PortList
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "Indicates the specific physical port/port-channel interface"
+        ::= { v2MgmdSnpGroupEntry 3 }
+
+            
+-- -----------------------------------------------------------------------------
+    v2MgmdSnpStaticGrpTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2MgmdSnpStaticGrpEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table is used to manage MGMD snooping static groups."
+        ::= { v2MgmdSnpGroupCtrl 2 }
+    
+    v2MgmdSnpStaticGrpEntry OBJECT-TYPE
+        SYNTAX          V2MgmdSnpStaticGrpEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "An entry in the v2MgmdSnpStaticGrpTable."
+        INDEX  { 
+            v2MgmdSnpStaticGrpVlanIfIndex,            
+            v2MgmdSnpStaticGrpAddress  
+        }
+        ::= { v2MgmdSnpStaticGrpTable 1 }
+        
+    V2MgmdSnpStaticGrpEntry ::=   SEQUENCE {
+        v2MgmdSnpStaticGrpVlanIfIndex          InterfaceIndex,        
+        v2MgmdSnpStaticGrpAddress              InetAddress,
+        v2MgmdSnpStaticGrpIfIndex              PortList,
+		v2MgmdSnpStaticGrpStatus               RowStatus		
+    }
+    
+    v2MgmdSnpStaticGrpVlanIfIndex OBJECT-TYPE
+        SYNTAX          InterfaceIndex
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "Indicates the specific VLAN interface."
+        ::= { v2MgmdSnpStaticGrpEntry 1 }        
+        
+    v2MgmdSnpStaticGrpAddress OBJECT-TYPE
+        SYNTAX          InetAddress
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This object identifies the group address of the entry."
+        ::= { v2MgmdSnpStaticGrpEntry 2}
+            
+    v2MgmdSnpStaticGrpIfIndex OBJECT-TYPE
+        SYNTAX          PortList
+        MAX-ACCESS      read-create
+        STATUS          current
+        DESCRIPTION
+            "Indicates the specific physical port/port-channel interface"
+        ::= { v2MgmdSnpStaticGrpEntry 3 }
+                    
+	v2MgmdSnpStaticGrpStatus OBJECT-TYPE
+        SYNTAX      RowStatus
+        MAX-ACCESS  read-create
+        STATUS      current
+        DESCRIPTION
+            "The status of this conceptual row."
+        ::= { v2MgmdSnpStaticGrpEntry 4 }
+		
+--  ***************************************************************************
+--  Conformance
+--  ***************************************************************************
+    v2MgmdSnpCompliances OBJECT IDENTIFIER ::= { v2MgmdSnpMIBConformance 1 }
+        
+    v2MgmdSnpCompliance MODULE-COMPLIANCE
+        STATUS current
+        DESCRIPTION 
+            "The compliance statement for entities which implement the 
+            DLINKPV2-MGMD-SNOOPING-MIB."
+        MODULE -- this module
+        MANDATORY-GROUPS { 
+            v2MgmdSnpGblCfgGroup,
+            v2MgmdSnpVlanIfCfgGoup                               
+        }
+        
+        OBJECT          v2MgmdSnpIfProxyReportingEnabled
+        MIN-ACCESS      read-only
+        DESCRIPTION
+         "It is compliant to implement this object as read-only if 
+         proxy-reporting function is not supported at the agent."
+        ::= { v2MgmdSnpCompliances 1 }
+        
+    v2MgmdSnpGroups OBJECT IDENTIFIER ::= { v2MgmdSnpMIBConformance 2 }
+        
+    v2MgmdSnpGblCfgGroup OBJECT-GROUP
+        OBJECTS { 
+            v2MgmdSnpStateGblEnabled
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing global configuration about MGMD
+            snooping."
+        ::= { v2MgmdSnpGroups 1 }
+        
+    v2MgmdSnpVlanIfCfgGoup OBJECT-GROUP
+        OBJECTS { 
+            v2MgmdSnpIfStateEnabled, 
+            v2MgmdSnpIfQuerierStateEnabled
+        }
+        STATUS current
+        DESCRIPTION 
+            "A collection of objects providing MGMD snooping per VLAN interface 
+            configuration."
+            ::= { v2MgmdSnpGroups 2 }
+            
+
+               
+END
+

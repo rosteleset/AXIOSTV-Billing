@@ -1,0 +1,101 @@
+{
+  "DEVICE": "MIKROTIK RB260GS",
+  "FDB": "1",
+  "SAVE": "",
+//  "VLANS": ".1.3.6.1.2.1.17.7.1.4.3.1.1",
+  "FDB_EXPR": "(%%d+).(%%d+%%.%%d+%%.%%d+%%.%%d+%%.%%d+%%.%%d+):(.+)|VLAN,MAC,PORT",
+  "info": {
+    "FIRMWARE": {
+      "OIDS": "",
+      "PARSER": ""
+    },
+    "UPTIME": {
+      "OIDS": ".1.3.6.1.2.1.1.3.0",
+      "PARSER": "sp_parse_raw"
+    },
+    "SYSTEM_DESCR": {
+      "OIDS": ".1.3.6.1.2.1.1.1.0",
+      "PARSER": ""
+    },
+    "SYSTEM_HOSTNAME": {
+      "OIDS": ".1.3.6.1.2.1.1.5.0",
+      "PARSER": ""
+    },
+    "SYSTEM_LOCATION": {
+      "OIDS": ".1.3.6.1.2.1.1.6.0",
+      "PARSER": ""
+    },
+    "SYSTEM_CONTACT": {
+      "OIDS": ".1.3.6.1.2.1.1.4.0",
+      "PARSER": ""
+    }
+  },
+  "status" : {
+  },
+  "ports": {
+    "PORT_DESCR": {
+      "OIDS": ".1.3.6.1.2.1.2.2.1.2",
+      "PARSER": ""
+    },
+    "ADMIN_PORT_STATUS": {
+      "OIDS": ".1.3.6.1.2.1.2.2.1.7",
+      "PARSER": ""
+    },
+    "PORT_STATUS": {
+      "OIDS": ".1.3.6.1.2.1.2.2.1.8",
+      "PARSER": ""
+    },
+    "PORT_UPTIME": {
+          "OIDS": ".1.3.6.1.2.1.2.2.1.9",
+          "PARSER": ""
+    },
+    "PORT_SPEED": {
+      "OIDS": ".1.3.6.1.2.1.2.2.1.5",
+      "PARSER": ""
+    },
+    "PORT_NAME": {
+      "OIDS": ".1.3.6.1.2.1.31.1.1.1.1",
+      "PARSER": ""
+    },
+    "PORT_INDEX": {
+      "OIDS": "1.3.6.1.2.1.17.1.4.1.2",
+      "PARSER": ""
+    },
+    "PORT_ALIAS": {
+      "OIDS": ".1.3.6.1.2.1.31.1.1.1.18",
+      "PARSER": ""
+    },
+    "PORT_TYPE": {
+      "OIDS": ".1.3.6.1.2.1.2.2.1.3",
+      "PARSER": ""
+    },
+    "NATIVE_VLAN": {
+      "OIDS": ".1.3.6.1.2.1.17.7.1.4.5.1.1",
+      "PARSER": ""
+    },
+    "PORT_IN_ERR": {
+      "OIDS": ".1.3.6.1.2.1.2.2.1.14",
+      "PARSER": "hidden"
+    },
+    "PORT_OUT_ERR": {
+      "OIDS": ".1.3.6.1.2.1.2.2.1.20",
+      "PARSER": "hidden"
+    },
+    "PORTMULTTX": {
+      "OIDS": ".1.3.6.1.2.1.31.1.1.1.4",
+      "PARSER": "hidden"
+    },
+    "PORT_MULT_RX": {
+      "OIDS": ".1.3.6.1.2.1.31.1.1.1.2",
+      "PARSER": "hidden"
+    },
+    "PORT_BROD_TX": {
+      "OIDS": ".1.3.6.1.2.1.31.1.1.1.5",
+      "PARSER": "hidden"
+    },
+    "PORT_BROD_RX": {
+      "OIDS": ".1.3.6.1.2.1.31.1.1.1.3.1",
+      "PARSER": "hidden"
+    }
+  }
+}

@@ -1,0 +1,22 @@
+{
+  "name": "Push API Demo",
+  "short_name": "Push API Demo",
+  "icons": [{
+    "src": "/favicon.ico",
+    "sizes": "192x192",
+    "type": "image/png"
+  },
+    {
+      "src": "/axbills-120x120.jpg",
+      "sizes": "120x120",
+      "type": "image/jpg"
+    },
+    {
+      "src": "/message-192x192.png",
+      "sizes": "192x192",
+      "type": "image/png"
+    }],
+  "start_url": "/index.cgi",
+  "display": "standalone",
+  "gcm_sender_id": "680045110870"
+}

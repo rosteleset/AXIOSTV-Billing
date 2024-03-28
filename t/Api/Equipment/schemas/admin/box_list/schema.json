@@ -1,0 +1,25 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+  "required": [
+  ],
+  "properties": {
+    "marking": {
+      "$id": "#/properties/marking",
+      "type": "string"
+    },
+    "serial": {
+      "$id": "#/properties/serial",
+      "type": "number"
+    },
+    "datetime": {
+      "$id": "#/properties/datetime",
+      "type": "string"
+    },
+    "id": {
+      "$id": "#/properties/id",
+      "type": "number"
+    }
+  }
+}

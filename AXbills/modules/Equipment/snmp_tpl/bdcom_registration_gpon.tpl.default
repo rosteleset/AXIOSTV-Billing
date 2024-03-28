@@ -1,0 +1,6 @@
+enable
+terminal length 0
+conf
+interface gpon %BRANCH%
+gpon bind-onu sn %MAC_SERIAL%
+show run interface gpon %BRANCH% | include bind-onu

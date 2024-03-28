@@ -1,0 +1,1231 @@
+#!perl
+=head1 NAME
+
+  Info - module webinterface for Info.pm version 1.00
+
+=cut
+
+use Info;
+use AXbills::Base qw/in_array/;
+
+require AXbills::Misc;
+
+our AXbills::HTML $html;
+
+use constant {
+  img_dir              => "/images/Info/images/",
+  documents_dir        => "/images/Info/docs/",
+
+  img_upload_dir       => "/Info/images/",
+  documents_upload_dir => "/Info/docs/",
+
+};
+
+my $image_allowed_extensions = $conf{INFO_IMAGE_ALLOWED_EXTENSIONS} || 'gif, png, jpg, jpeg';
+
+=head1 SYNOPSIS
+
+  Visualization for Info module
+
+  Workes with JavaScript info.js for dynamic changing comments
+  CSS styles in info.css
+
+=head1 USAGE
+
+  load_module('Info', $html);
+  info_comments_show('admins', 25); - Show comments for 'admins' table object with id 25
+
+=cut
+
+#Initialization
+my $Info = Info->new($db, $admin, \%conf);
+
+my $debug = 0;
+
+my $close_outer_modal_script = qq\
+  <script>
+    setTimeout(function(){aModal.hide()}, 2000);
+    Events.emit('info_something_changed', true);
+  </script>
+  \;
+
+#**********************************************************
+=head2 info_comments_show
+  
+  Entry point for showing comments
+  
+  Arguments:
+    $type - table name for object
+    $id   - object id
+    $attr
+      WITH_BOX - shows comments in box with header
+
+  Prints a list of comments for specified object with controls for removing and adding
+  
+=head2 EXAMPLE
+
+  info_comments_show('users', 6); # Will show a list for object from table 'users' and id 6;
+  info_comments_show('users', 6, {WITH_BOX => 1}); # Will show a list for object from table 'users' and id 6 in a box;
+
+=cut
+#**********************************************************
+sub info_comments_show {
+  my ($type, $id, $attr) = @_;
+
+  #form comments for current object
+  my $comments_list = $Info->get_comments($type, $id, { COLS_NAME => 1, PAGE_ROWS => 1000 });
+
+  my $comments = info_comments_make($comments_list);
+
+  #form comments controls
+  my $form_controls = $html->tpl_show(_include('comments/info_comments_controls', 'Info'), {
+    TABLE_NAME        => $type,
+    OBJECT_ID         => $id,
+    ADD_COMMENT_INDEX => get_function_index('info_comment_add'),
+    INDEX             => get_function_index('form_users'),
+    UID               => $FORM{UID}
+  }, { OUTPUT2RETURN => 1, ID => 'info_comments_controls' });
+
+  #print comments main
+  my $comments_block = q{};
+  if ($attr->{WITH_BOX}) {
+    $comments_block = $html->tpl_show(_include('comments/info_comments_box_wrapper', 'Info'), {
+      COMMENTS          => join('', @{$comments}),
+      COMMENTS_CONTROLS => $form_controls,
+      TABLE_NAME        => $type,
+      OBJECT_ID         => $id,
+    }, { OUTPUT2RETURN => 1, ID => 'info_comments_controls', %{$attr} });
+  }
+  else {
+    $comments_block = $html->tpl_show(_include('comments/info_comments_wrapper', 'Info'), {
+      COMMENTS          => join('', @{$comments}),
+      COMMENTS_CONTROLS => $form_controls,
+      TABLE_NAME        => $type,
+      OBJECT_ID         => $id,
+    }, { OUTPUT2RETURN => 1, ID => 'info_comments_wrapper', %{$attr} });
+  }
+
+  if ($attr->{OUTPUT2RETURN}) {
+    return $comments_block;
+  }
+  else {
+    print $comments_block;
+  }
+
+  return '';
+}
+
+#**********************************************************
+=head2 info_comments_renew
+
+  This function is used to renew comments list after adding new comment
+
+  Works similar to info_comments_show except wrapping comments_list to 'info_comments_wrapper' template
+
+=cut
+#**********************************************************
+sub info_comments_renew {
+  my $type = $FORM{OBJ_TYPE};
+  my $id = $FORM{OBJ_ID};
+
+  my $comments = info_comments_make($Info->get_comments($type, $id, { COLS_NAME => 1 }));
+
+  print join('', @{$comments});
+}
+
+#**********************************************************
+=head2 info_attachment
+
+=cut
+#**********************************************************
+sub info_attachment {
+  my ($attr) = @_;
+
+  $attr->{ATTACHMENT} //= $FORM{ATTACHMENT};
+
+  my $attachment = $Info->info_document_info($attr->{ATTACHMENT});
+
+  if (!$attachment || ($attachment->{errstr} || $attachment->{errno})) {
+    print "Content-Type: text/html\n\n";
+    print "Error: " . ($attachment->{errstr} || "Can't find attachment") . "\n";
+    return 0;
+  }
+
+  print "Cache-Control: private, max-age=10800, pre-check=10800\n";
+  print "Content-Type: $attachment->{CONTENT_TYPE};  filename=\"$attachment->{FILENAME}\"\n"
+    . "Content-Disposition:  attachment;  filename=\"$attachment->{FILENAME}\";  size=$attachment->{CONTENT_SIZE}" . "\n\n";
+  print "$attachment->{FILE}";
+}
+
+#**********************************************************
+=head2 info_comments_make
+  
+  Contains logic for wrapping each comments list entry in 'info_comment.tpl'
+  
+  Arguments:
+    $comments_list - array reference for array of hashes from DB
+    $attr          - extra arguments (reserved for future)
+  
+=cut
+#**********************************************************
+sub info_comments_make {
+  my ($comments_list) = @_;
+
+  if ($FORM{UPLOAD_FILE} && $FORM{INFO_COMMENT_ID}) {
+    my $upload_file = $FORM{UPLOAD_FILE};
+
+    $Info->info_documents_list({ FILENAME => $upload_file->{filename}, COMMENT_ID => $FORM{INFO_COMMENT_ID} });
+
+    if (!$Info->{TOTAL} || $Info->{TOTAL} < 1) {
+      $Info->info_document_add({
+        FILE         => $upload_file->{Contents},
+        CONTENT_SIZE => $upload_file->{Size},
+        FILENAME     => $upload_file->{filename},
+        CONTENT_TYPE => $upload_file->{'Content-Type'},
+        COMMENT_ID   => $FORM{INFO_COMMENT_ID}
+      });
+      $html->message('info', $lang{SUCCESS}, $lang{ADDED}) if !_error_show($Info);
+    }
+  }
+
+  my @filled_templates = ();
+  my $del_button = qq{};
+  my $edit_button = qq{};
+  my $attach_button = qq{};
+  my $comments_remove_index = get_function_index('info_comment_del');
+  my $data_num = 0;
+
+  my @reversed_arr = ();
+  @reversed_arr = reverse @{$comments_list} if $comments_list;
+
+  foreach my $comment (@reversed_arr) {
+    my $not_changed = !$Info->log_comments({ COMMENT_ID => $comment->{id} });
+    if (!$FORM{xml}) {
+      $del_button = $html->button('', '', {
+        NO_LINK_FORMER => 1,
+        JAVASCRIPT     => 1,
+        SKIP_HREF      => 1,
+        ICON           => 'fa fa-users',
+        ex_params      => "data-url='?qindex=$comments_remove_index&OBJ_ID=$comment->{id}&header=2'",
+        class          => 'commentDeleteBtn',
+        ICON           => 'fa fa-trash text-danger',
+        TITLE          => $lang{DEL}
+      });
+      $edit_button = $html->button('', '', {
+        NO_LINK_FORMER => 1,
+        JAVASCRIPT     => 1,
+        SKIP_HREF      => 1,
+        ICON           => 'fa fa-users',
+        ex_params      => "data-id='$comment->{id}'",
+        class          => 'commentEditBtn',
+        ICON           => 'fa fa-pencil-alt text-primary',
+        TITLE          => $lang{EDIT}
+      });
+      $attach_button = $html->button('', '', {
+        NO_LINK_FORMER => 1,
+        JAVASCRIPT     => 1,
+        SKIP_HREF      => 1,
+        ICON           => 'fa fa-users',
+        ex_params      => "data-id='$comment->{id}'",
+        class          => 'commentAttachBtn',
+        ICON           => 'fa fa-paperclip text-primary',
+        TITLE          => $lang{ATTACHMENT}
+      });
+    }
+    $data_num++;
+
+    my $documents = info_get_documents_view({ COLS_NAME => 1, COMMENT_ID => $comment->{id} });
+
+    push @filled_templates, $html->tpl_show(_include('comments/info_comment', 'Info'), {
+      TEXT          => $comment->{text},
+      DATE          => $comment->{date},
+      ADMIN         => $comment->{name},
+      DOCUMENTS     => $documents,
+      DEL_BUTTON    => $permissions{0}{31} ? $del_button : '',
+      EDIT_BUTTON   => $permissions{0}{31} ? $edit_button : '',
+      ATTACH_BUTTON => $attach_button,
+      CHANGED       => !$not_changed ? "($lang{EDITED})" : '',
+      INDEX         => get_function_index('form_users'),
+      UID           => $FORM{UID},
+      DATA_NUM      => $data_num
+    }, { OUTPUT2RETURN => 1, ID => 'info_comment' });
+  }
+
+  return \@filled_templates;
+}
+
+#**********************************************************
+=head2 info_get_documents_view
+
+=cut
+#**********************************************************
+sub info_get_documents_view {
+  my ($attachments_attr, $attr) = @_;
+
+  return 0 if !$attachments_attr;
+
+  # Receiving search params in same attribute
+  if (ref $attachments_attr eq 'HASH') {
+    $attachments_attr = $Info->info_documents_list({
+      %{$attachments_attr},
+      FILENAME     => '_SHOW',
+      CONTENT_SIZE => '_SHOW',
+      CONTENT_TYPE => '_SHOW',
+    });
+  }
+
+  my $attachments_index = get_function_index('info_attachment');
+  return '' if !$attachments_index;
+
+  my $result = '';
+  foreach my $line (@$attachments_attr) {
+
+    my $attach = '';
+    if ($line->{content_type} =~ 'image/') {
+      $attach .= $html->img($SELF_URL . "?qindex=$attachments_index&ATTACHMENT=$line->{id}", ($line->{filename} || 'No name'), {
+        class     => 'figure-img img-fluid rounded',
+        EX_PARAMS => 'style="max-height: 100px; width: auto;"'
+      });
+    }
+    my $del_btn = $html->button($lang{DEL}, "", {
+      NO_LINK_FORMER => 1,
+      SKIP_HREF      => 1,
+      class          => 'float-right text-danger del-attachment',
+      ICON           => 'fa fa-times'
+    });
+
+    $attach .= $html->element('div',
+      $html->button(($line->{filename} || 'No name'), "qindex=$attachments_index&ATTACHMENT=$line->{id}", { TARGET => '_new' }) .
+      "  ($lang{SIZE}:   " . int2byte($line->{content_size}) . ')' . $del_btn . $html->element('hr'),
+      { class => 'd-block', 'data-id' => $line->{id} }
+    );
+
+    $result .= $html->element('div', $attach);
+  }
+
+  return $result;
+}
+
+#**********************************************************
+=head2 info_comment_del
+
+  Calls $Info for removing comments and returns status
+  As it is called from JS, it returns a JSON response, that is processed by script
+
+  Arguments:
+    no straight arguments are used. Reads $FORM{OBJ_ID} and passes it to $Info->del_comment();
+
+=cut
+#**********************************************************
+sub info_comment_del {
+
+  $Info->del_comment(\%FORM);
+
+  if (!$Info->{errno}) {
+    print qq/ {"status" : 0} /;
+  }
+  else {
+    print qq/ {
+      "status" : $Info->{errno},
+      "error"  : $Info->{errstr}
+      } /;
+  }
+}
+
+#**********************************************************
+=head2 info_comment_add()
+
+  Passes  $FORM{OBJ_TYPE}, $FORM{OBJ_ID}, $FORM{TEXT} to $Info->add_comment.
+  Prints message for successful or failed operation
+
+=cut
+#**********************************************************
+sub info_comment_add {
+  if ($FORM{TEXT} eq '') {
+    $html->message('danger', $lang{COMMENTS_PLEASE});
+    return 0;
+  }
+
+  $Info->add_comment(
+    \%FORM
+  );
+
+  if (!$Info->{errno}) {
+    print qq/ {"status" : 0} /;
+  }
+  else {
+    print qq/ {
+      "status" : $Info->{errno},
+      "error"  : $Info->{errstr}
+      } /;
+  }
+
+  return 1;
+}
+
+
+#**********************************************************
+=head2 info_images_show
+  
+  Entry point for showing images
+  
+  Arguments:
+    $type - table name for object
+    $id   - object id
+  
+  Prints a list of images for specified object with controls for removing and adding
+  
+=head2 EXAMPLE
+
+  info_images_show('users', 6); # Will show a list for object from table 'users' and id 6;
+
+=cut
+#**********************************************************
+sub info_images_show {
+  my ($type, $id, $attr) = @_;
+
+  #form images for current object
+  my $images_list = $Info->get_images($type, $id, { COLS_NAME => 1 });
+
+  if ($Info->{errno}) {
+    $html->message('danger', 'SQL', $Info->{errstr});
+  }
+
+  my $images = info_images_make($images_list);
+
+  my $image_form = $html->tpl_show(
+    _include('info_ajax_upload_form', 'Info'),
+    {
+      TABLE_NAME    => $type,
+      OBJECT_ID     => $id,
+      CALLBACK_FUNC => 'info_image_add'
+    },
+    { OUTPUT2RETURN => 1 }
+  );
+  #form images controls
+  my $form_controls = $html->tpl_show(
+    _include('images/info_image_controls', 'Info'),
+    {
+      TABLE_NAME => $type,
+      OBJECT_ID  => $id,
+      IMAGE_FORM => $image_form
+    },
+    { OUTPUT2RETURN => 1 }
+  );
+
+  #print images main
+  my $images_block = $html->tpl_show(
+    _include('images/info_image_wrapper', 'Info'),
+    {
+      IMAGES          => join('', @{$images}),
+      IMAGES_CONTROLS => $form_controls,
+    },
+    { OUTPUT2RETURN => 1, %{$attr} }
+  );
+
+  if ($attr->{OUTPUT2RETURN}) {
+    return $images_block;
+  }
+  else {
+    print $images_block;
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 info_images_make
+  
+  Contains logic for wrapping each images list entry in 'info_image.tpl'
+  
+  Arguments:
+    $images_list   - array reference for array of hashes from DB
+    $attr          - extra arguments (reserved for future)
+  
+=cut
+#**********************************************************
+sub info_images_make {
+  my ($images_list) = @_;
+
+  my @images = ();
+  for my $image (@{$images_list}) {
+    if ($debug) {
+      print "</hr> in db: " . $image->{in_db};
+    }
+
+    my $image_path = '';
+    unless ($image->{in_db}) {
+      $image_path = img_dir . $image->{filename};
+    }
+    else {
+      my $download_image_index = get_function_index('info_image_download');
+      $image_path = "/admin/index.cgi?qindex=$download_image_index&IMAGE_ID=$image->{id}";
+    }
+
+    push @images, $html->tpl_show(
+      _include('images/info_image', 'Info'),
+      {
+        IMAGE_ID   => $image->{id},
+        IMAGE_NAME => $image_path,
+        FILENAME   => $image->{real_name}
+      },
+      { OUTPUT2RETURN => 1 }
+    );
+    #    print "<hr>" . $image_row->{filename};
+  }
+
+  push @images, "<link href='/styles/default/css/info.css' rel='stylesheet'>";
+
+  return \@images;
+}
+
+
+#**********************************************************
+=head2 info_image_del
+
+  Calls $Info for removing images and returns status
+  As it is called from JS, it returns a JSON response, that is processed by script
+
+  Arguments:
+    $attr or %FORM
+      OBJ_ID - ID of image to delete
+
+=cut
+#**********************************************************
+sub info_image_del {
+  my ($attr) = @_;
+
+  my $image_id = $FORM{OBJ_ID} || $attr->{OBJ_ID};
+
+  unless ($image_id) {return 0};
+
+  my $image = $Info->get_image_info($image_id, { COLS_NAME => 1 });
+
+  my $filename = $image->{filename};
+
+  unless ($image->{in_db}) {
+    info_uni_file_delete(img_upload_dir, $filename);
+  }
+
+  $Info->del_image(\%FORM);
+
+  if (!$Info->{errno}) {
+    print qq/ {"status" : 0} /;
+  }
+  else {
+    print qq/ {
+      "status" : $Info->{errno},
+      "error"  : $Info->{errstr}
+      } /;
+  }
+}
+
+#**********************************************************
+=head2 info_image_add
+
+  Passes  $FORM{TYPE}, $FORM{OBJ_ID} to $Info->add_image. If success, uploads_image to $images_folder;
+  Prints message for successful or failed operation
+
+=cut
+#**********************************************************
+sub info_image_add {
+  my $type = $FORM{OBJ_TYPE};
+  my $obj_id = $FORM{OBJ_ID};
+
+  my $write_to_db = $FORM{WRITE_TO_DB};
+
+  my ($file_type) = $FORM{UPLOAD_FILE}->{filename} =~ /(\.[^.]+)$/;
+
+  unless ($type && $obj_id) {$html->message('danger', $lang{ERROR}, "No data")};
+
+  my $filename = $type . '_' . $obj_id . '_' . time() . $file_type;
+
+  unless ($write_to_db) {
+    my $is_uploaded = upload_file($FORM{UPLOAD_FILE}, {
+      PREFIX     => img_upload_dir,
+      FILE_NAME  => $filename,
+      EXTENTIONS => $image_allowed_extensions
+    });
+
+    unless ($is_uploaded) {
+      print "Allowed extensions are $image_allowed_extensions";
+      return 0;
+    }
+  }
+
+  $Info->add_image(
+    {
+      OBJ_TYPE     => $FORM{OBJ_TYPE},
+      OBJ_ID       => $FORM{OBJ_ID},
+      FILENAME     => $filename,
+      REAL_NAME    => $FORM{UPLOAD_FILE}->{filename},
+      CONTENT_TYPE => $FORM{UPLOAD_FILE}->{'Content-Type'},
+      CONTENT_SIZE => $FORM{UPLOAD_FILE}->{Size},
+      FILE         => ($write_to_db) ? $FORM{UPLOAD_FILE}->{Contents} : undef,
+    }
+  );
+
+  if (!$Info->{errno}) {
+    $html->message('success', "$lang{ADDED}");
+    #      print $close_outer_modal_script;
+  }
+  else {
+    $html->message('danger', "$Info->{errstr}");
+    info_uni_file_delete(img_upload_dir, $filename);
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 info_download_image
+
+=cut
+#**********************************************************
+sub info_image_download {
+  my $image_id = $FORM{IMAGE_ID};
+
+  unless ($image_id) {return 0;};
+
+  my $image = $Info->get_image_info($image_id, { COLS_NAME => 1 });
+
+  unless ($image->{id}) {
+    print "Status: 404 Not found";
+    #    exit(1);
+  }
+
+  my $filename = $image->{filename};
+  my $realname = $image->{real_name};
+  my $content_type = $image->{content_type};
+  my $size = $image->{content_size};
+
+  my $content = '';
+  unless ($image->{in_db}) {
+    $content = file_op(
+      {
+        FILENAME   => $filename,
+        PATH       => $conf{TPL_DIR} . img_upload_dir,
+        SKIP_CHECK => 1
+      }
+    );
+
+    if ($size > 0 && $content eq '') {
+      print "Status: 404 Not found";
+      exit(1);
+    }
+  }
+  else {
+    $content = $image->{file};
+  }
+
+  print "Content-Type: $content_type;  filename=\"$realname\"\n" . "Content-Disposition:  attachment;  filename=\"$realname\";  size=$size" . "\n\n";
+  print $content;
+
+  return 1;
+}
+
+#**********************************************************
+=head2 info_locations_show($type, $id)
+
+=cut
+#**********************************************************
+sub info_locations_show {
+  my ($type, $id) = @_;
+
+  my $controls = $html->tpl_show(_include('/locations/locations_controls', 'Info'),
+    {
+      OBJECT_TYPE => $type,
+      OBJECT_ID   => $id,
+    },
+    {
+      OUTPUT2RETURN => 1
+    }
+  );
+
+  $html->tpl_show(_include('/locations/locations_wrapper', 'Info'),
+    {
+      LOCATION_CONTROLS => $controls
+    }
+  );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 info_locations_show_map()
+
+=cut
+#**********************************************************
+sub info_locations_show_map {
+  shift;
+
+  my $type = $_[0] || $FORM{OBJ_TYPE};
+  my $obj_id = $_[1] || $FORM{OBJ_ID};
+
+  #  get locations
+  my $locations = $Info->get_locations($type, $obj_id, { COLS_NAME => 1 });
+  _error_show($Info);
+
+  # if (in_array('Maps', \@MODULES)) {
+  #   load_module('Maps', $html);
+  #
+  #   foreach my $location (@{$locations}) {
+  #     $location->{street_name} = $type;
+  #     $location->{number} = $obj_id;
+  #     my $comment = ($location->{comment}) ? "<b>$lang{COMMENTS}: </b>$location->{comment}" : '';
+  #     my $timestamp = ($location->{timestamp} ne '0000-00-00 00:00:00') ? "<br/><b>$lang{TIME}: </b>$location->{timestamp}" : '';
+  #
+  #     $location->{info} = qq\
+  #     <div class='row text-left'>
+  #       <div class='row float-right'>
+  #          <a class='locationRemoveBtn' title='$lang{DEL}' onclick=removeLocation($location->{id})>
+  #            <span class='fa fa-times-circle'></span>
+  #          </a>
+  #       </div>
+  #     $comment
+  #     $timestamp
+  #     <br/>
+  #       <br/><b>$lang{ADMIN}: </b>$location->{admin}
+  #       <br/><b>$lang{ADDED}: </b>$location->{date}
+  #     </div>\;
+  #     # JSON doesn't allow carret return symbol
+  #     $location->{info} =~ s/\n//g;
+  #   }
+  #
+  #   maps_show_map(
+  #     {
+  #       OBJECTS_LIST => $locations,
+  #       POINT_TYPE   => 'default',
+  #       QUICK        => 1,
+  #       NO_BUILDS    => 1,
+  #     }
+  #   );
+  # }
+  # else {
+  #   $html->message('err', "$lang{ERROR}", "No 'Maps' module");
+  # }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 info_location_add()
+
+=cut
+#**********************************************************
+sub info_location_add {
+  my $type = $FORM{OBJ_TYPE};
+  my $obj_id = $FORM{OBJ_ID};
+
+  if (!(defined $type && defined $obj_id)) {
+    $html->message('danger', "$lang{ERROR}", 'Parameters error');
+    return 0;
+  }
+
+  $Info->add_location(
+    $type, $obj_id,
+    {
+      %FORM
+    });
+
+  unless ($Info->{errno}) {
+    $html->message('success', "$lang{ADDED}");
+    print $close_outer_modal_script;
+  }
+  else {
+    _error_show($Info);
+  }
+
+  return $Info->{INSERT_ID};
+}
+
+#**********************************************************
+=head2 info_location_del
+  
+  Calls $Info for removing locations and returns status
+  As it is called from JS, it returns a JSON response, that is processed by script
+  
+  Arguments:
+    no straight arguments are used. Reads $FORM{OBJ_ID} and passes it to $Info->del_location();
+  
+=cut
+#**********************************************************
+sub info_location_del {
+  my $location_id = $FORM{OBJ_ID};
+
+  $Info->del_location({ OBJ_ID => $location_id });
+
+  if (!$Info->{errno}) {
+    print qq\ {
+    "status" : 0,
+    "message"  : "<h1>$lang{DELETED}</h1>"
+    } \;
+  }
+  else {
+    print qq/ {
+      "status" : $Info->{errno},
+      "message"  : $Info->{errstr}
+      } /;
+  }
+}
+
+#**********************************************************
+=head2 info_documents_show
+
+=cut
+#**********************************************************
+sub info_documents_show {
+  my ($type, $id, $attr) = @_;
+
+  #form documents for current object
+  my $documents_list = $Info->get_documents($type, $id, { COLS_NAME => 1 });
+  return 0 if _error_show($Info);
+
+  my $documents = info_documents_make($documents_list);
+
+  my $document_form = $html->tpl_show(
+    _include('info_ajax_upload_form', 'Info'),
+    {
+      TABLE_NAME    => $type,
+      OBJECT_ID     => $id,
+      CALLBACK_FUNC => 'info_document_add',
+    },
+    { OUTPUT2RETURN => 1 }
+  );
+
+  my $document_controls = $html->tpl_show(
+    _include('documents/info_documents_controls', 'Info'),
+    {
+      TABLE_NAME => $type,
+      OBJECT_ID  => $id,
+      ADD_FORM   => $document_form
+    },
+    { OUTPUT2RETURN => 1 }
+  );
+
+  #print documents main
+  my $documents_block = $html->tpl_show(
+    _include('documents/info_document_wrapper', 'Info'),
+    {
+      DOCUMENTS_TABLE    => $documents,
+      DOCUMENTS_CONTROLS => $document_controls,
+      TABLE_NAME         => $type,
+      OBJECT_ID          => $id,
+    },
+    { OUTPUT2RETURN => 1, %{$attr} }
+  );
+
+  if ($attr->{OUTPUT2RETURN}) {
+    return $documents_block;
+  }
+  else {
+    print $documents_block;
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 info_documents_renew
+  
+  This function is used to renew documents list after adding new document
+  
+  Works similar to info_documents_show except wrapping documents_list to 'info_documents_wrapper' template
+  
+=cut
+#**********************************************************
+sub info_documents_renew {
+  my $type = $FORM{OBJ_TYPE};
+  my $id = $FORM{OBJ_ID};
+
+  #form documents for current object
+  my $documents_list = $Info->get_documents($type, $id, { COLS_NAME => 1 });
+
+  if ($Info->{errno}) {
+    _error_show($Info);
+  }
+
+  my $documents = info_documents_make($documents_list);
+
+  print $documents;
+}
+
+
+#**********************************************************
+=head2 info_documents_make
+  
+  Contains logic for wrapping each documents list entry in 'info_document.tpl'
+  
+  Arguments:
+    $documents_list - array reference for array of hashes from DB
+    $attr           - extra arguments (reserved for future)
+  
+=cut
+#**********************************************************
+sub info_documents_make {
+  my ($documents_list) = @_;
+
+  my $table = $html->table(
+    {
+      width       => '100%',
+      caption     => $lang{DOCUMENTS},
+      cols_align  => [ 'left', 'left', 'left', 'left', 'right:d-print-none' ],
+      title_plain => [ 'ID', $lang{NAME}, "$lang{ADMIN}", "$lang{DATE}", '-' ],
+      qs          => $pages_qs,
+      ID          => 'INFO_DOCUMENTS'
+    }
+  );
+
+  foreach my $line (@{$documents_list}) {
+    my $document_id = $line->{id};
+    my $download_index = get_function_index('info_document_download');
+
+    my $download_path = "/admin/index.cgi?qindex=$download_index&DOCUMENT_ID=$document_id";
+    my $download_btn = "<a href='$download_path' class='btn btn-xs btn-secondary' download><span class='fa fa-save'></span></a>";
+
+    my $deleteURL = "/admin/index.cgi?get_index=info_document_del&OBJ_ID=$line->{id}&header=2";
+    my $delete_btn = "<a id='documentDelBtn' class='btn btn-xs btn-danger' onclick='loadToModal(\"$deleteURL\")'>
+      <span class='fa fa-times'></span></a>";
+
+    my $action_btns = "<div class='btn-group btn-group-xs'>$delete_btn$download_btn</div>";
+
+    $table->addrow($line->{id}, $line->{real_name}, $line->{admin}, $line->{date}, $action_btns);
+  }
+
+  return $table->show();
+}
+
+#**********************************************************
+=head2 info_document_del
+  
+=cut
+#**********************************************************
+sub info_document_del {
+
+  return if !$FORM{DEL_ATTACHMENT_ID};
+
+  $Info->info_document_del({ ID => $FORM{DEL_ATTACHMENT_ID} });
+
+  if (!$Info->{errno}) {
+    print qq/ {"ok" : 1} /;
+  }
+  else {
+    print qq/ {"error"  : $Info->{errstr}} /;
+  }
+}
+
+#**********************************************************
+=head2 info_document_add
+
+  Passes  $FORM{OBJ_TYPE}, $FORM{OBJ_ID} to $Info->add_document. If success, uploads_document to $documents_folder;
+  Prints message for successful or failed operation
+
+=cut
+#**********************************************************
+sub info_document_add {
+  my $type = $FORM{OBJ_TYPE};
+  my $obj_id = $FORM{OBJ_ID};
+
+  my $write_to_db = $FORM{WRITE_TO_DB};
+
+  my ($file_type) = $FORM{UPLOAD_FILE}->{filename} =~ /(\.[^.]+)$/;
+
+  unless ($type && $obj_id) {
+    print "No data";
+    return 0
+  };
+
+  my $filename = $type . '_' . $obj_id . '_' . time() . $file_type;
+
+  unless ($write_to_db) {
+    my $is_uploaded = upload_file($FORM{UPLOAD_FILE}, {
+      PREFIX    => documents_upload_dir,
+      FILE_NAME => $filename,
+      #        EXTENTIONS => $document_allowed_extensions
+    });
+
+    unless ($is_uploaded) {
+      print "Allowed extensions are $image_allowed_extensions";
+      return 0;
+    }
+  }
+
+  $Info->add_document($type, $obj_id,
+    {
+      FILENAME     => $filename,
+      REAL_NAME    => $FORM{UPLOAD_FILE}->{filename},
+      CONTENT_TYPE => $FORM{UPLOAD_FILE}->{'Content-Type'},
+      CONTENT_SIZE => $FORM{UPLOAD_FILE}->{Size},
+      FILE         => ($write_to_db) ? $FORM{UPLOAD_FILE}->{Contents} : undef
+    }
+  );
+
+  if (!$Info->{errno}) {
+    $html->message('success', "$lang{ADDED}");
+    print $close_outer_modal_script;
+  }
+  else {
+    $html->message('danger', "$Info->{errstr}");
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 info_download_document
+
+=cut
+#**********************************************************
+sub info_document_download {
+  my $document_id = $FORM{DOCUMENT_ID};
+
+  unless ($document_id) {return 0};
+
+  my $document = $Info->get_document_info($document_id, { COLS_NAME => 1 });
+
+  unless ($document->{id}) {
+    print "Status: 404 Not found";
+  }
+
+  my $filename = $document->{filename};
+  my $realname = $document->{real_name};
+  my $content_type = $document->{content_type};
+  my $size = $document->{content_size};
+
+  my $inDB = $document->{in_db} ne '0';
+
+  my $content = '';
+  unless ($inDB) {
+    $content = file_op(
+      {
+        FILENAME   => $filename,
+        PATH       => $conf{TPL_DIR} . documents_upload_dir,
+        SKIP_CHECK => 1
+      }
+    );
+
+    if ($size > 0 && $content eq '') {
+      print "Status: 404 Not found";
+      exit(1);
+    }
+
+  }
+  else {
+    $content = $document->{file};
+  }
+
+  print "Content-Type: $content_type;  filename=\"$realname\"\n" . "Content-Disposition:  attachment;  filename=\"$realname\";  size=$size" . "\n\n";
+  print $content;
+
+  return 1;
+}
+
+
+#**********************************************************
+=head2 info_uni_file_delete
+
+  deletes a file
+
+=cut
+#**********************************************************
+sub info_uni_file_delete {
+  my ($folder, $filename) = @_;
+
+  if ($debug) {
+    print "<hr> Deleting $conf{TPL_DIR}/$folder/$filename";
+  }
+
+  my $file = "$conf{TPL_DIR}$folder/$filename";
+  my $del_result = unlink $file;
+
+  unless ($del_result == 1) {
+    #deleted 1 file
+    my $error_message = $!;
+    $html->message('danger', 'Error', $error_message);
+    return 0;
+  }
+  return 1;
+}
+
+#**********************************************************
+=head2
+function info_uni_result_former
+ Arguments
+ $attr - hash;
+   LIST_FUNC
+   DEFAULT_FIELDS
+   EXT_TITLES
+   READABLE_NAME
+   TABLE_NAME
+
+=cut
+#**********************************************************
+sub info_uni_result_former {
+  my ($attr) = @_;
+
+  my AXbills::HTML $table;
+  my $list = [];
+
+  ($table, $list) = result_former({
+    INPUT_DATA      => $Info,
+    FUNCTION        => $attr->{LIST_FUNC},
+    BASE_FIELDS     => 0,
+    DEFAULT_FIELDS  => "$attr->{DEFAULT_FIELDS}",
+    FUNCTION_FIELDS => 'del',
+    SKIP_USER_TITLE => 1,
+    EXT_FIELDS      => 0,
+    EXT_TITLES      => $attr->{EXT_TITLES},
+
+    TABLE           => {
+      width   => '100%',
+      caption => $attr->{READABLE_NAME},
+      qs      => $pages_qs,
+      ID      => uc $attr->{LIST_FUNC},
+      EXPORT  => 1,
+      MENU    =>
+        "$lang{ADD}:index=" . get_function_index($attr->{TABLE_NAME} . '_add') . ':add' . ";$lang{SEARCH}:index=$index&search_form=1:search"
+        ,
+    },
+
+    MAKE_ROWS       => 1,
+    SEARCH_FORMER   => 1,
+    MODULE          => 'Info',
+    TOTAL           => 0
+  });
+
+  print $table->show();
+
+  return $list;
+}
+
+#**********************************************************
+=head2
+
+  Arguments:
+    -
+
+  Returns:
+    -
+
+=cut
+#**********************************************************
+sub info_edit {
+
+  if ($FORM{chg} || $FORM{SAVE}) {
+    if ($FORM{COMMENTS}) {
+      $Info->change_comments({
+        ID           => $FORM{ID},
+        TEXT         => $FORM{COMMENTS},
+        UID          => $FORM{UID},
+        AID          => $admin->{AID},
+        OLD_COMMENTS => $FORM{COMMENTS_OLD}
+      });
+    }
+
+    if ($FORM{EDIT}) {
+      if (!$Info->{errno}) {
+        print qq\ {
+        "status" : 0,
+        "message"  : "$lang{SUCCESS}"
+        } \;
+      }
+      else {
+        print qq/ {
+        "status" : $Info->{errno},
+        "message"  : $Info->{errstr}
+        } /;
+      }
+      return 0;
+    }
+    else {
+      $html->tpl_show(_include('info_change', 'Info'), {
+        INDEX => $index,
+        TEXT  => $FORM{text},
+        ID    => $FORM{chg},
+        UID   => $FORM{uid}
+      });
+    }
+  }
+
+  log_comments_edit();
+
+  return 0;
+}
+
+#**********************************************************
+=head2
+
+  Arguments:
+    -
+
+  Returns:
+    -
+
+=cut
+#**********************************************************
+sub log_comments_edit {
+
+  my $index = get_function_index('info_edit');
+  my $log_lits = $FORM{COMMENT} ? $Info->search_comments($FORM{COMMENT})->{list} : $Info->log_comments();
+  my $admin_list = sel_admins({ HASH => 1 });
+
+  my $table = $html->table(
+    {
+      width   => '100%',
+      caption => $lang{CHANGE_COMMENT},
+      title   =>
+        [ "#", $lang{OLD_COMMENT}, $lang{COMMENTS}, $lang{USER}, $lang{ADMIN}, $lang{DATE} ],
+      ID      => 'INFO_LIST'
+    }
+  );
+
+  foreach my $item_log (@$log_lits) {
+    $table->addrow(
+      $item_log->{id_comments} || $item_log->{id},
+      $item_log->{old_comment} || '-',
+      $item_log->{text},
+      $html->button('UID: ' . ($item_log->{uid} || $item_log->{obj_id}), 'index=' . get_function_index('form_users') . '&UID=' . ($item_log->{uid} || $item_log->{obj_id})),
+      $admin_list->{ $item_log->{aid} || $item_log->{admin_id} },
+      $item_log->{date_change} || $item_log->{date},
+      ($FORM{chg} || $FORM{COMMENT}) ? $html->button("", 'index=' . $index . '&chg=' . ($item_log->{id_comments} || $item_log->{id}) .
+        '&uid=' . ($item_log->{uid} || $item_log->{obj_id}) . '&text=' . $item_log->{text},
+        { class => "", ADD_ICON => "fa fa-pencil-alt" }) : ''
+    );
+  }
+
+  print $table->show();
+
+  return 0;
+}
+
+
+#**********************************************************
+=head2 search_form_comments()
+
+  Argument:
+    $comment    - comment search
+
+  Return:
+    array comments
+
+=cut
+#**********************************************************
+sub info_search {
+  my ($coments) = @_;
+
+  my $list_comments = $Info->search_comments($coments->{SEARCH_TEXT});
+  my @info = ();
+
+  if ($list_comments) {
+    push @info, {
+      'MODULE'       => $lang{TAGS},
+      'TOTAL'        => $Info->{TOTAL},
+      'MODULE_NAME'  => $lang{COMMENTS},
+      'SEARCH_INDEX' => get_function_index('info_edit') . '&' . join('&', @qs) . "&search=1&COMMENT=$coments->{SEARCH_TEXT}"
+    }
+  }
+
+  return \@info;
+}
+
+1;

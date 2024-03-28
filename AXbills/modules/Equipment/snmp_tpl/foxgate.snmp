@@ -1,0 +1,12 @@
+{
+  "DEVICE":"Foxgate",
+  "FDB":"1",
+  "info" : {
+  },
+  "status" : {
+    "CPU_LOAD" : {
+      "OIDS" : ".1.3.6.1.4.1.6339.100.1.11.10.0",
+      "PARSER" : ""
+    }
+  }
+}

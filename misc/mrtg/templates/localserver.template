@@ -1,0 +1,71 @@
+# CISCO IOS basic OIDs
+# oid_pick (...,"mib1","mib2",...)
+# poll each of the oids specified until it is successful or has run out of oids
+
+$head_lines .= <<ECHO;
+#-----------------------------------------------------------------
+#	[$sysname] [$router_name] [$sysdescr] Average CPU Usage
+#-----------------------------------------------------------------
+ECHO
+
+# 
+
+my $cpu_oid = oid_pick($router_connect,$v3opt,"1.3.6.1.4.1.2021.10.1.3.2");
+if ($cpu_oid){
+  my $target_name = $router_name . ".cpu";
+  my $dir = '';
+  $dir = "Directory[$target_name]: $directory_name" if $directory_name;
+  $target_lines .= <<ECHO;
+
+$dir
+YLegend[$target_name]: CPU use in %
+ShortLegend[$target_name]: %
+Legend1[$target_name]: CPU use in %
+Legend3[$target_name]: Max Observed CPU use
+LegendI[$target_name]: &nbsp;CPU use:
+WithPeak[$target_name]: ywm
+MaxBytes[$target_name]: 100
+Options[$target_name]: growright, gauge, nopercent, noo
+Title[$target_name]: $sysname $router_name CPU usage
+Target[$target_name]: $cpu_oid&PseudoZero:$router_connect
+PageTop[$target_name]: <h1>$sysname $router_name CPU use</h1>
+ <div><table>
+ <tr><td>System:</td>     <td>$sysname $router_name</td></tr>
+ <tr><td>Maintainer:</td> <td>$html_syscontact</td></tr>
+ <tr><td>Description:</td><td>$html_sysdescr</td></tr>
+ <tr><td>Resource:</td>   <td>Average 5min CPU load % ($cpu_oid)</td></tr>
+ </table></div>
+ECHO
+}
+
+my $mem_oid = oid_pick($router_connect,$v3opt,".1.3.6.1.4.1.2021.4.11.0");
+if ($mem_oid) {
+  my $target_name = $router_name . ".mem";
+  my $dir = '';
+  $dir = "Directory[$target_name]: $directory_name" if $directory_name;
+  $target_lines .= <<ECHO;
+#-----------------------------------------------------------------
+#	[$sysname] [$router_name] [$sysdescr] RAM Free
+#-----------------------------------------------------------------
+$dir
+YLegend[$target_name]: Free Memory  
+ShortLegend[$target_name]: Bytes  
+Legend1[$target_name]: Free Memory  
+Legend3[$target_name]: Max Free Memory  
+LegendI[$target_name]: &nbsp;Free Memory:  
+WithPeak[$target_name]: ywm  
+MaxBytes[$target_name]: 10000000000
+Options[$target_name]: growright, gauge, nopercent, noo  
+Title[$target_name]: $sysname $router_name Free Memory  
+Target[$target_name]: $mem_oid&PseudoZero:$router_connect
+PageTop[$target_name]: <h1>$sysname $router_name Free Memory</h1>  
+ <div><table>
+ <tr><td>System:</td>     <td>$sysname $router_name</td></tr>
+ <tr><td>Maintainer:</td> <td>$html_syscontact</td></tr>
+ <tr><td>Description:</td><td>$html_sysdescr</td></tr>  
+ <tr><td>Resource:</td>   <td>RAM Free ($mem_oid)</td></tr>
+ </table></div>
+ECHO
+}
+
+

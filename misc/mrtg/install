@@ -1,0 +1,16 @@
+:DEFAULT:WEB_ACCESS_USER=admin:Web access user
+:DEFAULT:MYSQLADMIN=exec:which mysqladmin:mysqladmin path
+:DEFAULT:MYSQL:exec:which mysql:mysql path
+:OS=FREEBSD,!REMOTE_NAS=1: */5     *       *       *       *       root  /usr/local/bin/mrtg /usr/local/etc/mrtg/mrtg.cfg >> [/etc]/crontab
+:OS=LINUX,!REMOTE_NAS=1: */5     *       *       *       *       root  /usr/local/bin/mrtg /usr/local/etc/mrtg/mrtg.cfg >> [/etc]/crontab
+:!REMOTE_NAS=1:FILE=mrtg.cfg > [/usr/local/etc/mrtg]/mrtg.cfg
+:OS=FREEBSD,!REMOTE_NAS=1:exec:mkdir /usr/axbills/webreports; chown %WEB_SERVER_USER% /usr/axbills/webreports; chown %WEB_SERVER_USER% /usr/local/etc/mrtg/
+:OS=LINUX,!REMOTE_NAS=1:exec:mkdir /usr/axbills/webreports; chown %WEB_SERVER_USER% /usr/axbills/webreports; chown %WEB_SERVER_USER% /usr/local/etc/mrtg/
+:!REMOTE_NAS=1:exec:indexmaker /usr/local/etc/mrtg/mrtg.cfg > /usr/axbills/webreports/index.html
+:NAS_TYPE=CISCO:FILE=cisco.cfg     >> [/usr/local/etc/mrtg]/mrtg.cfg
+:OS=FREEBSD,REMOTE_NAS=1:inetd_enable="YES" >> [/etc]/rc.conf
+:REMOTE_NAS=1:rstats         30003/tcp >> [/etc]/services
+:OS=FREEBSD,REMOTE_NAS=1:rstats  stream  tcp     nowait  root    /usr/local/sbin/rstats rstats >> [/etc]/inetd.conf
+:OS=FREEBSD,REMOTE_NAS=1:exec:/etc/rc.d/inetd restart
+:PASSWORD=1:FILE=.htaccess  > [/usr/axbills/webreports]/.htaccess
+:PASSWORD=1:exec:htpasswd -c /usr/axbills/libexec/web_users %WEB_ACCESS_USER%

@@ -1,0 +1,280 @@
+-- *****************************************************************
+-- DLINKPV2-POWER-SAVING-MIB.mib : D-Link Power Saving MIB
+--
+-- Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--
+-- *****************************************************************
+DLINKPV2-POWER-SAVING-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        OBJECT-GROUP, MODULE-COMPLIANCE			
+            FROM SNMPv2-CONF
+        MODULE-IDENTITY, OBJECT-TYPE
+            FROM SNMPv2-SMI
+        DisplayString, TruthValue
+            FROM SNMPv2-TC
+        ifIndex
+            FROM IF-MIB			
+        dlinkDGS1100CommonV2
+	    FROM DGS1100SERMGMT-MIB;
+
+    primeV2PowerSavingMIB MODULE-IDENTITY
+        LAST-UPDATED "201404260000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+                 Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                         Taipei City 114, Taiwan, R.O.C
+                 Tel:     +886-2-66000123
+                 E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+                "The Structure of Power Saving Information for the
+                 proprietary enterprise."
+      
+        REVISION "201301310000Z"
+        DESCRIPTION
+            "Initial version of this MIB module."
+        REVISION "201404260000Z"
+        DESCRIPTION
+            "1.Modify the MIB file and object name,
+               DLINK-POWER-SAVING-MIB to DLINKPV2-POWER-SAVING-MIB,
+               dlinkPowerSavingMIB to primeV2PowerSavingMIB."
+        ::= { dlinkDGS1100CommonV2 12 }
+
+-- -----------------------------------------------------------------------------
+    v2PowerSavingMIBNotifications OBJECT IDENTIFIER ::= { primeV2PowerSavingMIB 0 }		
+    v2PowerSavingMIBObjects       OBJECT IDENTIFIER ::= { primeV2PowerSavingMIB 1 }
+    v2PowerSavingMIBConformance   OBJECT IDENTIFIER ::= { primeV2PowerSavingMIB 2 }
+    
+--------------------------------------------------------------------------------
+    v2PowerSavingGeneral          OBJECT IDENTIFIER ::= { v2PowerSavingMIBObjects 1 }
+	
+	v2psLinkDetectionEnabled OBJECT-TYPE
+        SYNTAX          TruthValue
+    	MAX-ACCESS      read-write
+        STATUS          current
+    	DESCRIPTION      	   
+    	    "This object indicates the state of power saving by link status."    	            
+    	DEFVAL { false }
+    	::= { v2PowerSavingGeneral 1 }
+    		
+	v2psHibernationEnabled OBJECT-TYPE
+		SYNTAX          TruthValue
+		MAX-ACCESS      read-write
+		STATUS          current
+		DESCRIPTION
+        "This object indicates the state of powre saving by scheduled system 
+        hibernation.
+        Note:
+		For stackable devices, the hibernation function only can be supported
+		on the standalone mode.
+		"
+		DEFVAL { false }
+		::= { v2PowerSavingGeneral 2 }
+	
+	v2psDimLedEnabled OBJECT-TYPE
+		SYNTAX         TruthValue
+		MAX-ACCESS     read-write
+		STATUS         current
+		DESCRIPTION
+			"This object indicates the state of power saving by scheduled dimming LED."
+		DEFVAL { false }
+			::= { v2PowerSavingGeneral 3 }
+
+	v2psLedAdminEnabled OBJECT-TYPE
+		SYNTAX          TruthValue 
+		MAX-ACCESS      read-write
+		STATUS          current
+		DESCRIPTION
+			"This object indicates the administrative state of LED of all ports."
+		DEFVAL { true}
+		::= { v2PowerSavingGeneral 4 }
+				
+	v2psPortShutdownEnabled OBJECT-TYPE
+		SYNTAX          TruthValue 
+		MAX-ACCESS      read-write
+		STATUS          current
+		DESCRIPTION
+			"This object indicates the state of power saving by scheduled port shutdown."
+		DEFVAL { false }
+		::= { v2PowerSavingGeneral 5 }	
+
+--------------------------------------------------------------------------------	
+    v2PowerSavingIfObjects        OBJECT IDENTIFIER ::= { v2PowerSavingMIBObjects 2 }
+    	
+    v2psIfEeeTable OBJECT-TYPE
+        SYNTAX          SEQUENCE OF V2psIfEeeEntry
+        MAX-ACCESS      not-accessible
+        STATUS          current
+        DESCRIPTION
+            "This table consists of a list of EEE (Energy-Efficient Ethernet)
+            state information for ports."
+        ::= { v2PowerSavingIfObjects 1}       	
+
+	v2psIfEeeEntry OBJECT-TYPE
+		SYNTAX          V2psIfEeeEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+			"An entry contains EEE configuration on a port."
+		INDEX       { ifIndex }
+		::= { v2psIfEeeTable 1 }
+
+	V2psIfEeeEntry ::= 		SEQUENCE {
+	    v2psIfEeeStatus	INTEGER
+	}               	
+
+	v2psIfEeeStatus OBJECT-TYPE
+		SYNTAX  INTEGER {
+			enabled(1),
+			disabled(2)
+		}
+		MAX-ACCESS      read-write
+		STATUS          current
+		DESCRIPTION
+			"This object indicates the EEE status on an interface.
+            To set v2psIfEeeStatus to notAvailable has no effect.
+			When read the value of 'notAvailable' means EEE is not supported 
+			on the port."
+		::= { v2psIfEeeEntry 2 }		
+				
+-- -----------------------------------------------------------------------------  	
+	v2psScheduleCtrl OBJECT IDENTIFIER ::= { v2PowerSavingMIBObjects 3 }
+			
+	v2psHibernationTimeRange OBJECT-TYPE
+		SYNTAX          DisplayString (SIZE (0..8))
+		MAX-ACCESS      read-write
+		STATUS          current
+		DESCRIPTION
+			"This object indicates the time-range profile for system hibernation
+			schedule.
+			A zero length string indicates the schedule is not specified.
+			"		
+		::= { v2psScheduleCtrl 1 }
+				
+	v2psDimLedTimeRange OBJECT-TYPE
+		SYNTAX          DisplayString (SIZE (0..8))
+		MAX-ACCESS      read-write
+		STATUS          current
+		DESCRIPTION
+			"This object indicates the time-range profile for dimming LED schedule.
+			A zero length string indicates the schedule is not specified.
+			"		
+		::= { v2psScheduleCtrl 2 }	
+				 
+	v2psPortShutdownScheduleTable OBJECT-TYPE
+		SYNTAX          SEQUENCE OF V2psPortShutdownScheduleEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+			"A list of the shutdown configurations of the power saving."
+		::= { v2psScheduleCtrl 3 }
+
+	v2psPortShutdownScheduleEntry OBJECT-TYPE
+		SYNTAX          V2psPortShutdownScheduleEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+			"An entry contains the time-range profile for port-shutdown schedule
+			on a port. "
+		INDEX   { ifIndex }
+		::= { v2psPortShutdownScheduleTable 1 }
+
+	V2psPortShutdownScheduleEntry ::= 		SEQUENCE {
+		v2psPortShutdownTimeRange	DisplayString				
+	}
+				
+	v2psPortShutdownTimeRange  OBJECT-TYPE
+        SYNTAX          DisplayString (SIZE (0..8))
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+             "This object indicates the name of time-range profile.
+             A zero length string indicates the schedule is not specified."
+        ::= { v2psPortShutdownScheduleEntry 1 }
+           		   
+
+-- *****************************************************************************
+-- MIB Conformance statements
+-- *****************************************************************************
+    v2psMIBCompliances  OBJECT IDENTIFIER  ::= { v2PowerSavingMIBConformance 1 }
+
+    v2psMIBGroups  OBJECT IDENTIFIER  ::= { v2PowerSavingMIBConformance 2 }
+
+    v2psMIBCompliance MODULE-COMPLIANCE
+        STATUS          current
+        DESCRIPTION
+            "The compliance statement for entities which implement the
+			DLINKPV2-POWER-SAVING-MIB."
+        MODULE          -- this module
+
+		GROUP v2psLinkCfgGroup
+        DESCRIPTION
+            "This group does not need to be implemented if link down
+            auto power saving is not supported."
+		
+		GROUP v2psLenCfgGroup
+        DESCRIPTION
+            "This group does not need to be implemented if cable diagnosis is
+            not supported."
+        
+		GROUP v2psHiberCfgGroup
+        DESCRIPTION
+            "This group is mandatory if power saving schedule function
+             is supported."
+        
+		GROUP v2psDimLedCfgGroup
+        DESCRIPTION
+            "This group is mandatory if power saving schedule function
+             is supported."
+        
+		GROUP v2psShutdownCfgGroup
+        DESCRIPTION
+            "This group is mandatory if power saving schedule function
+             is supported."
+        
+		GROUP v2psIfEeeCfgGroup
+        DESCRIPTION
+            "This group does not need to be implemented if EEE function
+            is not supported."
+        
+        ::= { v2psMIBCompliances 1 }
+		
+-------------------------------------------------------------------------------		
+	
+    v2psDimLedCfgGroup OBJECT-GROUP
+	    OBJECTS {
+	        v2psDimLedEnabled,
+		    v2psLedAdminEnabled,
+		    v2psDimLedTimeRange
+	    }
+	    STATUS current
+	    DESCRIPTION
+		    "A collection of objects to configure or display the
+            dimming LED schedule or LED administrative state information."
+	    ::= { v2psMIBGroups 1 }
+
+    v2psShutdownCfgGroup OBJECT-GROUP
+	    OBJECTS {
+	        v2psPortShutdownEnabled,
+		    v2psPortShutdownTimeRange
+	    }
+	    STATUS current
+	    DESCRIPTION
+		    "A collection of objects to configure or display the
+            port shutdown schedule information."
+	    ::= { v2psMIBGroups 2 }
+
+    v2psIfEeeCfgGroup OBJECT-GROUP
+	    OBJECTS {
+	        v2psIfEeeStatus
+	    }
+	    STATUS current
+	    DESCRIPTION
+		    "A collection of objects to configure or display the
+            EEE state of ports."
+	    ::= { v2psMIBGroups 3 }
+                   	
+	
+END

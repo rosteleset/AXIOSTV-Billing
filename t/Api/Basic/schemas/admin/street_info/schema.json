@@ -1,0 +1,29 @@
+{
+  "definitions": {},
+  "type": "object",
+  "title": "The Root Schema",
+  "required": [
+    "id",
+    "type",
+    "districtId",
+    "name"
+  ],
+  "properties": {
+    "id": {
+      "$id": "#/properties/id",
+      "type": "number"
+    },
+    "type": {
+      "$id": "#/properties/type",
+      "type": "number"
+    },
+    "districtId": {
+      "$id": "#/properties/districtId",
+      "type": "number"
+    },
+    "name": {
+      "$id": "#/properties/name",
+      "type": "string"
+    }
+  }
+}

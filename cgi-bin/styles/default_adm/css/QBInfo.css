@@ -1,0 +1,42 @@
+.QBinfo {
+    background: #000;
+    opacity: 0.85;
+    color: #fff;
+    border-radius: 3px;
+    display: none;
+    z-index: 9999;
+    padding: 5px;
+    -webkit-box-shadow: 2px 5px 15px 1px #707070;
+    box-shadow: 2px 5px 15px 1px #707070;
+}
+
+.titleQBinfo {
+    font-size: 16px;
+    color: #fff;
+    font-weight: bold;
+    font-family: arial, serif;
+}
+
+.closeQBinfo a {
+    color: #fff;
+    font-size: 12px;
+    font-family: arial, serif;
+    text-decoration: none;
+    font-weight: bold;
+    margin: 0 5px 5px;
+}
+
+.topQBinfo td.qb_title_btn {
+    padding-right : 10px;
+}
+
+.msgQBinfo {
+    padding: 5px;
+    font-size: 13px;
+    margin-top : 5px;
+}
+
+.msgQBinfo > .link_button{
+    font-size: medium;
+    font-weight: bold;
+}

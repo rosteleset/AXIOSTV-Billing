@@ -1,0 +1,14 @@
+type: object
+properties:
+  creditChgPrice:
+    type: string
+    example: "500"
+  creditMonthChanges:
+    type: string
+    example: "1"
+  creditSum:
+    type: string
+    example: "800"
+  creditDays:
+    type: string
+    example: "3"

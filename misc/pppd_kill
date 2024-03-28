@@ -1,0 +1,64 @@
+#!/bin/sh 
+# 
+# HangUp pppd 
+#
+# For axbills
+# 
+# usage: 
+#      pppd_kill IP_address 
+# 
+# Add next string to /etc/sudoers: 
+# 
+# apache   ALL = NOPASSWD: /usr/axbills/misc/pppd_kill 
+# 
+# For remote hangup 
+# /etc/inetd.conf
+# hangup    stream  tcp     nowait  root    /usr/axbills/misc/ppp_kill ppp_kill server 
+# /etc/services
+# hangup	30000/tcp
+
+#Debug mode
+VERSION=0.3
+DEBUG=0;
+LOG_FILE=/var/log/pppd_kill.log
+ALLOW_IP=""
+
+if [ w$1 = wserver ] ; then
+  read IP_ADDR
+elif [ w$1 = w ] ; then
+  echo "Linux pppd kill script"
+  echo "pppd_kill [IP_ADDRESS]";
+  exit;
+else
+  IP_ADDR=$1 
+fi
+
+
+
+IP_STRIP=`echo "${IP_ADDR}" | /usr/bin/tr -d '\r'` 
+
+# only one from following two strings must be uncommented 
+INTERFACES=`/sbin/ifconfig | /usr/bin/awk -v RS='\n\n'  "/${IP_STRIP} / {print \\$1}"` 
+
+# INTERFACE=`/sbin/ip a | /bin/grep $IP_STRIP/32 | /usr/bin/tr -s ' ' | /bin/cut -f 8 -d ' '` 
+for iface in  ${INTERFACES} ; do
+  if [ -f /var/run/${iface}.pid ]; then 
+    PPP_PID=`cat /var/run/${iface}.pid` 
+    kill -1 ${PPP_PID}
+  else
+    echo "Can't find PID file '/var/run/${iface}.pid'"
+    echo "ifconfig ${iface} down";
+    ifconfig ${iface} down
+  fi;
+
+  echo "killed PID: ${PPP_PID} INTERFACE: ${iface}  IP: ${IP_STRIP}" 
+
+  #if debug mode write output to file
+  if [ w${DEBUG} = w1 ]; then
+     DATE=`date "+%Y-%m-%d %H-%M-%S"`;
+     echo "${DATE} HOST: ${REMOTE_HOST} killed PID: ${PPP_PID} INTERFACE: ${iface}  IP: ${IP_STRIP}"  >> ${LOG_FILE}
+  fi;
+
+done;
+
+

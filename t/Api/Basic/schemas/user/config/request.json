@@ -1,0 +1,6 @@
+{
+  "name": "USER_CONFIG_LIST",
+  "method": "GET",
+  "path": "user/:uid/config/",
+  "params": {}
+}

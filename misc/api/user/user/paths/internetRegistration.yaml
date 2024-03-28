@@ -1,0 +1,13 @@
+post:
+  tags:
+    - user
+  summary: Регистрация пользователя сервиса интернет
+  deprecated: true
+  requestBody:
+    content:
+      application/json:
+        schema:
+          $ref: "../schemas/internetRegistrationRequest.yaml"
+    required: true
+  responses:
+    $ref: "../schemas/internetRegistrationResponse.yaml"

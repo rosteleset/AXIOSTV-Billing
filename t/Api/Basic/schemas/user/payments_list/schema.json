@@ -1,0 +1,41 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+
+  "required": [],
+  "properties": {
+    "dsc": {
+      "$id": "#/properties/dsc",
+      "type": "string"
+    },
+    "method": {
+      "$id": "#/properties/method",
+      "type": "number"
+    },
+    "regDate": {
+      "$id": "#/properties/regDate",
+      "type": "string"
+    },
+    "innerDescribe": {
+      "$id": "#/properties/innerDescribe",
+      "type": "string"
+    },
+    "id": {
+      "$id": "#/properties/id",
+      "type": "number"
+    },
+    "uid": {
+      "$id": "#/properties/uid",
+      "type": "number"
+    },
+    "sum": {
+      "$id": "#/properties/sum",
+      "type": "number"
+    },
+    "extId": {
+      "$id": "#/properties/extId",
+      "type": "string"
+    }
+  }
+}

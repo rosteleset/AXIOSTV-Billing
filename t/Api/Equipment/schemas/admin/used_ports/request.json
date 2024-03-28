@@ -1,0 +1,6 @@
+{
+  "name": "ADMIN_EQUIPMENT_USED_PORTS",
+  "method": "GET",
+  "path": "equipment/used/ports/",
+  "params": {}
+}

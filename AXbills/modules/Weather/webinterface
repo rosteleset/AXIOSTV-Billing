@@ -1,0 +1,303 @@
+=head1 WEATHER
+
+  Weather
+
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+use Maps::Maps_view;
+use AXbills::Fetcher qw(web_request);
+use AXbills::Base qw(json_former);
+
+our (
+  $db,
+  $admin,
+  %conf,
+  %lang,
+  %FORM
+);
+
+our AXbills::HTML $html;
+
+#**********************************************************
+=head2 weather_map()
+
+=cut
+#**********************************************************
+sub weather_map {
+  my $Maps_info = Maps::Maps_view->new($db, $admin, \%conf, { HTML => $html, LANG => \%lang });
+
+  if ($FORM{COORDINATES}) {
+    print weather_today_actions({
+      COORDINATES => {
+        latitude  => sprintf("%.4f", ($FORM{COORDX} || 1)),
+        longitude => sprintf("%.4f", ($FORM{COORDY} || 1))
+      }
+    });
+  }
+  else {
+    print $Maps_info->show_map(\%FORM, {
+      DATA           => [],
+      DONE_DATA      => 1,
+      NAVIGATION_BTN => 1,
+      OUTPUT2RETURN  => 1,
+      GET_LOCATION   => 1,
+    });
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 weather_today_actions()
+
+  Arguments:
+     -
+
+  Returns:
+    template widget
+
+=cut
+#**********************************************************
+sub weather_today_actions {
+  my ($attr) = @_;
+  $attr = $attr || {};
+  my $lng = $html->{language} || 'english';
+  my $city_weather_select = '';
+
+  return $html->tpl_show(_include('weather_error', 'Weather'), { ERROR => $lang{ERROR_NO_KEY} }, { OUTPUT2RETURN => 1 }) if (!$conf{WEATHER_KEY});
+
+  my %axbills2open_weather = (
+    english   => 'en',
+    ukrainian => 'ua',
+    russian   => 'ru',
+    azeri     => 'az',
+  );
+
+  if ($conf{WEATHER_COORDINATES}) {
+
+    # Get COOKIE with COORDINATES
+    my $cookie_data = $ENV{'HTTP_COOKIE'} || q{};
+    my @c = split('; ', $cookie_data);
+    my %COOKIE = ();
+
+    foreach my $itm (@c) {
+      my ($name, $value) = split('=', $itm);
+      $COOKIE{$name} = $value;
+    };
+
+    $attr->{COORDINATES}->{latitude} = ($COOKIE{latitude}) ? $COOKIE{latitude} : q{};
+    $attr->{COORDINATES}->{longitude} = ($COOKIE{latitude}) ? $COOKIE{longitude} : q{};
+
+    $conf{WEATHER_COORDINATES} =~ s/ //g;
+    my @COORDINATES = split(/;\s?/, $conf{WEATHER_COORDINATES});
+    my %COORDINATES_SEL = ();
+
+    # GET city name
+    foreach my $coordinate (@COORDINATES) {
+      my ($latitude, $longitude) = split(/:\s?/, $coordinate);
+
+      if (!$latitude || ref $latitude || !$longitude || ref $longitude || $longitude !~ /^\s?-?\d*\.?\d+\s?$/ || $latitude !~ /^\s?-?\d*\.?\d+\s?$/) {
+        my $message = $html->message('err', $lang{ERROR}, $lang{WRONG_CONF_PARAM}, { OUTPUT2RETURN => 1 });
+        return $message;
+      }
+
+      my $weather = make_request({
+        method   => 'GET',
+        pathAttr => 'lat=' . sprintf("%.4f", ($latitude || 1)) . '&lon=' . sprintf("%.4f", ($longitude || 1)) .
+          '&appid=' . ($conf{WEATHER_KEY} || '') . '&units=metric&lang=' . ($axbills2open_weather{$lng}),
+      });
+
+      if (!$weather) {
+        my $message = $html->message('err', $lang{ERROR}, $lang{ERR_NO_DATA}, { OUTPUT2RETURN => 1 });
+        return $message;
+      }
+
+      $COORDINATES_SEL{$coordinate} = $weather->{city}->{name};
+    }
+
+    $city_weather_select = $html->form_select(
+      'CITY',
+      {
+        ID          => 'COORDINATES_SEL',
+        SELECTED    => $FORM{CITY} || q{},
+        SELECTED    => 2,
+        NO_ID       => 1,
+        SEL_HASH    => \%COORDINATES_SEL,
+        SEL_OPTIONS => { '' => '' }
+      },
+      { class => 'form-control' }
+    );
+  }
+  else {
+    $attr->{COORDINATES} = web_request("https://ipapi.co/json/", {
+      METHOD      => 'GET',
+      JSON_RETURN => 1,
+    });
+  }
+
+  my $weather = make_request({
+    method   => 'GET',
+    pathAttr => 'lat=' . sprintf("%.4f", ($attr->{COORDINATES}->{latitude} || 1)) . '&lon=' .
+      sprintf("%.4f", ($attr->{COORDINATES}->{longitude} || 1)) . '&appid=' . ($conf{WEATHER_KEY} || '') .
+      '&units=metric&lang=' . ($axbills2open_weather{$lng}),
+  });
+
+  return $html->tpl_show(_include('weather_error', 'Weather'), { ERROR => "$lang{ERROR_WEATHER}. HTTP $lang{ERROR} №$weather->{cod}" }, { OUTPUT2RETURN => 1 }) if ($weather->{cod} != 200);
+
+  my $today_warnings = '';
+  my %forecast = ();
+  my $weather_cast_time = '';
+
+  foreach my $weather_cast (@{$weather->{list}}[1 .. 4]) {
+
+    $weather_cast_time = $weather_cast->{dt_txt};
+    $weather_cast_time =~ s/(\d{4})-(\d{2})-(\d{2}) //g;
+    $weather_cast_time = substr($weather_cast_time, 0, 5);
+    $weather_cast->{time_txt} = $weather_cast_time;
+
+    if ($weather_cast->{dt_txt} =~ /$main::DATE/ && $weather_cast->{weather}->[0]->{id} =~ /^2/) {
+      $weather_cast->{dt_txt} =~ s/$main::DATE //g;
+      $today_warnings = "$lang{EXPECTED_ID} $weather_cast->{dt_txt} $weather_cast->{weather}->[0]->{description}" if (!$today_warnings);
+    }
+    else {
+      $weather_cast->{dt_txt} =~ s/ (\d{2}):(\d{2}):(\d{2})//g;
+      push @{$forecast{$weather_cast->{dt_txt}}}, $weather_cast;
+    }
+  }
+
+  my @weather_cast = ();
+  foreach my $day (sort keys %forecast) {
+
+    my $temp_max = 1;
+    my $temp_min = 100;
+    my $icon = '';
+    my $desc = '';
+    my $time = '';
+
+    foreach my $day_part (@{$forecast{$day}}) {
+      $temp_min = $day_part->{main}->{temp_min} if ($day_part->{main}->{temp_min} < $temp_min);
+      $temp_max = $day_part->{main}->{temp_max} if ($day_part->{main}->{temp_min} > $temp_max);
+      $time = $day_part->{time_txt};
+
+      if ($day_part->{weather}->[0]->{id} =~ /^2/) {
+        $icon = $day_part->{weather}->[0]->{icon};
+        $desc = $day_part->{weather}->[0]->{description};
+      }
+
+      if (!$icon) {
+        $icon = $forecast{$day}->[0]->{weather}->[0]->{icon};
+        $desc = $forecast{$day}->[0]->{weather}->[0]->{description};
+      }
+
+      $day =~ /(\d{4})-(\d{2})-(\d{2})/;
+      push @weather_cast, {
+        TIME     => $time,
+        ICON     => $icon,
+        DESC     => $desc,
+        TEMP_MAX => sprintf("%.0f", $temp_max),
+        TEMP_MIN => sprintf("%.0f", $temp_min)
+      };
+    }
+  }
+
+  my $json_data = json_former(\@weather_cast);
+
+  $main::DATE =~ /(\d{4})-(\d{2})-(\d{2})/;
+  return $html->tpl_show(_include('weather', 'Weather'),
+    {
+      DATA           => "$3.$2.$1, $weather->{city}->{name}",
+      DEG            => sprintf("%.0f", ($weather->{list}->[0]->{main}->{temp} || 1)),
+      ICON           => $weather->{list}->[0]->{weather}->[0]->{icon},
+      DESC           => "$weather->{list}->[0]->{weather}->[0]->{description} $lang{FEEL_LIKE} " . sprintf("%.0f", ($weather->{list}->[0]->{main}->{feels_like} || 1)),
+      JSON_LIST      => $json_data,
+      TODAY_WARNINGS => $today_warnings,
+      WEATHER_LINK   => ($conf{WEATHER_SITE}) ? $conf{WEATHER_SITE} : "https://openweathermap.org/city/$weather->{city}->{id}",
+      CITY_SELECT    => $city_weather_select,
+    },
+    { OUTPUT2RETURN => 1 });
+}
+
+#**********************************************************
+=head2 make_request($attr) - make request
+
+  Arguments:
+    $attr
+      method    - http methods
+
+        POST
+        GET
+
+      body      - body of request JSON
+      headers   - headers of request
+      pathAttr  - path attributes
+
+  Results:
+    $result hash
+
+=cut
+#**********************************************************
+sub make_request {
+  my ($attr) = @_;
+
+  my $req_url = 'https://api.openweathermap.org/data/2.5/forecast?' . ($attr->{pathAttr} || '');
+  my @req_headers = ('Content-Type: application/json');
+  my $req_body = q{};
+
+  if ($attr->{method} ne 'GET') {
+    $req_body = $attr->{body};
+  }
+
+  my $result = web_request($req_url, {
+    HEADERS     => \@req_headers,
+    JSON_BODY   => $req_body,
+    JSON_RETURN => 1,
+    METHOD      => $attr->{method},
+  });
+
+  return $result;
+}
+
+#**********************************************************
+=head2 weather_start_page($attr)
+
+  Arguments:
+    -
+
+  Returns:
+    \%%START_PAGE_F
+
+=cut
+#**********************************************************
+sub weather_start_page {
+
+  my %START_PAGE_F = (
+    'weather_today_actions' => "$lang{WEATHER} $lang{TODAY}",
+  );
+
+  return \%START_PAGE_F;
+}
+
+#**********************************************************
+=head2 lightning_map()
+
+=cut
+#**********************************************************
+sub weather_lightning_map {
+  my ($attr) = @_;
+  my $zoom = 8.5;
+
+  $attr->{COORDINATES} = web_request("https://ipapi.co/json/", {
+    METHOD      => 'GET',
+    JSON_RETURN => 1,
+  });
+
+  print $html->tpl_show(_include('weather_lightning', 'Weather'), {
+    LINK => "https://map.blitzortung.org/?y#$zoom/$attr->{COORDINATES}->{latitude}/$attr->{COORDINATES}->{longitude}",
+  }, { OUTPUT2RETURN => 1 });
+
+  return 1;
+}
+
+1;

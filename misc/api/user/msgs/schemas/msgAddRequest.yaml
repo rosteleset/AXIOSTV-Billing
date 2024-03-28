@@ -1,0 +1,14 @@
+type: object
+properties:
+  chapter:
+    type: integer
+    example: 3
+  message:
+    type: string
+    example: Some message
+  subject:
+    type: string
+    example: Message subject
+  priority:
+    type: integer
+    example: 2

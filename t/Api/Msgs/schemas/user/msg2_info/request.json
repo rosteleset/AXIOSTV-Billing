@@ -1,0 +1,6 @@
+{
+  "name": "USER_MSGS_MSG_INFO",
+  "method": "GET",
+  "path": "user/:uid/msgs/:id/",
+  "params": {}
+}

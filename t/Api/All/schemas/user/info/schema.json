@@ -1,0 +1,98 @@
+{
+  "definitions": {},
+  "type": "object",
+  "title": "The Root Schema",
+  "required": [
+    "uid"
+  ],
+  "properties": {
+    "uid": {
+      "$id": "#/properties/uid",
+      "type": "number"
+    },
+    "disable": {
+      "$id": "#/properties/disable",
+      "type": "number"
+    },
+    "creditDate": {
+      "$id": "#/properties/creditDate",
+      "type": "string"
+    },
+    "domainId": {
+      "$id": "#/properties/domainId",
+      "type": "number"
+    },
+    "deleted": {
+      "$id": "#/properties/deleted",
+      "type": "number"
+    },
+    "login": {
+      "$id": "#/properties/login",
+      "type": "string"
+    },
+    "companyVat": {
+      "$id": "#/properties/companyVat",
+      "type": "number"
+    },
+    "billOwner": {
+      "$id": "#/properties/billOwner",
+      "type": "number"
+    },
+    "affected": {
+      "$id": "#/properties/affected",
+      "type": "number"
+    },
+    "total": {
+      "$id": "#/properties/total",
+      "type": "number"
+    },
+    "companyId": {
+      "$id": "#/properties/companyId",
+      "type": "number"
+    },
+    "companyCredit": {
+      "$id": "#/properties/companyCredit",
+      "type": "number"
+    },
+    "gid": {
+      "$id": "#/properties/gid",
+      "type": "number"
+    },
+    "billId": {
+      "$id": "#/properties/billId",
+      "type": "number"
+    },
+    "reductionDate": {
+      "$id": "#/properties/reductionDate",
+      "type": "string"
+    },
+    "extBillId": {
+      "$id": "#/properties/extBillId",
+      "type": "number"
+    },
+    "expire": {
+      "$id": "#/properties/expire",
+      "type": "string"
+    },
+    "reduction": {
+      "$id": "#/properties/reduction",
+      "type": "number"
+    },
+    "activate": {
+      "$id": "#/properties/activate",
+      "type": "string"
+    },
+    "deposit": {
+      "$id": "#/properties/deposit",
+      "type": "number"
+    },
+    "credit": {
+      "$id": "#/properties/credit",
+      "type": "number"
+    },
+    "gName": {
+      "$id": "#/properties/gName",
+      "type": "string"
+    }
+  }
+}

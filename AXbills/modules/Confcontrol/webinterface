@@ -1,0 +1,247 @@
+#!perl
+
+=head1 NAME
+
+  Confcontrol
+  
+=name2 SYNOPSIS
+
+  Control of configuration files changes
+  
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+use Confcontrol;
+
+use AXbills::Experimental;
+
+our (
+  $db,
+  $admin,
+  %conf,
+  $html,
+  %lang,
+  @bool_vals
+);
+
+my Confcontrol $Confcontrol = Confcontrol->new( $db, $admin, \%conf );
+
+#**********************************************************
+=head2 confcontrol_main()
+
+=cut
+#**********************************************************
+sub confcontrol_main {
+
+  my $show_template = 0;
+  my $controlled_file_info = { };
+
+  if ( $FORM{show_add_form} ) {
+    $show_template = 1;
+  }
+  elsif ( $FORM{chg} ) {
+    $controlled_file_info = $Confcontrol->controlled_files_info( $FORM{chg} );
+    _error_show( $Confcontrol );
+    $show_template = 1;
+  }
+  elsif ( $FORM{del} ) {
+    $Confcontrol->controlled_files_del( \%FORM );
+    show_result( $Confcontrol, $lang{DELETED}, $FORM{NAME} );
+  }
+  elsif ( ($FORM{add} || $FORM{change}) && !$FORM{NAME} && !$FORM{PATH} ) {
+    $html->message( 'err', $lang{INFO_CHANGE_MSG} ); # Fill empty fields
+  }
+  elsif ( $FORM{add} ) {
+    $Confcontrol->controlled_files_add( \%FORM );
+
+    if ( show_result( $Confcontrol, $lang{ADDED}, "$FORM{PATH}$FORM{NAME}" ) ) {
+      $Confcontrol->stats_add( {
+          FILE_ID    => $Confcontrol->{INSERT_ID},
+          LAST_MTIME => _stats_for_file( "$FORM{PATH}$FORM{NAME}" )->{mtime},
+          CRC        => _md5_of( "$FORM{PATH}$FORM{NAME}" )
+        } );
+    }
+    else {
+      # Show template again on error
+      $show_template = 1;
+    }
+  }
+  elsif ( $FORM{change} ) {
+    $Confcontrol->controlled_files_change( \%FORM );
+    show_result( $Confcontrol, $lang{CHANGED}, "$FORM{PATH}$FORM{NAME}" );
+  }
+
+  if ( $show_template ) {
+    $html->tpl_show( _include( 'confcontrol_form_add_file', 'Confcontrol' ),
+      {
+        %{ ($controlled_file_info) ? $controlled_file_info : {} },
+        %FORM,
+        SUBMIT_BTN_NAME   => ($FORM{chg}) ? $lang{CHANGE_} : $lang{ADD},
+        SUBMIT_BTN_ACTION => ($FORM{chg}) ? "change" : "add"
+      }
+    );
+  }
+
+  my AXbills::HTML $table;
+  ($table) = result_former( {
+      INPUT_DATA        => $Confcontrol,
+      FUNCTION        => 'controlled_files_list',
+      BASE_FIELDS     => 0,
+      DEFAULT_FIELDS  => 'ID,NAME,PATH,COMMENTS',
+      FUNCTION_FIELDS => 'change,del',
+      SKIP_USER_TITLE => 1,
+      EXT_FIELDS      => 0,
+      EXT_TITLES      =>
+      {
+        id       => 'ID',
+        name     => $lang{FILE},
+        path     => $lang{PATH},
+        comments => $lang{COMMENTS}
+      },
+      TABLE           =>
+      {
+        width   => '100%',
+        caption => "$lang{SYSTEM} $lang{FILE}",
+        ID      => 'CONTROLLED_FILES_TABLE',
+        EXPORT  => 1,
+        MENU    => "$lang{ADD}:index=$index&show_add_form=1:add"
+      },
+      MAKE_ROWS       => 1,
+      SEARCH_FORMER   => 1,
+      MODULE          => 'Confcontrol',
+    } );
+
+  print $table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 confcontrol_stats_main()
+
+=cut
+#**********************************************************
+sub confcontrol_stats_main {
+  
+  my AXbills::HTML $table;
+  ($table)  = result_former( {
+    INPUT_DATA        => $Confcontrol,
+    FUNCTION        => 'stats_last_list',
+    BASE_FIELDS     => 0,
+    DEFAULT_FIELDS  => 'ID, NAME, PATH, MTIME, CRC, COMMENTS',
+    FUNCTION_FIELDS => 'change,del',
+    FUNCTION_FIELDS => 'confcontrol_stat_single:hist:id',
+    SKIP_USER_TITLE => 1,
+    EXT_FIELDS      => 0,
+    EXT_TITLES      => {
+      id    => 'ID',
+      name  => $lang{FILE},
+      path  => $lang{PATH},
+      mtime => $lang{TIME}
+    },
+    TABLE => {
+      width   => '100%',
+      caption => "$lang{FILE} $lang{CHANGED}",
+      ID      => 'CONTROLLED_FILES_TABLE',
+      EXPORT  => 1,
+    },
+    MAKE_ROWS       => 1,
+    SEARCH_FORMER   => 1,
+    MODULE          => 'Conf_Control',
+  });
+
+  print $table->show();
+
+  return 1;
+
+}
+
+#**********************************************************
+=head2 confcontrol_stat_single()
+
+=cut
+#**********************************************************
+sub confcontrol_stat_single {
+
+  return 0 unless ($FORM{ID});
+
+  #  confcontrol_periodic_check();
+  my $stats_list = $Confcontrol->stats_list( { ID => $FORM{ID}, SHOW_ALL_COLUMNS => 1, COLS_NAME => 1, %FORM } );
+
+  if (scalar @$stats_list < 1) {
+    $html->message( 'err', $lang{NO_DATA} );
+    return 0;
+  }
+
+  my $file_info = $stats_list->[0];
+
+  my AXbills::HTML $table = $html->table( {
+      width       => '100%',
+      caption     => "$file_info->{path}$file_info->{name}",
+      border      => 1,
+      qs          => '&ID='.$FORM{ID},
+      title_plain => [ '#', $lang{CHANGED}, 'CRC' ],
+      cols_align  => [ 'left', 'left', 'center' ],
+      ID          => 'CONFCONTROL_STATS_SINGLE'
+  } );
+
+  my $i = 1;
+  foreach my $stat (@{$stats_list}) {
+    $table->addrow(
+      $i++,
+      $stat->{mtime},
+      $stat->{crc}
+    );
+  }
+
+  print $table->show();
+}
+
+#**********************************************************
+=head2 confcontrol_periodic_check()
+
+=cut
+#**********************************************************
+sub confcontrol_periodic_check() {
+
+  my $files_list = $Confcontrol->controlled_files_list( { COLS_NAME => 1, SHOW_ALL_COLUMNS => 1 } );
+  my $last_stats_list = $Confcontrol->stats_last_list();
+
+  my %last_stats_hash = ();
+  foreach my $stat ( @{$last_stats_list} ) {
+    $last_stats_hash{$stat->{id}} = $stat if($stat->{id});
+  }
+
+  foreach my $file ( @{$files_list} ) {
+    _confcontrol_update_file_stats_if_changed( $file->{id}, "$file->{path}$file->{name}", \%last_stats_hash );
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _confcontrol_update_file_stats_if_changed($file_id, $file_path, $last_stats_hash)
+
+=cut
+#**********************************************************
+sub _confcontrol_update_file_stats_if_changed {
+  my ($file_id, $full_filepath, $last_stats_hash) = @_;
+
+  my $current_stats = $last_stats_hash->{$file_id};
+  my $new_stats = _stats_for_file( $full_filepath );
+
+  my $crc = _md5_of( $full_filepath );
+
+  if ( !$current_stats->{last_mtime} || !$current_stats->{crc} || ($crc ne $current_stats->{crc}) ) {
+
+    $Confcontrol->stats_add( {
+        FILE_ID    => $file_id,
+        LAST_MTIME => $new_stats->{mtime},
+        CRC        => $crc
+      } );
+
+  };
+}
+
+1;

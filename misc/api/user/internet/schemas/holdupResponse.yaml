@@ -1,0 +1,8 @@
+type: object
+properties:
+  success:
+    type: integer
+    example: 1
+  msg:
+    type: string
+    example: Success

@@ -1,0 +1,1 @@
+ALTER TABLE `nas_ippools` ADD KEY `pool_id` (`pool_id`);

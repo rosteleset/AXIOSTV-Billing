@@ -1,0 +1,3746 @@
+EPON-PROFILE-CONFIG-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    IpAddress, Unsigned32, Integer32, Counter32, TimeTicks, Gauge32, Counter64,
+    MODULE-IDENTITY, OBJECT-IDENTITY, OBJECT-TYPE, enterprises     
+      FROM SNMPv2-SMI     
+    DateAndTime, MacAddress, TimeStamp, RowStatus, TruthValue, DisplayString, TEXTUAL-CONVENTION
+      FROM SNMPv2-TC      ;
+
+--------------------------------------------------------------
+    greennet MODULE-IDENTITY
+        LAST-UPDATED    "200712050000Z"  -- Dec 5, 2000
+        ORGANIZATION    "GreenNet Systems, Inc."
+        CONTACT-INFO    "GreenNet Systems, Inc.
+                         E-mail: support@green-net.com.cn"
+        DESCRIPTION     "GREENNET Master MIB OID defines and documentation."
+        REVISION        "201510100000Z"  -- Oct 10, 2015
+        DESCRIPTION     "Initial MIB creation."
+    	::= { enterprises 27514 }
+    	
+--GREENNET Products----------------------------------------------------
+datacom		OBJECT IDENTIFIER ::= { greennet 1 }
+
+--DataCom Products-----------------------------------------------------
+eponProfileCfg		OBJECT IDENTIFIER ::= {datacom 15}
+    
+
+------------------------------------------------------------------
+--  ProfileCfg[Profile ≈‰÷√π‹¿ÌœÓ](1.3.6.1.4.1.27514.1.15)
+------------------------------------------------------------------
+
+------------------------------------------------------------------
+--  epon profile glob attribute
+------------------------------------------------------------------
+eponProfileGlobAttribute  OBJECT-IDENTITY
+    STATUS      current
+    DESCRIPTION
+    "profile glob attribute"
+    ::= {eponProfileCfg 1}
+
+profileGlobSwitch  OBJECT-TYPE
+    SYNTAX      INTEGER
+    {
+        disable(0),
+        enable(1)
+    }
+    MAX-ACCESS  read-write
+    STATUS      current
+    DESCRIPTION
+    "
+        status of profile
+    "
+    ::= {eponProfileGlobAttribute 1}
+
+profileReturnCode  OBJECT-TYPE
+    SYNTAX      INTEGER
+    MAX-ACCESS  read-only
+    STATUS      current
+    DESCRIPTION
+    "
+        return code
+    "
+    ::= {eponProfileGlobAttribute 2}
+
+------------------------------------------------------------------
+-- epon profile line cfg table
+------------------------------------------------------------------
+
+eponProfileLineCfgTable  OBJECT IDENTIFIER  ::=  { eponProfileCfg 2 }
+
+------------------------------------------------------------------
+-- epon profile line base table
+------------------------------------------------------------------
+
+eponProfileLineBaseTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponProfileLineBaseEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        profile line table
+    "
+    ::= {eponProfileLineCfgTable 1}
+
+eponProfileLineBaseEntry  OBJECT-TYPE
+    SYNTAX       EponProfileLineBaseEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    INDEX
+    {
+        lineIndex
+    }
+    ::= {eponProfileLineBaseTable 1}
+
+EponProfileLineBaseEntry  ::=  SEQUENCE
+    {
+        lineIndex                       INTEGER,
+        lineAction                      INTEGER,
+        
+        lineDbaUpFir                    INTEGER,
+        lineDbaUpCir                    INTEGER,
+        lineDbaUpPir                    INTEGER,
+        lineDbaUpWeigth                 INTEGER,
+        lineDbaUpBurst                  INTEGER,
+        lineDbaDownFir                  INTEGER,
+        lineDbaDownCir                  INTEGER,
+        lineDbaDownPir                  INTEGER,
+        lineDbaDownWeigth               INTEGER,
+        lineDbaDownBurst                INTEGER,
+        lineDbaShaper                   INTEGER,
+        
+        lineMaxEthernet                 INTEGER
+    }
+
+lineIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        line profile index
+    "
+    ::= {eponProfileLineBaseEntry 1}
+
+lineAction  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        delete(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        line profile action:
+        delete(1)
+    "
+    ::= {eponProfileLineBaseEntry 2}
+
+lineDbaUpFir  OBJECT-TYPE
+    SYNTAX          INTEGER(1..100000)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        fir of upstream
+    "
+    ::= {eponProfileLineBaseEntry 3}
+
+lineDbaUpCir  OBJECT-TYPE
+    SYNTAX          INTEGER(1..100000)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        cir of upstream
+    "
+    ::= {eponProfileLineBaseEntry 4}
+
+lineDbaUpPir  OBJECT-TYPE
+    SYNTAX          INTEGER(1..100000)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        pir of upstream
+    "
+    ::= {eponProfileLineBaseEntry 5}
+
+lineDbaUpWeigth  OBJECT-TYPE
+    SYNTAX          INTEGER(1..20)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        weigth
+        8600 don't support
+        5610 support
+    "
+    ::= {eponProfileLineBaseEntry 6}
+
+lineDbaUpBurst  OBJECT-TYPE
+    SYNTAX          INTEGER(128..16383)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        burst
+        8600 don't support
+        5610 don't support in upstream
+    "
+    ::= {eponProfileLineBaseEntry 7}
+
+lineDbaDownFir  OBJECT-TYPE
+    SYNTAX          INTEGER(1..100000)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        fir of downstream
+        5610 don't support in downstream
+    "
+    ::= {eponProfileLineBaseEntry 8}
+
+lineDbaDownCir  OBJECT-TYPE
+    SYNTAX          INTEGER(1..100000)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        cir of downstream
+        5610 don't support in downstream
+    "
+    ::= {eponProfileLineBaseEntry 9}
+
+lineDbaDownPir  OBJECT-TYPE
+    SYNTAX          INTEGER(1..100000)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        pir of downstream
+    "
+    ::= {eponProfileLineBaseEntry 10}
+
+lineDbaDownWeigth  OBJECT-TYPE
+    SYNTAX          INTEGER(1..20)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        weigth
+        8600 don't support
+        5610 don't support in downstream
+    "
+    ::= {eponProfileLineBaseEntry 11}
+
+lineDbaDownBurst  OBJECT-TYPE
+    SYNTAX          INTEGER(128..16383)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        burst
+        8600 don't support
+        5610 support
+    "
+    ::= {eponProfileLineBaseEntry 12}
+
+lineDbaShaper  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        disable(0),
+        cir(1),
+        pir(2)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        dba shaper mode
+        5610 don't support
+    "
+    ::= {eponProfileLineBaseEntry 13}
+
+lineMaxEthernet  OBJECT-TYPE
+    SYNTAX          INTEGER(1..25)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        support ethernet port num,
+        0 -- step increasing by onu
+        other -- step increasing by port
+    "
+    ::= {eponProfileLineBaseEntry 14}
+
+------------------------------------------------------------------
+-- epon profile line port limit table
+------------------------------------------------------------------
+eponProfileLineUniCTCLimitTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponProfileLineUniCTCLimitEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port speed limit table
+    "
+    ::= {eponProfileLineCfgTable 2}
+
+eponProfileLineUniCTCLimitEntry  OBJECT-TYPE
+    SYNTAX       EponProfileLineUniCTCLimitEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port speed limit info
+    "
+    INDEX
+    {
+        lineLimitIndex,
+        lineLimitUniIndex
+    }
+    ::= {eponProfileLineUniCTCLimitTable 1}
+
+EponProfileLineUniCTCLimitEntry  ::=  SEQUENCE
+    {
+        lineLimitIndex                  INTEGER,
+        lineLimitUniIndex               INTEGER,
+        lineUniIngressEnable            INTEGER,
+        lineUniIngressCir               INTEGER,
+        lineUniIngressCbs               INTEGER,
+        lineUniIngressEbs               INTEGER,
+        lineUniEgressEnable             INTEGER,
+        lineUniEgressCir                INTEGER,
+        lineUniEgressPir                INTEGER
+    }
+
+lineLimitIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Line index
+    "
+    ::= {eponProfileLineUniCTCLimitEntry 1}
+
+lineLimitUniIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port index
+    "
+    ::= {eponProfileLineUniCTCLimitEntry 2}
+
+lineUniIngressEnable  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        disable(0),
+        enable(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port ingress enable
+    "
+    ::= {eponProfileLineUniCTCLimitEntry 3}
+
+lineUniIngressCir  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port ingress cir
+    "
+    ::= {eponProfileLineUniCTCLimitEntry 4}
+
+lineUniIngressCbs  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port ingress cbs
+        the value must be greater than 1522 
+    "
+    ::= {eponProfileLineUniCTCLimitEntry 5}
+
+lineUniIngressEbs  OBJECT-TYPE
+    SYNTAX          INTEGER
+    
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port ingress ebs
+        the value must be  less than or equal to 1522
+    "
+    ::= {eponProfileLineUniCTCLimitEntry 6}
+
+lineUniEgressEnable  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        disable(0),
+        enable(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port egress enable
+    "
+    ::= {eponProfileLineUniCTCLimitEntry 7}
+
+lineUniEgressCir  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port egress cir
+    "
+    ::= {eponProfileLineUniCTCLimitEntry 8}
+
+lineUniEgressPir  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port egress pir
+    "
+    ::= {eponProfileLineUniCTCLimitEntry 9}
+
+------------------------------------------------------------------
+-- epon profile line port vlan table
+------------------------------------------------------------------
+eponProfileLineUniCTCVlanTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponProfileLineUniCTCVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port vlan table
+    "
+    ::= {eponProfileLineCfgTable 3}
+
+eponProfileLineUniCTCVlanEntry  OBJECT-TYPE
+    SYNTAX       EponProfileLineUniCTCVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port vlan info
+    "
+    INDEX
+    {
+        lineCTCVlanBaseIndex,
+        lineCTCVlanUniIndex
+    }
+    ::= {eponProfileLineUniCTCVlanTable 1}
+
+EponProfileLineUniCTCVlanEntry  ::=  SEQUENCE
+    {
+        lineCTCVlanBaseIndex            INTEGER,
+        lineCTCVlanUniIndex             INTEGER,
+        lineUniVlanMode                 INTEGER,
+        lineUniVlanTpid                 INTEGER,
+        lineUniVlanPir                  INTEGER,
+        lineUniVlanCfi                  INTEGER,
+        lineUniVlanPvid                 INTEGER,
+        lineUniVlanBase                 INTEGER,
+        lineUniStepVlan                 INTEGER
+    }
+
+lineCTCVlanBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Line index
+    "
+    ::= {eponProfileLineUniCTCVlanEntry 1}
+
+lineCTCVlanUniIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port index
+    "
+    ::= {eponProfileLineUniCTCVlanEntry 2}
+
+lineUniVlanMode  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        transparent(0),
+        tag(1),
+        translation(2),
+        aggregation(3),
+        trunk(4)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port vlan mode
+    "
+    ::= {eponProfileLineUniCTCVlanEntry 3}
+
+lineUniVlanTpid  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port TPID
+    "
+    ::= {eponProfileLineUniCTCVlanEntry 4}
+
+lineUniVlanPir  OBJECT-TYPE
+    SYNTAX          INTEGER(0..7)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port TPID
+    "
+    ::= {eponProfileLineUniCTCVlanEntry 5}
+
+lineUniVlanCfi  OBJECT-TYPE
+    SYNTAX          INTEGER(0..1)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port CFI
+    "
+    ::= {eponProfileLineUniCTCVlanEntry 6}
+
+lineUniVlanPvid  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4094)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port vlan ID
+    "
+    ::= {eponProfileLineUniCTCVlanEntry 7}
+
+lineUniVlanBase  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4094)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port vlan ID
+    "
+    ::= {eponProfileLineUniCTCVlanEntry 8}
+
+lineUniStepVlan  OBJECT-TYPE
+    SYNTAX          INTEGER(1..10)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni step vlan ID
+    "
+    ::= {eponProfileLineUniCTCVlanEntry 9}
+
+------------------------------------------------------------------
+-- epon profile line port vlan translation table
+------------------------------------------------------------------
+eponProfileLineUniCTCTranslationVlanTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponProfileLineUniCTCTranslationVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port translation vlan table
+    "
+    ::= {eponProfileLineCfgTable 4}
+
+eponProfileLineUniCTCTranslationVlanEntry  OBJECT-TYPE
+    SYNTAX       EponProfileLineUniCTCTranslationVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port translation vlan info
+    "
+    INDEX
+    {
+        lineVlanTranslateIndex,
+        lineVlanTranslateUniIndex,
+        lineUniTranslationIndex
+    }
+    ::= {eponProfileLineUniCTCTranslationVlanTable 1}
+
+EponProfileLineUniCTCTranslationVlanEntry  ::=  SEQUENCE
+    {
+        lineVlanTranslateIndex          INTEGER,
+        lineVlanTranslateUniIndex       INTEGER,
+        lineUniTranslationIndex         INTEGER,
+        lineUniTranslationDel           INTEGER,
+        lineUniOldVlan                  INTEGER,
+        lineUniOldVlanTpid              INTEGER,
+        lineUniNewVlan                  INTEGER,
+        lineUniNewVlanTpid              INTEGER
+    }
+
+lineVlanTranslateIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Line index
+    "
+    ::= {eponProfileLineUniCTCTranslationVlanEntry 1}
+
+lineVlanTranslateUniIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port index
+    "
+    ::= {eponProfileLineUniCTCTranslationVlanEntry 2}
+
+lineUniTranslationIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni translation index
+    "
+    ::= {eponProfileLineUniCTCTranslationVlanEntry 3}
+
+lineUniTranslationDel  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        delete(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        delete vlan entry
+    "
+    ::= {eponProfileLineUniCTCTranslationVlanEntry 4}
+
+lineUniOldVlan  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4094)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni translation old vlan
+    "
+    ::= {eponProfileLineUniCTCTranslationVlanEntry 5}
+
+lineUniOldVlanTpid  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni translation old vlan tpid
+    "
+    ::= {eponProfileLineUniCTCTranslationVlanEntry 6}
+
+lineUniNewVlan  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4094)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni translation new vlan
+    "
+    ::= {eponProfileLineUniCTCTranslationVlanEntry 7}
+
+lineUniNewVlanTpid  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni translation new vlan tpid
+    "
+    ::= {eponProfileLineUniCTCTranslationVlanEntry 8}
+
+------------------------------------------------------------------
+-- epon profile line port vlan trunk table
+------------------------------------------------------------------
+eponProfileLineUniCTCTrunkVlanTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponProfileLineUniCTCTrunkVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port vlan table
+    "
+    ::= {eponProfileLineCfgTable 5}
+
+eponProfileLineUniCTCTrunkVlanEntry  OBJECT-TYPE
+    SYNTAX       EponProfileLineUniCTCTrunkVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port vlan info
+    "
+    INDEX
+    {
+        lineVlanTrunkBaseIndex,
+        lineVlanTrunkUniIndex
+    }
+    ::= {eponProfileLineUniCTCTrunkVlanTable 1}
+
+EponProfileLineUniCTCTrunkVlanEntry  ::=  SEQUENCE
+    {
+        lineVlanTrunkBaseIndex          INTEGER,
+        lineVlanTrunkUniIndex           INTEGER,
+        lineUniTrunkVlanTpid            INTEGER,
+        lineUniVlanList                 OCTET STRING
+    }
+
+lineVlanTrunkBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Line index
+    "
+    ::= {eponProfileLineUniCTCTrunkVlanEntry 1}
+
+lineVlanTrunkUniIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port index
+    "
+    ::= {eponProfileLineUniCTCTrunkVlanEntry 2}
+
+lineUniTrunkVlanTpid  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port trunk vlan tpid
+    "
+    ::= {eponProfileLineUniCTCTrunkVlanEntry 3}
+
+lineUniVlanList  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..64))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port trunk vlan list
+    "
+    ::= {eponProfileLineUniCTCTrunkVlanEntry 4}
+
+------------------------------------------------------------------
+-- epon profile line vlan swap table
+------------------------------------------------------------------
+eponProfileLineVlanSwapTable OBJECT-TYPE
+   SYNTAX   SEQUENCE OF eponProfileLineVlanSwapEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "epon profile vlan swap info"
+   ::= {eponProfileLineCfgTable 6}
+   
+eponProfileLineVlanSwapEntry OBJECT-TYPE
+   SYNTAX      eponProfileLineVlanSwapEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "vlan swap info"
+   INDEX{
+        lineVlanSwapLineIndex,
+        lineVlanSwapRuleIndex
+   }
+   ::= {eponProfileLineVlanSwapTable 1}
+
+eponProfileLineVlanSwapEntry ::= SEQUENCE{
+   lineVlanSwapLineIndex                INTEGER,
+   lineVlanSwapRuleIndex                INTEGER,
+   lineVlanSwapSVlan                    INTEGER,
+   lineVlanSwapEVlan                    INTEGER,
+   lineVlanSwapNVlan                    INTEGER,
+   lineVlanSwapActoin                   INTEGER,
+   lineVlanSwapIngressVlan              INTEGER,
+   lineVlanSwapEgressVlan               INTEGER,
+   lineVlanSwapStepVlan                 INTEGER,
+   lineVlanSwapRowStatus                INTEGER
+   }       
+
+lineVlanSwapLineIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Line index"
+   ::= {eponProfileLineVlanSwapEntry 1}   
+   
+lineVlanSwapRuleIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "rule index: 1-16"
+   ::= {eponProfileLineVlanSwapEntry 2}      
+   
+lineVlanSwapSVlan   OBJECT-TYPE
+   SYNTAX       INTEGER(1..4094)
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "start vlan"
+   ::= {eponProfileLineVlanSwapEntry 3}
+   
+lineVlanSwapEVlan   OBJECT-TYPE
+   SYNTAX       INTEGER(1..4094)
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "end vlan"
+   ::= {eponProfileLineVlanSwapEntry 4}
+   
+lineVlanSwapNVlan   OBJECT-TYPE
+   SYNTAX       INTEGER(1..4094)
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "swap vlan"
+   ::= {eponProfileLineVlanSwapEntry 5}
+
+lineVlanSwapActoin       OBJECT-TYPE
+   SYNTAX       INTEGER
+   {
+        push(1),
+        pop(2),
+        swap(3)
+   }
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "action 1:push 2:pop 3:swap"
+   ::={eponProfileLineVlanSwapEntry 6} 
+
+lineVlanSwapIngressVlan       OBJECT-TYPE
+   SYNTAX       INTEGER
+   {
+        inner-vlan(0),
+        top-vlan(1)
+   }
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "0:inner vlan 1: top vlan"
+   ::={eponProfileLineVlanSwapEntry 7} 
+
+lineVlanSwapEgressVlan       OBJECT-TYPE
+   SYNTAX       INTEGER
+   {
+        inner-vlan(0),
+        top-vlan(1)
+   }
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "0:inner vlan 1: top vlan"
+   ::={eponProfileLineVlanSwapEntry 8} 
+
+lineVlanSwapStepVlan       OBJECT-TYPE
+   SYNTAX       INTEGER(1..10)
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "step vlan: 1-10"
+   ::={eponProfileLineVlanSwapEntry 9} 
+            
+lineVlanSwapRowStatus       OBJECT-TYPE
+   SYNTAX       RowStatus
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "rowStatus"
+   ::={eponProfileLineVlanSwapEntry 10}     
+   
+------------------------------------------------------------------
+-- epon profile line ctc mcast table
+------------------------------------------------------------------ 
+eponProfileLineCtcMcastMgmt  OBJECT-IDENTITY
+   STATUS        current
+   DESCRIPTION
+   "onu ctc multicast"
+   ::= {eponProfileLineCfgTable 7}
+
+eponProfileLineCtcMcastTable OBJECT-TYPE
+   SYNTAX   SEQUENCE OF eponProfileLineCtcMcastEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "epon profile ctc mcast info"
+   ::= {eponProfileLineCtcMcastMgmt 1}
+
+eponProfileLineCtcMcastEntry OBJECT-TYPE
+   SYNTAX      eponProfileLineCtcMcastEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "ctc mcast mode&fastleave info"
+   INDEX{
+        lineCtcMcastLineIndex   
+        }
+   ::= {eponProfileLineCtcMcastTable 1}
+
+eponProfileLineCtcMcastEntry ::= SEQUENCE{
+   lineCtcMcastLineIndex                INTEGER,
+   lineCtcMcastLineMode       			INTEGER,
+   lineCtcMcastLineFastLeave        	INTEGER
+   }       
+
+lineCtcMcastLineIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Line index"
+   ::= {eponProfileLineCtcMcastEntry 1}   
+
+lineCtcMcastLineMode  OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       igmpsnoop(0),
+       multicast-ctrl(1),
+       disable-igmpsnoop(2)
+   }
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu multicast mode"
+   ::= {eponProfileLineCtcMcastEntry 2}  
+
+lineCtcMcastLineFastLeave  OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       fastleave-deactivate(1),
+       fastleave-activate(2)
+   }
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu multicast fastleave mode  0:disable 1:enable"
+   ::= {eponProfileLineCtcMcastEntry 3} 
+
+-------------------- line ctc igmp-snooping --------------------------             
+ eponProfileLineUniCtcIgmpTable   OBJECT-TYPE
+   SYNTAX        SEQUENCE OF eponProfileLineUniCtcIgmpEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "ctc igmp-snooping"
+   ::= {eponProfileLineCtcMcastMgmt 2}
+
+eponProfileLineUniCtcIgmpEntry OBJECT-TYPE
+   SYNTAX      eponProfileLineUniCtcIgmpEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "ctc mcast uni igmp info"
+   INDEX{
+        lineUniCtcMcastLineIndex,
+        lineUniCtcMcastUniIndex
+   }
+   ::= {eponProfileLineUniCtcIgmpTable 1}
+
+eponProfileLineUniCtcIgmpEntry ::= SEQUENCE{
+   lineUniCtcMcastLineIndex                INTEGER,
+   lineUniCtcMcastUniIndex                 INTEGER,
+   lineUniCtcMcastIgmpMaxNum               INTEGER (1..255),
+   lineUniCtcMcastIgmpVlanList             OCTET STRING (SIZE(0..255)),
+   lineUniCtcMcastIgmpVlanListRowStatus    INTEGER
+   }       
+
+lineUniCtcMcastLineIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Line index"
+   ::= {eponProfileLineUniCtcIgmpEntry 1}   
+   
+lineUniCtcMcastUniIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "uni index"
+   ::= {eponProfileLineUniCtcIgmpEntry 2}      
+      
+lineUniCtcMcastIgmpMaxNum   OBJECT-TYPE
+   SYNTAX       INTEGER(1..255)
+   MAX-ACCESS   read-write
+   STATUS       current
+   DESCRIPTION
+   "igmp-snooping mode max vlan group"
+   ::= {eponProfileLineUniCtcIgmpEntry 3}
+   
+lineUniCtcMcastIgmpVlanList  OBJECT-TYPE
+   SYNTAX          OCTET STRING (SIZE(0..255))
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "igmp-snooping mode vlan list"
+   ::= {eponProfileLineUniCtcIgmpEntry 4}
+   
+lineUniCtcMcastIgmpVlanListRowStatus  OBJECT-TYPE
+   SYNTAX          RowStatus
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "igmp-snooping mode vlan list RowStatus"
+   ::= {eponProfileLineUniCtcIgmpEntry 5}
+
+-------------------- line ctc mcast-ctrl --------------------------    
+eponProfileLineUniCtcMcastCtrlTable   OBJECT-TYPE
+   SYNTAX        SEQUENCE OF eponProfileLineUniCtcMcastCtrlEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "ctc multicast control"
+   ::= {eponProfileLineCtcMcastMgmt 3}
+
+eponProfileLineUniCtcMcastCtrlEntry OBJECT-TYPE
+   SYNTAX      eponProfileLineUniCtcMcastCtrlEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "ctc mcast uni ctrl info"
+   INDEX{
+        lineUniCtcMcastCtrlLineIndex,
+        lineUniCtcMcastCtrlUniIndex,
+        lineUniCtcMcastCtrlIndex         
+   }
+   ::= {eponProfileLineUniCtcMcastCtrlTable 1}
+
+eponProfileLineUniCtcMcastCtrlEntry ::= SEQUENCE{
+   lineUniCtcMcastCtrlLineIndex          INTEGER,
+   lineUniCtcMcastCtrlUniIndex           INTEGER,
+   lineUniCtcMcastCtrlIndex              INTEGER (1..15),
+   lineUniCtcMcastCtrlType               INTEGER (0..2),
+   lineUniCtcMcastCtrlMac                MacAddress,
+   lineUniCtcMcastCtrlVlan               INTEGER (1..4094),
+   lineUniCtcMcastCtrlRowStatus          RowStatus   }       
+
+lineUniCtcMcastCtrlLineIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Multicast-control Line index"
+   ::= {eponProfileLineUniCtcMcastCtrlEntry 1}   
+   
+lineUniCtcMcastCtrlUniIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Multicast-control uni index"
+   ::= {eponProfileLineUniCtcMcastCtrlEntry 2}      
+
+lineUniCtcMcastCtrlIndex   OBJECT-TYPE
+   SYNTAX          INTEGER(1..15)
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "Multicast-control index"
+   ::= {eponProfileLineUniCtcMcastCtrlEntry 3}
+      
+lineUniCtcMcastCtrlType   OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       permit(0),
+       preview(1),
+       deny(2)
+   }
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Multicast-control type:
+	 0:permit 1:preview 2:deny"
+   ::= {eponProfileLineUniCtcMcastCtrlEntry 4}         
+   
+lineUniCtcMcastCtrlMac   OBJECT-TYPE
+   SYNTAX          MacAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Multicast-control mac"
+   ::= {eponProfileLineUniCtcMcastCtrlEntry 5}       
+
+lineUniCtcMcastCtrlVlan   OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Multicast-control vlan"
+   ::= {eponProfileLineUniCtcMcastCtrlEntry 6}  
+   
+lineUniCtcMcastCtrlRowStatus   OBJECT-TYPE
+   SYNTAX          RowStatus
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Multicast-control RowStatus"
+   ::= {eponProfileLineUniCtcMcastCtrlEntry 7}    
+
+-------------------- line ctc mcast tag --------------------------             
+ eponProfileLineUniCtcMcastTagTable   OBJECT-TYPE
+   SYNTAX        SEQUENCE OF eponProfileLineUniCtcMcastTagEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "ctc uni tag info"
+   ::= {eponProfileLineCtcMcastMgmt 4}
+
+eponProfileLineUniCtcMcastTagEntry OBJECT-TYPE
+   SYNTAX      eponProfileLineUniCtcMcastTagEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "ctc mcast uni tag info"
+   INDEX{
+        lineUniCtcMcastLineIndex,
+        lineUniCtcMcastUniIndex
+   }
+   ::= {eponProfileLineUniCtcMcastTagTable 1}
+
+eponProfileLineUniCtcMcastTagEntry ::= SEQUENCE{
+   lineUniCtcMcastTagLineIndex             INTEGER,
+   lineUniCtcMcastTagUniIndex              INTEGER,
+   lineUniCtcMcastTagMode                  INTEGER (0..2),
+   lineUniCtcMcastTagEntryNum              INTEGER (1..8),
+   lineUniCtcMcastTagEntryMVlan1				   INTEGER (1..4094),
+   lineUniCtcMcastTagEntryIPTV1				     INTEGER (1..4094),
+   lineUniCtcMcastTagEntryMVlan2				   INTEGER (1..4094),
+   lineUniCtcMcastTagEntryIPTV2				     INTEGER (1..4094),
+   lineUniCtcMcastTagEntryMVlan3				   INTEGER (1..4094),
+   lineUniCtcMcastTagEntryIPTV3				     INTEGER (1..4094),
+   lineUniCtcMcastTagEntryMVlan4				   INTEGER (1..4094),
+   lineUniCtcMcastTagEntryIPTV4				     INTEGER (1..4094),
+   lineUniCtcMcastTagEntryMVlan5				   INTEGER (1..4094),
+   lineUniCtcMcastTagEntryIPTV5				     INTEGER (1..4094),
+   lineUniCtcMcastTagEntryMVlan6				   INTEGER (1..4094),
+   lineUniCtcMcastTagEntryIPTV6				     INTEGER (1..4094),
+   lineUniCtcMcastTagEntryMVlan7				   INTEGER (1..4094),
+   lineUniCtcMcastTagEntryIPTV7				     INTEGER (1..4094),
+   lineUniCtcMcastTagEntryMVlan8				   INTEGER (1..4094),
+   lineUniCtcMcastTagEntryIPTV8				     INTEGER (1..4094),
+   lineUniCtcMcastTagRowStatus             INTEGER
+   }       
+
+lineUniCtcMcastTagLineIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Line index"
+   ::= {eponProfileLineUniCtcMcastTagEntry 1}   
+   
+lineUniCtcMcastTagUniIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "uni index"
+   ::= {eponProfileLineUniCtcMcastTagEntry 2}      
+
+lineUniCtcMcastTagMode   OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       TagNotStrip(0),
+       TagStrip(1),
+       TagTranslate(2)
+   }
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu port multicast tag status: 0-don't strip tag  1-strip tag 2-tag translate"
+   ::= {eponProfileLineUniCtcMcastTagEntry 3}     
+   
+lineUniCtcMcastTagEntryNum  OBJECT-TYPE
+   SYNTAX          INTEGER (1..8)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate entry number"
+   ::= {eponProfileLineUniCtcMcastTagEntry 4}
+
+lineUniCtcMcastTagEntryMVlan1  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan1"
+   ::= {eponProfileLineUniCtcMcastTagEntry 5}
+
+lineUniCtcMcastTagEntryIPTV1  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV1"
+   ::= {eponProfileLineUniCtcMcastTagEntry 6}
+
+lineUniCtcMcastTagEntryMVlan2  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan2"
+   ::= {eponProfileLineUniCtcMcastTagEntry 7}
+
+lineUniCtcMcastTagEntryIPTV2  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV2"
+   ::= {eponProfileLineUniCtcMcastTagEntry 8}
+
+lineUniCtcMcastTagEntryMVlan3  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan3"
+   ::= {eponProfileLineUniCtcMcastTagEntry 9}
+
+lineUniCtcMcastTagEntryIPTV3  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV3"
+   ::= {eponProfileLineUniCtcMcastTagEntry 10}
+
+lineUniCtcMcastTagEntryMVlan4  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan4"
+   ::= {eponProfileLineUniCtcMcastTagEntry 11}
+   
+lineUniCtcMcastTagEntryIPTV4  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV4"
+   ::= {eponProfileLineUniCtcMcastTagEntry 12}
+
+lineUniCtcMcastTagEntryMVlan5  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan5"
+   ::= {eponProfileLineUniCtcMcastTagEntry 13}
+
+lineUniCtcMcastTagEntryIPTV5  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV5"
+   ::= {eponProfileLineUniCtcMcastTagEntry 14}
+
+lineUniCtcMcastTagEntryMVlan6  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan6"
+   ::= {eponProfileLineUniCtcMcastTagEntry 15}
+
+lineUniCtcMcastTagEntryIPTV6  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV6"
+   ::= {eponProfileLineUniCtcMcastTagEntry 16}
+
+lineUniCtcMcastTagEntryMVlan7  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan7"
+   ::= {eponProfileLineUniCtcMcastTagEntry 17}
+
+lineUniCtcMcastTagEntryIPTV7  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV7"
+   ::= {eponProfileLineUniCtcMcastTagEntry 18}
+   
+lineUniCtcMcastTagEntryMVlan8  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan8"
+   ::= {eponProfileLineUniCtcMcastTagEntry 19}
+
+lineUniCtcMcastTagEntryIPTV8  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV8"
+   ::= {eponProfileLineUniCtcMcastTagEntry 20}
+                        
+lineUniCtcMcastTagRowStatus  OBJECT-TYPE
+   SYNTAX          RowStatus
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag vlan-enty translation list RowStatus"
+   ::= {eponProfileLineUniCtcMcastTagEntry 21}
+   
+------------------------------------------------------------------
+-- epon profile line ctc classfication table
+------------------------------------------------------------------
+eponProfileLineUniCtcClsTable OBJECT-TYPE
+   SYNTAX   SEQUENCE OF eponProfileLineCtcClsEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "epon profile ctc classification"
+   ::= {eponProfileLineCfgTable 8}
+   
+eponProfileLineCtcClsEntry OBJECT-TYPE
+   SYNTAX      eponProfileLineCtcClsEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "ctc mcast uni classification info"
+   INDEX{
+        lineCtcClsLineIndex,
+        lineCtcClsUniIndex,
+        lineCtcClsPrecedenceIndex
+   }
+   ::= {eponProfileLineUniCtcClsTable 1}
+
+eponProfileLineCtcClsEntry ::= SEQUENCE{
+		lineCtcClsLineIndex         		INTEGER,
+		lineCtcClsUniIndex          		INTEGER,
+		lineCtcClsPrecedenceIndex      	INTEGER (1..8),
+		lineCtcClsQuemapped		        	INTEGER (0..7),
+		lineCtcClsEthPriority	        	INTEGER (0..7),
+		lineCtcClsDestIp		            IpAddress,
+		lineCtcClsDestMac		          	MacAddress,
+		lineCtcClsDestPort		          INTEGER,
+		lineCtcClsDot1qPriority	      	INTEGER (0..63),
+		lineCtcClsDscp		              INTEGER (0..63),
+		lineCtcClsEthType		          	INTEGER,
+		lineCtcClsIpProtocol		        INTEGER (0..255),
+		lineCtcClsIpv6Precedence	      INTEGER (0..63),
+		lineCtcClsSrcIp		            	IpAddress,
+		lineCtcClsSrcMac		            MacAddress,
+		lineCtcClsSrcPort		          	INTEGER,
+		lineCtcClsVlan		              INTEGER,
+		lineCtcClsRowStatus		        	RowStatus
+   }       
+
+lineCtcClsLineIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Line index"
+   ::= {eponProfileLineCtcClsEntry 1}   
+   
+lineCtcClsUniIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "uni index"
+   ::= {eponProfileLineCtcClsEntry 2}      
+
+lineCtcClsPrecedenceIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "Number of rule precedence"
+   ::= {eponProfileLineCtcClsEntry 3} 
+   		
+lineCtcClsQuemapped  OBJECT-TYPE
+   SYNTAX          INTEGER (0..7)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Map the stream to specify queue"
+   ::= {eponProfileLineCtcClsEntry 4} 		   
+
+lineCtcClsEthPriority  OBJECT-TYPE
+   SYNTAX          INTEGER (0..7)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Ethernet Priority"
+   ::= {eponProfileLineCtcClsEntry 5} 	
+   
+lineCtcClsDestIp  OBJECT-TYPE
+   SYNTAX          IpAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:destination ip"
+   ::= {eponProfileLineCtcClsEntry 6}  
+   
+lineCtcClsDestMac  OBJECT-TYPE
+   SYNTAX          MacAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:Destination mac"
+   ::= {eponProfileLineCtcClsEntry 7}   
+   
+lineCtcClsDestPort  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:Destination port"
+   ::= {eponProfileLineCtcClsEntry 8}  
+   
+lineCtcClsDot1qPriority  OBJECT-TYPE
+   SYNTAX          INTEGER (0..63)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:dot1p priority"
+   ::= {eponProfileLineCtcClsEntry 9}   
+   
+lineCtcClsDscp  OBJECT-TYPE
+   SYNTAX          INTEGER (0..63)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:IP V4 dscp"
+   ::= {eponProfileLineCtcClsEntry 10}  
+   
+lineCtcClsEthType  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:ethernet type"
+   ::= {eponProfileLineCtcClsEntry 11}  
+   
+lineCtcClsIpProtocol  OBJECT-TYPE
+   SYNTAX          INTEGER (0..255)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:ip protocol"
+   ::= {eponProfileLineCtcClsEntry 12}      
+   
+lineCtcClsIpv6Precedence  OBJECT-TYPE
+   SYNTAX          INTEGER (0..63)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:IP V6 precedence"
+   ::= {eponProfileLineCtcClsEntry 13}  
+   
+lineCtcClsSrcIp  OBJECT-TYPE
+   SYNTAX          IpAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:source ip"
+   ::= {eponProfileLineCtcClsEntry 14}   
+   
+lineCtcClsSrcMac  OBJECT-TYPE
+   SYNTAX          MacAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:source mac"
+   ::= {eponProfileLineCtcClsEntry 15}
+
+lineCtcClsSrcPort  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:Source port"
+   ::= {eponProfileLineCtcClsEntry 16}         
+   
+lineCtcClsVlan  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:vlan"
+   ::= {eponProfileLineCtcClsEntry 17}
+   
+lineCtcClsRowStatus  OBJECT-TYPE
+   SYNTAX          RowStatus
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "RowStatus"
+   ::= {eponProfileLineCtcClsEntry 18}
+
+------------------------------------------------------------------
+-- epon profile line port vlan aggregation table
+------------------------------------------------------------------
+eponProfileLineUniCTCAggVlanTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponProfileLineUniCTCAggVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port aggregation vlan table
+    "
+    ::= {eponProfileLineCfgTable 9}
+
+eponProfileLineUniCTCAggVlanEntry  OBJECT-TYPE
+    SYNTAX       EponProfileLineUniCTCAggVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port aggregation vlan info
+    "
+    INDEX
+    {
+        lineVlanAggBaseIndex,
+        lineVlanAggUniIndex,
+        lineVlanAggIndex
+    }
+    ::= {eponProfileLineUniCTCAggVlanTable 1}
+
+EponProfileLineUniCTCAggVlanEntry  ::=  SEQUENCE
+    {
+        lineVlanAggBaseIndex            INTEGER,
+        lineVlanAggUniIndex             INTEGER,
+        lineVlanAggIndex                INTEGER,
+        lineUniAggDel                   INTEGER,
+        lineUniAggVlanTpid              INTEGER,
+        lineUniAggDstVlan               INTEGER,
+        lineUniAggSrcVlanList           OCTET STRING
+    }
+
+lineVlanAggBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        Line index
+    "
+    ::= {eponProfileLineUniCTCAggVlanEntry 1}
+
+lineVlanAggUniIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port index
+    "
+    ::= {eponProfileLineUniCTCAggVlanEntry 2}
+
+lineVlanAggIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni aggregation index
+    "
+    ::= {eponProfileLineUniCTCAggVlanEntry 3}
+
+lineUniAggDel  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        delete(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        delete vlan entry
+    "
+    ::= {eponProfileLineUniCTCAggVlanEntry 4}
+
+lineUniAggVlanTpid  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni aggregation vlan tpid
+    "
+    ::= {eponProfileLineUniCTCAggVlanEntry 5}
+
+lineUniAggDstVlan  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4094)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni aggregation dst vlan
+    "
+    ::= {eponProfileLineUniCTCAggVlanEntry 6}
+
+lineUniAggSrcVlanList  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..64))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni aggregation src vlan list
+    "
+    ::= {eponProfileLineUniCTCAggVlanEntry 7}
+
+------------------------------------------------------------------
+-- epon profile onu cfg table
+------------------------------------------------------------------
+
+eponProfileOnuCfgTable  OBJECT IDENTIFIER  ::=  { eponProfileCfg 3 }
+
+------------------------------------------------------------------
+-- epon profile onu base table
+------------------------------------------------------------------
+eponProfileOnuBaseTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponProfileOnuBaseEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        profile line table
+    "
+    ::= {eponProfileOnuCfgTable 1}
+
+eponProfileOnuBaseEntry  OBJECT-TYPE
+    SYNTAX       EponProfileOnuBaseEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    INDEX
+    {
+        slotBaseIndex,
+        ponBaseIndex,
+        onuBaseIndex
+    }
+    ::= {eponProfileOnuBaseTable 1}
+
+EponProfileOnuBaseEntry  ::=  SEQUENCE
+    {
+        slotBaseIndex                   INTEGER,
+        ponBaseIndex                    INTEGER,
+        onuBaseIndex                    INTEGER,
+        onuUnique                       INTEGER,
+        onuAction                       INTEGER,
+        
+        onuDbaUpFir                     INTEGER,
+        onuDbaUpCir                     INTEGER,
+        onuDbaUpPir                     INTEGER,
+        onuDbaUpWeigth                  INTEGER,
+        onuDbaUpBurst                   INTEGER,
+        onuDbaDownFir                   INTEGER,
+        onuDbaDownCir                   INTEGER,
+        onuDbaDownPir                   INTEGER,
+        onuDbaDownWeigth                INTEGER,
+        onuDbaDownBurst                 INTEGER,
+        onuDbaShaper                    INTEGER,
+        
+        onuMaxEthernet                  INTEGER,
+        
+        onuActive                       INTEGER
+    }
+
+slotBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        slot index
+    "
+    ::= {eponProfileOnuBaseEntry 1}
+
+ponBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        pon index
+    "
+    ::= {eponProfileOnuBaseEntry 2}
+
+onuBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        onu index
+    "
+    ::= {eponProfileOnuBaseEntry 3}
+
+onuUnique  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        disable(0),
+        enable(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        onu unique profile switch
+        0 -- disable
+        1 -- enable
+    "
+    ::= {eponProfileOnuBaseEntry 4}
+
+onuAction  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        delete(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        line profile action:
+        delete(1)
+    "
+    ::= {eponProfileOnuBaseEntry 5}
+
+onuDbaUpFir  OBJECT-TYPE
+    SYNTAX          INTEGER(1..100000)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        fir of upstream
+    "
+    ::= {eponProfileOnuBaseEntry 6}
+
+onuDbaUpCir  OBJECT-TYPE
+    SYNTAX          INTEGER(1..100000)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        cir of upstream
+    "
+    ::= {eponProfileOnuBaseEntry 7}
+
+onuDbaUpPir  OBJECT-TYPE
+    SYNTAX          INTEGER(1..100000)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        pir of upstream
+    "
+    ::= {eponProfileOnuBaseEntry 8}
+
+onuDbaUpWeigth  OBJECT-TYPE
+    SYNTAX          INTEGER(1..20)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        weigth
+        8600 don't support
+        5610 support
+    "
+    ::= {eponProfileOnuBaseEntry 9}
+
+onuDbaUpBurst  OBJECT-TYPE
+    SYNTAX          INTEGER(128..16383)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        burst
+        8600 don't support
+        5610 don't support in upstream
+    "
+    ::= {eponProfileOnuBaseEntry 10}
+
+onuDbaDownFir  OBJECT-TYPE
+    SYNTAX          INTEGER(1..100000)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        fir of downstream
+        5610 don't support in downstream
+    "
+    ::= {eponProfileOnuBaseEntry 11}
+
+onuDbaDownCir  OBJECT-TYPE
+    SYNTAX          INTEGER(1..100000)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        cir of downstream
+        5610 don't support in downstream
+    "
+    ::= {eponProfileOnuBaseEntry 12}
+
+onuDbaDownPir  OBJECT-TYPE
+    SYNTAX          INTEGER(1..100000)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        pir of downstream
+    "
+    ::= {eponProfileOnuBaseEntry 13}
+
+onuDbaDownWeigth  OBJECT-TYPE
+    SYNTAX          INTEGER(1..20)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        weigth
+        8600 don't support
+        5610 don't support in downstream
+    "
+    ::= {eponProfileOnuBaseEntry 14}
+
+onuDbaDownBurst  OBJECT-TYPE
+    SYNTAX          INTEGER(128..16383)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        burst
+        8600 don't support
+        5610 support
+    "
+    ::= {eponProfileOnuBaseEntry 15}
+
+onuDbaShaper  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        disable(0),
+        cir(1),
+        pir(2)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        dba shaper mode
+        5610 don't support
+    "
+    ::= {eponProfileOnuBaseEntry 16}
+
+onuMaxEthernet  OBJECT-TYPE
+    SYNTAX          INTEGER(1..25)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        support port num,
+        0 --  step increasing by onu
+        other --  step increasing by port
+    "
+    ::= {eponProfileOnuBaseEntry 17}
+
+onuActive  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        inactive(0),
+        active(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        active status of onu profile
+    "
+    ::= {eponProfileOnuBaseEntry 18}
+
+------------------------------------------------------------------
+-- epon profile onu port limit table
+------------------------------------------------------------------
+eponProfileOnuUniCTCLimitTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponProfileOnuUniCTCLimitEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port speed limit table
+    "
+    ::= {eponProfileOnuCfgTable 2}
+
+eponProfileOnuUniCTCLimitEntry  OBJECT-TYPE
+    SYNTAX       EponProfileOnuUniCTCLimitEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port speed limit info
+    "
+    INDEX
+    {
+        slotLimitIndex,
+        ponLimitIndex,
+        onuLimitIndex,
+        uniLimitIndex
+    }
+    ::= {eponProfileOnuUniCTCLimitTable 1}
+
+EponProfileOnuUniCTCLimitEntry  ::=  SEQUENCE
+    {
+        slotLimitIndex                  INTEGER,
+        ponLimitIndex                   INTEGER,
+        onuLimitIndex                   INTEGER,
+        uniLimitIndex                   INTEGER,
+        onuUniIngressEnable             INTEGER,
+        onuUniIngressCir                INTEGER,
+        onuUniIngressCbs                INTEGER,
+        onuUniIngressEbs                INTEGER,
+        onuUniEgressEnable              INTEGER,
+        onuUniEgressCir                 INTEGER,
+        onuUniEgressPir                 INTEGER
+    }
+
+slotLimitIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        slot index
+    "
+    ::= {eponProfileOnuUniCTCLimitEntry 1}
+
+ponLimitIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        pon index
+    "
+    ::= {eponProfileOnuUniCTCLimitEntry 2}
+
+onuLimitIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        onu index
+    "
+    ::= {eponProfileOnuUniCTCLimitEntry 3}
+
+uniLimitIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port index
+    "
+    ::= {eponProfileOnuUniCTCLimitEntry 4}
+
+onuUniIngressEnable  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        disable(0),
+        enable(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port ingress enable
+    "
+    ::= {eponProfileOnuUniCTCLimitEntry 5}
+
+onuUniIngressCir  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port ingress cir
+    "
+    ::= {eponProfileOnuUniCTCLimitEntry 6}
+
+onuUniIngressCbs  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port ingress cbs
+        the value must be greater than 1522
+    "
+    ::= {eponProfileOnuUniCTCLimitEntry 7}
+
+onuUniIngressEbs  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port ingress ebs
+        the value must be  less than or equal to 1522
+    "
+    ::= {eponProfileOnuUniCTCLimitEntry 8}
+
+onuUniEgressEnable  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        disable(0),
+        enable(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port egress enable
+    "
+    ::= {eponProfileOnuUniCTCLimitEntry 9}
+
+onuUniEgressCir  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port egress cir
+    "
+    ::= {eponProfileOnuUniCTCLimitEntry 10}
+
+onuUniEgressPir  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port egress pir
+    "
+    ::= {eponProfileOnuUniCTCLimitEntry 11}
+
+------------------------------------------------------------------
+-- epon profile onu port vlan table
+------------------------------------------------------------------
+eponProfileOnuUniCTCVlanTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponProfileOnuUniCTCVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port vlan table
+    "
+    ::= {eponProfileOnuCfgTable 3}
+
+eponProfileOnuUniCTCVlanEntry  OBJECT-TYPE
+    SYNTAX       EponProfileOnuUniCTCVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port vlan info
+    "
+    INDEX
+    {
+        slotCTCVlanBaseIndex,
+        ponCTCVlanBaseIndex,
+        onuCTCVlanBaseIndex,
+        uniCTCVlanIndex
+    }
+    ::= {eponProfileOnuUniCTCVlanTable 1}
+
+EponProfileOnuUniCTCVlanEntry  ::=  SEQUENCE
+    {
+        slotCTCVlanBaseIndex            INTEGER,
+        ponCTCVlanBaseIndex             INTEGER,
+        onuCTCVlanBaseIndex   			INTEGER,
+        uniCTCVlanIndex                 INTEGER,
+        onuUniVlanMode                  INTEGER,
+        onuUniVlanTpid                  INTEGER,
+        onuUniVlanPir                   INTEGER,
+        onuUniVlanCfi                   INTEGER,
+        onuUniVlanPvid                  INTEGER,
+        onuUniVlanBase                  INTEGER,
+        onuUniStepVlan                  INTEGER
+    }
+
+slotCTCVlanBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        slot index
+    "
+    ::= {eponProfileOnuUniCTCVlanEntry 1}
+
+ponCTCVlanBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        pon index
+    "
+    ::= {eponProfileOnuUniCTCVlanEntry 2}
+
+onuCTCVlanBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        onu index
+    "
+    ::= {eponProfileOnuUniCTCVlanEntry 3}
+
+uniCTCVlanIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port index
+    "
+    ::= {eponProfileOnuUniCTCVlanEntry 4}
+
+onuUniVlanMode  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        transparent(0),
+        tag(1),
+        translation(2),
+        aggregation(3),
+        trunk(4)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port vlan mode
+    "
+    ::= {eponProfileOnuUniCTCVlanEntry 5}
+
+onuUniVlanTpid  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port TPID
+    "
+    ::= {eponProfileOnuUniCTCVlanEntry 6}
+
+onuUniVlanPir  OBJECT-TYPE
+    SYNTAX          INTEGER(0..7)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port TPID
+    "
+    ::= {eponProfileOnuUniCTCVlanEntry 7}
+
+onuUniVlanCfi  OBJECT-TYPE
+    SYNTAX          INTEGER(0..1)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port CFI
+    "
+    ::= {eponProfileOnuUniCTCVlanEntry 8}
+
+onuUniVlanPvid  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4094)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port vlan ID
+    "
+    ::= {eponProfileOnuUniCTCVlanEntry 9}
+
+onuUniVlanBase  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4094)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port base vlan ID for step vlan
+    "
+    ::= {eponProfileOnuUniCTCVlanEntry 10}
+
+onuUniStepVlan  OBJECT-TYPE
+    SYNTAX          INTEGER(1..10)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni step vlan ID
+    "
+    ::= {eponProfileOnuUniCTCVlanEntry 11}
+
+------------------------------------------------------------------
+-- epon profile onu port vlan translation table
+------------------------------------------------------------------
+eponProfileOnuUniCTCTranslationVlanTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponProfileOnuUniCTCTranslationVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port translation vlan table
+    "
+    ::= {eponProfileOnuCfgTable 4}
+
+eponProfileOnuUniCTCTranslationVlanEntry  OBJECT-TYPE
+    SYNTAX       EponProfileOnuUniCTCTranslationVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port translation vlan info
+    "
+    INDEX
+    {
+        slotVlanTranslateIndex,
+        ponVlanTranslateIndex,
+        onuVlanTranslateIndex,
+        uniVlanTranslateIndex,
+        uniTranslateEntryIndex
+    }
+    ::= {eponProfileOnuUniCTCTranslationVlanTable 1}
+
+EponProfileOnuUniCTCTranslationVlanEntry  ::=  SEQUENCE
+    {
+        slotVlanTranslateIndex          INTEGER,
+        ponVlanTranslateIndex           INTEGER,
+        onuVlanTranslateIndex           INTEGER,
+        uniVlanTranslateIndex           INTEGER,
+        uniTranslateEntryIndex          INTEGER,
+        uniTranslateEntryDel            INTEGER,
+        onuUniOldVlan                   INTEGER,
+        onuUniOldVlanTpid               INTEGER,
+        onuUniNewVlan                   INTEGER,
+        onuUniNewVlanTpid               INTEGER
+    }
+
+slotVlanTranslateIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        slot index
+    "
+    ::= {eponProfileOnuUniCTCTranslationVlanEntry 1}
+
+ponVlanTranslateIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        slot index
+    "
+    ::= {eponProfileOnuUniCTCTranslationVlanEntry 2}
+
+onuVlanTranslateIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        slot index
+    "
+    ::= {eponProfileOnuUniCTCTranslationVlanEntry 3}
+
+uniVlanTranslateIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port index
+    "
+    ::= {eponProfileOnuUniCTCTranslationVlanEntry 4}
+
+uniTranslateEntryIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni translation index
+    "
+    ::= {eponProfileOnuUniCTCTranslationVlanEntry 5}
+
+uniTranslateEntryDel  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        delete(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        delete vlan entry
+    "
+    ::= {eponProfileOnuUniCTCTranslationVlanEntry 6}
+
+onuUniOldVlan  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4094)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni translation old vlan
+    "
+    ::= {eponProfileOnuUniCTCTranslationVlanEntry 7}
+
+onuUniOldVlanTpid  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni translation old vlan tpid
+    "
+    ::= {eponProfileOnuUniCTCTranslationVlanEntry 8}
+
+onuUniNewVlan  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4094)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni translation new vlan
+    "
+    ::= {eponProfileOnuUniCTCTranslationVlanEntry 9}
+
+onuUniNewVlanTpid  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni translation new vlan tpid
+    "
+    ::= {eponProfileOnuUniCTCTranslationVlanEntry 10}
+
+------------------------------------------------------------------
+-- epon profile onu port vlan trunk table
+------------------------------------------------------------------
+eponProfileOnuUniCTCTrunkVlanTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponProfileOnuUniCTCTrunkVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port vlan table
+    "
+    ::= {eponProfileOnuCfgTable 5}
+
+eponProfileOnuUniCTCTrunkVlanEntry  OBJECT-TYPE
+    SYNTAX       EponProfileOnuUniCTCTrunkVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port vlan info
+    "
+    INDEX
+    {
+        slotVlanTrunkBaseIndex,
+        ponVlanTrunkBaseIndex,
+        onuVlanTrunkBaseIndex,
+        uniVlanTrunkIndex
+    }
+    ::= {eponProfileOnuUniCTCTrunkVlanTable 1}
+
+EponProfileOnuUniCTCTrunkVlanEntry  ::=  SEQUENCE
+    {
+        slotVlanTrunkBaseIndex          INTEGER,
+        ponVlanTrunkBaseIndex           INTEGER,
+        onuVlanTrunkBaseIndex           INTEGER,
+        uniVlanTrunkIndex               INTEGER,
+        onuUniTrunkVlanTpid             INTEGER,
+        onuUniVlanList                  OCTET STRING
+    }
+
+slotVlanTrunkBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        slot index
+    "
+    ::= {eponProfileOnuUniCTCTrunkVlanEntry 1}
+
+ponVlanTrunkBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        pon index
+    "
+    ::= {eponProfileOnuUniCTCTrunkVlanEntry 2}
+
+onuVlanTrunkBaseIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        onu index
+    "
+    ::= {eponProfileOnuUniCTCTrunkVlanEntry 3}
+
+uniVlanTrunkIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port index
+    "
+    ::= {eponProfileOnuUniCTCTrunkVlanEntry 4}
+
+onuUniTrunkVlanTpid  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port trunk vlan tpid
+    "
+    ::= {eponProfileOnuUniCTCTrunkVlanEntry 5}
+
+onuUniVlanList  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..64))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port trunk vlan list
+    "
+    ::= {eponProfileOnuUniCTCTrunkVlanEntry 6}
+
+------------------------------------------------------------------
+-- epon profile onu vlan swap table
+------------------------------------------------------------------
+eponProfileOnuVlanSwapTable OBJECT-TYPE
+   SYNTAX   SEQUENCE OF eponProfileOnuVlanSwapEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "epon profile onu vlan swap info"
+   ::= {eponProfileOnuCfgTable 6}
+   
+eponProfileOnuVlanSwapEntry OBJECT-TYPE
+   SYNTAX      eponProfileOnuVlanSwapEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "vlan swap info"
+   INDEX{
+        SlotVlanSwapIndex,
+        PonVlanSwapIndex,
+        OnuVlanSwapIndex,
+        OnuVlanSwapRuleIndex
+   }
+   ::= {eponProfileOnuVlanSwapTable 1}
+
+eponProfileOnuVlanSwapEntry ::= SEQUENCE{
+   SlotVlanSwapIndex                    INTEGER,
+   PonVlanSwapIndex                     INTEGER,
+   OnuVlanSwapIndex                     INTEGER,
+   OnuVlanSwapRuleIndex                 INTEGER,
+   OnuVlanSwapSVlan                     INTEGER,
+   OnuVlanSwapEVlan                     INTEGER,
+   OnuVlanSwapNVlan                     INTEGER,
+   OnuVlanSwapActoin                    INTEGER,
+   OnuVlanSwapIngressVlan               INTEGER,
+   OnuVlanSwapEgressVlan                INTEGER,
+   OnuVlanSwapStepVlan                  INTEGER,
+   OnuVlanSwapRowStatus                 INTEGER
+   }       
+
+SlotVlanSwapIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "slot index"
+   ::= {eponProfileOnuVlanSwapEntry 1}   
+   
+PonVlanSwapIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "pon index"
+   ::= {eponProfileOnuVlanSwapEntry 2}      
+
+OnuVlanSwapIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "onu rule index"
+   ::= {eponProfileOnuVlanSwapEntry 3} 
+
+OnuVlanSwapRuleIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "rule index: 1-16"
+   ::= {eponProfileOnuVlanSwapEntry 4} 
+         
+OnuVlanSwapSVlan   OBJECT-TYPE
+   SYNTAX       INTEGER(1..4094)
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "start vlan"
+   ::= {eponProfileOnuVlanSwapEntry 5}
+   
+OnuVlanSwapEVlan   OBJECT-TYPE
+   SYNTAX       INTEGER(1..4094)
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "end vlan"
+   ::= {eponProfileOnuVlanSwapEntry 6}
+   
+OnuVlanSwapNVlan   OBJECT-TYPE
+   SYNTAX       INTEGER(1..4094)
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "swap vlan"
+   ::= {eponProfileOnuVlanSwapEntry 7}
+
+OnuVlanSwapActoin       OBJECT-TYPE
+   SYNTAX       INTEGER
+   {
+        push(1),
+        pop(2),
+        swap(3)
+   }
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "action 1:push 2:pop 3:swap"
+   ::={eponProfileOnuVlanSwapEntry 8} 
+
+OnuVlanSwapIngressVlan       OBJECT-TYPE
+   SYNTAX       INTEGER
+   {
+        inner-vlan(0),
+        top-vlan(1)
+   }
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "0:inner vlan 1: top vlan"
+   ::={eponProfileOnuVlanSwapEntry 9} 
+
+OnuVlanSwapEgressVlan       OBJECT-TYPE
+   SYNTAX       INTEGER
+   {
+        inner-vlan(0),
+        top-vlan(1)
+   }
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "0:inner vlan 1: top vlan"
+   ::={eponProfileOnuVlanSwapEntry 10} 
+
+OnuVlanSwapStepVlan       OBJECT-TYPE
+   SYNTAX       INTEGER(1..10)
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "step vlan: 1-10"
+   ::={eponProfileOnuVlanSwapEntry 11} 
+            
+OnuVlanSwapRowStatus       OBJECT-TYPE
+   SYNTAX       RowStatus
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "rowStatus"
+   ::={eponProfileOnuVlanSwapEntry 12}  
+
+------------------------------------------------------------------
+-- epon profile onu ctc mcast table
+------------------------------------------------------------------ 
+eponProfileOnuCtcMcastMgmt  OBJECT-IDENTITY
+   STATUS        current
+   DESCRIPTION
+   "onu port ctc multicas"
+   ::= {eponProfileOnuCfgTable 7}
+
+eponProfileOnuCtcMcastTable OBJECT-TYPE
+   SYNTAX   SEQUENCE OF eponProfileOnuCtcMcastEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "epon profile onu ctc mcast info"
+   ::= {eponProfileOnuCtcMcastMgmt 1}
+
+eponProfileOnuCtcMcastEntry OBJECT-TYPE
+   SYNTAX      eponProfileOnuCtcMcastEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "ctc mcast mode&fastleave info"
+   INDEX{
+        SlotCtcMcastIndex,
+        PonCtcMcastIndex,
+        OnuCtcMcastIndex   
+        }
+   ::= {eponProfileOnuCtcMcastTable 1}
+
+eponProfileOnuCtcMcastEntry ::= SEQUENCE{
+   SlotGlbCtcMcastIndex                    INTEGER,
+   PonGlbCtcMcastIndex                     INTEGER,
+   OnuGlbCtcMcastIndex                     INTEGER,
+   OnuGlbCtcMcastMode       				INTEGER,
+   OnuGlbCtcMcastFastLeave        	    	INTEGER
+   }       
+
+SlotGlbCtcMcastIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Slot index"
+   ::= {eponProfileOnuCtcMcastEntry 1}   
+   
+PonGlbCtcMcastIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Pon index"
+   ::= {eponProfileOnuCtcMcastEntry 2}      
+
+OnuGlbCtcMcastIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Onu index"
+   ::= {eponProfileOnuCtcMcastEntry 3}   
+
+OnuGlbCtcMcastMode  OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       igmpsnoop(0),
+       multicast-ctrl(1),
+       disable-igmpsnoop(2)
+   }
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu multicast mode"
+   ::= {eponProfileOnuCtcMcastEntry 4}  
+
+OnuGlbCtcMcastFastLeave  OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       fastleave-deactivate(1),
+       fastleave-activate(2)
+   }
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu multicast fastleave mode  0:disable 1:enable"
+   ::= {eponProfileOnuCtcMcastEntry 5} 
+
+------------------------------------------------------------------
+-- epon profile onu ctc igmp table
+------------------------------------------------------------------
+eponProfileOnuUniCtcIgmpTable OBJECT-TYPE
+   SYNTAX   SEQUENCE OF eponProfileOnuUniCtcIgmpEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "epon profile onu ctc mcast info"
+   ::= {eponProfileOnuCtcMcastMgmt 2}
+   
+eponProfileOnuUniCtcIgmpEntry OBJECT-TYPE
+   SYNTAX      eponProfileOnuUniCtcIgmpEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "ctc mcast uni tag&igmp info"
+   INDEX{
+        SlotCtcMcastIndex,
+        PonCtcMcastIndex,
+        OnuCtcMcastIndex,
+        UniCtcMcastIndex
+   }
+   ::= {eponProfileOnuUniCtcIgmpTable 1}
+
+eponProfileOnuUniCtcIgmpEntry ::= SEQUENCE{
+   SlotCtcMcastIndex                    		INTEGER,
+   PonCtcMcastIndex                     		INTEGER,
+   OnuCtcMcastIndex                     		INTEGER,
+   UniCtcMcastIndex                     		INTEGER,
+   OnuUniCtcMcastIgmpMaxNum                	INTEGER (1..255),
+   OnuUniCtcMcastIgmpVlanList              	OCTET STRING (SIZE(0..255)),
+   OnuUniCtcMcastIgmpVlanListRowStatus     	INTEGER
+   }       
+
+SlotCtcMcastIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Slot index"
+   ::= {eponProfileOnuUniCtcIgmpEntry 1}   
+   
+PonCtcMcastIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Pon index"
+   ::= {eponProfileOnuUniCtcIgmpEntry 2}      
+
+OnuCtcMcastIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Onu index"
+   ::= {eponProfileOnuUniCtcIgmpEntry 3}   
+
+UniCtcMcastIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Uni index"
+   ::= {eponProfileOnuUniCtcIgmpEntry 4}      
+      
+OnuUniCtcMcastIgmpMaxNum   OBJECT-TYPE
+   SYNTAX       INTEGER(1..255)
+   MAX-ACCESS   read-create
+   STATUS       current
+   DESCRIPTION
+   "igmp-snooping mode max vlan group"
+   ::= {eponProfileOnuUniCtcIgmpEntry 5}
+   
+OnuUniCtcMcastIgmpVlanList  OBJECT-TYPE
+   SYNTAX          OCTET STRING (SIZE(0..255))
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "igmp-snooping mode vlan list"
+   ::= {eponProfileOnuUniCtcIgmpEntry 6}
+   
+OnuUniCtcMcastIgmpVlanListRowStatus  OBJECT-TYPE
+   SYNTAX          RowStatus
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "igmp-snooping mode vlan list RowStatus"
+   ::= {eponProfileOnuUniCtcIgmpEntry 7}
+
+--------------------profile Onu ctc mcast-ctrl --------------------------    
+eponProfileOnuUniCtcMcastCtrlTable   OBJECT-TYPE
+   SYNTAX        SEQUENCE OF eponProfileOnuUniCtcMcastCtrlEntry
+   MAX-ACCESS    not-accessible
+   STATUS        current
+   DESCRIPTION
+   "ctc multicast control"
+   ::= {eponProfileOnuCtcMcastMgmt 3}
+
+eponProfileOnuUniCtcMcastCtrlEntry OBJECT-TYPE
+   SYNTAX      eponProfileOnuUniCtcMcastCtrlEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "ctc mcast uni ctrl info"
+   INDEX{
+        SlotCtcMcastCtrlIndex,
+        PonCtcMcastCtrlIndex,
+        OnuCtcMcastCtrlIndex,
+        UniCtcMcastCtrlIndex,
+        OnuUniCtcMcastCtrlIndex         
+   }
+   ::= {eponProfileOnuUniCtcMcastCtrlTable 1}
+
+eponProfileOnuUniCtcMcastCtrlEntry ::= SEQUENCE{
+   SlotCtcMcastCtrlIndex                    INTEGER,
+   PonCtcMcastCtrlIndex                     INTEGER,
+   OnuCtcMcastCtrlIndex                     INTEGER,
+   UniCtcMcastCtrlIndex                     INTEGER,
+   OnuUniCtcMcastCtrlIndex              	INTEGER (1..15),
+   OnuUniCtcMcastCtrlType               	INTEGER (0..2),
+   OnuUniCtcMcastCtrlMac                	MacAddress,
+   OnuUniCtcMcastCtrlVlan               	INTEGER (1..4094),
+   OnuUniCtcMcastCtrlRowStatus          	RowStatus   
+   }       
+
+SlotCtcMcastCtrlIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Slot index"
+   ::= {eponProfileOnuUniCtcMcastCtrlEntry 1}   
+   
+PonCtcMcastCtrlIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Pon index"
+   ::= {eponProfileOnuUniCtcMcastCtrlEntry 2}      
+
+OnuCtcMcastCtrlIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Onu index"
+   ::= {eponProfileOnuUniCtcMcastCtrlEntry 3}    
+
+UniCtcMcastCtrlIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Uni index"
+   ::= {eponProfileOnuUniCtcMcastCtrlEntry 4}  
+   
+OnuUniCtcMcastCtrlIndex   OBJECT-TYPE
+   SYNTAX          INTEGER(1..15)
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "Multicast-control index"
+   ::= {eponProfileOnuUniCtcMcastCtrlEntry 5}
+      
+OnuUniCtcMcastCtrlType   OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       permit(0),
+       preview(1),
+       deny(2)
+   }
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Multicast-control type:
+	 0:permit 1:preview 2:deny"
+   ::= {eponProfileOnuUniCtcMcastCtrlEntry 6}         
+   
+OnuUniCtcMcastCtrlMac   OBJECT-TYPE
+   SYNTAX          MacAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Multicast-control mac"
+   ::= {eponProfileOnuUniCtcMcastCtrlEntry 7}       
+
+OnuUniCtcMcastCtrlVlan   OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Multicast-control vlan"
+   ::= {eponProfileOnuUniCtcMcastCtrlEntry 8}  
+   
+OnuUniCtcMcastCtrlRowStatus   OBJECT-TYPE
+   SYNTAX          RowStatus
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Multicast-control RowStatus"
+   ::= {eponProfileOnuUniCtcMcastCtrlEntry 9}      
+
+------------------------------------------------------------------
+-- epon profile onu ctc tag table
+------------------------------------------------------------------
+eponProfileOnuUniCtcMcastTagTable OBJECT-TYPE
+   SYNTAX   SEQUENCE OF eponProfileOnuUniCtcMcastTagEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "epon profile onu ctc mcast info"
+   ::= {eponProfileOnuCtcMcastMgmt 4}
+   
+eponProfileOnuUniCtcMcastTagEntry OBJECT-TYPE
+   SYNTAX      eponProfileOnuUniCtcMcastTagEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "ctc mcast uni tag&igmp info"
+   INDEX{
+        SlotCtcMcastTagIndex,
+        PonCtcMcastTagIndex,
+        OnuCtcMcastTagIndex,
+        UniCtcMcastTagIndex
+   }
+   ::= {eponProfileOnuUniCtcMcastTagTable 1}
+
+eponProfileOnuUniCtcMcastTagEntry ::= SEQUENCE{
+   SlotCtcMcastTagIndex                    		INTEGER,
+   PonCtcMcastTagIndex                     		INTEGER,
+   OnuCtcMcastTagIndex                     		INTEGER,
+   UniCtcMcastTagIndex                     		INTEGER,
+   OnuUniCtcMcastTagMode                  	INTEGER (0..2),
+   OnuUniCtcMcastTagEntryNum              	INTEGER (1..8),
+   OnuUniCtcMcastTagEntryMVlan1				   		INTEGER (1..4094),
+   OnuUniCtcMcastTagEntryIPTV1				     	INTEGER (1..4094),
+   OnuUniCtcMcastTagEntryMVlan2				   		INTEGER (1..4094),
+   OnuUniCtcMcastTagEntryIPTV2				     	INTEGER (1..4094),
+   OnuUniCtcMcastTagEntryMVlan3				   		INTEGER (1..4094),
+   OnuUniCtcMcastTagEntryIPTV3				     	INTEGER (1..4094),
+   OnuUniCtcMcastTagEntryMVlan4				   		INTEGER (1..4094),
+   OnuUniCtcMcastTagEntryIPTV4				     	INTEGER (1..4094),
+   OnuUniCtcMcastTagEntryMVlan5				   		INTEGER (1..4094),
+   OnuUniCtcMcastTagEntryIPTV5				     	INTEGER (1..4094),
+   OnuUniCtcMcastTagEntryMVlan6				   		INTEGER (1..4094),
+   OnuUniCtcMcastTagEntryIPTV6				     	INTEGER (1..4094),
+   OnuUniCtcMcastTagEntryMVlan7				   		INTEGER (1..4094),
+   OnuUniCtcMcastTagEntryIPTV7				     	INTEGER (1..4094),
+   OnuUniCtcMcastTagEntryMVlan8				   		INTEGER (1..4094),
+   OnuUniCtcMcastTagEntryIPTV8				     	INTEGER (1..4094),
+   OnuUniCtcMcastTagRowStatus             	INTEGER
+   }       
+
+SlotCtcMcastTagIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Slot index"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 1}   
+   
+PonCtcMcastTagIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Pon index"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 2}      
+
+OnuCtcMcastTagIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Onu index"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 3}   
+
+UniCtcMcastTagIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Uni index"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 4}      
+      
+OnuUniCtcMcastTagMode   OBJECT-TYPE
+   SYNTAX          INTEGER
+   {
+       TagNotStrip(0),
+       TagStrip(1),
+       TagTranslate(2)
+   }
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "onu port multicast tag status: 0-don't strip tag  1-strip tag 2-tag translate"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 5} 
+   
+OnuUniCtcMcastTagEntryNum  OBJECT-TYPE
+   SYNTAX          INTEGER (1..8)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate entry number"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 6}
+
+OnuUniCtcMcastTagEntryMVlan1  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan1"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 7}
+
+OnuUniCtcMcastTagEntryIPTV1  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV1"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 8}
+   
+OnuUniCtcMcastTagEntryMVlan2  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan2"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 9}
+
+OnuUniCtcMcastTagEntryIPTV2  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV2"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 10}
+
+OnuUniCtcMcastTagEntryMVlan3  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan3"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 11}
+
+OnuUniCtcMcastTagEntryIPTV3  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV3"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 12}
+
+OnuUniCtcMcastTagEntryMVlan4  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan4"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 13}
+   
+OnuUniCtcMcastTagEntryIPTV4  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV4"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 14}
+
+OnuUniCtcMcastTagEntryMVlan5  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan5"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 15}
+
+OnuUniCtcMcastTagEntryIPTV5  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV5"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 16}
+
+OnuUniCtcMcastTagEntryMVlan6  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan6"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 17}
+
+OnuUniCtcMcastTagEntryIPTV6  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV6"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 18}
+
+OnuUniCtcMcastTagEntryMVlan7  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan7"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 19}
+
+OnuUniCtcMcastTagEntryIPTV7  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV7"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 20}
+   
+OnuUniCtcMcastTagEntryMVlan8  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate MVlan8"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 21}
+
+OnuUniCtcMcastTagEntryIPTV8  OBJECT-TYPE
+   SYNTAX          INTEGER (1..4094)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag translate IPTV8"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 22}
+                        
+OnuUniCtcMcastTagRowStatus  OBJECT-TYPE
+   SYNTAX          RowStatus
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "tag vlan-enty translation list RowStatus"
+   ::= {eponProfileOnuUniCtcMcastTagEntry 23}
+  
+------------------------------------------------------------------
+-- epon profile onu ctc classfication table
+------------------------------------------------------------------
+eponProfileOnuUniCtcClsTable OBJECT-TYPE
+   SYNTAX   SEQUENCE OF eponProfileOnuUniCtcClsEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "epon profile ctc classification"
+   ::= {eponProfileOnuCfgTable 8}
+   
+eponProfileOnuUniCtcClsEntry OBJECT-TYPE
+   SYNTAX      eponProfileOnuUniCtcClsEntry
+   MAX-ACCESS  not-accessible
+   STATUS      current
+   DESCRIPTION
+   "ctc mcast uni classification info"
+   INDEX{
+        SlotCtcMcastIndex,
+        PonCtcMcastIndex,
+        OnuCtcMcastIndex,
+        UniCtcMcastIndex,
+        OnuCtcClsPrecedenceIndex
+   }
+   ::= {eponProfileOnuUniCtcClsTable 1}
+
+eponProfileOnuUniCtcClsEntry ::= SEQUENCE{
+		SlotCtcClsIndex                   	INTEGER,
+   		PonCtcClsIndex                    	INTEGER,
+   		OnuCtcClsIndex                    	INTEGER,
+   		UniCtcClsIndex                    	INTEGER,
+   		OnuCtcClsPrecedenceIndex      		INTEGER (1..8),
+		OnuCtcClsQuemapped		        	INTEGER (0..7),
+		OnuCtcClsEthPriority	        	INTEGER (0..7),
+		OnuCtcClsDestIp		            	IpAddress,
+		OnuCtcClsDestMac		          	MacAddress,
+		OnuCtcClsDestPort		          	INTEGER,
+		OnuCtcClsDot1qPriority	      		INTEGER (0..63),
+		OnuCtcClsDscp		              	INTEGER (0..63),
+		OnuCtcClsEthType		          	INTEGER,
+		OnuCtcClsIpProtocol		        	INTEGER (0..255),
+		OnuCtcClsIpv6Precedence	      		INTEGER (0..63),
+		OnuCtcClsSrcIp		            	IpAddress,
+		OnuCtcClsSrcMac		            	MacAddress,
+		OnuCtcClsSrcPort		          	INTEGER,
+		OnuCtcClsVlan		              	INTEGER,
+		OnuCtcClsRowStatus		        	RowStatus
+   }       
+
+SlotCtcClsIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Slot index"
+   ::= {eponProfileOnuUniCtcClsEntry 1}   
+   
+PonCtcClsIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Pon index"
+   ::= {eponProfileOnuUniCtcClsEntry 2}      
+
+OnuCtcClsIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Onu index"
+   ::= {eponProfileOnuUniCtcClsEntry 3}    
+
+UniCtcClsIndex   OBJECT-TYPE
+   SYNTAX       INTEGER
+   MAX-ACCESS   read-only
+   STATUS       current
+   DESCRIPTION
+   "Uni index"
+   ::= {eponProfileOnuUniCtcClsEntry 4}     
+
+OnuCtcClsPrecedenceIndex  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-only
+   STATUS          current
+   DESCRIPTION
+   "Number of rule precedence"
+   ::= {eponProfileOnuUniCtcClsEntry 5} 
+   		
+OnuCtcClsQuemapped  OBJECT-TYPE
+   SYNTAX          INTEGER (0..7)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Map the stream to specify queue"
+   ::= {eponProfileOnuUniCtcClsEntry 6} 		   
+
+OnuCtcClsEthPriority  OBJECT-TYPE
+   SYNTAX          INTEGER (0..7)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Ethernet Priority"
+   ::= {eponProfileOnuUniCtcClsEntry 7} 	
+   
+OnuCtcClsDestIp  OBJECT-TYPE
+   SYNTAX          IpAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:destination ip"
+   ::= {eponProfileOnuUniCtcClsEntry 8}  
+   
+OnuCtcClsDestMac  OBJECT-TYPE
+   SYNTAX          MacAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:Destination mac"
+   ::= {eponProfileOnuUniCtcClsEntry 9}   
+   
+OnuCtcClsDestPort  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:Destination port"
+   ::= {eponProfileOnuUniCtcClsEntry 10}  
+   
+OnuCtcClsDot1qPriority  OBJECT-TYPE
+   SYNTAX          INTEGER (0..63)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:dot1p priority"
+   ::= {eponProfileOnuUniCtcClsEntry 11}   
+   
+OnuCtcClsDscp  OBJECT-TYPE
+   SYNTAX          INTEGER (0..63)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:IP V4 dscp"
+   ::= {eponProfileOnuUniCtcClsEntry 12}  
+   
+OnuCtcClsEthType  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:ethernet type"
+   ::= {eponProfileOnuUniCtcClsEntry 13}  
+   
+OnuCtcClsIpProtocol  OBJECT-TYPE
+   SYNTAX          INTEGER (0..255)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:ip protocol"
+   ::= {eponProfileOnuUniCtcClsEntry 14}      
+   
+OnuCtcClsIpv6Precedence  OBJECT-TYPE
+   SYNTAX          INTEGER (0..63)
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:IP V6 precedence"
+   ::= {eponProfileOnuUniCtcClsEntry 15}  
+   
+OnuCtcClsSrcIp  OBJECT-TYPE
+   SYNTAX          IpAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:source ip"
+   ::= {eponProfileOnuUniCtcClsEntry 16}   
+   
+OnuCtcClsSrcMac  OBJECT-TYPE
+   SYNTAX          MacAddress
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:source mac"
+   ::= {eponProfileOnuUniCtcClsEntry 17}
+
+OnuCtcClsSrcPort  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:Source port"
+   ::= {eponProfileOnuUniCtcClsEntry 18}         
+   
+OnuCtcClsVlan  OBJECT-TYPE
+   SYNTAX          INTEGER
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "Select-filed:vlan"
+   ::= {eponProfileOnuUniCtcClsEntry 19}
+   
+OnuCtcClsRowStatus  OBJECT-TYPE
+   SYNTAX          RowStatus
+   MAX-ACCESS      read-write
+   STATUS          current
+   DESCRIPTION
+   "RowStatus"
+   ::= {eponProfileOnuUniCtcClsEntry 20}
+
+------------------------------------------------------------------
+-- epon profile onu port vlan aggregation table
+------------------------------------------------------------------
+eponProfileOnuUniCTCAggVlanTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponProfileOnuUniCTCAggVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port aggregation vlan table
+    "
+    ::= {eponProfileOnuCfgTable 9}
+
+eponProfileOnuUniCTCAggVlanEntry  OBJECT-TYPE
+    SYNTAX       EponProfileOnuUniCTCAggVlanEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port aggregation vlan info
+    "
+    INDEX
+    {
+        slotVlanAggIndex,
+        ponVlanAggIndex,
+        onuVlanAggIndex,
+        uniVlanAggIndex,
+        entryVlanAggIndex
+    }
+    ::= {eponProfileOnuUniCTCAggVlanTable 1}
+
+EponProfileOnuUniCTCAggVlanEntry  ::=  SEQUENCE
+    {
+        slotVlanAggIndex                INTEGER,
+        ponVlanAggIndex                 INTEGER,
+        onuVlanAggIndex                 INTEGER,
+        uniVlanAggIndex                 INTEGER,
+        entryVlanAggIndex               INTEGER,
+        onuUniAggDel                    INTEGER,
+        onuUniAggVlanTpid               INTEGER,
+        onuUniAggDstVlan                INTEGER,
+        onuUniAggSrcVlanList            OCTET STRING
+    }
+
+slotVlanAggIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        slot index
+    "
+    ::= {eponProfileOnuUniCTCAggVlanEntry 1}
+
+ponVlanAggIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        pon index
+    "
+    ::= {eponProfileOnuUniCTCAggVlanEntry 2}
+
+onuVlanAggIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        onu index
+    "
+    ::= {eponProfileOnuUniCTCAggVlanEntry 3}
+
+uniVlanAggIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni port index
+    "
+    ::= {eponProfileOnuUniCTCAggVlanEntry 4}
+
+entryVlanAggIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        uni aggregation index
+    "
+    ::= {eponProfileOnuUniCTCAggVlanEntry 5}
+
+onuUniAggDel  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        delete(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        delete vlan entry
+    "
+    ::= {eponProfileOnuUniCTCAggVlanEntry 6}
+
+onuUniAggVlanTpid  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni aggregation vlan tpid
+    "
+    ::= {eponProfileOnuUniCTCAggVlanEntry 7}
+
+onuUniAggDstVlan  OBJECT-TYPE
+    SYNTAX          INTEGER(1..4094)
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni aggregation dst vlan
+    "
+    ::= {eponProfileOnuUniCTCAggVlanEntry 8}
+
+onuUniAggSrcVlanList  OBJECT-TYPE
+    SYNTAX          OCTET STRING (SIZE(1..64))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        uni aggregation src vlan list
+    "
+    ::= {eponProfileOnuUniCTCAggVlanEntry 9}
+          
+------------------------------------------------------------------
+-- epon profile rule cfg table
+------------------------------------------------------------------
+
+eponProfileRuleCfgTable  OBJECT IDENTIFIER  ::=  { eponProfileCfg 4 }
+
+------------------------------------------------------------------
+-- epon profile rule table
+------------------------------------------------------------------
+eponProfileRuleTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponProfileRuleEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        uni port vlan table
+    "
+    ::= {eponProfileRuleCfgTable 1}
+
+eponProfileRuleEntry  OBJECT-TYPE
+    SYNTAX       EponProfileRuleEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        rule profile
+    "
+    INDEX
+    {
+        ruleIndex
+    }
+    ::= {eponProfileRuleTable 1}
+
+EponProfileRuleEntry  ::=  SEQUENCE
+    {
+        ruleIndex                       INTEGER,
+        ruleActice                      INTEGER,
+        
+        ruleType                        OCTET STRING,
+        ruleStartMac                    MacAddress,
+        ruleEndMac                      MacAddress,
+        ruleSlot                        INTEGER,
+        rulePon                         INTEGER,
+        ruleBindLine                    OCTET STRING,
+        ruleActive                      INTEGER
+    }
+
+ruleIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        rule index
+    "
+    ::= {eponProfileRuleEntry 1}
+
+ruleActice  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        delete(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        delete rule profile
+    "
+    ::= {eponProfileRuleEntry 2}
+
+ruleType  OBJECT-TYPE
+    SYNTAX          OCTET STRING(SIZE(3..6))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        onu type:
+        null,
+        204s,
+        204m,
+        ....
+        2401,
+        other
+    "
+    ::= {eponProfileRuleEntry 3}
+
+ruleStartMac  OBJECT-TYPE
+    SYNTAX          MacAddress
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        start mac of the specific range
+    "
+    ::= {eponProfileRuleEntry 4}
+
+ruleEndMac  OBJECT-TYPE
+    SYNTAX          MacAddress
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        end mac of the specific range
+    "
+    ::= {eponProfileRuleEntry 5}
+
+ruleSlot  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        specific slot
+    "
+    ::= {eponProfileRuleEntry 6}
+
+rulePon  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        specific pon
+    "
+    ::= {eponProfileRuleEntry 7}
+
+ruleBindLine  OBJECT-TYPE
+    SYNTAX          OCTET STRING(SIZE(1..64))
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        binding line
+    "
+    ::= {eponProfileRuleEntry 8}
+
+ruleActive  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        inactive(0),
+        active(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        active status of rule profile
+    "
+    ::= {eponProfileRuleEntry 9}
+    
+    
+------------------------------------------------------------------
+-- epon onu unique table
+------------------------------------------------------------------
+eponOnuUniqueAttributeTable  OBJECT IDENTIFIER  ::=  { eponProfileCfg 5 }
+
+eponOnuUniqueTable  OBJECT-TYPE
+    SYNTAX       SEQUENCE OF EponOnuUniqueEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        onu unique attribute table
+    "
+    ::= {eponOnuUniqueAttributeTable 1}
+
+eponOnuUniqueEntry  OBJECT-TYPE
+    SYNTAX       EponOnuUniqueEntry
+    MAX-ACCESS   not-accessible
+    STATUS       current
+    DESCRIPTION
+    "
+        onu unique attribute entry
+    "
+    INDEX
+    {
+        uniqueSlotIndex,
+        uniquePonIndex,
+        uniqueOnuInde
+    }
+    ::= {eponOnuUniqueTable 1}
+
+EponOnuUniqueEntry  ::=  SEQUENCE
+    {
+        uniqueSlotIndex                 INTEGER,
+        uniquePonIndex                  INTEGER,
+        uniqueOnuInde                   INTEGER,
+        uniqueAttribute                 INTEGER
+    }
+
+uniqueSlotIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        slot index
+    "
+    ::= {eponOnuUniqueEntry 1}
+
+uniquePonIndex  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        pon index
+    "
+    ::= {eponOnuUniqueEntry 2}
+
+uniqueOnuInde  OBJECT-TYPE
+    SYNTAX          INTEGER
+    MAX-ACCESS      read-only
+    STATUS          current
+    DESCRIPTION
+    "
+        onu index
+    "
+    ::= {eponOnuUniqueEntry 3}
+
+uniqueAttribute  OBJECT-TYPE
+    SYNTAX          INTEGER
+    {
+        inactive(0),
+        active(1)
+    }
+    MAX-ACCESS      read-write
+    STATUS          current
+    DESCRIPTION
+    "
+        onu unique profile switch
+ 	    0 -- disable
+ 	    1 -- enable
+    "
+    ::= {eponOnuUniqueEntry 4}
+    
+
+--
+-- END of EPON-PROFILE-CONFIG-MIB
+--      
+END
+

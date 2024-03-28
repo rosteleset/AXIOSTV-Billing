@@ -1,0 +1,9 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+    "02:0:$lang{TAGS}:tags_user:UID"                 => 20,
+    "06:0:$lang{TAGS}:tags_list:"                    => 5,
+    "04:0:$lang{TAGS}:reports_user_tags:"            => 4,
+    "07:0:$lang{TAGS}:tags_multiuser_form:MULTIUSER" => 5,
+);
+
+1

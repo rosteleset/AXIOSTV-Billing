@@ -1,0 +1,41 @@
+type: object
+properties:
+  fio:
+    type: string
+    example: ""
+  fio1:
+    type: string
+    example: ""
+  fio2:
+    type: string
+    example: ""
+  fio3:
+    type: string
+    example: ""
+  сellPhone:
+    type: string
+    example: ""
+  floor:
+    type: string
+    example: ""
+  email:
+    type: string
+    example: ""
+  phone:
+    type: string
+    example: ""
+  addressFlat:
+    type: string
+    example: ""
+  buildId:
+    type: number
+    example: 1
+  locationId:
+    type: number
+    example: 1
+  districtId:
+    type: number
+    example: 1
+  streetId:
+    type: number
+    example: 1

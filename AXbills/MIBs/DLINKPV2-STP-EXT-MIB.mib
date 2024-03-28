@@ -1,0 +1,245 @@
+--  *****************************************************************
+--  DLINKPV2-STP-EXT-MIB.mib : STP Extension MIB
+-- 
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--   
+--  *****************************************************************
+
+	DLINKPV2-STP-EXT-MIB DEFINITIONS ::= BEGIN
+		
+	IMPORTS	          
+	    MODULE-IDENTITY, OBJECT-TYPE, Unsigned32
+        	FROM SNMPv2-SMI
+	    TruthValue
+	        FROM SNMPv2-TC
+	    MODULE-COMPLIANCE, OBJECT-GROUP
+	        FROM SNMPv2-CONF	    			    	    	      	                  
+        dlinkDGS1100CommonV2			
+			FROM DGS1100SERMGMT-MIB;	
+		
+	primeV2StpExtMIB MODULE-IDENTITY
+	    LAST-UPDATED "201406050000Z"
+	    ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+                "        D-Link Corporation
+                 Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                         Taipei City 114, Taiwan, R.O.C
+                 Tel:     +886-2-66000123
+                 E-mail: tsd@dlink.com.tw
+                "
+	    DESCRIPTION
+		    "The MIB module for managing D-Link STP extensions which are not covered
+            by standard MIBs."
+		REVISION "201406050000Z"
+        DESCRIPTION
+            "Initial version of this MIB."    
+        ::= { dlinkDGS1100CommonV2 18 }
+                
+
+    IEEE8021BridgePortNumber ::= TEXTUAL-CONVENTION
+        DISPLAY-HINT "d"
+        STATUS       current
+        DESCRIPTION
+            "An integer that uniquely identifies a bridge port, as
+            specified in 17.3.2.2 of IEEE 802.1ap.
+            This value is used within the spanning tree
+            protocol to identify this port to neighbor bridges."
+        REFERENCE "17.3.2.2"
+        SYNTAX       Unsigned32 (1..65535)
+
+    v2StpExtMIBNotifications      OBJECT IDENTIFIER ::= { primeV2StpExtMIB 0 }
+    v2StpExtMIBObjects            OBJECT IDENTIFIER ::= { primeV2StpExtMIB 1 }
+    v2StpExtMIBConformance        OBJECT IDENTIFIER ::= { primeV2StpExtMIB 2 }
+        	
+-- -----------------------------------------------------------------------------
+    v2StpExtGblMgmt		OBJECT IDENTIFIER ::= { v2StpExtMIBObjects 1 }
+    	
+	v2StpExtStpGblStateEnabled OBJECT-TYPE
+        SYNTAX          TruthValue 
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object enables global spanning-tree function."
+        ::= { v2StpExtGblMgmt 1 }	
+	
+    v2StpExtStpMode OBJECT-TYPE
+       	SYNTAX  INTEGER {
+            stp(1),
+            rstp(2)
+        }
+        MAX-ACCESS  read-write
+        STATUS  current
+        DESCRIPTION
+            "This object set spanning-tree mode.
+            stp - The Spanning Tree Protocol(IEEE 802.1D) is a network 
+                    protocol that ensures a loop-free topology for any 
+                    bridged Ethernet local area network. 
+            rstp - Rapid Spanning Tree Protocol(IEEE 802.1w), an enhancement
+                    to Spanning Tree Protocol. RSTP provides significantly 
+                    faster spanning tree convergence after a topology change, 
+                    introducing new convergence behaviors and bridge port 
+                    roles to do this. RSTP was designed to be 
+                    backwards-compatible with standard STP.
+            "
+        ::= { v2StpExtGblMgmt 2 }
+	
+	v2StpExtNotificationEnable OBJECT-TYPE
+        SYNTAX          BITS {
+            newRoot(0),
+            topologyChange(1)
+        }
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION
+            "This object indicates whether a specified notification is enabled or not.
+            If a bit corresponding to a notification is set to 1, then 
+            the specified notification can be generated.
+
+            newRoot(0)    - the newRoot notification as defined in BRIDGE-MIB.
+
+            topologyChange(1) -- the topologyChange notification as defined in
+                         BRIDGE-MIB.                
+         "
+    ::= { v2StpExtGblMgmt 3 }
+	
+        
+--  ***************************************************************************	
+--  STP Port Table
+--  ***************************************************************************  	 
+    v2StpExtPortMgmt		OBJECT IDENTIFIER ::= { v2StpExtMIBObjects 2 }
+             
+    v2StpExtPortTable OBJECT-TYPE
+		SYNTAX          SEQUENCE OF V2StpExtPortEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		      "A table that contains port-specific information
+		      for the STP extensions."
+		::= { v2StpExtPortMgmt 1 }
+
+	v2StpExtPortEntry OBJECT-TYPE
+		SYNTAX          V2StpExtPortEntry
+		MAX-ACCESS      not-accessible
+		STATUS          current
+		DESCRIPTION
+		      "An entry in v2StpExtPortTable. This object indicates per port
+		      STP information which is not covered by standard MIB(s)."
+		INDEX   { v2StpExtPortNumber }
+		::= { v2StpExtPortTable 1 }
+
+	V2StpExtPortEntry ::=	SEQUENCE {
+		v2StpExtPortNumber		        IEEE8021BridgePortNumber,	
+                v2StpExtPortEnabled             INTEGER,
+		v2StpExtPortFast                INTEGER,
+		v2StpExtPortState               INTEGER
+	}
+     
+	v2StpExtPortNumber OBJECT-TYPE
+		SYNTAX          IEEE8021BridgePortNumber
+		MAX-ACCESS      not-accessible
+		STATUS  current
+		DESCRIPTION
+		      "The port number of the port for this entry."
+		::= { v2StpExtPortEntry 1 }		
+        
+        v2StpExtPortEnabled OBJECT-TYPE
+                SYNTAX          INTEGER
+	        {
+                    enabled(1),
+                    disabled(2)
+	        }
+		MAX-ACCESS      read-write
+		STATUS          current
+		DESCRIPTION     
+            "The object indicates whether the STP is enabled on the interface."
+		DEFVAL { enabled }      
+		::= { v2StpExtPortEntry 2}
+	 			
+	v2StpExtPortFast OBJECT-TYPE
+	    SYNTAX          INTEGER {            
+            network(1),
+            disabled(2),
+            edge(3)
+        }
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the fast port at the specific port."
+        ::= { v2StpExtPortEntry 3 }
+                   	 
+	v2StpExtPortState OBJECT-TYPE
+        SYNTAX  INTEGER {            
+            errDisabled(1),
+            blocking(2),
+            listening(3),
+            learning(4),
+            forwarding(5),
+            broken(6),
+            nonStpForwarding(7),          
+            nonStpOther(8)            
+        }
+        MAX-ACCESS      read-only
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the state of STP port.  
+            errDisabled(1): the port is at error disabled state.                                             
+            blocking(2) - broken(6): When STP is enabled on the port and the
+                          port is not at error disabled state, v2StpExtPortState
+                          has the same value as dot1dStpPortState, as defined
+                          by application of STP.          
+            noStpForwarding(7) - STP is disabled at the port and this port is
+                          functioning.            
+            nonStpOther(8) - STP is disabled at the port and this port is link-down
+                          or other malfunctioning situations.
+            "                      
+        ::= { v2StpExtPortEntry 4 }
+         
+--  ***************************************************************************	
+--  Conformance
+--  ***************************************************************************
+    v2StpExtMIBCompliances OBJECT IDENTIFIER ::= { v2StpExtMIBConformance 1 }
+		
+	v2StpExtCompliance MODULE-COMPLIANCE
+		STATUS          current
+		DESCRIPTION 
+			"The compliance statement for entities which implement the 
+			DLINKPV2-STP-EXT-MIB."
+		MODULE -- this module
+		MANDATORY-GROUPS { 
+		    v2StpExtBasicGroup
+		}					
+		
+		GROUP   v2StpExtMstpGroup
+        DESCRIPTION
+            "This group is required only if the MSTP is implemented by the agent."
+        
+	    ::= { v2StpExtMIBCompliances 1 }
+		
+	v2StpExtGroups OBJECT IDENTIFIER ::= { v2StpExtMIBCompliances 2 }
+	
+	
+	v2StpExtBasicGroup OBJECT-GROUP
+		OBJECTS { 
+		    v2StpExtStpGblStateEnabled,
+		    v2StpExtPortState,
+		    v2StpExtNotificationEnable
+		}
+		STATUS current
+		DESCRIPTION 
+			"This group contains the collection of objects related to  
+		    STP/RSTP configuration/status which cannot be covered by 
+		    standard MIBs."
+		::= { v2StpExtGroups 1 }
+   
+    v2StpExtMstpGroup OBJECT-GROUP
+		OBJECTS { 
+		    v2StpExtPortFast	   
+		}
+		STATUS current
+		DESCRIPTION 
+			"This group contains the collection of objects related to  
+		    MSTP configuration/status which cannot be covered by 
+		    standard MIBs."
+		::= { v2StpExtGroups 2 }		        		
+
+END

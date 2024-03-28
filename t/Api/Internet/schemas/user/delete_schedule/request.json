@@ -1,0 +1,6 @@
+{
+  "name": "USER_INTERNET",
+  "method": "DELETE",
+  "path": "user/:uid/internet/:id",
+  "params": {}
+}

@@ -1,0 +1,42 @@
+%FUNCTIONS_LIST = (
+  "01:0:$lang{EQUIPMENT}:equipment_model:"                                        => 5,
+  "02:1:$lang{TYPE}:equipment_types:"                                             => 5,
+  "03:1:$lang{VENDOR}:equipment_vendor:"                                          => 5,
+  "03:1:$lang{TRAPS}:equipment_traps_types:"                                      => 5,
+
+  "06:0:$lang{EQUIPMENT}:equipment_list:"                                         => 8,
+  "07:6:$lang{DEVICE}:equipment_info:NAS_ID"                                      => 8,
+  "08:0:$lang{TRAPS}:equipment_traps:"                                            => 8,
+  "09:0:Vlan:equipment_vlan:"                                                     => 8,
+  "10:0:S-VLAN, C-VLAN:equipment_search_vlan:"                                    => 4,
+  "11:6:PON:equipment_pon_form:"                                                  => 8,
+  "12:6:$lang{EQUIPMENT} Backup:equipment_show_snmp_backup_files"                 => 8,
+  "13:6:$lang{BACKUP}:equipment_backup:NAS_ID"                                    => 8,
+
+  "14:6::equipment_snmp_upload:NAS_ID,IN_MODAL"                                   => 8,
+  "15:6::equipment_snmp_backup:NAS_ID,IN_MODAL"                                   => 8,
+  "16:6:MAC:equipment_mac_log:"                                                   => 8,
+  "17:6:TR-069 $lang{PROVISION}:tr_069_provisions:"                               => 8,
+  "18:6:TR-069 $lang{FAULTS}:tr_069_faults:"                                      => 8,
+  "19:0:$lang{EQUIPMENT}:equipment_monitor:"                                      => 6,
+  "17:0:$lang{USER_ROUTE}:user_route:UID"                                         => 15,
+  "12:1:$lang{EQUIPMENT}:equipment_graph_info:AJAX"                               => 5,
+  "20:1:$lang{JSON_CONF}:json_conf_main"                                          => 5,
+  "21:0:$lang{EQUIPMENT}:null"                                                    => 4,
+  "22:21:PON:equipment_onu_report"                                                => 4,
+  "23:6:$lang{CALCULATOR}:calculator_main:"                                       => 8,
+  "24:6:$lang{SNMP_INFO}:snmp_info_form:"                                         => 8,
+  "25:21:MAC Flood:mac_flood"                                                     => 4,
+
+  "26:6:$lang{RUN_CMD_ON_EQUIPMENT}:equipment_run_cmd_on_equipment:CMD_ID,NAS_ID" => 8,
+
+  "27:0::equipment_user_info_ajax:AJAX"                                           => 5,
+  "28:0::equipment_user_info_fields:AJAX"                                         => 5,
+  "29:0::equipment_unreg_report_date:AJAX"                                        => 5,
+  "30:0::equipment_change_port_status_ajax:AJAX"                                  => 5,
+  "31:0::equipment_change_onu_billing_desc_ajax:AJAX"                             => 5,
+);
+
+#%PERIODIC = (daily   => [ 'equipment_traps_clean', 'equipment_graph_clean' ]);
+
+1

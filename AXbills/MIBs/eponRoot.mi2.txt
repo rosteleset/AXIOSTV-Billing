@@ -1,0 +1,39 @@
+
+EPON-CONFIG-MIB DEFINITIONS ::= BEGIN
+
+IMPORTS
+    IpAddress, Unsigned32, Integer32, Counter32, TimeTicks, Gauge32, Counter64,
+    MODULE-IDENTITY, OBJECT-IDENTITY, OBJECT-TYPE, enterprises     
+      FROM SNMPv2-SMI     
+    DateAndTime, MacAddress, TimeStamp, RowStatus, TruthValue, DisplayString, TEXTUAL-CONVENTION
+      FROM SNMPv2-TC;
+      
+--------------------------------------------------------------
+    qtech MODULE-IDENTITY
+        LAST-UPDATED    "200712050000Z"  -- Dec 5, 2000
+        ORGANIZATION    "Qtech Systems, Inc."
+        CONTACT-INFO    "Qtech Systems, Inc.
+                         E-mail: support@Qtech.com.cn"
+        DESCRIPTION     "Qtech Master MIB OID defines and documentation."
+        REVISION        "201510100000Z"  -- Oct 10, 2015
+        DESCRIPTION     "Initial MIB creation."
+    	::= { enterprises 27514 }
+    	
+--GREENNET Products----------------------------------------------------
+datacom		OBJECT IDENTIFIER ::= { qtech 1 }
+
+--DataCom Products-----------------------------------------------------
+eponCfg		OBJECT IDENTIFIER ::= {datacom 13}
+
+--epon funtion---------------------------------------------------------
+eponOltCfg			OBJECT IDENTIFIER ::= { eponCfg 1 }
+eponPonCfg			OBJECT IDENTIFIER ::= { eponCfg 2 }
+eponOnuCfg			OBJECT IDENTIFIER ::= { eponCfg 3 }
+eponUniCfg      OBJECT IDENTIFIER ::= { eponCfg 4 }
+
+
+--
+-- END of EPON-CONFIG-MIB
+--
+
+END

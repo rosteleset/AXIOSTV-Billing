@@ -1,0 +1,20 @@
+# Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+  "1:0:$lang{SYSTEM}:sysinfo_main:"                                   => 4,
+  "2:1:$lang{MEMORY}:sysinfo_memory:"                                 => 4,
+  "3:1:$lang{CPU}:sysinfo_cpu:"                                       => 4,
+  "4:1:$lang{DISC}:sysinfo_disk:"                                     => 4,
+  "5:1:$lang{NETWORK}:sysinfo_network:"                               => 4,
+  "6:1:$lang{PROCESSES}:sysinfo_processes:"                           => 4,
+  #                   "7:1:$lang{CONFIG}:sysinfo_conf:"    => 4,
+  "8:1:Perl:sysinfo_perl:"                                            => 4,
+  "9:1:$lang{SERVICES}:sysinfo_services:"                             => 4,
+  
+  "10:0:$lang{REMOTE_SERVERS}:sysinfo_remote_servers:"                => 5,
+  "11:10:$lang{SERVICES}:sysinfo_server_services:"                    => 5,
+  "12:10:$lang{SERVICES}:sysinfo_server_restart:SERVER_ID,SERVICE_ID" => 5,
+
+
+);
+
+1

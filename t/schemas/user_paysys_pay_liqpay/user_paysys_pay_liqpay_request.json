@@ -1,0 +1,10 @@
+{
+  "name": "USER_PAYSYS_PAY_LIQPAY",
+  "method": "POST",
+  "path": "user/:uid/paysys/pay/liqpay",
+  "body":{
+    "api": "1",
+    "sum": "1",
+    "operationId": ""
+  }
+}

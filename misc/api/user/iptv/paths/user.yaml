@@ -1,0 +1,15 @@
+get:
+  tags:
+    - iptv
+  summary: Информация всех услуг IPTV
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            type: array
+            items:
+              $ref: "../schemas/user.yaml"
+  security:
+    - USERSID: [ ]

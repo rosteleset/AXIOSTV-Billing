@@ -1,0 +1,22 @@
+type: object
+properties:
+  tpId:
+    type: integer
+    example: 4
+  date:
+    type: string
+    example: "2021-09-17"
+  period:
+    type: integer
+    example: 1
+    default: 0
+    enum:
+      - 0
+      - 1
+      - 2
+    description: >
+      Периоды смены тарифного плана
+      Возможные period можно получить з пути /user/config в объекте internet:
+       * `0` - Изменить тариф сейчас
+       * `1` - Изменить тариф с следующого месяця
+       * `2` - Изменить тариф по расписанию

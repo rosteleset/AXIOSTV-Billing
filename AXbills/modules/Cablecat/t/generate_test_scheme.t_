@@ -1,0 +1,153 @@
+#!/usr/bin/perl
+use strict;
+use warnings;
+use v5.16;
+use utf8;
+
+use Test::More;
+use AXbills::Base qw/_bp/;
+
+plan tests => 4 + 7;
+
+my $BP_ARGS = { TO_CONSOLE => 1 };
+
+our ($db, $admin, %conf, %FORM, $DATE, $TIME);
+require_ok 'libexec/config.pl';
+#use_ok('Cams');
+
+
+open(my $null_fh, '>', '/dev/null') or die('Open /dev/null');
+select $null_fh;
+#admin interface
+$ENV{'REQUEST_METHOD'} = "GET";
+$ENV{'QUERY_STRING'} = "user=axbills&passwd=axbills";
+require_ok( "../cgi-bin/admin/index.cgi" );
+require_ok( "../AXbills/modules/Cablecat/webinterface" );
+select STDOUT;
+
+use Cablecat;
+my Cablecat $Cablecat = new_ok('Cablecat' => [ $db, $admin, \%conf ]);
+
+generate_wells();
+generate_cables();
+generate_connecters();
+generate_links();
+
+#**********************************************************
+=head2 generate_wells()
+
+=cut
+#**********************************************************
+sub generate_wells{
+  # Generate 4 wells
+  foreach  ( 1..1000 ) {
+    ok($Cablecat->wells_add({
+          NAME => 'GENERATED_WELL_' . $_,
+        ADD_OBJECT => 1,
+        }), 'Added new well');
+  }
+  
+}
+
+#**********************************************************
+=head2 generate_cables()
+
+=cut
+#**********************************************************
+sub generate_cables {
+  # Check have normal cable type
+  my $cable_types = $Cablecat->cable_types_list( { ID => 1, PAGE_ROWS => 10000 } );
+  
+  my $cable_type_id = 0;
+  if ( !$cable_types || !scalar(@{$cable_types}) ) {
+    $cable_type_id = $Cablecat->cable_types_add( {
+        NAME                    => 'GENERATED_CABLE_TYPE',
+        COLOR_SCHEME_ID         => 8,
+        MODULES_COLOR_SCHEME_ID => 8,
+        FIBERS_COUNT            => 14,
+        OUTER_COLOR             => 'black',
+        ADD_OBJECT => 7,
+      } );
+  }
+  else {
+    $cable_type_id = 1;
+  }
+  
+  # Generate cables ring beetween all wells
+  my $wells = $Cablecat->wells_list( { PAGE_ROWS => 10000 } );
+  my $len = scalar @{$wells} - 1;
+  for ( my $i = 1; $i < $len; $i++ ) {     ### Adding cables each well % done
+    $Cablecat->cables_add( {
+        TYPE_ID => $cable_type_id,
+        NAME    => 'GENERATED_CABLE_' . $i,
+        WELL_1  => $wells->[$i]{id},
+        WELL_2  => $wells->[$i - 1]{id}
+      } );
+  }
+  
+  # Generate cables beetween each second well
+  for ( my $i = 2; $i < $len; $i += 2 ) { ### Adding cables each second well % done
+    $Cablecat->cables_add( {
+        TYPE_ID => $cable_type_id,
+        NAME    => 'GENERATED_CABLE_' . ($i + $len),
+        WELL_1  => $wells->[$i]{id},
+        WELL_2  => $wells->[$i - 2]{id}
+      } );
+  }
+  
+  ok (1, 'Added cables beetween wells : ' . ($len * 1.5) );
+}
+
+#**********************************************************
+=head2 generate_connecters()
+
+=cut
+#**********************************************************
+sub generate_connecters {
+  # Check have test connecter type
+  my $connecters_types = $Cablecat->connecter_types_list( { ID => 1 } );
+  
+  my $connecter_type_id = 0;
+  if ( !$connecters_types || !scalar(@{$connecters_types}) ) {
+    $connecter_type_id = $Cablecat->connecter_types_add( {
+        NAME                    => 'GENERATED_CONNECTER_TYPE',
+        CARTRIDGES              => 5,
+      } );
+  }
+  else {
+    $connecter_type_id = 1;
+  }
+  
+  my $wells = $Cablecat->wells_list( { PAGE_ROWS => 10000 } );
+  foreach ( @{$wells} ) {     ### Generate a connecter in each well % done
+    $Cablecat->connecters_add({
+        WELL_ID => $_->{id},
+        TYPE_ID => $connecter_type_id
+      });
+  }
+  
+  ok (1, 'Added connecters in each well : ' . scalar @$wells);
+}
+
+#**********************************************************
+=head2 generate_links()
+
+=cut
+#**********************************************************
+sub generate_links {
+  
+  my $connecters = $Cablecat->connecters_list({ PAGE_ROWS => 10000 });
+  
+  my $len = scalar @{$connecters} - 1;
+  for ( my $i = 1; $i < $len; $i++ ) { ### Generate a link between each connecter % done
+    $Cablecat->connecters_links_add({ CONNECTER_1 => $connecters->[$i], CONNECTER_2 => $connecters->[$i-1] })
+  }
+  
+  for ( my $i = 2; $i < $len; $i += 2 ) { ### Generate cables beetween each second connecter % done
+    $Cablecat->connecters_links_add({ CONNECTER_1 => $connecters->[$i], CONNECTER_2 => $connecters->[$i-2] })
+  }
+  
+  ok(1, 'Added links beetween connecters : ' . ($len * 1.5));
+}
+
+1;

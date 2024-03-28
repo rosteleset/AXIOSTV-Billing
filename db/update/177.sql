@@ -1,0 +1,4 @@
+ALTER TABLE `referral_tp` ADD COLUMN `multi_accrual` SMALLINT(1) NOT NULL DEFAULT 0;
+ALTER TABLE `paysys_connect` ADD COLUMN `subsystem_id` TINYINT UNSIGNED NOT NULL DEFAULT 0;
+ALTER TABLE `referral_tp` ADD COLUMN `payments_type` VARCHAR(60) NOT NULL DEFAULT '0, 1, 2';
+ALTER TABLE `referral_tp` ADD COLUMN `fees_type` VARCHAR(60) NOT NULL DEFAULT '0, 1';

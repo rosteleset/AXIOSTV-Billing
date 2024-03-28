@@ -1,0 +1,8 @@
+#include "ccdgenKeywords.h"
+
+Begin: eponBusCfg.mi2 eponBusCfg
+       IncludeFile: $GBN_DIR/tools/mibs
+       GroupList: eponBusCfg
+    /* HideFromSNMP: true */
+
+End:

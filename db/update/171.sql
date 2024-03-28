@@ -1,0 +1,2 @@
+ALTER TABLE `crm_leads` ADD COLUMN `holdup_date` DATE NOT NULL DEFAULT '0000-00-00';
+ALTER TABLE `abon_tariffs` ADD COLUMN  `ext_service_id` VARCHAR(24) NOT NULL DEFAULT '' COMMENT 'External service ID';

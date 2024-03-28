@@ -1,0 +1,127 @@
+type: object
+properties:
+  periods:
+    type: object
+    properties:
+      allSessions:
+        type: object
+        properties:
+          duration:
+            type: string
+            example: '04:43:11'
+          sum:
+            type: number
+            example: 339800
+      month:
+        type: object
+        properties:
+          duration:
+            type: string
+            example: '04:43:11'
+          sum:
+            type: number
+            example: 339800
+      today:
+        type: object
+        properties:
+          duration:
+            type: string
+            example: '00:00:00'
+          sum:
+            type: number
+            example: 0
+      week:
+        type: object
+        properties:
+          duration:
+            type: string
+            example: '00:00:00'
+          sum:
+            type: number
+            example: 0
+      yesterday:
+        type: object
+        properties:
+          duration:
+            type: string
+            example: '00:00:00'
+          sum:
+            type: number
+            example: 0
+      stats:
+        type: object
+        properties:
+          avg:
+            type: object
+            properties:
+              duration:
+                type: string
+                example: '00:04:17.4393'
+              sum:
+                type: number
+                example: 5148.48
+          max:
+            type: object
+            properties:
+              duration:
+                type: string
+                example: '00:05:08'
+              sum:
+                type: number
+                example: 6160
+          min:
+            type: object
+            properties:
+              duration:
+                type: string
+                example: 00:00:30
+              sum:
+                type: number
+                example: 600
+  sessions:
+    type: object
+    properties:
+      list:
+        type: array
+        items:
+          type: object
+          properties:
+            calledStationId:
+              type: number
+              example: 380506712612
+            callingStationId:
+              type: number
+              example: 380506712612
+            dayBegin:
+              type: number
+              example: 1669845600
+            dayOfWeek:
+              type: number
+              example: 5
+            dayOfYear:
+              type: number
+              example: 335
+            duration:
+              type: string
+              example: '00:00:30'
+            routeId:
+              type: number
+              example: 967
+            sum:
+              type: number
+              example: 600
+            tpId:
+              type: number
+              example: 39
+            uid:
+              type: number
+              example: 102167
+      total:
+        type: object
+        properties:
+          duration:
+            type: string
+            example: '04:43:11'
+          sum:
+            type: number
+            example: 339800

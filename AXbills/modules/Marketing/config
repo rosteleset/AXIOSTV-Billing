@@ -1,0 +1,13 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+                   "01:0:Marketing:null:"                    => 4,
+                   "03:1:Internet:marketing_internet:"       => 4,
+                   "04:1:$lang{EVOLUTION}:marketing_evolution:"   => 4,
+                   "04:1:TriPlay $lang{STATS}:marketing_triplay_stats:"  => 4,
+                   "06:1:_REPORT 1:marketing_report1:"       => 4,
+                   "07:1:_REPORT 2:marketing_report2:"       => 4,
+                   "08:1:DCHP/IP:marketing_dhcp_full_list:"  => 4,
+
+		 );
+
+1

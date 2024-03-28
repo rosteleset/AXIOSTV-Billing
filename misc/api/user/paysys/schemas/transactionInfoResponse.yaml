@@ -1,0 +1,26 @@
+type: object
+properties:
+  id:
+    type: integer
+    example: 1
+  datetime:
+    type: string
+    example: "2022-01-01 01:01:01"
+  login:
+    type: string
+    example: test
+  status:
+    type: integer
+    example: 1
+  systemId:
+    type: integer
+    example: 1
+  sum:
+    type: integer
+    example: 100
+  uid:
+    type: integer
+    example: 1
+  transactionId:
+    type: string
+    example: Liqpay:123456789

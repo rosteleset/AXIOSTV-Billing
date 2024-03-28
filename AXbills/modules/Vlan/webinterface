@@ -1,0 +1,958 @@
+#!perl
+
+=head1 NAME
+
+  Vlans
+
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+use AXbills::Defs;
+use Nas;
+use Vlan;
+use AXbills::Base qw(ip2int int2ip in_array tpl_parse);
+
+our(
+  $db,
+  $admin,
+  $html,
+  %conf,
+  %lang,
+  %err_strs,
+  @bool_vals,
+  @status,
+  %permissions,
+  $base_dir,
+  $IFCONFIG
+);
+
+
+my $Vlan = Vlan->new( $db, $admin, \%conf );
+my $Nas = Nas->new( $db, \%conf );
+my $ssh_cert_type = $conf{SSH_CERT_TYPE} || 'rsa';
+my $SUDO  = $conf{FILE_SUDO} || 'sudo';
+my $SSH   = $conf{FILE_SSH} || '/usr/bin/ssh';
+my $SCP   = $conf{FILE_SCP} || '/usr/bin/scp';
+my $debug = $FORM{VLAN_DEBUG} || 0;
+
+#Templates
+#
+# PARENT_INTERFACE
+# VLAN_ID
+# VLAN_IF_IP
+# VLAN_IF_NETMASK
+#
+
+$conf{VLAN_IF_CREATE} = 'if [ `uname` = Linux ]; then /usr/bin/sudo /sbin/vconfig add %PARENT_INTERFACE% %VLAN_ID%; else /usr/local/bin/sudo /sbin/ifconfig vlan%VLAN_ID% create vlan %VLAN_ID% vlandev %PARENT_INTERFACE% up; fi' if (!$conf{VLAN_IF_CREATE});
+$conf{VLAN_IF_IP} = 'if [ `uname` = Linux ]; then /usr/bin/sudo /sbin/ifconfig %PARENT_INTERFACE%.%VLAN_ID% %VLAN_IF_IP% netmask %VLAN_IF_NETMASK% up; else /usr/local/bin/sudo /sbin/ifconfig vlan%VLAN_ID% inet %VLAN_IF_IP% netmask %VLAN_IF_NETMASK%; fi' if (!$conf{VLAN_IF_IP});
+$conf{VLAN_IP_DELETE} = 'if [ `uname` = Linux ]; then /usr/bin/sudo /sbin/ifconfig %PARENT_INTERFACE%.%VLAN_ID% delete %VLAN_IF_IP%; else /usr/local/bin/sudo /sbin/ifconfig vlan%VLAN_ID% delete %VLAN_IF_IP%; fi' if (!$conf{VLAN_IP_DELETE});
+$conf{VLAN_IF_DESTROY} = 'if [ `uname` = Linux ]; then /usr/bin/sudo /sbin/ifconfig %PARENT_INTERFACE%.%VLAN_ID% down;  /usr/bin/sudo /sbin/vconfig rem %PARENT_INTERFACE%.%VLAN_ID%; else /usr/local/bin/sudo /sbin/ifconfig vlan%VLAN_ID% destroy; fi' if (!$conf{VLAN_IF_DESTROY});
+$conf{VLAN_CREATE_PPPOE} = undef if (!$conf{VLAN_CREATE_PPPOE});
+
+#Get Vlan information
+#$conf{VLAN_INFO}='';
+
+#*******************************************************************
+# Delete user from module
+# vlan_user_del()
+#*******************************************************************
+sub vlan_user_del{
+  my ($uid) = @_;
+
+  $Vlan->{UID} = $uid;
+  $Vlan->del( { UID => $uid } );
+
+  return 0;
+}
+
+#**********************************************************
+# user_vlan
+#**********************************************************
+sub vlan_users_list{
+  #my ($attr) = @_;
+  #my $group_sel = sel_groups();
+
+  form_search(
+    {
+      SIMPLE => {
+        IP            => 'IP',
+        NETMASK       => 'NETMASK',
+        VLAN_ID       => 'VLAN_ID',
+        NAS           => 'NAS_ID',
+        UNNUMBERED_IP => 'UNNUMBERED_IP'
+      }
+    }
+  );
+
+  #print $html->letters_list( { pages_qs => $pages_qs } );
+
+  if ( $FORM{letter} ){
+    $LIST_PARAMS{LOGIN} = "$FORM{letter}*";
+    $pages_qs .= "&letter=$FORM{letter}";
+  }
+
+  my $list = $Vlan->list( { UNNUMBERED_IP => '_SHOW',
+      %LIST_PARAMS,
+      COLS_NAME                           => 1
+    } );
+
+  my @TITLE = ($lang{LOGIN}, $lang{FIO}, $lang{DEPOSIT}, $lang{CREDIT}, 'VLAN ID', "$lang{INTERFACE} IP",
+    "IP $lang{RANGE}", "DHCP", "PPPoE", $lang{STATUS});
+
+  for ( my $i = 0; $i < $Vlan->{SEARCH_FIELDS_COUNT}; $i++ ){
+    push @TITLE, '-';
+    $TITLE[ 6 + $i ] = "$lang{SEARCH}";
+  }
+
+  if ( $Vlan->{errno} ){
+    $html->message( 'err', $lang{ERROR}, "[$Vlan->{errno}] $err_strs{$Vlan->{errno}}" );
+    return 0;
+  }
+  elsif ( $Vlan->{TOTAL} == 1 ){
+    form_users( { USER => user_info( $list->[0]->{uid} ) } );
+    return 0;
+  }
+
+  my $table = $html->table(
+    {
+      width      => '100%',
+      caption    => "Vlans",
+      title      => \@TITLE,
+      cols_align => [ 'left', 'left', 'right', 'right', 'left', 'center' ],
+      qs         => $pages_qs,
+      pages      => $Vlan->{TOTAL},
+      ID         => 'VLANS'
+    }
+  );
+
+  foreach my $line ( @{$list} ){
+    #my @fields_array = ();
+    #for (my $i = 0 ; $i < $Vlan->{SEARCH_FIELDS_COUNT} ; $i++) {
+    #  push @fields_array, $line->{unnumbered_ip};
+    #}
+
+    $table->addrow(
+      $html->button($line->{login}, "index=15&UID=$line->{uid}&MODULE=Vlan" ),
+      $line->{fio},
+      $line->{deposit},
+      $line->{credit},
+      $line->{vlan_id},
+      $line->{ip},
+      $line->{ip_range},
+      $bool_vals[ $line->{disable} ],
+      $bool_vals[ $line->{dhcp} ],
+      $status[ $line->{pppoe} ],
+      $line->{unnumbered_ip}
+    );
+  }
+  print $table->show();
+
+  $table = $html->table(
+    {
+      width      => '100%',
+      cols_align => [ 'right', 'right' ],
+      rows       => [ [ "$lang{TOTAL}:", $html->b( $Vlan->{TOTAL} ) ] ]
+    }
+  );
+  print $table->show();
+
+  return 0;
+}
+
+#**********************************************************
+# user_vlan
+#**********************************************************
+sub vlan_user{
+  my ($attr) = @_;
+
+  $Vlan->{UID} = $FORM{UID};
+
+  my $login_button = '';
+  if ( $FORM{add} ){
+    if ( !$permissions{0}{1} ){
+      $html->message( 'err', $lang{ERROR}, "Access Deny" );
+      return 0;
+    }
+
+    if ( $FORM{UNNUMBERED_IP} && $FORM{UNNUMBERED_IP} ne '0.0.0.0' && $FORM{NETMASK} ne '255.255.255.255' ){
+      my $INFO = vlan_get_net( $FORM{UNNUMBERED_IP}, "$FORM{NETMASK}" );
+      $Vlan->{IP_RANGE} = "$INFO->{FIRST_IP} - $INFO->{LAST_IP}";
+      $Vlan->{CLIENT_IPS_COUNT} = $INFO->{CLIENT_IPS_COUNT};
+      $FORM{UNNUMBERED_IP} = $INFO->{NET_IP} if ($FORM{NETMASK} ne '255.255.255.255');
+    }
+    elsif ( $FORM{IP} && $FORM{IP} ne '0.0.0.0' ){
+      my $INFO = vlan_get_net( $FORM{IP}, "$FORM{NETMASK}" );
+      if ( $FORM{IP} ne $INFO->{IF_IP} ){
+        print $html->message( 'info', $lang{CHANGE}, "IP $FORM{IP} -> $INFO->{IF_IP}" );
+        $FORM{IP} = $INFO->{IF_IP};
+      }
+    }
+
+    if ( !$FORM{VLAN_ID} ||  $FORM{VLAN_ID} !~ /^\d+$/){
+      $html->message( 'err', $lang{ERROR}, "$lang{ERR_WRONG_VLAN_NUMBER}" );
+    }
+    elsif ( $FORM{DHCP} && ($FORM{NETMASK} eq '255.255.255.255' || $FORM{IP} eq '0.0.0.0') ){
+      $html->message( 'err', $lang{ERROR}, "$lang{ERR_DHCP_SELECT_CORRECT_IP_MASK}" );
+    }
+    else{
+      $Vlan->{TOTAL} = 0;
+      my $list;
+      if ( (!$FORM{UNNUMBERED_IP} || $FORM{UNNUMBERED_IP} eq '0.0.0.0') && $FORM{IP} ne '0.0.0.0' ){
+        #Check dublicate
+        $list = $Vlan->list( { IP => "$FORM{IP}", PAGE_ROWS => 1, COLS_NAME => 1 } );
+      }
+
+      if ( $Vlan->{TOTAL} > 0 ){
+        $Vlan->{errno} = 8;
+        $login_button = $html->button( $list->[0]->{login}, 'index=15&UID=' . $list->[0]->{uid} );
+      }
+      else{
+        $Vlan->add( { %FORM } );
+        if ( !$Vlan->{errno} ){
+          $html->message( 'info', $lang{INFO}, "$lang{ADDED}" );
+          vlan_create( { NAS_IDS => $FORM{NAS_ID} } );
+        }
+      }
+    }
+  }
+  elsif ( $FORM{set} ){
+    if ( !$permissions{0}{4} ){
+      $html->message( 'err', $lang{ERROR}, "Access Deny" );
+      return 0;
+    }
+    if ( $FORM{UNNUMBERED_IP} && $FORM{UNNUMBERED_IP} ne '0.0.0.0' && $FORM{NETMASK} ne '255.255.255.255' ){
+      my $INFO = vlan_get_net( $FORM{UNNUMBERED_IP}, "$FORM{NETMASK}" );
+      $Vlan->{IP_RANGE} = "$INFO->{FIRST_IP} - $INFO->{LAST_IP}";
+      $Vlan->{CLIENT_IPS_COUNT} = $INFO->{CLIENT_IPS_COUNT};
+      $FORM{UNNUMBERED_IP} = $INFO->{NET_IP} if ($FORM{NETMASK} ne '255.255.255.255');
+    }
+    elsif ( $FORM{IP} ne '0.0.0.0' ){
+      my $INFO = vlan_get_net( $FORM{IP}, "$FORM{NETMASK}" );
+      if ( $FORM{IP} ne $INFO->{IF_IP} ){
+        print $html->message( 'info', $lang{CHANGE}, "$lang{CHANGE} IP $FORM{IP} -> $INFO->{IF_IP}" );
+        $FORM{IP} = $INFO->{IF_IP};
+      }
+    }
+
+    if ( int( $FORM{VLAN_ID} ) < 1 ){
+      $html->message( 'err', $lang{ERROR}, "$lang{ERR_WRONG_VLAN_NUMBER}" );
+    }
+    elsif ( $FORM{DHCP} && ($FORM{NETMASK} eq '255.255.255.255' || $FORM{IP} eq '0.0.0.0') ){
+      $html->message( 'err', $lang{ERROR}, "$lang{ERR_DHCP_SELECT_CORRECT_IP_MASK}" );
+    }
+    else{
+      my $list;
+      $Vlan->{TOTAL} = 0;
+      if ( (!$FORM{UNNUMBERED_IP} || $FORM{UNNUMBERED_IP} eq '0.0.0.0') && $FORM{IP} ne '0.0.0.0' ){
+        $list = $Vlan->list( { IP => "$FORM{IP}", UID => "!$FORM{UID}" } );
+      }
+
+      if ( $Vlan->{TOTAL} > 0 ){
+        $Vlan->{errno} = 8;
+        $login_button = $html->button( $list->[0][0], 'index=15&UID=' . $list->[0][12] );
+      }
+      else{
+        $FORM{UNNUMBERED_IP} = ip2int( $FORM{UNNUMBERED_IP} ) if ($FORM{UNNUMBERED_IP});
+        $Vlan->change( { %FORM } );
+        if ( !$Vlan->{errno} ){
+          my $message = vlan_create( { DEBUG => 1, NAS_IDS => $FORM{NAS_ID} } );
+          $html->message( 'info', $lang{CHANGED}, $html->pre( $message, { OUTPUT2RETURN => 1 } ) );
+        }
+      }
+    }
+  }
+  elsif ( $FORM{del} ){
+    $Vlan->{UID} = $FORM{UID};
+    $Vlan->del();
+    if ( !$Vlan->{errno} ){
+      $html->message( 'info', $lang{INFO}, "$lang{DELETED}" );
+      vlan_create( { NAS_IDS => $FORM{NAS_ID} } );
+    }
+  }
+
+  if ( $Vlan->{errno} ){
+    if ( $Vlan->{errno} == 8 ){
+      $login_button = $html->button( "$Vlan->{LOGIN}", "index=15&UID=$Vlan->{UID}&MODULE=Vlan" );
+      $html->message( 'err', $lang{ERROR}, "$lang{EXIST} IP: $FORM{IP} $login_button" );
+    }
+    else{
+      $html->message( 'err', $lang{ERROR}, "[$Vlan->{errno}] $err_strs{$Vlan->{errno}}" );
+    }
+  }
+
+  my $user = $Vlan->info( $FORM{UID} );
+
+  if ( $Vlan->{UNNUMBERED_IP} && $Vlan->{UNNUMBERED_IP} ne '0.0.0.0' && $Vlan->{NETMASK} ne '255.255.255.255' ){
+    my $INFO = vlan_get_net( $Vlan->{UNNUMBERED_IP}, "$Vlan->{NETMASK}" );
+    $Vlan->{IP_RANGE} = "$INFO->{FIRST_IP} - $INFO->{LAST_IP}";
+    $Vlan->{CLIENT_IPS_COUNT} = $INFO->{CLIENT_IPS_COUNT};
+
+    $Vlan->{UNNUMBERED_IP} = $INFO->{NET_IP} if ($Vlan->{NETMASK} ne '255.255.255.255');
+  }
+  elsif ( $Vlan->{IP} && $Vlan->{IP} ne '0.0.0.0' ){
+    my $INFO = vlan_get_net( $Vlan->{IP}, "$Vlan->{NETMASK}" );
+    $Vlan->{IP_RANGE} = "$INFO->{FIRST_IP} - $INFO->{LAST_IP}";
+    $Vlan->{CLIENT_IPS_COUNT} = $INFO->{CLIENT_IPS_COUNT};
+  }
+
+  if ( $user->{TOTAL} < 1 ){
+    $html->message( 'info', $lang{INFO}, $lang{NOT_ACTIVE} );
+    #$Vlan = $Vlan->defaults();
+
+    if ( $permissions{0}{1} ){
+      $Vlan->{ACTION} = 'add';
+      $Vlan->{LNG_ACTION} = $lang{ACTIVATE};
+    }
+  }
+  else{
+    if ( $permissions{0}{4} ){
+      $Vlan->{ACTION} = 'set';
+      $Vlan->{LNG_ACTION} = $lang{CHANGE};
+    }
+  }
+
+  $Vlan->{DISABLE} = ($user->{DISABLE} && $user->{DISABLE} == 1) ? ' checked' : '';
+  $Vlan->{DHCP} = ($user->{DHCP} && $user->{DHCP} == 1) ? ' checked' : '';
+  $Vlan->{PPPOE} = ($user->{PPPOE} && $user->{PPPOE} == 1) ? ' checked' : '';
+  $Vlan->{NAS_LIST} = $html->form_select(
+    'NAS_ID',
+    {
+      SELECTED       => $Vlan->{NAS_ID} || 0,
+      SEL_LIST       => $Nas->list(
+        {
+          TYPE      => 'vlan',
+          COLS_NAME => 1,
+          PAGE_ROWS => 1000
+        }
+      ),
+      SEL_KEY        => 'nas_id',
+      SEL_VALUE      => 'nas_name',
+      MAIN_MENU      => get_function_index( 'form_nas' ),
+      MAIN_MENU_ARGV => "chg=" . ($Vlan->{NAS_ID} || ''),
+    }
+  );
+
+  $html->tpl_show( _include( 'vlan_user', 'Vlan' ), { %{$attr}, %{$Vlan} } );
+
+  return 1;
+}
+
+#**********************************************************
+# vlan_get_net
+#**********************************************************
+sub vlan_get_net{
+  my ($ip, $netmask) = @_;
+  my %INFO = ();
+
+  if ( $ip eq '0.0.0.0' ){
+    print "IP not specify\n" if ($debug > 0);
+    return -1;
+  }
+
+  #Set minimal mask to 255.255.255.252
+  elsif ( $netmask eq '255.255.255.255' ){
+    $netmask = '255.255.255.252';
+  }
+
+  my $ips_in_mask = ip2int( '255.255.255.255' ) - ip2int( $netmask );
+  my $broadcast = ip2int( $ip ) | $ips_in_mask;
+
+  $INFO{NET_IP} = int2ip( $broadcast - $ips_in_mask );
+  $INFO{IF_IP} = int2ip( $broadcast - $ips_in_mask + 1 );
+  $INFO{USER_IP} = int2ip( $broadcast - $ips_in_mask + 2 );
+  $INFO{FIRST_IP} = int2ip( $broadcast - $ips_in_mask + 2 );
+  $INFO{LAST_IP} = int2ip( $broadcast - 1 );
+  $INFO{CLIENT_IPS_COUNT} = $ips_in_mask - 2;
+
+  return \%INFO;
+}
+
+#**********************************************************
+# dv_user_info
+#**********************************************************
+sub vlan_user_info{
+  my $user = $Vlan->info( $LIST_PARAMS{UID} );
+
+  if ( $user->{TOTAL} < 1 ){
+    $html->message( 'info', $lang{INFO}, "$lang{NOT_ACTIVE}" );
+    return 0;
+  }
+
+  $Vlan->{STATUS} = $status[ $Vlan->{DISABLE} ];
+  $html->tpl_show( _include( 'dv_user_info', 'Vlan' ), $Vlan );
+}
+
+#**********************************************************
+=head2 vlan_create($attr)
+
+=cut
+#**********************************************************
+sub vlan_create{
+  my ($attr) = @_;
+
+  $| = 1;
+
+  $debug = $attr->{DEBUG} || 0;
+  my $debug_output = '';
+  $debug_output .= "Vlan: Daily periodic\n" if ($debug > 1);
+
+  $attr->{NAS_IDS} = $attr->{LOCAL_NAS_IDS} if ($attr->{LOCAL_NAS_IDS});
+  my $list = $Nas->list(
+    {
+      PAGE_ROWS => 100000,
+      TYPE      => 'vlan',
+      DISABLE   => 0,
+      NAS_IDS   => ($attr->{NAS_IDS}) ? $attr->{NAS_IDS} : undef
+    }
+  );
+
+  my %DHCP_SUBNETS = ();
+
+  #make static hash
+  my %static_vlans = ();
+  $conf{VLAN_STATIC} = '' if (!$conf{VLAN_STATIC});
+
+  my @static_vlans_arr = split( /;/, $conf{VLAN_STATIC} );
+  foreach my $nas_static ( @static_vlans_arr ){
+    my ($nas_id, $vlans) = split( /=/, $nas_static );
+    my @vlan_arr = split( /,/, $vlans );
+    foreach my $vlan ( @vlan_arr ){
+      $static_vlans{$nas_id}{$vlan} = 1;
+    }
+  }
+
+  foreach my $line ( @{$list} ){
+    my @commands = ();
+    my %INFO = (SUBNETS => undef);
+    my %client_interfaces = ();
+    my @client_interfaces_unused = ();
+    my $parent_interface = '';
+
+    $debug_output .= "NAS ID: $line->[0] MNG_INFO: $line->[10]\@$line->[9] $line->[12]\n" if ($debug > 2);
+    if ( $line->[12] =~ /IP-Interface-Name=\"(.+)\"/ ){
+      $parent_interface = $1;
+    }
+    else{
+      $debug_output .= "!!! No Interface name. Push 'IP-Interface-Name=\"fxp0\"' to NAS RADIUS pairs\n";
+      #next;
+    }
+
+    my $NAS_ID = '';
+
+    if ( !$attr->{LOCAL_NAS_IDS} ){
+      $NAS_ID = $line->[0];
+      $INFO{NAS_IP} = $line->[3];
+      $INFO{NAS_MNG_IP_PORT} = $line->[9] || '';
+      $INFO{NAS_MNG_USER} = $line->[10];
+      $INFO{NAS_MNG_PASSWD} = $line->[11];
+
+      ($INFO{NAS_MNG_IP}, $INFO{NAS_MNG_PORT}) = split( /:/, $INFO{NAS_MNG_IP_PORT} );
+      $INFO{NAS_MNG_PORT} = 22 if (!$INFO{NAS_MNG_PORT});
+      $ENV{NAS_IP_ADDRESS} = $INFO{NAS_MNG_IP};
+      $ENV{NAS_MNG_IP_PORT} = $INFO{NAS_MNG_IP_PORT};
+      $ENV{NAS_ID} = $NAS_ID;
+      $ENV{NAS_TYPE} = 'vlan';
+      $ENV{NAS_IP_PORT} = $INFO{NAS_MNG_PORT};
+      $ENV{NAS_MNG_USER} = $INFO{NAS_MNG_USER};
+      $ENV{NAS_MNG_PASSWD} = $INFO{NAS_MNG_PASSWD};
+
+      $INFO{NAS_IP_ADDRESS} = $INFO{NAS_MNG_IP};
+      $INFO{NAS_ID} = $NAS_ID;
+      $INFO{NAS_TYPE} = 'vlan';
+    }
+
+    my $vlan_list = $Vlan->list(
+      {
+        DISABLE    => 0,
+        PAGE_ROWS  => 100000,
+        NAS_ID     => $NAS_ID,
+        SORT       => 5,
+        VLAN_GROUP => "vlan.vlan_id, vlan.unnumbered_ip",
+        LOGIN      => ($attr->{LOGIN}) ? $attr->{LOGIN} : undef,
+        COLS_NAME  => 1
+      }
+    );
+
+    my $sudo = ($INFO{NAS_MNG_IP_PORT} ne '') ? $SUDO : '';
+    my $vlans_info = vlan_info(
+      {
+        %INFO,
+          DEBUG     => $debug,
+          PARENT_IF => $parent_interface
+      }
+    );
+
+    my %if_created = ();
+    my @vlan_add_arr = ();
+
+    foreach my $vlan ( @{$vlan_list} ){
+      #Port
+      $debug_output .= "$vlan->{login}: VLAN ID: $vlan->{vlan_id} IP: $vlan->{ip}/$vlan->{netmask} NETMASK: $vlan->{netmask}" . " USER IPs: $vlan->{ip_range} DHCP: $vlan->{dhcp} PPPoE: $vlan->{pppoe} UNNUMBERED_IP: \n" if ($debug > 2);
+
+      $INFO{VLAN_IF_NETMASK} = $vlan->{netmask};
+      $INFO{LOGIN} = $vlan->{login};
+      $INFO{VLAN_ID} = $vlan->{vlan_id};
+      $INFO{VLAN_IF_IP} = $vlan->{ip};
+      $INFO{DHCP} = $vlan->{dhcp};
+      $INFO{PPPOE} = $vlan->{pppoe};
+      $INFO{UNNUMBERED_IP} = $vlan->{unnumbered_ip};
+
+      #Make bit mask
+      if ( $INFO{VLAN_IF_NETMASK} ne '255.255.255.255' ){
+        my $ips = 4294967296 - ip2int( $INFO{VLAN_IF_NETMASK} );
+        $INFO{VLAN_IF_BIT_NETMASK} = 32 - length( sprintf( "%b", $ips ) ) + 1;
+      }
+      else{
+        $INFO{VLAN_IF_BIT_NETMASK} = 32;
+      }
+
+      $INFO{PARENT_INTERFACE} = $parent_interface;
+      if ( $INFO{DHCP} == 1 && $INFO{VLAN_IF_IP} ne '0.0.0.0' ){
+        my ($first_ip, $last_ip) = split( / - /, $vlan->{ip_range} );
+
+        $INFO{NETWORK} = int2ip( ip2int( $INFO{VLAN_IF_IP} ) - 1 );
+        $INFO{NETWORK_MASK} = $INFO{VLAN_IF_NETMASK};
+        $INFO{RANGE} = "range $first_ip $last_ip;";
+        $INFO{ROUTERS} = "option routers $INFO{VLAN_IF_IP};";
+        $INFO{DESCRIBE} = "Vlan ID: $INFO{VLAN_ID} PARENT: $INFO{PARENT_INTERFACE} LOGIN: $INFO{LOGIN}";
+        $INFO{SUBNETS} .= $html->tpl_show( _include( 'dhcphosts_dhcp_conf_subnet', 'Dhcphosts' ), \%INFO,
+          { notprint => 'yes' } );
+
+        $DHCP_SUBNETS{"$INFO{NAS_MNG_IP_PORT}"} .= $html->tpl_show(
+          _include( 'dhcphosts_dhcp_conf_subnet', 'Dhcphosts' ), \%INFO, { notprint => 'yes' } );
+      }
+
+      if ( $attr->{RECONFIGURE} ){
+        push @commands,
+          tpl_parse(
+            $conf{VLAN_IF_DESTROY},
+            {
+              VLAN_ID          => $INFO{VLAN_ID},
+              PARENT_INTERFACE => $parent_interface
+            }
+          );
+        delete $vlans_info->{ $INFO{VLAN_ID} };
+      }
+
+      if ( $attr->{PPPOE_CHECK} ){
+        if ( $INFO{PPPOE} == 1 ){
+          $client_interfaces{"vlan$INFO{VLAN_ID}"} = "$INFO{LOGIN}";
+        }
+      }
+
+      # if not exists create it
+      if ( !$vlans_info->{ $INFO{VLAN_ID} } && !$if_created{$INFO{VLAN_ID}} ){
+        push @commands, tpl_parse( $conf{VLAN_IF_CREATE}, \%INFO );
+
+        if ( $INFO{VLAN_IF_IP} ne '0.0.0.0' ){
+          push @commands, tpl_parse( $conf{VLAN_IF_IP}, \%INFO );
+        }
+
+        #Start PPPOE
+        if ( $INFO{PPPOE} == 1 ){
+          $client_interfaces{"vlan$INFO{VLAN_ID}"} = 1;
+        }
+        else{
+          push @client_interfaces_unused, "vlan$INFO{VLAN_ID}";
+        }
+
+        $if_created{$INFO{VLAN_ID}}++;
+        $debug_output .= "Vlan ID: $INFO{VLAN_ID} IP: $INFO{VLAN_IF_IP}/$INFO{VLAN_IF_NETMASK} Created\n" if ($debug > 0);
+        push @vlan_add_arr, { %INFO };
+      }
+      #If wrong ip delete ad create
+      elsif ( $vlans_info->{ $INFO{VLAN_ID} } && $vlans_info->{ $INFO{VLAN_ID} } ne $INFO{VLAN_IF_IP} ){
+        #Set VLAN IP
+        if ( $INFO{VLAN_IF_IP} ne '0.0.0.0' ){
+          push @commands, tpl_parse( $conf{VLAN_IF_IP}, \%INFO );
+          $debug_output .= "Vlan ID: $INFO{VLAN_ID} IP: $INFO{VLAN_IF_IP} Changed\n" if ($debug > 0);
+        }
+
+        #Destroy VLAN
+        else{
+          push @commands, tpl_parse( $conf{VLAN_IP_DELETE},
+              { VLAN_IF_IP => $vlans_info->{ $INFO{VLAN_ID} }, VLAN_ID => $INFO{VLAN_ID} } );
+          $debug_output .= "Vlan ID: $INFO{VLAN_ID} IP: $vlans_info->{$INFO{VLAN_ID}} Deleted\n" if ($debug > 0);
+        }
+
+        delete $vlans_info->{ $INFO{VLAN_ID} };
+
+        #Start PPPOE
+        if ( $INFO{PPPOE} == 1 ){
+          $client_interfaces{"vlan$INFO{VLAN_ID}"} = 1;
+        }
+        else{
+          push @client_interfaces_unused, "vlan$INFO{VLAN_ID}";
+        }
+      }
+      #Create unnumbered
+      elsif ( $INFO{UNNUMBERED_IP} ){
+        push @commands, tpl_parse( $conf{VLAN_IF_IP}, { %INFO, UNNUMBERED_ADD => 1 } );
+        $debug_output .= "Vlan ID: $INFO{VLAN_ID} IP: $INFO{VLAN_IF_IP} UNNUMBERED_IP: $INFO{UNNUMBERED_IP} Changed\n" if ($debug > 0);
+        #delete $vlans_info->{ $INFO{VLAN_ID} };
+      }
+      else{
+        delete $vlans_info->{ $INFO{VLAN_ID} };
+      }
+
+    }
+
+    #Make DHCP Nets
+    if ( $INFO{SUBNETS} ){
+      $INFO{SUBNETS} = $DHCP_SUBNETS{"$INFO{NAS_MNG_IP_PORT}"};
+
+      vlan_dhcp(
+        {
+          INFO => \%INFO
+        }
+      );
+    }
+
+
+    #Vlan add/del section
+    if ( $conf{VLAN_ADD} ){
+      if ( $conf{VLAN_DEL} ){
+        my @_del = sort { $a <=> $b } keys %{$vlans_info};
+
+        if ( $conf{VLAN_CMD_SHOW} && $attr->{DEBUG} < 3 ){
+          $attr->{DEBUG} = 3;
+        }
+
+        $INFO{VLANS} = join( ',', @_del );
+        my $cmd = tpl_parse( $conf{VLAN_DEL}, \%INFO );
+
+        print $cmd . "\n" if ($attr->{DEBUG} && $attr->{DEBUG} > 2);
+        my $ifconfig = '';
+        open( my $IFCONFIG, '|-', $cmd ) || die "Can't open '$cmd' $!";
+        while (my $l = <$IFCONFIG>) {
+          $ifconfig .= $l;
+        }
+        close( $IFCONFIG );
+        print $ifconfig if ($debug > 1);
+      }
+
+      my @_add = ();
+      foreach my $vlan_ ( @vlan_add_arr ){
+        push @_add, "$vlan_->{VLAN_ID}:$vlan_->{VLAN_IF_IP}:$vlan_->{VLAN_IF_NETMASK}:$parent_interface";
+      }
+
+      $INFO{VLANS} = join( ',', @_add );
+      my $cmd = tpl_parse( $conf{VLAN_ADD}, \%INFO );
+
+      print $cmd . "\n" if ($attr->{DEBUG} && $attr->{DEBUG} > 2);
+      my $ifconfig = '';
+      open(  $IFCONFIG, '|-', "$cmd" ) || die "Can't open '$cmd' $!";
+      while (my $l = <$IFCONFIG>) {
+        $ifconfig .= $l;
+      }
+      close( $IFCONFIG );
+
+      print $ifconfig if ($debug > 1);
+      next;
+    }
+
+    # Standart section
+    # Delete not allow vlans
+    while (my ($vlan_id, $ip) = each %{$vlans_info}) {
+      if ( $static_vlans{$NAS_ID}{$vlan_id} ){
+        $debug_output .= "STATIC TABLE VLAN $vlan_id, $ip\n" if ($debug > 4);
+        next;
+      }
+
+      $debug_output .= "DELETED VLAN $vlan_id, $ip\n" if ($debug > 3);
+
+      push @commands,
+        tpl_parse( $conf{VLAN_IF_DESTROY}, { VLAN_ID => $vlan_id, PARENT_INTERFACE => $parent_interface } );
+      push @client_interfaces_unused, "vlan$vlan_id";
+
+      delete $client_interfaces{"vlan$vlan_id"};
+    }
+
+    #Make commands
+    if ( $#commands > -1 ){
+      my $cmds = '';
+      foreach my $cmd ( @commands ){
+        $cmds .= ($sudo ne '') ? "$sudo $cmd; " : "$cmd; ";
+      }
+
+      if ( $INFO{NAS_MNG_IP} && $INFO{NAS_MNG_PORT} ne '' ){
+        $cmds = "$SSH -p $INFO{NAS_MNG_PORT} -o StrictHostKeyChecking=no -i $base_dir/Certs/id_$ssh_cert_type.$INFO{NAS_MNG_USER} $INFO{NAS_MNG_USER}\@$INFO{NAS_MNG_IP}\"$cmds\" ";
+      }
+
+      system( $cmds ) if ($debug < 5);
+      $debug_output .= "$cmds\n" if ($debug > 2);
+      print $cmds if ($conf{VLAN_CMD_SHOW});
+    }
+
+    #Make PPPoE Realy
+    if ( scalar keys %client_interfaces > 0 ){
+      vlan_pppoe_relay(
+        {
+          CLIENT_INTERFACES          => \%client_interfaces,
+            PARENT_INTERFACE         => $parent_interface,
+            CLIENT_INTERFACES_UNUSED => \@client_interfaces_unused,
+            PPPOE_CHECK              => $attr->{PPPOE_CHECK}
+        }
+      );
+    }
+  }
+
+  $DEBUG .= $debug_output;
+  return $debug_output;
+}
+
+#**********************************************************
+#
+#**********************************************************
+sub vlan_info{
+  my ($attr) = @_;
+
+  my %VLANS = ();
+  my $ifconfig = '';
+  my $IFCONFIG_CMD = $IFCONFIG;
+  my $vlan_count = 0;
+
+  if ( $conf{VLAN_CMD_SHOW} && $attr->{DEBUG} < 3 ){
+    $attr->{DEBUG} = 3;
+  }
+
+  if ( $conf{VLAN_INFO} ){
+    my $cmd = tpl_parse( $conf{VLAN_INFO}, $attr );
+    print $cmd . "\n" if ($attr->{DEBUG} && $attr->{DEBUG} > 2);
+    open( my $IFCONFIG, '|-', "$cmd" ) || die "Can't open '$cmd' $!";
+    while (<$IFCONFIG>) {
+      $ifconfig .= $_;
+    }
+    close( $IFCONFIG );
+
+    my @ifconfig_arr = split( /[\n\r]/, $ifconfig );
+
+    foreach my $if ( @ifconfig_arr ){
+      # ($if_num, $ip, $mask, $parent)
+      my ($if_num, $ip) = split( /:/, $if );
+      $if_num = 0 if (!$if_num);
+      if ( $if_num =~ /^\d+$/ && int( $if_num ) > 0 ){
+        $VLANS{$if_num} = $ip || '0.0.0.0';
+      }
+    }
+    return \%VLANS;
+  }
+
+  if ( $attr->{NAS_MNG_IP} ){
+    $IFCONFIG_CMD = "$SSH -p $attr->{NAS_MNG_PORT} -o StrictHostKeyChecking=no -i $base_dir/Certs/id_$ssh_cert_type.$attr->{NAS_MNG_USER} $attr->{NAS_MNG_USER}\@$attr->{NAS_MNG_IP} \"$IFCONFIG\"";
+  }
+
+  print $IFCONFIG_CMD . "\n" if ($attr->{DEBUG} && $attr->{DEBUG} > 2);
+  open( my $IFCONFIG, '|-', "$IFCONFIG_CMD" ) || die "Can't open '$IFCONFIG_CMD' $!";
+  while (my $l = <$IFCONFIG>) {
+    $ifconfig .= $l;
+  }
+  close( $IFCONFIG );
+
+  #FreeBSD 6.xx VLANS analize
+  #\s.*[\n\sa-zA-Z0-9:]+\n\s.*\n\s.*\n\s.*\n
+  while ($ifconfig =~ m/vlan(\d+): .+\n((\s+inet \d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}.+\n)?\s.*[\n\sa-zA-Z0-9]+\n\s.*\n)/gi) {
+    my $ip = '0.0.0.0';
+    my $if_num = $1;
+    my $res = $2;
+    my $res2 = $3 || '';
+    my $parent_if = '';
+    my $netmask = '';
+
+    if ( $res2 =~ /\s+inet (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+netmask (\S+).+/ ){
+      $ip = $1;
+      $netmask = $2;
+    }
+
+    if ( $res =~ /interface: (\S+)$/g ){
+      $parent_if = $1;
+    }
+
+    $VLANS{$if_num} = $ip if (!$attr->{PARENT_IF} || $attr->{PARENT_IF} eq $parent_if);
+
+    print "Vlan: $if_num IP: $ip NETMASK: $netmask Parent: '$parent_if'\n/$res/$res2/\n" if ($attr->{DEBUG} && $attr->{DEBUG} > 4);
+
+    $vlan_count++;
+  }
+
+  #FreeBSD 7.xx VLANS analize
+  while ($ifconfig =~ m/vlan(\d+): .+\n\s+.+\n\s+.+\n((\s+inet\s+\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3}\s+netmask.+\n)?\s.*[\n\sa-zA-Z0-9:]+\n\s.*\n)/gi) {
+    my $ip = '0.0.0.0';
+    my $if_num = $1;
+    my $res = $2;
+    my $res2 = $3 || '';
+    my $parent_if = '';
+    my $netmask = '';
+
+    if ( $res2 =~ /\s+inet (\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+netmask (\S+).+/ ){
+      $ip = $1;
+      $netmask = $2;
+    }
+
+    if ( $res =~ /interface: (\S+)$/g ){
+      $parent_if = $1;
+    }
+
+    $VLANS{$if_num} = $ip if (!$attr->{PARENT_IF} || $attr->{PARENT_IF} eq $parent_if);
+
+    print "Vlan: $if_num IP: $ip NETMASK: $netmask Parent: '$parent_if'\n/$res/$res2/\n" if ($attr->{DEBUG} && $attr->{DEBUG} > 4);
+
+    $vlan_count++;
+  }
+
+  print "Vlan count: $vlan_count\n" if ($attr->{DEBUG} && $attr->{DEBUG} > 4);
+
+  #Linux
+  while ($ifconfig =~ m/(\S+)\.(\d+) .+\n\s+inet addr:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})\s+Bcast:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})  Mask:(\d{1,3}\.\d{1,3}\.\d{1,3}\.\d{1,3})/gi) {
+    my $parent_if = $1;
+    my $if_num = $2;
+    my $ip = $3;
+    #my $brodcast = $4 || '';
+    #my $netmask = $5;
+
+    $VLANS{$if_num} = $ip;    # if (! $attr->{PARENT_IF} || $attr->{PARENT_IF} eq $parent_if);
+
+    print "Vlan: $if_num IP: $ip Parent: '$parent_if'\n" if ($attr->{DEBUG} && $attr->{DEBUG} > 4);
+  }
+
+  return \%VLANS;
+}
+
+#**********************************************************
+#
+#**********************************************************
+sub vlan_dhcp{
+  my ($attr) = @_;
+
+  $attr->{INFO}{DATETIME} = "$DATE $TIME / Vlan";
+
+  my $main_tpl = $html->tpl_show( _include( 'dhcphosts_dhcp_conf_main', 'Dhcphosts' ), $attr->{INFO},
+    { notprint => 1 } );
+
+  # DHCP Section
+  my $DHCPCONF = ($conf{DHCPHOSTS_CONFIG}) ? $conf{DHCPHOSTS_CONFIG} : '/usr/local/etc/dhcpd.conf';
+
+  #my $dhcp_sufix = '';
+  if ( $attr->{NAS_MNG_IP} ){
+    my $dhcp_sufix = '_' . $attr->{NAS_MNG_IP};
+    $DHCPCONF = "$conf{TPL_DIR}/dhcpd.conf$dhcp_sufix";
+  }
+
+  $attr->{INFO}{DATETIME} = "DATE: $DATE $TIME";
+
+  my $debug_output = '';
+  my $dhcp_conf = $html->tpl_show( $main_tpl, $attr->{INFO}, { notprint => 1 } );
+
+  #Make dhcp conf and reload DHCP
+  $debug_output .= "$DHCPCONF\n" . $dhcp_conf if ($debug > 4);
+
+  open( my $fh, '>', "$DHCPCONF" ) || die "Can't open file '$DHCPCONF' $!\n";
+  if ( $debug < 5 ){
+    print $fh $dhcp_conf;
+  }
+  close( $fh );
+
+  my $cmd = '';
+  if ( $attr->{NAS_MNG_IP} ){
+    my $DHCPCONF_REMOTE = $conf{DHCPHOSTS_CONFIG};
+    $cmd =
+      "$SCP -P $attr->{NAS_MNG_PORT} -o StrictHostKeyChecking=no -i $base_dir/Certs/id_$ssh_cert_type.$attr->{NAS_MNG_USER} $DHCPCONF "
+        . "$attr->{NAS_MNG_USER}\@$attr->{NAS_MNG_IP}:$DHCPCONF_REMOTE; "
+        . "$SSH -p $attr->{NAS_MNG_PORT} -o StrictHostKeyChecking=no -i $base_dir/Certs/id_$ssh_cert_type.$attr->{NAS_MNG_USER} "
+        . "$attr->{NAS_MNG_USER}\@$attr->{NAS_MNG_IP} \"$SUDO /usr/local/etc/rc.d/isc-dhcpd restart\"";
+  }
+  else{
+    $cmd = "$conf{DHCPHOSTS_RECONFIGURE}";
+  }
+
+  if ( $debug < 5 ){
+    system( $cmd );
+  }
+
+  if ( $debug > 2 ){
+    print $cmd . "\n";
+  }
+
+  $DEBUG .= $debug_output;
+  return $debug_output;
+}
+
+#**********************************************************
+# Make PPPoE relay
+#**********************************************************
+sub vlan_pppoe_relay{
+  my ($attr) = @_;
+
+  my $debug_output = '';
+  my $cmd = '';
+
+  if ( $conf{VLAN_CREATE_PPPOE} ){
+    my $interfaces = join( ',', sort keys %{ $attr->{CLIENT_INTERFACES} } );
+
+    $cmd = "$conf{VLAN_CREATE_PPPOE}";
+
+    $cmd = tpl_parse(
+      $cmd,
+      {
+        ACTION     => 'START',
+        INTERFACES => $interfaces,
+        NAS_IP     => $attr->{NAS_IP},
+        NAS_MNG_IP => $attr->{NAS_MNG_IP} || '127.0.0.1',
+        DESCRIBE   => ''
+      }
+    );
+
+  }
+  else{
+    # PPPoE Server
+    # Delete unused
+    foreach my $if ( @{ $attr->{CLIENT_INTERFACES_UNUSED} } ){
+      if ( $debug > 0 ){
+        $debug_output .= "Delete PPPoE $if\n";
+      }
+
+      $cmd .= "if [ -f /var/run/pppoed_" . $if . ".pid ]; then $SUDO kill  \\`cat /var/run/pppoed_" . $if . ".pid\\`; fi; ";
+    }
+
+    # Add interfaces
+
+    foreach my $if ( sort keys %{ $attr->{CLIENT_INTERFACES} } ){
+      if ( $debug > 0 ){
+        $debug_output .= "Create PPPoE $if\n";
+      }
+
+      if ( $attr->{PPPOE_CHECK} ){
+        $cmd .= "if [ ! -f /var/run/pppoed_" . $if . ".pid ]; then
+        $SUDO /usr/libexec/pppoed -P /var/run/pppoed_" . $if . ".pid -l pppoe-in -p \\* $if; fi; ";
+      }
+      else{
+        $cmd .= "if [ -f /var/run/pppoed_" . $if . ".pid ]; then $SUDO kill -9 \\`cat /var/run/pppoed_" . $if . ".pid\\`; fi; " . " $SUDO /usr/libexec/pppoed -P /var/run/pppoed_" . $if . ".pid -l pppoe-in -p \\* $if; ";
+      }
+    }
+  }
+
+  if ( $attr->{NAS_MNG_IP} ){
+    $cmd = "$SSH -p $attr->{NAS_MNG_PORT} -o StrictHostKeyChecking=no -i $base_dir/Certs/id_$ssh_cert_type.$attr->{NAS_MNG_USER} " . "$attr->{NAS_MNG_USER}\@$attr->{NAS_MNG_IP} \"$cmd\"";
+  }
+
+  # PPPoE Relay
+  #   my @commands = ("killall pppoe-relay");
+  #  my $cmd = "pppoe-relay -S $attr->{PARENT_INTERFACE} -C $client_interfaces";
+  #
+  #   if ($attr->{NAS_MNG_IP_PORT}) {
+  #     $cmd = "$SSH -o StrictHostKeyChecking=no -i $base_dir/Certs/id_$ssh_cert_type.$attr->{NAS_MNG_USER} ".
+  #       "$attr->{NAS_MNG_USER}\@$attr->{NAS_MNG_IP_PORT} \"$sudo killall pppoe-relay; $sudo $cmd\"";
+  #    }
+
+  my $out = '';
+  $debug_output .= $cmd . "\n" if ($debug > 3);
+  $out = cmd( $cmd ) if ($debug < 5);
+  $debug_output .= $out . "\n" if ($debug > 4);
+
+  $DEBUG .= $debug_output;
+  return $debug_output;
+}
+
+1
+

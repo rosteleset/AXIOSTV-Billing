@@ -1,0 +1,45 @@
+{
+  "definitions": {},
+  "type": "array",
+  "title": "The Root Schema",
+
+  "required": [],
+  "properties": {
+    "uid": {
+      "$id": "#/properties/uid",
+      "type": "number"
+    },
+    "id": {
+      "$id": "#/properties/id",
+      "type": "number"
+    },
+    "cid": {
+      "$id": "#/properties/cid",
+      "type": "string"
+    },
+    "tpId": {
+      "$id": "#/properties/tpId",
+      "type": "number"
+    },
+    "dayFee": {
+      "$id": "#/properties/dayFee",
+      "type": "number"
+    },
+    "tpName": {
+      "$id": "#/properties/tpName",
+      "type": "string"
+    },
+    "monthFee": {
+      "$id": "#/properties/monthFee",
+      "type": "number"
+    },
+    "internetStatus": {
+      "$id": "#/properties/internetStatus",
+      "type": "number"
+    },
+    "loginStatus": {
+      "$id": "#/properties/loginStatus",
+      "type": "number"
+    }
+  }
+}

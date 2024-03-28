@@ -1,0 +1,13 @@
+CREATE TABLE IF NOT EXISTS `storage_payers`
+(
+  `id`        INT(10) UNSIGNED NOT NULL AUTO_INCREMENT,
+  `name`      VARCHAR(30)      NOT NULL DEFAULT '',
+  `comments`  VARCHAR(60)      NOT NULL DEFAULT '',
+  `domain_id` SMALLINT(6) UNSIGNED NOT NULL DEFAULT '0',
+  PRIMARY KEY (`id`)
+  )
+  DEFAULT CHARSET = utf8 COMMENT = 'Storage payers';
+
+ALTER TABLE `storage_incoming` ADD COLUMN `payer_id` INT(10) UNSIGNED NOT NULL DEFAULT '0';
+ALTER TABLE `storage_log` ADD COLUMN `nas_id` INT(10) UNSIGNED NOT NULL DEFAULT '0';
+ALTER TABLE `storage_log` MODIFY COLUMN `aid` SMALLINT(6) UNSIGNED NOT NULL DEFAULT '0';

@@ -1,0 +1,727 @@
+#!perl
+
+use warnings;
+use strict;
+use Price::Price;
+use AXbills::Base qw/_bp sendmail in_array/;
+use Crm::db::Crm;
+
+our ($db,
+  $admin,
+  %conf,
+  $html,
+  %lang);
+
+my $Price = Price->new($db,
+  $admin,
+  \%conf);
+my $Crm = Crm->new($db,
+  $admin,
+  \%conf);
+
+my @Reservs = (
+  'ACCEPT', 'DOMAIN_ID', 'NAS_GID', '__BUFFER', 'language', 'module',
+  'MAIL_SEND', 'SUMM', 'CREATE_NEW_FORM', 'E_MAIL_2', 'LINK_FORM'
+);
+
+my %TYPES = (
+  '0' => $lang{CHECKBOX},
+  '1' => $lang{DIGITAL_FIELD},
+  '2' => $lang{TEXT_FIELD},
+);
+
+#**********************************************************
+=head2  price_registration()
+
+=cut
+#**********************************************************
+sub price_registration {
+
+  my %info = ();
+  my $sum = 0;
+  my $html_conteiner = '';
+  my $service_html_block = '';
+  my $accept_page_html = '';
+  my $accept_page = '';
+  my $group_name = '';
+  my $group_check = '';
+  my $timeeqel = $Price->show_groups({ COLS_NAME => 1 });
+  my $people_money = 0;
+  my $index = 0;
+
+  foreach my $myItem (@$timeeqel) {
+    my %base_info = ();
+    my %group_info = ();
+    my %group_info_2 = ();
+    my $service = 0;
+    $service_html_block = '';
+
+    $service = $Price->select_service_with_group({ COLS_NAME => 1, ID => $myItem->{id} });
+    $group_info_2{NAME} = $myItem->{name} || 'Нет названия';
+
+    foreach my $myservice (@$service) {
+      $base_info{NAME} = $myservice->{name} || 'Нет названия';
+      $base_info{PRICE} = $myservice->{price} || 'Нет цены';
+      $base_info{COMMENTS} = $myservice->{comments};
+
+      if (defined($myservice->{type}) && $myservice->{type} == 0 || !$myservice->{type}) {
+        $base_info{ID} = 'CHEK_' . $myservice->{id};
+        $base_info{CHECK} = exists $FORM{ "CHEK_" . $myservice->{id} } ? 'checked' : '';
+      }
+      if (defined($myservice->{type}) && $myservice->{type} == 1) {
+        $base_info{ID} = 'DIGIT_' . $myservice->{id};
+        $base_info{CHECK} = exists $FORM{ "DIGIT_" . $myservice->{id} } ? 'checked' : '';
+        $base_info{DIGIT_FIELD} = $FORM{ "DIGIT_" . $myservice->{id} };
+      }
+      if (defined($myservice->{type}) && $myservice->{type} == 2) {
+        $base_info{ID} = 'TEXT_' . $myservice->{id};
+        $base_info{CHECK} = exists $FORM{ "TEXT_" . $myservice->{id} } ? 'checked' : '';
+        $base_info{TEXT_FIELD} = $FORM{ "TEXT_" . $myservice->{id} };
+        $base_info{PRICE} = 0;
+      }
+
+      if (($base_info{CHECK} eq 'checked') && (!$FORM{RES} || $FORM{RES} eq '')) {
+        $index = 1;
+          $html_conteiner .= $html->tpl_show(_include('price_services_cheker_all_ok', 'Price'),
+            \%base_info, { OUTPUT2RETURN => 1 });
+
+        if (defined($myservice->{type}) && $myservice->{type} == 0 || !$myservice->{type}) {
+          $accept_page_html .= $html->tpl_show(_include('price_accept_panel_add', 'Price'),
+            \%base_info, { OUTPUT2RETURN => 1 });
+          $info{MAS} .= $myservice->{id} . ':';
+        }
+        if (defined($myservice->{type}) && $myservice->{type} == 1) {
+          $accept_page_html .= $html->tpl_show(_include('price_accept_digit_field', 'Price'),
+            \%base_info, { OUTPUT2RETURN => 1 });
+        }
+        if (defined($myservice->{type}) && $myservice->{type} == 2) {
+          $accept_page_html .= $html->tpl_show(_include('price_accept_text_field', 'Price'),
+            \%base_info, { OUTPUT2RETURN => 1 });
+        }
+      }
+      else {
+        if (defined($myservice->{type}) && $myservice->{type} == 0 || !$myservice->{type}) {
+          $base_info{CHECK} = exists $FORM{ "CHEK_" . $myservice->{id} };
+          $service_html_block .= $html->tpl_show(_include('price_services_cheker_all_ok', 'Price'),
+            \%base_info, { OUTPUT2RETURN => 1 });
+        }
+        if (defined($myservice->{type}) && $myservice->{type} == 1) {
+          $base_info{CHECK} = exists $FORM{ "DIGIT_" . $myservice->{id} };
+          $service_html_block .= $html->tpl_show(_include('price_service_digital_field', 'Price'),
+            \%base_info, { OUTPUT2RETURN => 1 });
+        }
+        if (defined($myservice->{type}) && $myservice->{type} == 2) {
+          $base_info{CHECK} = exists $FORM{ "TEXT_" . $myservice->{id} };
+          $service_html_block .= $html->tpl_show(_include('price_service_text_field', 'Price'),
+            \%base_info, { OUTPUT2RETURN => 1 });
+        }
+      }
+    }
+    if ($service_html_block ne "") {
+      $group_info{ELEMENTS} = $service_html_block;
+    }
+
+    if ($index == 1) {
+      $group_info_2{ELEMENTS} = $html_conteiner;
+      $group_check .= $html->tpl_show(_include('price_group_name', 'Price'), \%group_info_2, { OUTPUT2RETURN => 1 });
+
+      $group_info_2{ELEMENTS} = $accept_page_html;
+      $accept_page .= $html->tpl_show(_include('price_group_name', 'Price'), \%group_info_2, { OUTPUT2RETURN => 1 });
+
+      $accept_page_html = "";
+      $html_conteiner = "";
+      $index = 0;
+    }
+    else {
+      $group_info{NAME} = $myItem->{name} || 'Нет названия';
+      $group_name .= $html->tpl_show(_include('price_group_name', 'Price'), \%group_info, { OUTPUT2RETURN => 1 });
+    }
+  }
+
+  foreach my $myItem (@$timeeqel) {
+    my %base_info_2;
+
+    my $service = $Price->select_service_with_group({ COLS_NAME => 1, ID => $myItem->{id} });
+
+    foreach my $myservice (@$service) {
+      if (defined($myservice->{type}) && $myservice->{type} == 0 || !$myservice->{type}) {
+        if ($FORM{ 'CHEK_' . $myservice->{id} }) {
+          $sum += $base_info_2{PRICE} = $myservice->{price};
+        }
+      }
+      if (defined($myservice->{type}) && $myservice->{type} == 1) {
+        if ($FORM{ 'DIGIT_' . $myservice->{id} }) {
+          $sum += $base_info_2{PRICE} = $myservice->{price} *$FORM { 'DIGIT_' . $myservice->{id} };
+        }
+      }
+    }
+
+  }
+
+  $info{CLIENT} = $FORM{ALL_USERS};
+  if ($FORM{ALL_USERS} && $FORM{ALL_USERS} != 0) {
+    if ($FORM{ALL_USERS} > 1000) {
+      my $people_cost = $FORM{ALL_USERS} - 1000;
+      if (($people_cost > 0) && ($people_cost < 500)) {
+        $people_money = 100;
+      }
+      elsif (!($people_cost % 500)) {
+        $people_money = ($people_cost / 500) * 100;
+      }
+      else {
+        $people_money = (int($people_cost / 500) * 100) + 100;
+      }
+    }
+    else {
+      $people_money = 0;
+    }
+  }
+  else {
+    $info{CLIENT} = 0;
+  }
+
+  if ($FORM{RES}) {
+    $info{PANEL} = $group_name;
+    $html->tpl_show(_include('price_table', 'Price'), { %info });
+
+    return 1;
+  }
+
+  if ($FORM{LINK_FORM} && $FORM{MAIL_SEND}) {
+    if ($FORM{MAIL_SEND}) {
+      $Price->delete_price_form(
+        {
+          LEAD_ID => $FORM{LINK_FORM} || "",
+        }
+      );
+      _save_user();
+
+      return 1;
+    }
+  }
+
+  if ($FORM{lead_form}) {
+    my $lead_id = $FORM{lead_id};
+
+    my $Form_list = $Price->select_price_form(
+      {
+        LEAD_ID => $lead_id,
+      }
+    );
+
+    if ($Form_list == 0) {
+      $html->tpl_show(_include('price_not_existing_form', 'Price'), { %FORM, %info });
+    }
+    else {
+      require Digest::SHA;
+      Digest::SHA->import('sha256_hex');
+      my $digest = Digest::SHA::sha256_hex("$Form_list->[0]->{key_}$DATE 1234567890");
+
+      if ($FORM{lead_form} eq $digest) {
+        my @Check_array = ();
+        my $index_check = 0;
+        foreach my $form_element (@$Form_list) {
+          if (!$form_element->{checked}) {
+            $info{$form_element->{key_}} = $form_element->{value};
+          }
+          else {
+            $Check_array[$index_check++] = 'CHEK_' . $form_element->{key_};
+          }
+        }
+
+        my $exis_page = '';
+        foreach my $myItem (@$timeeqel) {
+          my %base_info = ();
+          my %group_info = ();
+          my $service = 0;
+          $service_html_block = '';
+
+          $service = $Price->select_service_with_group({ COLS_NAME => 1, ID => $myItem->{id} });
+          $group_info{NAME} = $myItem->{name} || 'Нет названия';
+
+          foreach my $myservice (@$service) {
+            $base_info{NAME} = $myservice->{name} || 'Нет названия';
+            $base_info{PRICE} = $myservice->{price} || 'Нет цены';
+            $base_info{COMMENTS} = $myservice->{comments};
+
+            $base_info{ID} = 'CHEK_' . $myservice->{id};
+#            $base_info{CHECK} = in_array("CHEK_" . $myservice->{id}, \@Check_array) ? 'checked' : '';
+#
+#            $html_conteiner .= $html->tpl_show(_include('price_services_cheker_all_ok', 'Price'),
+#              \%base_info, { OUTPUT2RETURN => 1 });
+
+            if (defined($myservice->{type}) && $myservice->{type} == 0 || !$myservice->{type}) {
+              $base_info{CHECK} = in_array("CHEK_" . $myservice->{id}, \@Check_array) ? 'checked' : '';
+              $html_conteiner .= $html->tpl_show(_include('price_services_cheker_all_ok', 'Price'),
+                \%base_info, { OUTPUT2RETURN => 1 });
+            }
+            if (defined($myservice->{type}) && $myservice->{type} == 1) {
+              $base_info{CHECK} = exists $FORM{ "DIGIT_" . $myservice->{id} } ? 'checked' : '';
+              $base_info{DIGIT_FIELD} = $FORM{ "DIGIT_" . $myservice->{id} };
+              $html_conteiner .= $html->tpl_show(_include('price_service_digital_field', 'Price'),
+                \%base_info, { OUTPUT2RETURN => 1 });
+            }
+            if (defined($myservice->{type}) && $myservice->{type} == 2) {
+              $base_info{CHECK} = exists $FORM{ "TEXT_" . $myservice->{id} };
+              $html_conteiner .= $html->tpl_show(_include('price_service_text_field', 'Price'),
+                \%base_info, { OUTPUT2RETURN => 1 });
+            }
+          }
+
+          $group_info{ELEMENTS} = $html_conteiner;
+
+          $exis_page .= $html->tpl_show(_include('price_group_name', 'Price'), \%group_info, { OUTPUT2RETURN => 1 });
+          $html_conteiner = "";
+        }
+
+        $info{PANEL} = $exis_page;
+        $html->tpl_show(_include('price_table', 'Price'), { %FORM, %info });
+      }
+      else {
+        $html->tpl_show(_include('price_not_correct_link', 'Price'), { %FORM, %info });
+      }
+    }
+
+    return 1;
+  }
+
+  $info{PEOPLE_MONY} = $people_money;
+  $info{SUMM} = $sum + $people_money + 1200;
+
+  if ($group_check ne '') {
+    $info{PANEL} = $group_check;
+  }
+  else {
+    #    $info{SUMM} = 0;
+    $info{PANEL} = $group_name;
+  }
+
+  if ($FORM{OPEN_EXISTING_FORM}) {
+    my $Lead_list = $Crm->crm_lead_list(
+      {
+        EMAIL     => $FORM{E_MAIL_2},
+        COLS_NAME => 1,
+      }
+    );
+
+    if ($Lead_list == 0) {
+      $html->tpl_show(_include('price_not_existing_form', 'Price'), { %FORM, %info });
+    }
+    else {
+      my $Form_list = $Price->select_price_form(
+        {
+          LEAD_ID => $Lead_list->[0]->{lead_id},
+        }
+      );
+
+      if ($Form_list == 0) {
+        $html->tpl_show(_include('price_not_existing_form', 'Price'), { %FORM, %info });
+      }
+      else {
+        $html->tpl_show(_include('price_existing_form', 'Price'), { %FORM, %info });
+
+        my $User_email = $FORM{E_MAIL};
+        require Digest::SHA;
+        Digest::SHA->import('sha256_hex');
+        my $digest = Digest::SHA::sha256_hex("$Form_list->[0]->{key_}$DATE 1234567890");
+        my $lead_id = $Form_list->[0]->{lead_id};
+
+        sendmail("$conf{ADMIN_MAIL}", $User_email, "Zaiavka na integraciiu",
+          "$SELF_URL?module=Price&lead_form=$digest&lead_id=$lead_id&LINK_FORM=$lead_id",
+          "$conf{MAIL_CHARSET}", "2 (High)");
+
+        sendmail($User_email, "$conf{ADMIN_MAIL}", "Zaiavka na integraciiu",
+          "$SELF_URL?module=Price&lead_form=$digest&lead_id=$lead_id&LINK_FORM=$lead_id",
+          "$conf{MAIL_CHARSET}", "2 (High)");
+      }
+    }
+
+    return 1;
+  }
+
+  #Existing form
+  if ($FORM{MAIL_SEND}) {
+    _save_user();
+
+    return 1;
+  }
+
+  if ($FORM{EMAIL_FORM}) {
+    if ($FORM{E_MAIL}) {
+      my $Lead_list = $Crm->crm_lead_list(
+        {
+          EMAIL     => $FORM{E_MAIL},
+          COLS_NAME => 1,
+        }
+      );
+
+      if ($Lead_list == 0) {
+        $html->tpl_show(_include('price_not_existing_form', 'Price'), { %FORM, %info });
+      }
+      else {
+        my $Form_list = $Price->select_price_form(
+          {
+            LEAD_ID => $Lead_list->[0]->{lead_id},
+          }
+        );
+
+        if ($Form_list == 0) {
+          $html->tpl_show(_include('price_not_existing_form', 'Price'), { %FORM, %info });
+        }
+        else {
+          $html->tpl_show(_include('price_existing_form', 'Price'), { %FORM, %info });
+
+          my $User_email = $FORM{E_MAIL};
+          require Digest::SHA;
+          Digest::SHA->import('sha256_hex');
+          my $digest = Digest::SHA::sha256_hex("$Form_list->[0]->{key_}$DATE 1234567890");
+          my $lead_id = $Form_list->[0]->{lead_id};
+
+          sendmail("$conf{ADMIN_MAIL}", $User_email, "Zaiavka na integraciiu",
+            "$SELF_URL?module=Price&lead_form=$digest&lead_id=$lead_id&LINK_FORM=$lead_id",
+            "$conf{MAIL_CHARSET}", "2 (High)");
+
+          sendmail($User_email, "$conf{ADMIN_MAIL}", "Zaiavka na integraciiu",
+            "$SELF_URL?module=Price&lead_form=$digest&lead_id=$lead_id&LINK_FORM=$lead_id",
+            "$conf{MAIL_CHARSET}", "2 (High)");
+        }
+      }
+    }
+    else {
+      $html->tpl_show(_include('price_not_existing_form', 'Price'), { %FORM, %info });
+    }
+    return 1;
+  }
+
+  if ($FORM{CREATE_NEW}) {
+    $html->tpl_show(_include('price_table', 'Price'), { %FORM, %info }, { LINK_FORM => $FORM{LINK_FORM} || "" });
+
+    return 1;
+  }
+
+  if ($FORM{ACCEPT}) {
+    if ($info{PEOPLE_MONY} != 0) {
+      $info{SECOND_PANEL} = $html->tpl_show(_include('price_seccond_accept_panel', 'Price'), \%info, { OUTPUT2RETURN => 1 });
+    }
+    $info{PANEL} = $accept_page;
+    $html->tpl_show(_include('price_accept_form', 'Price'), { %FORM, %info }, { LINK_FORM => $FORM{LINK_FORM} || "" });
+
+    return 1;
+  }
+  else {
+    if ($FORM{MASSAGE_ADD} && $FORM{MASSAGE_ADD} == 1) {
+      $html->tpl_show(_include('price_table', 'Price'), { %FORM, %info }, { LINK_FORM => $FORM{LINK_FORM} || "" });
+    }
+    else {
+      $html->tpl_show(_include('price_table', 'Price'), { %FORM, %info }, { LINK_FORM => $FORM{LINK_FORM} || "" });
+    }
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2  _save_user()
+
+=cut
+#**********************************************************
+sub _save_user {
+  my $Lead_list = $Crm->crm_lead_list(
+    {
+      EMAIL     => $FORM{E_MAIL},
+      COLS_NAME => 1,
+    }
+  );
+
+  if ($Lead_list == 0) {
+    $Crm->crm_lead_add(
+      {
+        EMAIL => $FORM{E_MAIL},
+      }
+    );
+
+    _error_show($Crm);
+    my $Lead_id = $Crm->{INSERT_ID};
+    foreach my $key (keys %FORM) {
+      my $value = $FORM{$key};
+
+      if (!in_array($key, \@Reservs)) {
+        my $key_on = substr $key, 0, 10;
+
+        if ($key_on ne 'CECKED_MAS') {
+          $Price->add_form(
+            {
+              LEAD_ID => $Lead_id,
+              KEY_    => $key,
+              VALUE   => $value,
+              CHECKED => "",
+            }
+          );
+        }
+        else {
+          my @checkers = split(':', $FORM{$key});
+          foreach my $check (@checkers) {
+            $Price->add_form(
+              {
+                LEAD_ID => $Lead_id,
+                KEY_    => $check,
+                VALUE   => "on",
+                CHECKED => "+",
+              }
+            );
+          }
+        }
+      }
+    }
+    $html->tpl_show(_include('price_success_form', 'Price'));
+  }
+  else {
+    my $Form_list = $Price->select_price_form(
+      {
+        LEAD_ID => $Lead_list->[0]->{lead_id},
+      }
+    );
+
+    if ($Form_list == 0) {
+      foreach my $key (keys %FORM) {
+        my $value = $FORM{$key};
+
+        if (!in_array($key, \@Reservs)) {
+          my $key_on = substr $key, 0, 10;
+
+          if ($key_on ne 'CECKED_MAS') {
+            $Price->add_form(
+              {
+                LEAD_ID => $Lead_list->[0]->{lead_id},
+                KEY_    => $key,
+                VALUE   => $value,
+                CHECKED => "",
+              }
+            );
+          }
+          else {
+            my @checkers = split(':', $FORM{$key});
+            foreach my $check (@checkers) {
+              $Price->add_form(
+                {
+                  LEAD_ID => $Lead_list->[0]->{lead_id},
+                  KEY_    => $check,
+                  VALUE   => "on",
+                  CHECKED => "+",
+                }
+              );
+            }
+          }
+        }
+      }
+      $html->tpl_show(_include('price_success_form', 'Price'));
+    }
+    else {
+      $html->tpl_show(_include('price_existing_user', 'Price'), { %FORM });
+    }
+
+    return 1;
+  }
+
+}
+
+#**********************************************************
+=head2  price_main()
+
+=cut
+#**********************************************************
+sub price_main {
+  my %info;
+  my @Price_group = $Price->show_groups({ COLS_NAME => 1 });
+  $info{BTN_ACTION} = "add";
+  $info{BTN_LNG} = $lang{ADD};
+
+  if ($FORM{add}) {
+    $Price->add_service(
+      {
+        NAME     => $FORM{NAME},
+        PRICE    => $FORM{PRICE},
+        COMMENTS => $FORM{COMMENTS},
+        ID_GROUP => $FORM{PRICE_GROUP},
+        TYPE     => $FORM{TYPE},
+      }
+    );
+  }
+  if ($FORM{del}) {
+    $Price->del_service({ ID => $FORM{del} });
+  }
+  if ($FORM{chg}) {
+    my $service_info = $Price->take_service_info({ ID => $FORM{chg} });
+    $info{NAME} = $service_info->{NAME};
+    $info{PRICE} = $service_info->{PRICE};
+    $info{COMMENTS} = $service_info->{COMMENTS};
+    $info{ID_GROUP} = $service_info->{ID_GROUP};
+    $info{TYPE} = $service_info->{TYPE};
+    $info{BTN_ACTION} = "change";
+    $info{BTN_LNG} = $lang{CHANGE};
+    $info{ID} = $FORM{chg};
+  }
+
+  if ($FORM{change}) {
+    $Price->change_service(
+      {
+        ID       => $FORM{ID},
+        NAME     => $FORM{NAME},
+        PRICE    => $FORM{PRICE},
+        COMMENTS => $FORM{COMMENTS},
+        ID_GROUP => $FORM{PRICE_GROUP},
+        TYPE     => $FORM{TYPE} || 0,
+      }
+    );
+  }
+
+  $info{INPUT_TYPE} = $html->form_select(
+    'TYPE',
+    {
+      SELECTED => 0,
+      SEL_HASH => {
+        0 => $TYPES{'0'},
+        1 => $TYPES{'1'},
+        2 => $TYPES{'2'},
+      },
+      NO_ID    => 1,
+      SELECTED  => $info{TYPE} || 0,
+    }
+  );
+
+  $info{PRICE_GROUP} = $html->form_select(
+    'PRICE_GROUP',
+    {
+      SEL_LIST  => @Price_group,
+      SEL_KEY   => 'id',
+      SEL_VALUE => 'name',
+      NO_ID     => 1,
+      SELECTED  => $info{ID_GROUP} || "",
+    }
+  );
+
+  $html->tpl_show(_include('price_add_service_form', 'Price'), \%info);
+
+  result_former(
+    {
+      INPUT_DATA      => $Price,
+      FUNCTION        => 'show_services_with_groups',
+      BASE_FIELDS     => 0,
+      DEFAULT_FIELDS  => 'ID,NAME,PRICE,COMMENTS,GROUP_NAME,TYPE',
+      FUNCTION_FIELDS => 'del, change',
+      FILTER_COLS     => {
+        type       => '_price_type_change::TYPE',
+      },
+      EXT_TITLES      => {
+        'id'         => "ID",
+        'name'       => "$lang{NAME}",
+        'price'      => "$lang{PRICE}",
+        'comments'   => "$lang{DESCRIBE}",
+        'group_name' => "$lang{GROUP}",
+        'type'       => "$lang{TYPE}",
+      },
+      TABLE           => {
+        width  => '100%',
+        qs     => $pages_qs,
+        ID     => 'services_list_id',
+        header => '',
+        EXPORT => 1,
+        MENU   => "$lang{ADD}:index=" . get_function_index('price_main') . ':add' . ";",
+      },
+      MAKE_ROWS       => 1,
+      SEARCH_FORMER   => 1,
+      MODULE          => 'Price',
+      TOTAL           => 1
+    }
+  );
+
+  return 1;
+}
+
+#**********************************************************
+=head2  price_add_group()
+
+=cut
+#**********************************************************
+sub _price_type_change {
+  my ($type_id, $attr) = @_;
+  return $lang{CHECKBOX} unless ($type_id);
+
+  return $TYPES{$type_id};
+}
+
+#**********************************************************
+=head2  price_add_group()
+
+=cut
+#**********************************************************
+sub price_add_group {
+  my %info;
+  $info{BTN_ACTION} = "add";
+  $info{BTN_LNG} = $lang{ADD};
+
+  if ($FORM{add}) {
+    $Price->add_group(
+      {
+        NAME     => $FORM{NAME},
+        COMMENTS => $FORM{COMMENTS},
+      }
+    );
+  }
+  if ($FORM{del}) {
+    $Price->del_group({ ID => $FORM{del} });
+  }
+  if ($FORM{chg}) {
+    my $service_info = $Price->select_price_groups({ ID => $FORM{chg} });
+    $info{NAME} = $service_info->{NAME};
+    $info{COMMENTS} = $service_info->{COMMENTS};
+    $info{BTN_ACTION} = "change";
+    $info{BTN_LNG} = $lang{CHANGE};
+    $info{ID} = $FORM{chg};
+  }
+
+  if ($FORM{change}) {
+    $Price->change_group(
+      {
+        ID       => $FORM{ID},
+        NAME     => $FORM{NAME},
+        COMMENTS => $FORM{COMMENTS},
+      }
+    );
+  }
+
+  $html->tpl_show(_include('price_add_group_form', 'Price'), \%info);
+
+  result_former(
+    {
+      INPUT_DATA      => $Price,
+      FUNCTION        => 'show_groups',
+      BASE_FIELDS     => 3,
+      DEFAULT_FIELDS  => 'NAME,COMMENTS',
+      FUNCTION_FIELDS => 'del, change',
+      EXT_TITLES      => {
+        'id'       => "ID",
+        'name'     => "$lang{NAME}",
+        'comments' => "$lang{DESCRIBE}",
+      },
+      TABLE           => {
+        width  => '100%',
+        qs     => $pages_qs,
+        ID     => 'group_list_id',
+        header => '',
+        EXPORT => 1,
+        MENU   => "$lang{ADD}:index=" . get_function_index('price_add_group') . ':add' . ";",
+      },
+      MAKE_ROWS       => 1,
+      SEARCH_FORMER   => 1,
+      MODULE          => 'Price',
+      TOTAL           => 1
+    }
+  );
+
+  return 1;
+}
+
+1;
+
+

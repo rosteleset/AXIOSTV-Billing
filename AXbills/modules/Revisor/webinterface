@@ -1,0 +1,284 @@
+#!perl
+=head1 NAME
+
+  Revisor managment module
+
+=cut
+
+
+use strict;
+use warnings FATAL => 'all';
+
+use Revisor;
+use AXbills::Base qw/in_array _bp/;
+use Internet::Sessions;
+
+our (
+  %lang,
+  $html,
+  $admin,
+  $db,
+  %conf,
+  @MODULES,
+);
+
+my $Revisor = Revisor->new($db, $admin, \%conf);
+my $Sessions = Internet::Sessions->new($db, $admin, \%conf);
+
+#**********************************************************
+=head2 revisor_user_list($attr)
+
+=cut
+#**********************************************************
+sub revisor_user_list {
+
+  my $pages_qs = '';
+
+  if ($FORM{info}) {
+    my $info = $Revisor->user_list({
+      FIO           => '_SHOW',
+      UID           => '_SHOW',
+      COMPANY_ID    => '_SHOW',
+      PHONE         => '_SHOW',
+      CELL_PHONE    => '_SHOW',
+      ADDRESS_FULL  => '_SHOW',
+      COMMENTS      => '_SHOW',
+      LOGIN         => $FORM{info},
+      COMPANY_NAME  => '_SHOW',
+      PASPORT_NUM   => '_SHOW',
+      PASPORT_DATE  => '_SHOW',
+      PASPORT_GRANT => '_SHOW',
+      COLS_NAME     => 1,
+      COLS_UPPER    => 1,
+    });
+    _error_show($Revisor);
+
+    my $internet_info = '';
+    if (in_array('Internet', \@MODULES)) {
+      $internet_info = $Revisor->revisor_internet_list({ IP_NUM => '_SHOW', UID => $info->[0]->{UID} });
+    }
+    else {
+      $internet_info = $Revisor->revisor_dv_list({ IP_NUM => '_SHOW', UID => $info->[0]->{UID} });
+    }
+
+    if ($internet_info && scalar(@$internet_info) > 0 && $internet_info->[0]->{ip_num}) {
+      $info->[0]->{STATIC_IP} = $internet_info->[0]->{ip_num};
+      $info->[0]->{STATIC_IP_TEXT} = "$lang{STATIC} IP";
+    }
+    else {
+      $info->[0]->{STATIC_IP_HIDDEN} = "hidden";
+    }
+
+    my $session_info = $Sessions->online({
+      UID        => $info->[0]->{UID},
+      CLIENT_IP  => '_SHOW',
+      NAS_NAME   => '_SHOW',
+      COLS_NAME  => 1,
+      COLS_UPPER => 1,
+    });
+
+    if ($Sessions->{TOTAL}) {
+      $info->[0]->{STATUS} = "Online";
+      $info->[0]->{IP_NUM} = $session_info->[0]->{client_ip};
+      $info->[0]->{NAS_NAME} = $session_info->[0]->{nas_name};
+      $info->[0]->{IP_TEXT} = "IP";
+    }
+    else {
+      $info->[0]->{STATUS} = "Offline";
+      my $sessions_list = $Sessions->list({
+        LOGIN      => $FORM{info},
+        IP         => '_SHOW',
+        START      => '_SHOW',
+        END        => '_SHOW',
+        SORT       => 2,
+        DESC       => 'DESC',
+        COLS_NAME  => 1,
+        COLS_UPPER => 1,
+      });
+
+      $info->[0]->{IP_NUM} = $sessions_list->[0]->{ip};
+      $info->[0]->{IP_TEXT} = "Последний IP";
+    }
+
+    $info->[0]->{BUTTON} = $html->button("$lang{SESSIONS}", "index=30&LOGIN=$info->[0]->{LOGIN}", { ex_params => "class='btn btn-primary'" });
+    $html->tpl_show(_include('revisor_user_info', 'Revisor'), $info->[0]);
+  }
+  else {
+    $html->tpl_show(_include('revisor_user_search', 'Revisor'), {
+      %FORM,
+      DATE_FIELD => 'hidden',
+      IP_FIELD   => 'hidden',
+      TITLE      => $lang{USERS},
+    });
+
+    my $users_list = $Revisor->user_list({
+      FIO          => ($FORM{FIO} ? "*$FORM{FIO}*" : '_SHOW'),
+      UID          => '_SHOW',
+      COMPANY_ID   => '_SHOW',
+      PHONE        => '_SHOW',
+      ADDRESS_FULL => ($FORM{ADDRESS_FULL} ? "*$FORM{ADDRESS_FULL}*" : '_SHOW'),
+      LOGIN        => ($FORM{LOGIN} ? "*$FORM{LOGIN}*" : '_SHOW'),
+      COMPANY_NAME => ($FORM{COMPANY_NAME} ? "*$FORM{COMPANY_NAME}*" : '_SHOW'),
+
+      COLS_NAME    => 1,
+      COLS_UPPER   => 1,
+      PG           => $FORM{pg},
+      SORT         => $FORM{sort} || '',
+      DESC         => $FORM{desc} || '',
+    });
+
+    $pages_qs = "&COMPANY_NAME=" . ($FORM{COMPANY_NAME} || '')
+      . "&FIO=" . ($FORM{FIO} || '')
+      . "&LOGIN=" . ($FORM{LOGIN} || '')
+      . "&ADDRESS_FULL=" . ($FORM{ADDRESS_FULL} || '');
+
+    my $table = $html->table({
+      width   => '100%',
+      caption => $lang{USERS},
+      title   => [ $lang{LOGIN}, $lang{FIO}, $lang{PHONE}, '', $lang{ADDRESS} ],
+      ID      => 'Users',
+      pages   => ($Revisor->{TOTAL} - 1),
+      qs      => $pages_qs,
+
+    });
+
+    foreach my $user_line (@$users_list) {
+      $table->addrow(
+        $html->button($user_line->{LOGIN}, "index=$index&info=$user_line->{LOGIN}"),
+        $user_line->{COMPANY_ID} ? $user_line->{COMPANY_NAME} : $user_line->{FIO},
+        $user_line->{PHONE},
+        '',
+        $user_line->{ADDRESS_FULL}
+      );
+    }
+    print $table->show();
+  }
+  return 1;
+}
+
+#**********************************************************
+=head2 revisor_online_list($attr)
+
+=cut
+#**********************************************************
+
+sub revisor_online_list {
+
+  $html->tpl_show(_include('revisor_user_search', 'Revisor'), { %FORM, DATE_FIELD => 'hidden', TITLE => "Online $lang{SEARCH}" });
+
+  my $online_list = $Sessions->online({
+    UID          => '_SHOW',
+    CID          => ($FORM{CID} ? "*$FORM{CID}*" : '_SHOW'),
+    LOGIN        => ($FORM{LOGIN} ? "*$FORM{LOGIN}*" : '_SHOW'),
+    CLIENT_IP    => '_SHOW',
+    NAS_NAME     => '_SHOW',
+    FIO          => ($FORM{FIO} ? "*$FORM{FIO}*" : '_SHOW'),
+    DURATION     => '_SHOW',
+    COMPANY_ID   => '_SHOW',
+    COMPANY_NAME => ($FORM{COMPANY_NAME} ? "*$FORM{COMPANY_NAME}*" : '_SHOW'),
+    ADDRESS_FULL => ($FORM{ADDRESS_FULL} ? "*$FORM{ADDRESS_FULL}*" : '_SHOW'),
+    IP           => ($FORM{IP_NUM} ? "$FORM{IP_NUM}" : '_SHOW'),
+    PG           => $FORM{pg},
+    COLS_NAME    => 1,
+    COLS_UPPER   => 1,
+  });
+
+  $pages_qs = "&COMPANY_NAME=" . ($FORM{COMPANY_NAME} || '')
+    . "&FIO=" . ($FORM{FIO} || '')
+    . "&LOGIN=" . ($FORM{LOGIN} || '')
+    . "&ADDRESS_FULL=" . ($FORM{ADDRESS_FULL} || '')
+    . "&IP_NUM=" . ($FORM{IP_NUM} || '')
+    . "&CID=" . ($FORM{CID} || '');
+
+  my $table = $html->table({
+    width       => '100%',
+    caption     => "Online $lang{USERS}",
+    title_plain => [ "IP", $lang{LOGIN}, $lang{FIO}, $lang{ADDRESS}, "$lang{TIME} online", "CID", $lang{NAS} ],
+    ID          => 'Online',
+    pages       => ($Sessions->{TOTAL} - 1),
+    qs          => $pages_qs,
+  });
+
+  foreach my $user_line (@$online_list) {
+    $table->addrow(
+      $html->button($user_line->{client_ip}, "index=30&IP_NUM=$user_line->{client_ip}"),
+      $html->button($user_line->{login}, "index=10&info=$user_line->{login}"),
+      $user_line->{company_id} ? $user_line->{company_name} : $user_line->{fio},
+      $user_line->{address_full},
+      $user_line->{duration},
+      $user_line->{CID},
+      $user_line->{nas_name}
+    );
+  }
+
+  print $table->show();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 revisor_user_search($attr)
+
+=cut
+#**********************************************************
+
+sub revisor_user_search {
+
+  my ($sec, $min, $hour, $mday, $mon, $year, $wday, $yday, $isdst) = localtime();
+
+  $FORM{FROM_DATE} //= sprintf("%04d-%02d-%02d", 1900 + $year, $mon + 1, 1);
+  $FORM{TO_DATE} //= sprintf("%04d-%02d-%02d", 1900 + $year, $mon + 1, $mday);
+
+  $html->tpl_show(_include('revisor_user_search', 'Revisor'), { %FORM, TITLE => "$lang{SEARCH}" });
+
+  $pages_qs = "&COMPANY_NAME=" . ($FORM{COMPANY_NAME} || '')
+    . "&FIO=" . ($FORM{FIO} || '')
+    . "&LOGIN=" . ($FORM{LOGIN} || '')
+    . "&FROM_DATE=$FORM{FROM_DATE}"
+    . "&TO_DATE=$FORM{TO_DATE}"
+    . "&ADDRESS_FULL=" . ($FORM{ADDRESS_FULL} || '')
+    . "&IP_NUM=" . ($FORM{IP_NUM} || '')
+    . "&CID=" . ($FORM{CID} || '');
+
+  my $sessions_list = $Sessions->list({
+    LOGIN        => ($FORM{LOGIN} ? "*$FORM{LOGIN}*" : '_SHOW'),
+    CID          => ($FORM{CID} ? "*$FORM{CID}*" : '_SHOW'),
+    IP           => '_SHOW',
+    START        => '_SHOW',
+    END          => '_SHOW',
+    FIO          => ($FORM{FIO} ? "*$FORM{FIO}*" : '_SHOW'),
+    COMPANY_NAME => ($FORM{COMPANY_NAME} ? "*$FORM{COMPANY_NAME}*" : '_SHOW'),
+    ADDRESS_FULL => ($FORM{ADDRESS_FULL} ? "*$FORM{ADDRESS_FULL}*" : '_SHOW'),
+    IP           => ($FORM{IP_NUM} ? "$FORM{IP_NUM}" : '_SHOW'),
+    FROM_DATE    => $FORM{FROM_DATE},
+    TO_DATE      => $FORM{TO_DATE},
+    PG           => $FORM{pg},
+    COLS_NAME    => 1,
+    COLS_UPPER   => 1,
+  });
+
+  my $table = $html->table({
+    width       => '100%',
+    caption     => $lang{SESSIONS},
+    title_plain => [ "IP", $lang{LOGIN}, $lang{FIO}, $lang{ADDRESS}, "CID", $lang{START}, $lang{END} ],
+    ID          => 'Sessions',
+    pages       => ($Sessions->{TOTAL} - 1),
+    qs          => $pages_qs,
+  });
+
+  foreach my $user_line (@$sessions_list) {
+    $table->addrow(
+      $html->button($user_line->{IP}, "index=$index&$pages_qs&IP_NUM=$user_line->{IP}"),
+      $html->button($user_line->{LOGIN}, "index=$index&$pages_qs&LOGIN=$user_line->{LOGIN}"),
+      $user_line->{COMPANY_ID} ? $user_line->{COMPANY_NAME} : $user_line->{FIO},
+      $user_line->{ADDRESS_FULL},
+      $user_line->{CID},
+      $user_line->{START},
+      $user_line->{END},
+    )};
+
+  print $table->show();
+
+  return 1;
+}
+1

@@ -1,0 +1,31 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+                   "01:0:$lang{BONUS}:bonus_users_list:"                  => 11,
+                   "02:0:$lang{BONUS}:bonus_user_log:UID"                 => 15,
+                   "07:0:$lang{BONUS}:bonus_tp:"                          => 5,
+                   "08:7:$lang{SERVICE} $lang{DISCOUNT}:bonus_service_discount:"  => 5,
+                   "09:7:$lang{BONUS} Turbo:bonus_turbo:"                 => 5,
+                   "10:7:$lang{BONUS_TP_USING}:bonus_tp_using:"           => 5,
+                   "11:0:FB Likes:bonus_likes:"                           => 4,
+                   );
+
+
+if($conf{BONUS_ACCOMULATION}) {
+  %USER_FUNCTION_LIST = ("01:0:$lang{BONUS}:bonus_user:" => 0);
+
+  $FUNCTIONS_LIST{"02:0:$lang{BONUS}:bonus_user:UID"}    = 20;
+  $FUNCTIONS_LIST{"13:7:$lang{BONUS} $lang{ACCOMULATION}:bonus_tp_accomulation:TP_ID"} = 5;
+}
+else {
+  $FUNCTIONS_LIST{"02:0:$lang{BONUS}:bonus_users:UID"}=20;
+  if($conf{BONUS_SERVICE_DISCOUNT}) {
+    %USER_FUNCTION_LIST = ("01:0:$lang{BONUS}:bonus_service_discount_client:"     => 0);
+  }
+}
+
+#
+%PERIODIC = (daily   => [ 'bonus_periodic_daily'   ],
+             monthly => [ 'bonus_periodic_monthly', 'bonus_tp_using_periodic' ],
+#             report  => [ 'bonus_report'   ]
+            );
+1

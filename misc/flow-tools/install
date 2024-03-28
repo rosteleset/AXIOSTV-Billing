@@ -1,0 +1,26 @@
+#IPN configyre
+:DEFAULT:IPN_NAS_ID=:IPN NAS ID
+:DEFAULT:IPN_IF=:IPN interfaces
+:DEFAULT:IPN_ALLOW_IP=:IPN allow ipn
+:DEFAULT:USE_NAT=1:Use nat ?
+:DEFAULT:EXTERNAL_IP=:NAT External IP
+:DEFAULT:EXTERNAL_IF=:NAT External IF
+:DEFAULT:INTERNAL_NETWORK=:NAT internal networks (,)
+
+:OS=FREEBSD:flow_capture_enable="YES"\nflow_capture_datadir="/usr/axbills/var/log/ipn/"\nflow_capture_port="9996"\nflow_capture_flags="-S 5 -n 287 -N 0 -d 5"  >> [/etc/]/rc.conf
+::exec:mkdir /usr/axbills/var/log/ipn/
+:OS=FREEBSD:exec:chown flowtools /usr/axbills/var/log/ipn/
+:OS=FREEBSD:exec:/usr/local/etc/rc.d/flow_capture restart
+:OS=FREEBSD:axbills_shaper_enable="YES" >> [/etc]/rc.conf
+:OS=FREEBSD:axbills_ipn_if="%IPN_IF%" >> [/etc]/rc.conf
+:OS=FREEBSD:axbills_ipn_nas_id="%IPN_NAS_ID%" >> [/etc]/rc.conf
+:OS=FREEBSD:axbills_ipn_allow_ip="%IPN_ALLOW_IP%" >> [/etc]/rc.conf
+:OS=FREEBSD,USE_NAT=1:axbills_nat="%EXTERNAL_IP%:%INTERNAL_NETWORK%:%EXTERNAL_IF%" >> [/etc]/rc.conf
+:OS=FREEBSD:exec: ln -s /usr/local/etc/rc.d/shaper_start.sh /usr/axbills/misc/freebsd/shaper_start.sh
+:OS=FREEBSD:exec:/usr/local/etc/rc.d/shaper_start.sh start
+
+#Make ng_flow sensor
+:OS=FREEBSD:FILE=ng_flow       > [/usr/local/etc]/rc.d/ng_flow
+:OS=FREEBSD:axbills_ng_flow_enable="YES"\naxbills_ng_flow_interfaces="%FLOW_INTERFACE%"\n  >> [/etc/]/rc.conf
+:OS=LINUX:FILE=flow-capture.conf > [/etc]/flow-tools/flow-capture.conf
+:OS=LINUX:exec:/etc/init.d/flow-capture start

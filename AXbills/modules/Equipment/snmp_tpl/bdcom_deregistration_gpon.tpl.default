@@ -1,0 +1,4 @@
+enable
+conf
+interface gpon %BRANCH%
+no gpon bind-onu sn %MAC_SERIAL%

@@ -1,0 +1,73 @@
+/* Shedule Table */
+
+
+.adminCaption {
+    width: 150px;
+    font-weight: 600;
+    border: 1px solid silver;
+}
+
+.timeTd {
+    position: relative;
+    left: -1.5em;
+    font-weight: 600;
+}
+
+.taskFree {
+    background-color: rgb(207, 207, 207);
+    border: 1px solid silver;
+}
+
+.taskBusy {
+    cursor: nwse-resize;
+}
+
+.taskBusy.taskActive, .workElement.taskActive {
+    background-color: greenyellow !important;
+}
+
+.correctTarget {
+    background-color: #d3ffd8;
+    border: 1px solid silver;
+}
+
+.resizable {
+    background: red;
+    width: 100px;
+    height: 100px;
+    position: absolute;
+    top: 100px;
+    left: 100px;
+}
+
+.resizable .resizers .resizer{
+    width: 10px;
+    height: 10px;
+    border-radius: 50%;
+    background: red;
+    position: absolute;
+}
+
+.resizable .resizers .resizer.bottom-right {
+    right: -5px;
+    bottom: -5px;
+    cursor: nwse-resize;
+}
+
+div#hour-grid > table {
+    border: 1px solid rgb(0, 0, 0);
+}
+
+div#hour-grid > table > tr > td {
+    width: 110px;
+    height: 30px;
+}
+
+span.btn-color {
+    background: rgb(255, 133, 133);
+    background-size: contain !important;
+    display: inline-block;
+    width: 100%;
+    height: 100%;
+    border-radius: 25px;
+}

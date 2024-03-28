@@ -1,0 +1,5 @@
+show gpon onu detail-info gpon-onu_%BRANCH%:%ONU_ID%
+show onu running config gpon-onu_%BRANCH%:%ONU_ID%
+show running-config interface gpon-onu_%BRANCH%:%ONU_ID%
+show mac-real-time gpon onu gpon-onu_%BRANCH%:%ONU_ID%
+show gpon remote-onu interface eth gpon-onu_%BRANCH%:%ONU_ID%

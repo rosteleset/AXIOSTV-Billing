@@ -1,0 +1,220 @@
+--  *****************************************************************
+--  DLINKPV2-DEVICE-INFORMATION-MIB.mib : Device Information MIB
+--
+--  Copyright (c) 2014 D-Link Corporation, all rights reserved.
+--
+--  *****************************************************************
+DLINKPV2-DEVICE-INFORMATION-MIB DEFINITIONS ::= BEGIN
+
+    IMPORTS
+        MODULE-IDENTITY, OBJECT-IDENTITY, OBJECT-TYPE, Unsigned32,
+        Integer32, IpAddress
+            FROM SNMPv2-SMI
+        TruthValue, DateAndTime, DisplayString
+            FROM SNMPv2-TC
+        MODULE-COMPLIANCE, OBJECT-GROUP
+		    FROM SNMPv2-CONF
+        InetAddressType, InetAddress
+            FROM INET-ADDRESS-MIB
+        dlinkDGS1100CommonV2           
+             FROM DGS1100SERMGMT-MIB;
+
+    primeV2DeviceInfoMIB MODULE-IDENTITY
+        LAST-UPDATED "201405300000Z"
+        ORGANIZATION "D-Link Corp."
+        CONTACT-INFO
+            "        D-Link Corporation
+
+             Postal: No. 289, Sinhu 3rd Rd., Neihu District,
+                     Taipei City 114, Taiwan, R.O.C
+             Tel:     +886-2-66000123
+             E-mail: tsd@dlink.com.tw
+            "
+        DESCRIPTION
+            "This MIB module defines objects for device information function."
+        REVISION "201405300000Z"
+        DESCRIPTION
+            "This is the first version of the MIB file.
+            "
+        ::= { dlinkDGS1100CommonV2 3 }
+
+    MacAddress ::= OCTET STRING (SIZE (6))    -- a 6 octet address
+                                              -- in the
+                                              -- "canonical"
+                                              -- order, copy from RFC1493
+
+Ipv6Address ::= TEXTUAL-CONVENTION
+	DISPLAY-HINT "2x:"
+	STATUS       current
+	DESCRIPTION
+		"This data type is used to model IPv6 addresses.
+		This is a binary string of 16 octets in network
+		byte-order."
+	SYNTAX       OCTET STRING (SIZE (16))
+
+-- ******************************************************************
+-- Object Definition
+-- ******************************************************************
+--  v2DeviceInfoMIBNotifications    OBJECT IDENTIFIER ::= { primeV2DeviceInfoMIB 0 }        
+    v2DeviceInfoMIBObjects          OBJECT IDENTIFIER ::= { primeV2DeviceInfoMIB 1 }
+--  v2DeviceInfoMIBConformance      OBJECT IDENTIFIER ::= { primeV2DeviceInfoMIB 2 }
+-- -----------------------------------------------------------------------------
+    v2DeviceInfoSysConfiguration         OBJECT IDENTIFIER ::= { v2DeviceInfoMIBObjects 1 }
+
+    v2DeviceInfoIpV4AddrCfgMode OBJECT-TYPE 
+        SYNTAX      INTEGER {
+                    manual(1),
+                    dhcp(2)
+                   }
+        MAX-ACCESS  read-write 
+        STATUS      current 
+        DESCRIPTION 
+            "Specifies the means by which the default interface in the device 
+            gets the IP address.
+
+            If 'manual' mode is selected, the default interface takes the 
+            'sysDefaultIpAddr' configured in the system.
+
+            If 'dynamic' mode is selected, the default interface gets the IP address
+            through dynamic IP address configuration protocols such as RARP client, 
+            BootP client, DHCP Client, etc.
+
+            If the system fails to get the IP address dynamically through all the
+            above protocols, the default interface uses the 'sysDefaultIpAddr' 
+            configured in the system."  
+        DEFVAL  { manual } 
+        ::= { v2DeviceInfoSysConfiguration 1 }
+
+    v2DeviceInfoIpV4Addr  OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION 
+            "Default IP Address of the system.
+            This IP address, if modified, will take effect only when the 
+            configuration is stored & restored."
+       ::= { v2DeviceInfoSysConfiguration 2 }
+    
+    v2DeviceInfoIpV4SubnetMask  OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION 
+            "IP subnet mask for the default IP address.
+            This subnet mask, if modified, will take effect only when the
+            configuration is stored & restored."
+       ::= { v2DeviceInfoSysConfiguration 3 }
+
+    v2DeviceInfoGateway  OBJECT-TYPE
+        SYNTAX      IpAddress
+        MAX-ACCESS  read-write
+        STATUS      current
+        DESCRIPTION 
+            "Gateway"
+        ::= { v2DeviceInfoSysConfiguration 4 }
+
+    v2DeviceInfoDhcpRetry  OBJECT-TYPE
+        SYNTAX          Unsigned32 (5..120)
+        MAX-ACCESS      read-write
+        STATUS          current
+        DESCRIPTION
+            "This object indicates the DHCP retry Times when DHCP client is
+            enabled."
+        DEFVAL      { 5 }
+        ::= { v2DeviceInfoSysConfiguration 5 }
+
+    v2DeviceInfoIpV6GlobalState     OBJECT-TYPE
+        SYNTAX      INTEGER {
+                        enable(1),    
+                        disable(2)
+                    }
+        MAX-ACCESS          read-write
+        STATUS              current
+        DESCRIPTION
+            "The state of IPv6 that you want this interface to be in. 
+            It must be a exist vlan id."
+        ::= { v2DeviceInfoSysConfiguration 6 }
+
+    v2DeviceInfoIpV6AddressIpAddr       OBJECT-TYPE
+         SYNTAX         Ipv6Address
+         MAX-ACCESS     read-write
+         STATUS         current
+         DESCRIPTION
+            "Static IPv6 Address."
+         ::= { v2DeviceInfoSysConfiguration 7 }
+
+    v2DeviceInfoMacAddr OBJECT-TYPE
+        SYNTAX  MacAddress
+        MAX-ACCESS  read-only
+        STATUS  current
+        DESCRIPTION
+            "The MAC address of this system."
+        ::= { v2DeviceInfoMIBObjects 2 }
+		
+    v2DeviceInfoBootPromVersion OBJECT-TYPE
+        SYNTAX      DisplayString (SIZE (0..255))
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+               "A textual string containing the PROM version of the system."
+        ::= { v2DeviceInfoMIBObjects 3 }
+
+    v2DeviceInfoFirmwareVersion  OBJECT-TYPE
+        SYNTAX      DisplayString (SIZE (0..255))
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+               "A textual string containing the firmware version of the system."
+        ::= { v2DeviceInfoMIBObjects 4 }
+
+    v2DeviceInfoHardwareVersion  OBJECT-TYPE
+        SYNTAX      DisplayString (SIZE (0..255))
+        MAX-ACCESS  read-only
+        STATUS      current
+        DESCRIPTION
+               "A textual string containing the hardware version of the system."
+        ::= { v2DeviceInfoMIBObjects 5 }
+
+    v2DeviceInfoSerialNumber OBJECT-TYPE
+        SYNTAX DisplayString
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "A textual string containing the serial number of the system."
+        ::= { v2DeviceInfoMIBObjects 6 } 
+		
+    v2DeviceInfoCPUUtilization OBJECT-TYPE
+        SYNTAX DisplayString (SIZE (0..32))
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "A textual string explaining the cpu utilization of the system."
+        ::= { v2DeviceInfoMIBObjects 7 }
+		
+	v2DeviceInfoMemUtilization OBJECT-TYPE
+        SYNTAX DisplayString (SIZE (0..32))
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "A textual string explaining the memory utilization of the system."
+        ::= { v2DeviceInfoMIBObjects 8 }
+		
+	v2DeviceInfoTotalMemory OBJECT-TYPE
+        SYNTAX DisplayString (SIZE (0..32))
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "A textual string explaining the total memory of the system."
+        ::= { v2DeviceInfoMIBObjects 9}
+		
+	v2DeviceInfoFreeMemory OBJECT-TYPE
+        SYNTAX DisplayString (SIZE (0..32))
+        MAX-ACCESS read-only
+        STATUS current
+        DESCRIPTION
+            "A textual string explaining the free memory of the system."
+        ::= { v2DeviceInfoMIBObjects 10 }
+			
+	
+END
+

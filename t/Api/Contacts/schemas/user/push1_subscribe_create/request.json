@@ -1,0 +1,8 @@
+{
+  "name": "USER_PUSH_SUBSCRIBE_CREATE",
+  "method": "POST",
+  "path": "user/:uid/contacts/push/subscribe/1/",
+  "body": {
+    "token": "d61FRIQSRI2j1mOwvLqt12:APA91bGpVb1bbokiMBWAoBh6uaGhzFr6YOD9ZT_1WcFeu6b_Dc8a8glaQCEk5GtCM3LYdvnF1XewSIpiT6Y5gkoa9ztFUb8of1wxd28eG-L94DM8MHvaCGa2jIbatHWiPYcPSUOtAdsM"
+  }
+}

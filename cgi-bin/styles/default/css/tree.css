@@ -1,0 +1,76 @@
+ul.tree {
+    min-height: 20px;
+    padding-left: 10px;
+    /*margin-bottom:20px;*/
+    background-color: #fbfbfb;
+}
+
+ul.tree li {
+    /*list-style-type: none;*/
+    margin: 0;
+    padding: 10px 5px 0 5px;
+    position: relative
+}
+
+ul.tree li::before, ul.tree li::after {
+    content: '';
+    left: -20px;
+    position: absolute;
+    right: auto
+}
+
+ul.tree li::before {
+    border-left: 1px solid #999;
+    bottom: 50px;
+    height: 100%;
+    top: 0;
+    width: 1px
+}
+
+ul.tree li::after {
+    border-top: 1px solid #999;
+    height: 15px;
+    top: 25px;
+    width: 25px
+}
+
+ul.tree li span {
+    display: inline-block;
+    padding: 3px 8px;
+    text-decoration: none
+}
+
+ul.tree li span {
+    display: inline-block;
+    padding: 3px 8px;
+    text-decoration: none
+}
+
+ul.tree.clickable li span {
+    cursor: pointer;
+}
+
+label.tree-toggler {
+    cursor: pointer;
+}
+.tree-toggler {
+    /*text-decoration: underline;*/
+    border: 2px outset;
+    border-radius: 5px;
+     padding: 3px 8px;
+}
+.tree-item {
+     padding: 3px 8px;
+    border: 2px outset;
+    border-radius: 5px;
+}
+
+ul.tree li:last-child::before {
+    height: 30px;
+}
+
+ul.tree li.parent_li > span:hover, ul.tree li.parent_li > span:hover + ul li span {
+    background: #eee;
+    border: 1px solid #94a0b4;
+    color: #000
+}

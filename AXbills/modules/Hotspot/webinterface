@@ -1,0 +1,629 @@
+#!perl
+
+=head1 NAME
+
+  Hotspot
+
+=name2 SYNOPSYS
+
+  Hotspot statistics
+
+=cut
+
+use strict;
+use warnings FATAL => 'all';
+our (
+  $db,
+  %conf,
+  %lang,
+  @bool_vals
+);
+
+our Admins $admin;
+our AXbills::HTML $html;
+
+use AXbills::Base qw/urldecode in_array _bp/;
+use AXbills::Experimental;
+use Hotspot;
+use Nas;
+use AXbills::Nas::Mikrotik;
+
+my $Nas = Nas->new( $db, \%conf, $admin);
+my $Hotspot = Hotspot->new( $db, $admin, \%conf );
+
+my $debug = $FORM{DEBUG} || 0;
+
+$Hotspot->{debug} = $debug > 6;
+
+#**********************************************************
+=head2 hotspot_reports()
+
+=cut
+#**********************************************************
+sub hotspot_reports {
+
+  my %FILTER_OPTIONS = (
+    LOGINS_ONLY => 1,
+    VISITS_ONLY => 2,
+    BOTH        => 3,
+  );
+
+  my %LANG_FILTER_OPTIONS = (
+    $FILTER_OPTIONS{LOGINS_ONLY} => $lang{LOGINS_ONLY},
+    $FILTER_OPTIONS{VISITS_ONLY} => $lang{VISITS_ONLY},
+    $FILTER_OPTIONS{BOTH}        => $lang{BOTH}
+  );
+
+  my @filter_select_list = ();
+  foreach my $filter_name ( keys %FILTER_OPTIONS ) {
+    push(@filter_select_list,
+      { id => $FILTER_OPTIONS{$filter_name}, name => $LANG_FILTER_OPTIONS{$FILTER_OPTIONS{$filter_name}} });
+  }
+
+  my $filter_select = $html->form_select( 'FILTER', {
+      SELECTED => $FORM{FILTER} || $FILTER_OPTIONS{BOTH},
+      SEL_LIST => \@filter_select_list,
+      NO_ID    => 1
+    } );
+
+  $html->tpl_show( _include( 'hotspot_reports_panel', 'Hotspot' ),
+    {
+      FILTER_SELECT => $filter_select,
+      FILTER_VISIBLE => 1,
+      %FORM
+    }
+  );
+
+  my $date_filter = ($FORM{DATE_START} && $FORM{DATE_END})
+    ? "$FORM{DATE_START}" . '/' . "$FORM{DATE_END}"
+    : '_SHOW';
+
+  my $visits_list = $Hotspot->visits_list( { SHOW_ALL_COLUMNS => 1, FIRST_SEEN => $date_filter } );
+  _error_show($Hotspot);
+  my $logins_list = $Hotspot->logins_list( { SHOW_ALL_COLUMNS => 1, LOGIN_TIME => $date_filter } );
+  _error_show($Hotspot);
+
+  # Sort to hash by id
+  my %visits_by_session_id = ();
+  foreach my $visit_row ( @{$visits_list} ) {
+    $visits_by_session_id{$visit_row->{id}} = $visit_row;
+  }
+
+  my $filter = $FORM{FILTER} || $FILTER_OPTIONS{BOTH};
+
+  my @results_list = ();
+  my @table_titles = ();
+
+  if ( $filter == $FILTER_OPTIONS{BOTH} ) {
+    @table_titles = ('#', $lang{USER}, $lang{FIRST_SEEN}, $lang{LOGIN}, $lang{BROWSER} );
+
+    # Delete visits that are present in logins
+    map { delete $visits_by_session_id{$_->{id}} } @{$logins_list};
+
+    # make new list from filtered hash
+    $visits_list = [ values %visits_by_session_id ];
+
+    my $row_number_counter = 1;
+    foreach my $logins_row ( @{$logins_list} ) {
+      push @results_list, [
+          $row_number_counter++,
+          $html->button( $logins_row->{uid}, "index=15&UID=$logins_row->{uid}",
+            { ICON => 'fa fa-user', class => 'btn btn-sm btn-secondary' }
+          ),
+          $logins_row->{first_seen},
+          $logins_row->{login_time},
+          $logins_row->{browser_name}
+        ];
+    }
+
+    foreach my $visit_row ( @{$visits_list} ) {
+      push @results_list,
+        [ $row_number_counter++, '', $visit_row->{first_seen}, '0000-00-00 00:00:00', $visit_row->{browser} ];
+    }
+  }
+  elsif ( $filter == $FILTER_OPTIONS{LOGINS_ONLY} ) {
+    @table_titles = ('#', $lang{LOGIN}, $lang{FIRST_SEEN}, $lang{LOGIN}, $lang{BROWSER} );
+
+    my $row_number_counter = 1;
+    foreach my $logins_row ( @{$logins_list} ) {
+      push @results_list, [
+          $row_number_counter++,
+          $html->button( $logins_row->{uid}, "index=15&UID=$logins_row->{uid}",
+            { ICON => 'fa fa-user', class => 'btn btn-sm btn-secondary' }
+          ),
+          $logins_row->{first_seen},
+          $logins_row->{login_time},
+          $logins_row->{browser_name}
+        ];
+    }
+  }
+  elsif ( $filter == $FILTER_OPTIONS{VISITS_ONLY} ) {
+    @table_titles = ( '#', '', $lang{FIRST_SEEN}, $lang{BROWSER} );
+
+    # Delete visits that are present in logins
+    map { delete $visits_by_session_id{$_->{id}} } @{$logins_list};
+
+    # make new list from filtered hash
+    $visits_list = [ values %visits_by_session_id ];
+
+    my $row_number_counter = 1;
+    foreach my $visit_row ( @{$visits_list} ) {
+      push @results_list, [ $row_number_counter++, '', $visit_row->{first_seen}, $visit_row->{browser} ];
+    }
+
+  }
+
+  # SORT BY 'FIRST_SEEN' DATETIME
+  @results_list = sort {
+    my ($from_date, $from_time) = split(' ', $a->[2]);
+    my ($to_date, $to_time) = split(' ', $b->[2]);
+
+    my ($from_year, $from_month, $from_day) = split(/-/, $from_date, 3);
+    my ($to_year, $to_month, $to_day) = split(/-/, $to_date, 3);
+
+    my ($from_hours, $from_minutes, $from_seconds) = split(':', $from_time);
+    my ($to_hours, $to_minutes, $to_seconds) = split(':', $to_time);
+
+    my $from_seltime = POSIX::mktime($from_hours, $from_minutes, $from_seconds, $from_day, ($from_month - 1),
+      ($from_year - 1900));
+    my $to_seltime = POSIX::mktime($to_hours, $to_minutes, $to_seconds, $to_day, ($to_month - 1), ($to_year - 1900));
+
+    return $from_seltime - $to_seltime;
+  } @results_list;
+
+  my $table = $html->table( {
+      width   => '100%',
+      caption => "Hotspot $lang{USERS} : " . $LANG_FILTER_OPTIONS{$filter},
+      ID      => 'HOTSPOT_VISITS_TABLE',
+      EXPORT  => 1,
+      title   => \@table_titles,
+      pages   => scalar @results_list,
+      #          MENU    => "$lang{ADD}:index=$index&show_add_form=1:add"
+    } );
+
+  foreach my $results_row ( @results_list ) {
+    $table->addrow( @{$results_row} );
+  }
+  print $table->show();
+
+  my $total_table = $html->table( {
+      width      => '100%',
+      ID         => 'HOTSPOT_REPORTS_TOTAL_TABLE',
+      EXPORT     => 1,
+      title      => [ $lang{TOTAL} ],
+      cols_align => [ 'right' ],
+      rows       => [ [ scalar @results_list ] ]
+    } );
+  print $total_table->show();
+
+  return 1;
+}
+
+
+#**********************************************************
+=head2 hotspot_advertisements()
+
+=cut
+#**********************************************************
+sub hotspot_advertisements {
+
+  my %TEMPLATE_ADVERTISEMENT = ();
+  my $show_add_form = $FORM{add_form} || 0;
+
+  if ( $FORM{add} ) {
+    $Hotspot->adverts_add( { %FORM } );
+    $show_add_form = !show_result( $Hotspot, $lang{ADDED} );
+  }
+  elsif ( $FORM{change} ) {
+    $Hotspot->adverts_change( { %FORM } );
+    show_result( $Hotspot, $lang{CHANGED} );
+    $show_add_form = 1;
+  }
+  elsif ( $FORM{chg} ) {
+    my $tp_info = $Hotspot->adverts_info( $FORM{chg} );
+    if ( !_error_show($Hotspot) ) {
+      %TEMPLATE_ADVERTISEMENT = %{$tp_info ? $tp_info : {}};
+      $show_add_form = 1;
+    }
+  }
+  elsif ( $FORM{del} ) {
+    $Hotspot->adverts_del( { ID => $FORM{del} } );
+    show_result( $Hotspot, $lang{DELETED} );
+  }
+
+  if ( $show_add_form ) {
+    $html->tpl_show(
+      _include('hotspot_ad', 'Hotspot'),
+      {
+        %TEMPLATE_ADVERTISEMENT,
+        SUBMIT_BTN_ACTION => ($FORM{chg}) ? 'change' : 'add',
+        SUBMIT_BTN_NAME   => ($FORM{chg}) ? $lang{CHANGE} : $lang{ADD},
+      }
+    );
+  }
+
+  result_former(
+    {
+      INPUT_DATA      => $Hotspot,
+      FUNCTION        => 'adverts_list',
+#      BASE_FIELDS     => 0,
+      DEFAULT_FIELDS  => 'ID,NAME,URL',
+      FUNCTION_FIELDS => 'change, del',
+      EXT_TITLES      => {
+        id               => '#',
+        name             => $lang{NAME},
+        url              => 'URL',
+        nas_name         => $lang{NAS},
+        price_per_show   => "$lang{PRICE} $lang{PER} $lang{SHOW_N}",
+        price_per_period => ucfirst (lc "$lang{PRICE} $lang{PER} $lang{PERIOD}"),
+        period           => $lang{PERIOD},
+        comments         => $lang{COMMENTS},
+        shows_count      => "$lang{COUNT} $lang{SHOW_N}."
+      },
+      TABLE           => {
+        width   => '100%',
+        caption => $lang{ADVERTISE},
+        qs      => $pages_qs,
+        ID      => 'HOTSPOT_ADVERTS',
+        header  => '',
+        EXPORT  => 1,
+        MENU    => "$lang{ADD}:index=$index&add_form=1:add;",
+      },
+      MAKE_ROWS       => 1,
+      SEARCH_FORMER   => 1,
+      SKIP_USER_TITLE => 1,
+      MODULE          => 'Hotspot',
+      TOTAL           => 1
+    }
+  );
+
+  return 1;
+}
+
+#**********************************************************
+=head2 hotspot_ad_reports()
+
+=cut
+#**********************************************************
+sub hotspot_ad_reports {
+
+  print _hotspot_ad_reports_shows();
+
+  return 1;
+}
+
+#**********************************************************
+=head2 _hotspot_ad_reports_shows()
+
+=cut
+#**********************************************************
+sub _hotspot_ad_reports_shows {
+
+  my $result = $html->tpl_show( _include('hotspot_reports_panel', 'Hotspot'), \%FORM, {OUTPUT2RETURN => 1});
+
+  my $date_filter = ($FORM{DATE_START} && $FORM{DATE_END}) ? "$FORM{DATE_START}" . '/' . "$FORM{DATE_END}"  : '';
+  my $ad_shows_list = $Hotspot->adverts_list({
+      ID               => '_SHOW',
+      NAME             => '_SHOW',
+      URL              => '_SHOW',
+      #      NAS_NAME         => '_SHOW',
+      #      PRICE_PER_SHOW   => '_SHOW',
+      #      PRICE_PER_PERIOD => '_SHOW',
+      #      PERIOD           => '_SHOW',
+      COMMENTS         => '_SHOW',
+      SHOWS_COUNT      => '_SHOW',
+      SHOWED           => $date_filter,
+      COLS_UPPER       => 0,
+    });
+  map { $_->{shows_count} = '0' if ($_->{shows_count} && $_->{shows_count} eq '1') } @$ad_shows_list;
+
+  my ($table ) = result_former(
+    {
+      INPUT_DATA      => $Hotspot,
+        LIST          => $ad_shows_list,
+        BASE_FIELDS     => 0,
+        #      DEFAULT_FIELDS  => 'id, name, url, nas_name, price_per_show, price_per_period, period, comments, shows_count',
+        DEFAULT_FIELDS  => 'id, name, url, comments, shows_count',
+        FUNCTION_FIELDS => 'change, del',
+        EXT_TITLES      => {
+        id               => '#',
+        name             => $lang{NAME},
+        url              => 'URL',
+        #        nas_name         => $lang{NAS},
+        #        price_per_show   => "$lang{PRICE} $lang{PER} $lang{SHOW_N}",
+        #        price_per_period => ucfirst (lc "$lang{PRICE} $lang{PER} $lang{PERIOD}"),
+        #        period           => $lang{PERIOD},
+        comments         => $lang{COMMENTS},
+        shows_count      => "$lang{COUNT} $lang{SHOW_N}."
+      },
+        TABLE           => {
+        width   => '100%',
+        caption => "$lang{ADVERTISE} : $lang{VIEWS}",
+        qs      => $pages_qs,
+        ID      => 'HOTSPOT_ADVERTS',
+        header  => '',
+        EXPORT  => 1,
+      },
+        MAKE_ROWS       => 1,
+        SEARCH_FORMER   => 1,
+        SKIP_USER_TITLE => 1,
+        MODULE          => 'Hotspot',
+        TOTAL           => 1,
+        OUTPUT2RETURN => 1
+    }
+  );
+
+  $result .= $table;
+
+  return $result;
+}
+
+#**********************************************************
+=head2 hotspot_redirect()
+
+=cut
+#**********************************************************
+sub hotspot_redirect {
+  my ($e_mikrotik_redirect_link, $e_origin_link, $e_username) = @_;
+
+  my $redirect = urldecode($e_mikrotik_redirect_link || '');
+  my $origin = urldecode($e_origin_link || '');
+#  my $username = urldecode($e_username || '');
+
+  my $ad_to_show = $Hotspot->request_random_ad({COLS_NAME => 1});
+  if ($Hotspot->{errno}){
+    print "Content-Type: text/html\n\n";
+    _error_show($Hotspot);
+  }
+  if ($ad_to_show){
+    $Hotspot->advert_shows_add({ AD_ID => $ad_to_show->{id}});
+    if ($Hotspot->{errno}){
+      print "Content-Type: text/html\n\n";
+      _error_show($Hotspot);
+    }
+  }
+
+  my $period = $conf{HOTSPOT_AD_SHOW_TIME} || 10;
+  if (defined $conf{HOTSPOT_AD_AUTO_REFRESH} && $conf{HOTSPOT_AD_AUTO_REFRESH}){
+    print "Refresh: $period;URL='$origin';\n";
+  }
+  print "Content-Type: text/html\n\n";
+
+  print $html->tpl_show( _include('hotspot_show_ad', 'Hotspot'), {
+        PERIOD          => $period,
+        ORIGIN_URL      => $origin,
+        MIKROTIK_AD_URL => $redirect,
+        AD_URL          => $ad_to_show->{url},
+      } );
+
+  return 1;
+}
+
+
+#**********************************************************
+=head2 hotspot_ad_config_mikrotik()
+
+=cut
+#**********************************************************
+sub hotspot_ad_config_mikrotik {
+  my $has_wrong_nas = 0;
+
+  if ( !$FORM{NAS_ID} ) {
+    $html->message( 'warn', $lang{CHOOSE} . ' NAS mikrotik' );
+    $has_wrong_nas = 1;
+  }
+  else {
+    $Nas->info( { NAS_ID => $FORM{NAS_ID} } );
+    _error_show($Nas);
+    $has_wrong_nas = $Nas->{NAS_TYPE} && $Nas->{NAS_TYPE} !~ /mikrotik/;
+  }
+
+  my $nas_sel = $html->form_select( 'NAS_ID', {
+      SELECTED  => $FORM{NAS_ID},
+      SEL_LIST  => $Nas->list( { NAS_NAME => '_SHOW', NAS_TYPE => 'mikrotik*', COLS_NAME => 1 } ),
+      SEL_KEY   => 'nas_id',
+      SEL_VALUE => 'nas_id,nas_name',
+      NO_ID     => 1,
+      EX_PARAMS => 'style="min-width: 300px" data-auto-submit="form"'
+    } );
+  _error_show($Nas);
+
+  $html->tpl_show( _include('hotspot_nas_choose_panel', 'Hotspot'), { DEVICE_SEL => $nas_sel } );
+
+  if ( $has_wrong_nas ) {
+    return 0;
+  }
+
+  my $mt = AXbills::Nas::Mikrotik->new( $Nas, \%conf, { DEBUG => 9, FROM_WEB => 1 } );
+  if ( $mt == 0) {
+    $html->message( 'err', $lang{ERROR}, "NAS " . $lang{CONFIG} . ' : ' . $lang{ERR_WRONG_DATA} );
+    return 0;
+  }
+  elsif ( $mt->{backend} eq 'api') {
+    $html->message( 'err', $lang{ERROR}, "Mikrotik API : $lang{ERR_NOT_SUPPORTED} ");
+    return 0;
+  }
+
+  my $has_access = $mt->has_access();
+
+  if ( !$has_access ) {
+    $html->message( 'err', $lang{ERROR}, $lang{ERR_ACCESS_DENY} );
+    return 0;
+  }
+
+  $html->tpl_show(_include('hotspot_ad_config_mikrotik', 'Hotspot'), {
+    PERIOD => $conf{HOTSPOT_AD_PERIOD} || 300
+  });
+
+  if ($FORM{action}) {
+
+    my $result = $mt->execute( [
+        [ '/ip/hotspot/user/profile/set', {
+            advertise           => 'yes',
+            'advertise-url'     => '"http://axbills.net.ua/wiki/doku.php"',
+            'advertise-interval'=> '"' . ($FORM{PERIOD} || 300) . 's"',
+            'advertise-timeout' => 'immediately'
+          },
+          { name => 'default' }
+        ]
+      ]
+    );
+
+    if ($result && $result ne '0'){
+      $html->message('info', $lang{SUCCESS});
+    }
+  }
+
+  return 1;
+}
+
+#**********************************************************
+=head2 hotspot_advert_pages()
+
+=cut
+#**********************************************************
+sub hotspot_advert_pages {
+    
+  if ($FORM{DELETE}) {
+    $Hotspot->advert_pages_del({ ID => $FORM{DELETE} });
+    $html->message('info', $lang{SUCCESS}) if (_error_show($Hotspot));
+  }
+  elsif ($FORM{chg}) {
+    $Hotspot->advert_pages_change({ %FORM, ID => $FORM{chg} });
+    $html->message('info', $lang{SUCCESS}) if (_error_show($Hotspot));
+  }
+  elsif ($FORM{CHANGE}) {
+    my $pages_list = $Hotspot->advert_pages_list({
+      HOSTNAME   => '_SHOW',
+      ACTION     => '_SHOW',
+      PAGE       => '_SHOW',
+      ID         => $FORM{CHANGE},
+        
+      COLS_NAME  => 1,
+      COLS_UPPER => 1,
+    });
+
+    $html->tpl_show(_include('hotspot_advert_page', 'Hotspot'), {
+      %{$pages_list->[0]},
+      SUBMIT_BTN_ACTION => 'chg',
+      SUBMIT_BTN_VALUE  => $FORM{CHANGE},
+      SUBMIT_BTN_NAME   => $lang{CHANGE},
+    });
+  }
+  elsif ($FORM{adding}) {
+    $Hotspot->advert_pages_add( \%FORM );
+    $html->message('info', $lang{SUCCESS}) if (_error_show($Hotspot));
+  }
+  elsif ($FORM{ADD}) {
+    $html->tpl_show(_include('hotspot_advert_page', 'Hotspot'), {
+      SUBMIT_BTN_ACTION => 'adding',
+      SUBMIT_BTN_VALUE  => '1',
+      SUBMIT_BTN_NAME   => $lang{ADD},
+    });
+  }
+  
+  my $pages_list = $Hotspot->advert_pages_list({
+    HOSTNAME  => '_SHOW',
+    ACTION    => '_SHOW',
+    PAGE      => '_SHOW',
+      
+    COLS_NAME => 1, 
+  });
+  
+  my $table = $html->table( {
+      width               => '100%',
+      caption             => "Hotspot $lang{SETTINGS} : ",
+      ID                  => 'HOTSPOT_PAGES',
+      title               => ["Hotspot", "key", "value"],
+      HAS_FUNCTION_FIELDS => 1,
+      
+      MENU                => "$lang{ADD}:index=$index&ADD=1:add"
+  });
+  
+  foreach (@$pages_list) {
+    my $edit_button = $html->button($lang{CHANGE}, "index=$index&CHANGE=$_->{id}", { class => 'change' });;
+    my $del_button = $html->button($lang{DELETE}, "index=$index&DELETE=$_->{id}", { class => 'del' });
+    $table->addrow($_->{hostname}, $_->{action}, $_->{page}, $edit_button . $del_button );
+  } 
+  print $table->show();
+  
+  return 1;
+}
+
+#**********************************************************
+=head2 hotspot_log($uid)
+
+=cut
+#**********************************************************
+sub hotspot_log {
+  my ($attr) = @_;
+
+  my ($sec,$min,$hour,$mday,$mon,$year,$wday,$yday,$isdst) = localtime();
+    
+  $FORM{FROM_DATE} //= sprintf("%04d-%02d-%02d", 1900+$year, $mon+1, 1);
+  $FORM{TO_DATE} //= sprintf("%04d-%02d-%02d", 1900+$year, $mon+1, $mday);
+
+  $html->tpl_show(_include('hotspot_log', 'Hotspot'), {%FORM, %$Hotspot, ACTION_SEL => hs_action_sel()});
+
+
+  my $log_list = $Hotspot->log_list({
+    INTERVAL  => "$FORM{FROM_DATE}/$FORM{TO_DATE}",
+    CID       => '_SHOW',
+    PHONE     => '_SHOW',
+    ACTION    => ($FORM{ACTION} || '_SHOW'),
+    COMMENTS  => '_SHOW',
+    HOTSPOT   => ($FORM{HOSTNAME} || '_SHOW'),
+    
+    COLS_NAME => 1,
+    PAGE_ROWS => 9999,
+  });
+
+  my $table = $html->table({
+    width         => '100%',
+    caption       => $lang{LOG},
+    border        => 1,
+    title_plain   => [ $lang{DATE}, $lang{PHONE}, "MAC", $lang{ACTION}, $lang{COMMENTS}],
+    ID            => 'log',
+  });
+
+
+  foreach (@$log_list) {
+    $table->addrow($_->{date}, $_->{phone}, $_->{CID}, $_->{action}, $_->{comments});
+  }
+
+  print $table->show();
+
+  return  1;
+}
+
+#**********************************************************
+=head2 hs_action_sel()
+
+=cut
+#**********************************************************
+sub hs_action_sel {
+  my %actions = (
+    1  => 'User registration',
+    2  => 'Mac login',
+    3  => 'Cookies login',
+    4  => 'User use pin-code',
+    5  => 'Phone login',
+    6  => 'Change trial tp',
+    11 => 'User start phone verification',
+    12 => 'Phone confirmed',
+    21 => 'User start online payment',
+    22 => 'User use free_sms_pay',
+    23 => 'User use sms_pay',
+  );
+
+  my $action_sel = $html->form_select( 'ACTION', {
+    SELECTED     => $FORM{ACTION} || '*',
+    SEL_HASH     => {%actions, '*' => $lang{ALL}},
+    SORT_KEY_NUM => 1,
+    # NO_ID    => 1
+  });
+
+  return $action_sel;
+}
+
+1;

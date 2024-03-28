@@ -1,0 +1,89 @@
+
+#infoPanelsDiv > div > div {
+    /*margin: 5px;*/
+    border: 2px solid white;
+}
+
+.InfoPanelContent {
+    /*font-size: 1em;*/
+
+}
+
+.InfoPanelHeader, .InfoPanelFooter {
+    font-size: 1.1em;
+    font-weight: 600;
+}
+
+.InfoPanelHeader {
+    margin-bottom: 1em;
+}
+
+.InfoPanelFooter {
+    margin-top: 1em;
+}
+
+.tile {
+    padding: 15px;
+    font-family: "Roboto", "Helvetica Neue", Helvetica, Arial, sans-serif;
+}
+
+.tile a > span {
+    margin-left: 0.5em;
+}
+
+.tile a {
+    color: darkslategrey;
+}
+
+.no-border {
+    border: 0 !important;
+}
+
+.carousel-control.right, .carousel-control.left {
+    filter: none;
+    background: none !important;
+}
+.carousel-control.right{
+    margin-right: -25px;
+}
+.carousel-control.left{
+    margin-left: -25px;
+}
+
+
+.text-1 {
+    font-weight: bold;
+    vertical-align: middle;
+    /*text-transform: uppercase;*/
+    text-align: right;
+    border-right: 1px solid rgb(221, 221, 221);
+}
+
+.text-2 {
+    vertical-align: middle;
+    text-align: left;
+}
+
+@media (max-width: 768px) {
+    .text-1 {
+        text-align: center;
+    }
+    .text-2 {
+        text-align: center;
+    }
+}
+
+@media (min-width: 1051px) {
+    .text-1 {
+        border-top: 1px solid rgb(221, 221, 221);
+
+    }
+
+    .text-2 {
+        border-top: 1px solid #ddd;
+    }
+}
+
+.no-border {
+    border: 0 !important;
+}

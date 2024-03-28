@@ -1,0 +1,1 @@
+ALTER TABLE `crm_info_fields` ADD COLUMN `registration` TINYINT(1) UNSIGNED NOT NULL DEFAULT 0;

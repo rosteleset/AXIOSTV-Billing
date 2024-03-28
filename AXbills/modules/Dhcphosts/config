@@ -1,0 +1,22 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+  "01:0:IPoE (DHCP):dhcphosts_hosts:"              => 11,
+  "02:0:IPoE (DHCP):dhcphosts_user:UID"            => 20,
+  "03:2:DHCP $lang{LOG}:dhcphosts_log:UID"              => 15,
+  "10:0:IP (DHCP) $lang{NETWORKS}:null:"  => 5,
+  "11:10:IP (DHCP) $lang{NETWORKS}:dhcphosts_networks:" => 5,
+  "12:11:$lang{ROUTES}:dhcphosts_routes:NET_ID"         => 5,
+  "13:10:IP guard:dhcphosts_mac_block:"            => 5,
+  "14:13:Static:dhcphosts_mac_static:"             => 5,
+  "15:0:DHCP:dhcphosts_monitor:"                   => 6,
+  "16:0:DHCP $lang{LOG}:dhcphosts_log:"                 => 4,
+
+);
+
+%PERIODIC = (
+  daily => [ 'dhcphosts_periodic',
+    #'dhcphosts_mac_block_make',
+    'dhcphosts_log_clean' ]
+);
+
+1

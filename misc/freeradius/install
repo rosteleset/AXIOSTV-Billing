@@ -1,0 +1,76 @@
+:DEFAULT:RLM_PERL=1:Configure RLM_PERL
+:DEFAULT:RADIUS_CLIENT_IP=127.0.0.1:Radius client IP address
+:DEFAULT:RADIUS_SECRET=secretpass:Radius Secret key
+:DEFAULT:RADIUS_SHORTNAME=nas1:Radius Client short name
+:DEFAULT:FREERADIUS=3:Default radius version 3.xx
+:FREERADIUS=1,RLM_PERL=0:FILE=users            > [/usr/local/etc/raddb]/users
+:FREERADIUS=1,RLM_PERL=0:FILE=acct_users       > [/usr/local/etc/raddb]/acct_users
+:FREERADIUS=1,RLM_PERL=0:FILE=radiusd.conf     > [/usr/local/etc/raddb]/radiusd.conf 
+:FREERADIUS=1,RLM_PERL=1:FILE=rlm_perl.conf       > [/usr/local/etc/raddb]/radiusd.conf 
+:FREERADIUS=1,RLM_PERL=1:FILE=users_perl          > [/usr/local/etc/raddb]/users
+#eap.conf         > [/usr/local/etc/raddb]/eap.conf 
+#:OS=FREEBSD:FILE=clients.conf     > [/usr/local/etc/raddb]/clients.conf
+:OS=FREEBSD:exec: echo ""  > /usr/local/etc/raddb/clients.conf
+:OS=FREEBSD:radiusd_enable="YES"  >> [/etc/]/rc.conf
+:OS=FREEBSD:12  9    *   *  *    root   find /var/log/radacct/ -type f -mtime +30d -delete  >> [/etc/]/crontab
+
+#VERSION 2.xx
+:OS=FREEBSD,FREERADIUS=2,RLM_PERL=0:FILE=v2/users         > [/usr/local/etc/raddb]/users
+:OS=FREEBSD,FREERADIUS=2:FILE=v2/radiusd.conf  > [/usr/local/etc/raddb]/radiusd.conf
+:OS=FREEBSD,FREERADIUS=2:FILE=v2/sql.conf  > [/usr/local/etc/raddb]/sql.conf
+:OS=FREEBSD,FREERADIUS=2:FILE=v2/default  > [/usr/local/etc/raddb]/sites-enabled/axbills_default
+:OS=FREEBSD,FREERADIUS=2:FILE=v2/perl > [/usr/local/etc/raddb/modules]/perl
+:OS=FREEBSD,FREERADIUS=2,RLM_PERL=1:FILE=v2/users_perl    > [/usr/local/etc/raddb]/users
+:OS=FREEBSD,FREERADIUS=2,RLM_PERL=1:FILE=v2/default_rlm_perl  > [/usr/local/etc/raddb]/sites-enabled/axbills_default
+:OS=FREEBSD,FREERADIUS=2:exec: rm /usr/local/etc/raddb/sites-enabled/inner-tunnel 
+:OS=FREEBSD,FREERADIUS=2:exec: rm /usr/local/etc/raddb/sites-enabled/default
+:OS=FREEBSD,FREERADIUS=2:exec: ln -s /usr/local/etc/raddb/sites-available/status  /usr/local/etc/raddb/sites-enabled/status
+:FREERADIUS=2:exec:touch /usr/axbills/var/log/axbills.log; chown %RADIUS_SERVER_USER% /usr/axbills/var/log/axbills.log
+#Freeradius DHCP
+:OS=FREEBSD,FREERADIUS=3,DHCP=1:FILE=v3/dhcp.conf > [/usr/local/etc/raddb]/sites-enabled/dhcp.conf
+:OS=FREEBSD,FREERADIUS=3,DHCP=1:$INCLUDE /usr/local/share/freeradius/dictionary.dhcp >> [/usr/local/etc]/raddb/dictionary
+:OS=FREEBSD,FREERADIUS=3,DHCP=1:exec:ln -s /usr/axbills/AXbills/Internet/ipoe_shapper.pl /usr/axbills/libexec/ipoe_shapper.pl
+
+
+#:OS=FREEBSD:exec: LD_P=`grep -c LD_PRELOAD /usr/local/etc/rc.d/radiusd`; if [ w$LD_P = w0 ]; then  PERL_VERSION=`pkg_info | grep perl- | sed "s/.*-\([0-9\.]*\).*/\1/g"`; sed -i '' -e "s,run_rc_command,start_precmd=\\\"export LD_PRELOAD=/usr/local/lib/perl5/${PERL_VERSION}/mach/CORE/libperl.so\\\"; run_rc_command,g" "/usr/local/etc/rc.d/radiusd"; fi; /usr/local/etc/rc.d/radiusd restart
+
+#Linux autoconf
+:OS=LINUX,FREERADIUS=2,RLM_PERL=1:FILE=v2/users_perl    > [/usr/local/freeradius/etc/raddb]/users
+:OS=LINUX,FREERADIUS=2:FILE=v2/perl > [/usr/local/freeradius/etc/raddb]/modules/perl
+:OS=LINUX,FREERADIUS=2:exec:rm /usr/local/freeradius/etc/raddb/sites-enabled/*
+:OS=LINUX,FREERADIUS=2,RLM_PERL=1:FILE=v2/default_rlm_perl  > [/usr/local/freeradius/etc/raddb]/sites-enabled/axbills_default
+:OS=LINUX,FREERADIUS=2:exec: ln -s /usr/local/freeradius/etc/raddb/sites-available/status  /usr/local/freeradius/etc/raddb/sites-enabled/status
+:OS=LINUX,FREERADIUS=2:exec:touch /usr/axbills/var/log/axbills.log; chown %RADIUS_SERVER_USER% /usr/axbills/var/log/axbills.log
+:OS=LINUX,FREERADIUS=2:FILE=linux/radiusd.conf  > [/usr/local/freeradius/etc/raddb]/radiusd.conf
+#:OS=LINUX,FREERADIUS=2:FILE=clients.conf > [/usr/local/freeradius]/etc/raddb/clients.conf
+:OS=LINUX,FREERADIUS=2:exec:echo "" > /usr/local/freeradius/etc/raddb/clients.conf
+:OS=LINUX,FREERADIUS=2:FILE=v2/sql.conf  > [/usr/local/freeradius]/etc/raddb/sql.conf
+:OS=LINUX,FREERADIUS=2:FILE=linux/freeradius  > [/etc/init.d]/freeradius
+:OS=LINUX,FREERADIUS=2:exec:systemctl daemon-reload;systemctl enable radiusd --now;
+
+
+#Freeradius V3
+:OS=FREEBSD,FREERADIUS=3:FILE=v3/users  > [/usr/local/etc/raddb]/users
+:OS=FREEBSD,FREERADIUS=3:FILE=v3/mods-enabled/perl > [/usr/local/etc/raddb]/mods-enabled/perl
+:OS=FREEBSD,FREERADIUS=3:FILE=v3/mods-enabled/sql > [/usr/local/etc/raddb]/mods-enabled/sql
+:OS=FREEBSD,FREERADIUS=3:FILE=v3/sites-enabled/axbills_default  > [/usr/local/etc/raddb]/sites-enabled/axbills_default
+:OS=FREEBSD,FREERADIUS=3:FILE=v3/sites-enabled/control-socket  > [/usr/local/etc/raddb]/sites-enabled/control-socket
+:OS=FREEBSD,FREERADIUS=3:exec: rm /usr/local/etc/raddb/sites-enabled/inner-tunnel
+:OS=FREEBSD,FREERADIUS=3:exec: rm /usr/local/etc/raddb/sites-enabled/default
+:OS=FREEBSD:exec:%RESTART_RADIUS% restart
+#Freeradius V3 Linux
+:OS=LINUX,FREERADIUS=3:FILE=v3/users  > [/usr/local/freeradius/etc/raddb]/users
+:OS=LINUX,FREERADIUS=3:FILE=v3/mods-enabled/perl > [/usr/local/freeradius/etc/raddb]/mods-enabled/perl
+:OS=LINUX,FREERADIUS=3:FILE=v3/mods-enabled/sql > [/usr/local/freeradius/etc/raddb]/mods-enabled/sql
+:OS=LINUX,FREERADIUS=3:FILE=v3/sites-enabled/axbills_default  > [/usr/local/freeradius/etc/raddb]/sites-enabled/axbills_default
+:OS=LINUX,FREERADIUS=3:FILE=v3/sites-enabled/control-socket  > [/usr/local/freeradius/etc/raddb]/sites-enabled/control-socket
+:OS=LINUX,FREERADIUS=3:exec: rm /usr/local/freeradius/etc/raddb/sites-enabled/inner-tunnel
+:OS=LINUX,FREERADIUS=3:exec: rm /usr/local/freeradius/etc/raddb/sites-enabled/default
+:OS=LINUX,FREERADIUS=3,DHCP=1:FILE=v3/dhcp.conf > [/usr/local/freeradius/etc/raddb]/sites-enabled/dhcp.conf
+:OS=LINUX,FREERADIUS=3,DHCP=1:$INCLUDE /usr/local/freeradius/share/freeradius/dictionary.dhcp >> [/usr/local/freeradius/etc/raddb]/dictionary
+:OS=LINUX,FREERADIUS=3,DHCP=1:exec:ln -s /usr/axbills/AXbills/Internet/ipoe_shapper.pl /usr/axbills/libexec/ipoe_shapper.pl
+:OS=LINUX,FREERADIUS=3,DHCP=1:exec:echo "" > /usr/local/freeradius/etc/raddb/clients.conf
+:OS=LINUX,FREERADIUS=3:exec:%RESTART_RADIUS% restart
+
+
+

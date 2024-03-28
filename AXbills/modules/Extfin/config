@@ -1,0 +1,21 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+%FUNCTIONS_LIST = (
+  "01:0:Extfin:extfin_export_customers"                     => 1,
+  "02:1:$lang{ACCRUALS}:extfin_paids"                       => 1,
+  "03:0:$lang{ACCRUALS}:extfin_paids:UID"                   => 20,
+  "05:0:Extfin:extfin_paids_types"                          => 5,
+  "09:0:Extfin:null"                                        => 4,
+  "10:9:$lang{PAYMENT_DEED}:extfin_report_deeds"            => 4,
+  "11:9:$lang{FEES}:extfin_report_paids"                    => 4,
+  "12:9:$lang{DEBETORS}:extfin_debetors"                    => 4,
+  "13:9:$lang{PAYMENTS} / $lang{FEES}:extfin_payments_fees" => 4,
+  "14:9:$lang{USERS} $lang{BALANCE}:extfin_users_balance"   => 4,
+  "15:9:$lang{SALDO}:extfin_calculated_balance"             => 4,
+);
+
+
+%PERIODIC = (
+  daily => [ 'extfin_monthly_summary', 'extfin_periodic_paids' ]
+);
+
+1

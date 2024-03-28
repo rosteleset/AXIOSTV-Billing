@@ -1,0 +1,54 @@
+#!/usr/bin/perl -w
+#
+# DTMF test program
+#
+#**********************************************************
+
+use vars qw();
+use strict;
+use Encode;
+use Asterisk::AGI;
+
+my $version = 0.01;
+
+my $AGI   = new Asterisk::AGI;
+my %input = $AGI->ReadParse();
+
+my $debug = 0;
+my $caller_id  = $ARGV[0]; # $input{arg_1};
+$AGI->verbose("Start test TDMF programs");
+$AGI->answer();
+
+$AGI->verbose("AGI Environment Dump:");
+foreach my $i (sort keys %input) {
+  $AGI->verbose(" -- $i = $input{$i}");
+}
+
+if (!defined($caller_id) or $caller_id !~ /^\d+$/) {
+  $AGI->verbose("Invalid caller number: '$caller_id'", 3);
+  $AGI->hangup();
+  exit 1;
+}
+
+$AGI->verbose("Phone: $caller_id");
+
+my $pin = $AGI->get_data('beep', "10000", "5");
+
+$AGI->verbose("Your pin: $pin");
+
+my $test_log='/tmp/dtmf.test';
+
+if ( open(my $fh, ">$test_log") ) {
+  print $fh "PHONE: $caller_id\n";
+  print $fh "DTMF: $pin\n";
+  close($fh);
+}
+else {
+  $AGI->verbose("Can't open file '/tmp/dtmf.test' $! \n");
+  print "Can't open file '/tmp/dtmf.test' $! \n"; 
+}
+
+$AGI->hangup();
+
+exit 0;
+

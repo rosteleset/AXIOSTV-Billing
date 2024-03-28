@@ -1,0 +1,8 @@
+/user/referral:
+  $ref: "./paths/referral.yaml"
+/user/referral/bonus:
+  $ref: "./paths/bonus.yaml"
+/user/referral/friend:
+  $ref: "./paths/referralAdd.yaml"
+/user/referral/friend/{ID}:
+  $ref: "./paths/referralChange.yaml"

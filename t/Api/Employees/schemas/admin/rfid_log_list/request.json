@@ -1,0 +1,6 @@
+{
+  "name": "ADMIN_RFID_LIST",
+  "method": "GET",
+  "path": "employees/rfid/list/",
+  "params": {}
+}

@@ -1,0 +1,244 @@
+type: object
+properties:
+  abon:
+    type: array
+    items:
+      type: object
+      properties:
+        activate:
+          type: boolean
+        active:
+          type: boolean
+        description:
+          type: string
+          example: "Test service"
+        endDate:
+          type: string
+          example: "2023-02-02"
+        id:
+          type: number
+          example: 3
+        period:
+          type: string
+          example: day
+        price:
+          type: number
+          example: 1.93
+        startDate:
+          type: string
+          example: "2023-01-02"
+        tpName:
+          type: string
+          example: MMM
+  internet:
+    type: array
+    items:
+      type: object
+      properties:
+        cid:
+          type: string
+          example: 14:11:11:11:11:c1
+        dayFee:
+          type: number
+          example: 10
+        holdup:
+          type: object
+          properties:
+            canCancel:
+              type: boolean
+            dateFrom:
+              type: string
+              example: "2023-02-01"
+            dateTo:
+              type: string
+              example: "2023-03-01"
+            del:
+              type: number
+              example: 1
+            delIds:
+              type: string
+              example: 245 246
+        id:
+          type: number
+          example: 77
+        inSpeed:
+          type: number
+          example: 51200
+        internetStatus:
+          type: number
+          example: 0
+        loginStatus:
+          type: number
+          example: 0
+        monthFee:
+          type: string
+          example: 250
+        nextAbon:
+          type: object
+          properties:
+            abonDate:
+              type: string
+              example: "2023-02-02"
+            daysToFee:
+              type: number
+              example: 0
+        outSpeed:
+          type: number
+          example: 51200
+        serviceHoldup:
+          type: boolean
+        statusName:
+          type: string
+          example: enable
+        tpComments:
+          type: string
+          example: Cool tariff plan take me
+        tpId:
+          type: number
+          example: 0
+        tpName:
+          type: string
+          example: Test
+        tpReductionFee:
+          type: string
+          example: 10
+        uid:
+          type: number
+          example: 1
+  iptv:
+    type: array
+    items:
+      type: object
+      properties:
+        cid:
+          type: string
+          example: 14:11:11:11:11:c1
+        dayFee:
+          type: number
+          example: 50
+        id:
+          type: number
+          example: 2
+        iptvExpire:
+          type: string
+          example: "0000-00-00"
+        monthFee:
+          type: number
+          example: 50
+        nextAbon:
+          type: object
+          properties:
+            abonDate:
+              type: string
+              example: "2022-09-03"
+            activateDate:
+              type: string
+              example: "2022-08-03"
+            daysToFee:
+              type: number
+              example: -139
+        serviceHoldup:
+          type: boolean
+        serviceId:
+          type: number
+          example: 5
+        serviceStatus:
+          type: number
+          example: 0
+        statusName:
+          type: string
+          example: enable
+        tpComments:
+          type: string
+          example: Cool tariff plan take me
+        tpId:
+          type: number
+          example: 15
+        tpName:
+          type: string
+          example: Хаха тест 1
+        tpReductionFee:
+          type: number
+          example: 0
+        tvServiceName:
+          type: string
+          example: Тестоеве середовище
+        uid:
+          type: number
+          example: 1
+  voip:
+    type: array
+    items:
+      type: object
+      properties:
+        allowAnswer:
+          type: number
+          example: 1
+        allowCalls:
+          type: number
+          example: 1
+        cid:
+          type: string
+          example: 14:11:11:11:11:c1
+        dayAbon:
+          type: number
+          example: 0
+        disable:
+          type: number
+          example: 0
+        expire:
+          type: string
+          example: "0000-00-00"
+        extraNumbersDayFee:
+          type: number
+          example: 0
+        extraNumbersMonthFee:
+          type: number
+          example: 0
+        id:
+          type: number
+          example: 47
+        ip:
+          type: string
+          example: 0.0.0.0
+        logins:
+          type: number
+          example: 0
+        monthAbon:
+          type: number
+          example: 0
+        number:
+          type: string
+          example: 0509152720
+        phoneAliases:
+          type: array
+          items:
+            type: object
+            properties:
+              disable:
+                type: number
+                example: 0
+              id:
+                type: number
+                example: 24
+              number:
+                type: number
+                example: 380506712611
+              uid:
+                type: number
+                example: 1
+        tpId:
+          type: number
+          example: 45
+        tpName:
+          type: string
+          example: test api
+        tpNum:
+          type: number
+          example: 567
+        uid:
+          type: number
+          example: 1
+        voipExpire:
+          type: string
+          example: "0000-00-00"

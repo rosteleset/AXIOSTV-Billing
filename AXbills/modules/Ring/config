@@ -1,0 +1,10 @@
+#Iner_ID : Main or Sub or if -1 user menu func list
+
+%FUNCTIONS_LIST = (
+				"01:0:$lang{RING}:ring_main:"                      => 5,
+				"02:1:$lang{ADD_RULE}:ring_rule_add:"              => 5,
+				"03:2:$lang{UPLOAD}:ring_file_upload:"             => 5,
+				"05:1:$lang{FILTER}:ring_user_filters:"            => 5,
+);
+
+1

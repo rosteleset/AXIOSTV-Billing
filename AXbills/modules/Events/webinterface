@@ -1,0 +1,268 @@
+#!perl
+=head1 NAME
+
+  Events
+
+=cut
+use strict;
+use warnings 'FATAL' => 'all';
+
+use AXbills::Experimental;
+
+our (
+  %lang,
+  $html,
+  $admin, $db, %conf,
+  %permissions,
+  @DEFAULT_SEND_TYPES,
+);
+
+
+use Events;
+use JSON;
+our Events $Events = Events->new($db, $admin, \%conf);
+
+require Events::Selects;
+
+if ( $permissions{4} ) {
+  require Events::Configure;
+}
+
+require Events::Profile;
+
+#$Events->events_add({
+#  MODULE   => "Equipment",
+#  COMMENTS => "Hello",
+#  EXTRA    => "index=23"
+#});
+
+#**********************************************************
+=head2 events_events($attr)
+
+  Arguments:
+    $attr - hash_ref
+      CLIENT_INTERFACE - client interface flaf
+
+  Returns:
+    JSON aray string
+
+=cut
+#**********************************************************
+sub events_events {
+  my ($attr) = @_;
+  my @events_list = ();
+  
+  if ( $attr->{CLIENT_INTERFACE} ) {
+    return '';
+  }
+
+  return events_notice({ EXPORT => 1 }) if ($FORM{AJAX});
+  
+  my $events_index = get_function_index('events_main') || 0;
+  my $seen_index = get_function_index('events_seen_message') || 0;
+  
+  my $events_list = $Events->events_list({
+    STATE_ID         => 1,
+    AID              => $admin->{AID},
+    SHOW_ALL_COLUMNS => 1
+  });
+  
+  eval {
+    require JSON;
+    JSON->import('to_json');
+  };
+  if ($@){
+    return $@;
+  }
+
+  foreach my $event ( @{$events_list} ) {
+    $event->{message} = translate_simple($event->{message} || '');
+    $event->{subject} = $event->{title} || $event->{module} || '';
+    $event->{subject} = translate_simple($event->{subject});
+    $event->{extra} ||= "$SELF_URL?index=$events_index&chg=$event->{id}";
+  
+    push(
+      @events_list, 
+      events_event_to_json(
+        $event, 
+        $seen_index
+      )
+    );
+  }
+  
+  return join(", ", @events_list);
+}
+
+#**********************************************************
+=head2 events_event_to_json($message)
+
+  Function to format message to JSON structure needed in AMessageChecker
+
+  Arguments:
+    $message - hash_ref of message from DB
+      subject   - Subject of message
+      message   - Text of message
+
+    $msgs_index - index to see message
+
+  Returns:
+    JSON structure for message
+
+=cut
+#**********************************************************
+sub events_event_to_json {
+  my ($event, $seen_index) = @_;
+
+  my $subject = $event->{subject} || $event->{title} || $lang{ERR_NO_TITLE};
+  my $message = $event->{message} || $event->{comments} || $lang{ERR_NO_MESSAGE};
+
+  return JSON::to_json({
+    "TYPE"        => "EVENT",
+    "TITLE"       => $subject,
+    "CREATED"     => $event->{created},
+    "STATE"       => $event->{state_id},
+    "TEXT"        => $message,
+    "EXTRA"       => $event->{extra},
+    "MODULE"      => $event->{module},
+    "GROUP_ID"    => $event->{group_id},
+    "ID"          => $event->{id},
+    "NOTICED_URL" => "?qindex=$seen_index&json=1&AJAX=1&header=2&ID=$event->{id}"
+  });
+}
+
+#**********************************************************
+=head2 events_notice() - Function return list of events
+
+  Returns:
+    JSON structure
+
+=cut
+#**********************************************************
+sub events_notice {
+  my ($attr) = @_;
+
+  my $events_list = $Events->events_list({
+    ID            => '_SHOW',
+    TITLE         => '_SHOW',
+    COMMENTS      => '_SHOW',
+    MODULE        => '_SHOW',
+    EXTRA         => '_SHOW',
+    STATE_ID      => '_SHOW',
+    PRIVACY_ID    => '_SHOW',
+    PRIORITY_ID   => '_SHOW',
+    CREATED       => '_SHOW',
+    GROUP_ID      => '_SHOW',
+    GROUP_NAME    => '_SHOW',
+    PRIORITY_NAME => '_SHOW',
+    STATE_NAME    => '_SHOW',
+    SEND_TYPES    => '_SHOW',
+    AID           => $admin->{AID},
+    COLS_NAMES    => 1,
+    PAGE_ROWS     => 5,
+    SORT          => 'e.created',
+  });
+
+  my $translated_events_list = translate_list_simple($events_list, 'comments', 'title', 'state_name', 'priority_name');
+
+  if ($attr->{EXPORT}) {
+    my @events_list = ();
+    my $seen_index = get_function_index('events_seen_message') || 0;
+    
+    foreach my $event (@$translated_events_list) {
+      push(@events_list, events_event_to_json($event, $seen_index));
+    }
+    
+    return join(", ", @events_list);
+  }
+  
+  my @new_events_list = ();
+  foreach my $event (@$translated_events_list) {
+    if ($event->{send_types} && $event->{send_types} =~ /Browser/) {
+      push(@new_events_list, $event);
+    }
+  }
+
+  print JSON::to_json({
+    CAPTION => $lang{EVENTS},
+    ID      => "EVENTS_LIST",
+    DATA_1  => \@new_events_list,
+    TOTAL   => $Events->{TOTAL},
+  },
+  { pretty => 1 });
+  
+  return 1;
+}
+
+#**********************************************************
+=head2 events_rotate ()
+
+  Returns:
+
+=cut
+#**********************************************************
+sub events_rotate {
+  my ($attr) = @_;
+
+  my $debug = $attr->{DEBUG} || 0;
+  my $debug_output = '';
+
+  $Events->{debug} = 1 if ($debug > 6);
+
+  $Events->log_rotate();
+
+  $debug_output .= "Make events rotate\n" if ($debug > 0);
+
+  $DEBUG .= $debug_output;
+  return $debug_output;
+}
+
+
+#**********************************************************
+=head2 events_start_page() - quick reports for start page
+
+=cut
+#**********************************************************
+sub events_start_page {
+  my %START_PAGE_F = (
+    'events_widget' => $lang{EVENTS}
+  );
+
+  return \%START_PAGE_F;
+}
+
+#**********************************************************
+=head2 events_widget ()
+
+=cut
+#**********************************************************
+sub events_widget {
+
+  my $events_list = $Events->events_list({
+    MODULE    => '_SHOW',
+    COMMENTS  => '_SHOW',
+    CREATED   => '_SHOW',
+    AID       => $admin->{AID},
+    COLS_NAME => 1
+  });
+
+  my $table = $html->table({
+    width       => '100%',
+    title_plain => [ $lang{MODULE}, $lang{COMMENTS}, $lang{CREATED} ],
+    caption     => $html->button( "$lang{EVENTS}", 'index=' . get_function_index('events_main') ),
+    ID          => 'EVENTS_INFO',
+  });
+
+  if ($Events->{TOTAL}){
+    foreach my $line (@$events_list) {
+      $table->addrow(
+        $line->{module},
+        $line->{comments},
+        substr($line->{created}, 0, 16)
+      );
+    }
+  }
+
+  return $table->show();
+}
+
+1

@@ -1,0 +1,6 @@
+{
+  "name": "ADMIN_BUILD_INFO",
+  "method": "GET",
+  "path": "builds/1/",
+  "params": {}
+}

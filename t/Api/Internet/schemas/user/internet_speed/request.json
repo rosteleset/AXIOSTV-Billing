@@ -1,0 +1,6 @@
+{
+  "name": "USER_INTERNET_SPEED",
+  "method": "GET",
+  "path": "user/:uid/internet/speed/",
+  "params": {}
+}

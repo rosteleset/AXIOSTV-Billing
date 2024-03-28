@@ -1,0 +1,6 @@
+{
+  "name": "ADMIN_EQUIPMENT_NAS_GROUP_LIST",
+  "method": "GET",
+  "path": "equipment/nas/groups/list/",
+  "params": {}
+}

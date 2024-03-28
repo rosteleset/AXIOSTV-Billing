@@ -1,0 +1,49 @@
+post:
+  tags:
+    - iptv
+  summary: Добавление услуги IPTV
+  description: >
+    Также обязательное поле в запросе можно найти пути `GET /user/config`
+    параметр `id` в объекте `subscribe` в объекте `iptvConfig`
+  requestBody:
+    content:
+      application/json:
+        schema:
+          type: object
+          properties:
+            tpId:
+              type: number
+              example: 123
+            serviceId:
+              type: number
+              example: 1
+    required: true
+  responses:
+    200:
+      description: Успешное выполнение
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              result:
+                type: string
+                example: "Added ID: 1"
+              code:
+                type: number
+                example: 1
+    400:
+      description: Нет параметра tpId в теле запроса
+      content:
+        application/json:
+          schema:
+            type: object
+            properties:
+              errno:
+                type: integer
+                example: 20208
+              errstr:
+                type: string
+                example: Unknown tpId
+  security:
+    - USERSID: [ ]

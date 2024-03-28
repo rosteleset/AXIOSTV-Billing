@@ -1,0 +1,5 @@
+{
+  "name": "USER_PAYSYS_PAY",
+  "method": "POST",
+  "path": "user/:uid/paysys/pay/"
+}

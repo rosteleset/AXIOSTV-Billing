@@ -1,0 +1,10 @@
+[Unit]
+After=network.target
+Description=pppd hangup service
+
+[Service]
+ExecStart=-/usr/axbills/misc/pppd_kill server
+StandardInput=socket
+
+[Install]
+WantedBy=multi-user.target

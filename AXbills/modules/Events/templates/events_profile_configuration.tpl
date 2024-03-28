@@ -1,0 +1,1 @@
+<h3>_{EVENTS}_ : _{CONFIGURATION}_</h3>
