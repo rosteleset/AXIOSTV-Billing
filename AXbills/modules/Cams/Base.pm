@@ -199,6 +199,8 @@ sub cams_docs {
   my $list = $Cams->_list({
     UID             => $uid,
     ACCOUNT_DISABLE => 0,
+    ACTIVATE        => '_SHOW',
+    EXPIRE          => '_SHOW',
     TP_ID           => '_SHOW',
     STATUS          => '_SHOW',
     COLS_NAME       => 1,
@@ -222,6 +224,8 @@ sub cams_docs {
     $info{service_name} = ::fees_dsc_former(\%FEES_DSC);
     $info{service_desc} = q{};
     $info{tp_name} = $tp_info->[0]{tp_name};
+    $info{service_activate} = $service_info->{activate};
+    $info{service_expire} = $service_info->{expire};
     $info{status} = $service_info->{status};
     $info{day} = $tp_info->[0]{day_fee};
     $info{month} = $tp_info->[0]{month_fee};

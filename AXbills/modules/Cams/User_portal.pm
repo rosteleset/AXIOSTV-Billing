@@ -175,7 +175,7 @@ sub cams_user_info {
     INPUT_DATA      => $Cams,
     FUNCTION        => 'users_list',
     BASE_FIELDS     => 0,
-    DEFAULT_FIELDS  => 'ID,TP_NAME,SERVICE_STATUS',
+    DEFAULT_FIELDS  => 'ID,TP_NAME,SERVICE_STATUS,EXPIRE',
     HIDDEN_FIELDS   => 'LOGIN',
     FUNCTION_FIELDS => 'change',
     SKIP_USER_TITLE => 1,

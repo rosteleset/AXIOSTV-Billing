@@ -1383,7 +1383,7 @@ sub cams_monthly_next_tp {
       DEPOSIT         => '_SHOW',
       CREDIT          => '_SHOW',
       COMPANY_ID      => '_SHOW',
-      INTERNET_EXPIRE => '_SHOW',
+      EXPIRE          => '_SHOW',
       BILL_ID         => '_SHOW',
       ID              => '_SHOW',
       COLS_NAME       => 1,
@@ -1580,14 +1580,15 @@ sub cams_users_list {
     INPUT_DATA     => $Cams,
     BASE_FIELDS    => 0,
     FUNCTION       => 'users_list',
-    DEFAULT_FIELDS => 'LOGIN,FIO,DEPOSIT,CREDIT,TP_NAME,SERVICE_STATUS,SERVICE_NAME',
+    DEFAULT_FIELDS => 'LOGIN,FIO,DEPOSIT,CREDIT,TP_NAME,SERVICE_STATUS,SERVICE_NAME,EXPIRE',
     EXT_TITLES     => {
       'id'             => 'ID',
       'filter_id'      => 'Filter ID',
       'tp_name'        => $lang{TARIF_PLAN},
       'service_status' => "Cams $lang{STATUS}",
       'subscribe_id'   => $lang{SUBSRIBES},
-      'service_name'   => $lang{SERVICE}
+      'service_name'   => $lang{SERVICE},
+      'expire'         => $lang{EXPIRE}
     },
     STATUS_VALS    => sel_status({ HASH_RESULT => 1 }),
     TABLE          => {
