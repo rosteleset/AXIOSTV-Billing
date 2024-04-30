@@ -15,9 +15,13 @@
 Далее выставляем права:
 
 #chmod -R 755 /usr/axbills
+
 #chown -R root:root /usr/axbills
+
 #chown -R nginx:root /usr/axbills/backup
+
 #chown -R nginx:root /usr/axbills/var
+
 #chown -R nginx:root /usr/axbills/AXbills/templates
 
 Устанавливаем необходимые пакеты:
