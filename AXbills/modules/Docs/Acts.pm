@@ -83,7 +83,7 @@ sub docs_acts_list{
   my $docs_acts = get_function_index( 'docs_acts_list' );
 
   # user portal
-  if ($FORM{sid} ){
+  if ($FORM{sidd} ){
     require Companies;
     Companies->import();
     my $Company = Companies->new($db, $admin, \%conf);

@@ -15,7 +15,7 @@ package Paysys::systems::Internet_Plategka;
 
 =head2 Documentation
 
-  Documentaion: http://axbills.net.ua:8090/display/AB/Internet_Plategka.pm?preview=/46334481/46334484/protocol_plategka-10.08.17%20(2).doc
+  Documentaion: http://billing.axiostv.ru:8090/display/AB/Internet_Plategka.pm?preview=/46334481/46334484/protocol_plategka-10.08.17%20(2).doc
 =cut
 
 use strict;

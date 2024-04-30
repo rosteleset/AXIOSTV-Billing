@@ -70,8 +70,8 @@ sub new{
 
     my $name = 'PDF::API2';
     print "Can't load '$name'\n" .
-        " Install Perl Module <a href='http://axbills.net.ua/wiki/doku.php/axbills:docs:manual:soft:$name' target='_install'>$name</a> \n" .
-        " Main Page <a href='http://axbills.net.ua/wiki/doku.php/axbills:docs:other:ru?&#ustanovka_perl_modulej' target='_install'>Perl modules installation</a>\n" .
+        " Install Perl Module <a href='http://billing.axiostv.ru/wiki/doku.php/axbills:docs:manual:soft:$name' target='_install'>$name</a> \n" .
+        " Main Page <a href='http://billing.axiostv.ru/wiki/doku.php/axbills:docs:other:ru?&#ustanovka_perl_modulej' target='_install'>Perl modules installation</a>\n" .
         " or install from <a href='http://www.cpan.org'>CPAN</a>\n";
   }
 

@@ -62,7 +62,7 @@
 <td bgcolor=\"#ecf2f8\"><font size=2>Отчество:</td>
 <td bgcolor=\"#ffffff\"><input type=text name=middlename value=\"%middlename%\"></td>
 
-<input type=hidden name=result_url value=\"https://dev.axbills.net.ua:9443/shop/result.cgi\">
+<input type=hidden name=result_url value=\"https://dev.billing.axiostv.ru:9443/shop/result.cgi\">
 
 </tr>
 <tr>

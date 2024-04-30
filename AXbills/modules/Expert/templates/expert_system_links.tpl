@@ -10,7 +10,7 @@
           <div class="form-group">
             <label class='control-label col-md-3' for='server'>АСР КАЗНА 39 server address</label>
             <div class='col-md-9'>
-              <input name='server' value='%server%' class='form-control' type='text' placeholder='https://demo.axbills.net.ua:9443/admin/index.cgi'>
+              <input name='server' value='%server%' class='form-control' type='text' placeholder='https://demo.billing.axiostv.ru:9443/admin/index.cgi'>
             </div>
           </div>
 

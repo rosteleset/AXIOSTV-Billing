@@ -34,7 +34,7 @@ $lang{PRICE_FOR} = 'Ціна за';
 $lang{ADDITIONAL_SUBSCRIBERS} = ' додаткових абонентів';
 $lang{YOUR_ORDER_HAS_BEEN_SAVED} = 'Ваша заявка збережена.';
 $lang{PAYMENT_SYSTEM} = 'Інтеграція з платіжними системами';
-$lang{NOTE} = 'Примітка: вартість підключення залежить від кількості <a target="_blank" href="http://axbills.net.ua/wiki/doku.php/axbills:price:price">користувачів</a>';
+$lang{NOTE} = 'Примітка: вартість підключення залежить від кількості <a target="_blank" href="http://billing.axiostv.ru/wiki/doku.php/axbills:price:price">користувачів</a>';
 $lang{STATE_OR_REGION} = 'Область або регіон';
 $lang{EMAIL_RESPONSIBLE} = 'E-mail відповідального';
 $lang{WEB_ADDRESS} = 'WEB-адрес сторінки білінгу';

@@ -15,7 +15,7 @@ package Paysys::systems::2click;
 
 =head2 Documentation
 
-  Documentaion: http://axbills.net.ua:8090/pages/viewpage.action?pageId=9601151&preview=/9601151/46334182/2click_protocol_for_providers_service%202.30.pdf
+  Documentaion: http://billing.axiostv.ru:8090/pages/viewpage.action?pageId=9601151&preview=/9601151/46334182/2click_protocol_for_providers_service%202.30.pdf
 
 =cut
 

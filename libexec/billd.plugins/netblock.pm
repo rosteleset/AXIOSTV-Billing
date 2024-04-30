@@ -126,7 +126,7 @@ sub uablock {
   }
 
   if ($attr->{FETCH}) {
-    my $uablock_url = 'http://axbills.net.ua/uablock.txt';
+    my $uablock_url = 'http://billing.axiostv.ru/uablock.txt';
     #my $BASE = $var_dir.'db/uablock/';
     my $block_domains;
 

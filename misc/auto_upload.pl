@@ -29,14 +29,14 @@ my %public_modules = (
   }
 );
 
-my $UNAUTORIZED_DOWNLOAD_PATH = 'https://support.axbills.net.ua/';
+my $UNAUTORIZED_DOWNLOAD_PATH = 'https://support.billing.axiostv.ru/';
 
 download();
 
 exit 0;
 
 #**********************************************************
-=head2 download() - downloads described modules from support.axbills.net.ua
+=head2 download() - downloads described modules from support.billing.axiostv.ru
 
 =cut
 #**********************************************************

@@ -188,7 +188,7 @@
     </form>
 
     <li id='wiki-link' class='nav-item d-none d-sm-inline-block'>
-      <a href='https://support.axbills.net.ua/doc.cgi?url=%FUNCTION_NAME%'
+      <a href='https://support.billing.axiostv.ru/doc.cgi?url=%FUNCTION_NAME%'
           id='wiki_url' target='_blank' rel='noopener' title='ABillS Wiki' class='nav-link'>
         <i class='fa fa-question'></i>
       </a>

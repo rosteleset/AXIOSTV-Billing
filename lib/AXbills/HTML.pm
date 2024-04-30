@@ -249,8 +249,8 @@ sub new {
       print "Content-Type: text/html\n\n";
       my $name = 'PDF::API2';
       print "Can't load '$name'\n" .
-        " Install Perl Module <a href='http://axbills.net.ua/wiki/doku.php/axbills:docs:manual:soft:$name'>$name</a>\n" .
-        " Main Page <a href='http://axbills.net.ua/wiki/doku.php/axbills:docs:other:ru?&#ustanovka_perl_modulej'>Perl modules installation</a>\n" .
+        " Install Perl Module <a href='http://billing.axiostv.ru/wiki/doku.php/axbills:docs:manual:soft:$name'>$name</a>\n" .
+        " Main Page <a href='http://billing.axiostv.ru/wiki/doku.php/axbills:docs:other:ru?&#ustanovka_perl_modulej'>Perl modules installation</a>\n" .
         " or install from <a href='http://www.cpan.org'>CPAN</a>\n";
       exit; #return 0;
     }
@@ -299,8 +299,8 @@ sub new {
       print "Content-Type: text/html\n\n";
       my $name = 'Spreadsheet::WriteExcel';
       print "Can't load '$name'\n" .
-        " Install Perl Module <a href='http://axbills.net.ua/wiki/doku.php/axbills:docs:manual:soft:$name'>$name</a>\n" .
-        " Main Page <a href='http://axbills.net.ua/wiki/doku.php/axbills:docs:other:ru?&#ustanovka_perl_modulej'>Perl modules installation</a>\n" .
+        " Install Perl Module <a href='http://billing.axiostv.ru/wiki/doku.php/axbills:docs:manual:soft:$name'>$name</a>\n" .
+        " Main Page <a href='http://billing.axiostv.ru/wiki/doku.php/axbills:docs:other:ru?&#ustanovka_perl_modulej'>Perl modules installation</a>\n" .
         " or install from <a href='http://www.cpan.org'>CPAN</a>\n";
       exit; #return 0;
     }
@@ -3273,7 +3273,7 @@ sub button {
       [
         {
           NAME       => 'ABillS',
-          GLOBAL_URL => 'http://axbills.net.ua'
+          GLOBAL_URL => 'http://billing.axiostv.ru'
         },
         {
           NAME       => 'Wikipedia',

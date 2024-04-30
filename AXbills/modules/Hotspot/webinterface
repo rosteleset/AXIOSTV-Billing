@@ -460,7 +460,7 @@ sub hotspot_ad_config_mikrotik {
     my $result = $mt->execute( [
         [ '/ip/hotspot/user/profile/set', {
             advertise           => 'yes',
-            'advertise-url'     => '"http://axbills.net.ua/wiki/doku.php"',
+            'advertise-url'     => '"http://billing.axiostv.ru/wiki/doku.php"',
             'advertise-interval'=> '"' . ($FORM{PERIOD} || 300) . 's"',
             'advertise-timeout' => 'immediately'
           },

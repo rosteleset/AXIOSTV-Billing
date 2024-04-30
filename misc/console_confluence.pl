@@ -38,10 +38,10 @@ else {
   if ($argv->{WORD} =~ /on\s+page/) {
     $argv->{WORD} .= ' ';
     $argv->{WORD} =~ s/\s+on\s+page\s+//g;
-    $doc_url = "http://axbills.net.ua/wiki/rest/api/content/search?limit=500&cql=text~'$argv->{WORD}'";
+    $doc_url = "http://billing.axiostv.ru/wiki/rest/api/content/search?limit=500&cql=text~'$argv->{WORD}'";
   }
   else {
-    $doc_url = "http://axbills.net.ua/wiki/rest/api/content/search?limit=500&cql=title~'$argv->{WORD}'";
+    $doc_url = "http://billing.axiostv.ru/wiki/rest/api/content/search?limit=500&cql=title~'$argv->{WORD}'";
   }
 
   my $Ua = LWP::UserAgent->new(
@@ -61,7 +61,7 @@ else {
     next if ($result->{type} ne 'page');
     $count++;
     my $link = $result->{_links}->{webui};
-    $text .= "$result->{title} URL: http://axbills.net.ua:/wiki$link\n"
+    $text .= "$result->{title} URL: http://billing.axiostv.ru:/wiki$link\n"
   }
   print "Found $count matches with $argv->{WORD}\n$text";
 }

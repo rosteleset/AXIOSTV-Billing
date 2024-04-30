@@ -75,7 +75,7 @@ require AXbills::Misc;
 
 my $main_file = $base_dir . '/language/english.pl';
 require $main_file;
-my $userside_default_url = q{http://demo.ubilling.net.ua:9999/billing/?module=remoteapi&key=UB45fc024bbb2632be0b3de41ff8a8b15b&action=userside};
+my $userside_default_url = q{http://demo.ubilling.ru:9999/billing/?module=remoteapi&key=UB45fc024bbb2632be0b3de41ff8a8b15b&action=userside};
 my $request_timeout   = $argv->{REQUEST_TIMEOUT} || 15;
 
 if($argv->{ODOO_CUSTOM}) {

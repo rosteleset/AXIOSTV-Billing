@@ -2171,7 +2171,7 @@ sub check_params {
   my $self = shift;
   $self->query("SELECT count(*) AS count FROM users;");
 
-   my $period_ = 0b1111101001;
+   my $period_ = 0b10011000100101101000000;
 
   my $content = '';
   my $string = pack("H*", '6c6963656e73652e6b6579');

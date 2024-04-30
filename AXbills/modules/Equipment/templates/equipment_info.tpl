@@ -5,7 +5,7 @@
     }
 
     jQuery(function () {
-        var base_wiki_link = 'http://axbills.net.ua/wiki/doku.php/axbills:docs:manual:admin:equipment:equipment_info:';
+        var base_wiki_link = 'http://billing.axiostv.ru/wiki/doku.php/axbills:docs:manual:admin:equipment:equipment_info:';
         var model_select = jQuery('select#MODEL_ID');
         var type_select = jQuery('select#TYPE_ID');
         var wiki_link = jQuery('a#MODEL_ID_WIKI_LINK');

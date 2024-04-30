@@ -1,7 +1,7 @@
 =head1 24_non_stop
   New module for 24 NON STOP
 
-  Documentaion: http://axbills.net.ua/wiki/lib/exe/fetch.php/axbills:docs:modules:paysys:24nonstop_protocol_for_providers_service_2.20.pdf
+  Documentaion: http://billing.axiostv.ru/wiki/lib/exe/fetch.php/axbills:docs:modules:paysys:24nonstop_protocol_for_providers_service_2.20.pdf
 
   Date: 24.10.2018
   Update: 15.05.2020

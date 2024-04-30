@@ -147,7 +147,7 @@ sub check {
 
   _get_request_info($FORM);
 
-  my $CHECK_FIELD = $self->{conf}{"PAYSYS_SBERBANK_ONLINE_ACCOUNT_KEY"} || 'UID';
+  my $CHECK_FIELD = $self->{conf}{"PAYSYS_SBERBANK_ONLINE_ACCOUNT_KEY"} || 'LOGIN';
   my %RESULT_HASH = (result => 3);
   my $txn_id = 'txn_id';
 
@@ -229,7 +229,7 @@ sub pay {
   if ($FORM->{servicetype}) {
     $description = $servicetype{$FORM->{servicetype}};
   }
-  my $CHECK_FIELD = $self->{conf}{"PAYSYS_SBERBANK_ONLINE_ACCOUNT_KEY"} || 'UID';
+  my $CHECK_FIELD = $self->{conf}{"PAYSYS_SBERBANK_ONLINE_ACCOUNT_KEY"} || 'LOGIN';
 
   my ($status_code, $payments_id) = main::paysys_pay({
     PAYMENT_SYSTEM    => $PAYSYSTEM_SHORT_NAME,
@@ -356,7 +356,7 @@ sub has_test {
       account => {
         name    => 'account',
         val     => '',
-        tooltip => "Идентификатор абонента в зависимости от настроек системы.(По умолчанию вводить UID абонента)",
+        tooltip => "Идентификатор абонента в зависимости от настроек системы.(По умолчанию вводить LOGIN абонента)",
       },
       command => {
         name      => 'command',
@@ -386,7 +386,7 @@ sub has_test {
       account => {
         name    => 'account',
         val     => '',
-        tooltip => "Идентификатор абонента в зависимости от настроек системы.(По умолчанию вводить UID абонента)",
+        tooltip => "Идентификатор абонента в зависимости от настроек системы.(По умолчанию вводить LOGIN абонента)",
       },
       sum     => {
         name    => 'sum',

@@ -1121,7 +1121,7 @@ sub tp_user_reports_multi_change {
 
   Copyright (с) 2003-2023 Andy Gulay (ABillS DevTeam) Ukraine
   All rights reserved.
-  https://axbills.net.ua/
+  https://billing.axiostv.ru/
 
 =cut
 

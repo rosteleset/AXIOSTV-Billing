@@ -1543,7 +1543,7 @@ sub multidoms_domains_modules {
   foreach my $name (sort @MODULES) {
     $table->addrow(
       $html->button($name, '',
-         { GLOBAL_URL => 'http://axbills.net.ua/wiki/doku.php?id=axbills:docs:modules:'. $name .':ru',
+         { GLOBAL_URL => 'http://billing.axiostv.ru/wiki/doku.php?id=axbills:docs:modules:'. $name .':ru',
            ex_params  => 'target='.$name } ),
       $html->form_input($name, '1', {
         TYPE          => 'checkbox',

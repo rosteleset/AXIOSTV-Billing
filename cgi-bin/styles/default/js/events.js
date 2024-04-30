@@ -1,6 +1,6 @@
 /**
  Events, v2.0.0
- Created by Anton Horodchuk for the ABillS Framework, http://axbills.net.ua/
+ Created by Anton Horodchuk for the ABillS Framework, http://billing.axiostv.ru/
  MIT License
  
  Simple JavaScript Event PubSub implementation

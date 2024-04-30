@@ -686,7 +686,7 @@ sub _mikrotik_init_and_check_access {
 
     if ( !$FORM{upload_key} ) {
       my $wiki_mikrotik_ssh_access_link = $html->button( $lang{HELP}, undef, {
-          GLOBAL_URL => 'http://axbills.net.ua/wiki/doku.php/axbills:docs:nas:mikrotik:ssh:key_upload',
+          GLOBAL_URL => 'http://billing.axiostv.ru/wiki/doku.php/axbills:docs:nas:mikrotik:ssh:key_upload',
           target     => '_blank',
           BUTTON     => 2
         } );

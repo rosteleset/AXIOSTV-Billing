@@ -34,7 +34,7 @@ $lang{PRICE_FOR} = 'Price for';
 $lang{ADDITIONAL_SUBSCRIBERS} = ' additional subscribers';
 $lang{YOUR_ORDER_HAS_BEEN_SAVED} = 'Your order has been saved.';
 $lang{PAYMENT_SYSTEM} = 'Integration with payment systems';
-$lang{NOTE} = 'Note: the cost of the connection depends on the number of <a target="_blank" href="http://axbills.net.ua/wiki/doku.php/axbills:price:price">users</a>';
+$lang{NOTE} = 'Note: the cost of the connection depends on the number of <a target="_blank" href="http://billing.axiostv.ru/wiki/doku.php/axbills:price:price">users</a>';
 $lang{STATE_OR_REGION} = 'State or region';
 $lang{ORGANIZATION_UNIT_NAME} = 'Organizational unit name (optional)';
 $lang{EMAIL_RESPONSIBLE} = 'E-mail of responsible';

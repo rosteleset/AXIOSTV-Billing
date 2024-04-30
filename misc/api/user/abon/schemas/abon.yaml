@@ -27,7 +27,7 @@ items:
       example: Your test code is
     serviceImg:
       type: string
-      example: https://demo.axbills.net.ua/9443/images/attach/abon
+      example: https://demo.billing.axiostv.ru/9443/images/attach/abon
     serviceLink:
       type: string
       example: Скачати|https://sourceforge.net/projects/axbills/

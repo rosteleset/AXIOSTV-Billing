@@ -27,8 +27,8 @@ start_dir=`pwd`
 UPDATE_LOGIN=
 UPDATE_PASSWD=
 UPDATE_CHECKSUM=
-#SNAPHOT_URL=http://axbills.net.ua/snapshots/
-UPDATE_URL="http://axbills.net.ua/misc/update.php"
+#SNAPHOT_URL=http://billing.axiostv.ru/snapshots/
+UPDATE_URL="http://billing.axiostv.ru/misc/update.php"
 CUR_FILE=$0;
 ROLLBACK=""
 AMON_FILE=""
@@ -64,7 +64,7 @@ check_perl () {
     echo
     echo "*****************************************************************"
     echo "Please update PERL to version: 5.18 or highter "
-    echo "Detail: http://axbills.net.ua/forum/viewtopic.php?f=10&t=8021"
+    echo "Detail: http://billing.axiostv.ru/forum/viewtopic.php?f=10&t=8021"
     echo "*****************************************************************"
     echo
     exit;
@@ -306,7 +306,7 @@ FILE2=`cat fileio.sysbench | tail -1`
 echo "Filesystem write: ${FILE1}"
 echo "Filesystem read : ${FILE2}"
 
-URL="http://axbills.net.ua/misc/update.php?bench=${sys_id}&CPU_ONE=${CPU1}&CPU_MULT=${CPU2}&MEM_WR=${MEM1}&MEM_RD=${MEM2}&FILE_WR=${FILE1}&FILE_RD=${FILE2}";
+URL="http://billing.axiostv.ru/misc/update.php?bench=${sys_id}&CPU_ONE=${CPU1}&CPU_MULT=${CPU2}&MEM_WR=${MEM1}&MEM_RD=${MEM2}&FILE_WR=${FILE1}&FILE_RD=${FILE2}";
 _fetch /tmp/bench ${URL}
 
 if [ "${DEBUG}" != "" ] ; then
@@ -565,7 +565,7 @@ check_mysql_version () {
     if [ "${MYSQL_VERSION}" -lt 56 ]; then
       echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
       echo "! Please Update Mysql Server to version 5.6 or higher                        !"
-      echo "! More information http://axbills.net.ua/forum/viewtopic.php?f=1&t=6951       !"
+      echo "! More information http://billing.axiostv.ru/forum/viewtopic.php?f=1&t=6951       !"
       echo "! use -skip_check_sql                                                        !"
       echo "!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!"
       exit;
@@ -595,16 +595,16 @@ get_current_version () {
 
     if [ ${UPDATE_VERSION} = "0.8" ];
         then
-          CHANGELOG_URL="http://axbills.net.ua/wiki/doku.php?id=axbills:changelogs:0.8x&do=export_raw"
+          CHANGELOG_URL="http://billing.axiostv.ru/wiki/doku.php?id=axbills:changelogs:0.8x&do=export_raw"
         else
-          CHANGELOG_URL="http://axbills.net.ua/wiki/doku.php?id=axbills:changelogs:0.7x&do=export_raw"
+          CHANGELOG_URL="http://billing.axiostv.ru/wiki/doku.php?id=axbills:changelogs:0.7x&do=export_raw"
     fi;
   else
     if [ "${UPDATE_DATE}" = '$conf{version}='  ]; then
       UPDATE_DATE=99999999
     fi;
   
-    CHANGELOG_URL="http://axbills.net.ua/wiki/doku.php?id=axbills:changelogs:0.5x&do=export_raw"
+    CHANGELOG_URL="http://billing.axiostv.ru/wiki/doku.php?id=axbills:changelogs:0.5x&do=export_raw"
   fi;
   
   if [ "${UPDATE_DATE}" = "" ]; then
@@ -746,7 +746,7 @@ download_module () {
 MODULE=$1;
 echo "Automatically module update";
 
-URL="http://axbills.net.ua/misc/update.php?sign=${SIGN}&SYS_ID=${SYS_ID}&module=${MODULE}";
+URL="http://billing.axiostv.ru/misc/update.php?sign=${SIGN}&SYS_ID=${SYS_ID}&module=${MODULE}";
 _fetch "${TMP_DIR}/module" "${URL}"
 
 CHECK_MODULE=`grep ${MODULE} ${TMP_DIR}/module`;
@@ -821,7 +821,7 @@ for module_name in Paysys Turbo Maps2 Storage Ureports Cablecat Callcenter; do
     if [ ${x} -lt ${y} ] > /dev/null 2>&1; then
       echo " "
       echo "!!! PLEASE UPDATE MODULE ${DB_MODULE} (current: ${OLD} required: ${NEW}) "
-      echo " New version you can download from support system: https://support.axbills.net.ua/"
+      echo " New version you can download from support system: https://support.billing.axiostv.ru/"
 
       DOWNLOAD_COM_MODULES=1;
       if [ "${DOWNLOAD_COM_MODULES}" != "" ]; then
@@ -1236,9 +1236,9 @@ git_update () {
         echo "${AUTH_KEY} ~/.ssh/id_dsa.${AUTH_USER}"
         cp "${AUTH_KEY}" ~/.ssh/id_dsa.${AUTH_USER}
         chmod 400 ~/.ssh/id_dsa.${AUTH_USER}
-        echo "Host axbills.net.ua
+        echo "Host billing.axiostv.ru
          User ${AUTH_USER}
-         Hostname axbills.net.ua
+         Hostname billing.axiostv.ru
          IdentityFile ~/.ssh/id_dsa.${AUTH_USER}" >> ~/.ssh/config
       else
         echo "Wrong key '${AUTH_KEY}' ";
@@ -1247,7 +1247,7 @@ git_update () {
     fi;
     
   else
-    CHECK_KEY=`grep axbills.net.ua ~/.ssh/config`;
+    CHECK_KEY=`grep billing.axiostv.ru ~/.ssh/config`;
     if [ "${CHECK_KEY}" = "" ]; then
       echo "You don\'t have update key"
       echo "Contact ABillS Suppot Team"
@@ -1275,7 +1275,7 @@ git_update () {
       BRANCH=" -b ${BRANCH_NAME} "
     fi;
     #Git repository
-    ${GIT} clone ${BRANCH} ssh://git@axbills.net.ua:22/axbills.git
+    ${GIT} clone ${BRANCH} ssh://git@billing.axiostv.ru:22/axbills.git
   fi;
 }
 
@@ -1543,7 +1543,7 @@ else
     if [ x"${CURE_CHARSET}" = xcp1251 ]; then
       echo "First convert to UTF8";
       echo "see manual: "
-      echo " http://axbills.net.ua/forum/viewtopic.php?f=1&t=5795"
+      echo " http://billing.axiostv.ru/forum/viewtopic.php?f=1&t=5795"
       exit;
     fi;
   fi;
@@ -1594,7 +1594,7 @@ else
 
   cd ${TMP_DIR}
   #Update from snapshots
-  # http://axbills.net.ua/snapshots/
+  # http://billing.axiostv.ru/snapshots/
   if [ "${GET_SNAPSHOT}" != "" ]; then
     snapshot_update
   #Git update

@@ -1,5 +1,5 @@
 <form name='FEEDBACK' id='form_FEEDBACK' class='form form-horizontal'
-      action='https://support.axbills.net.ua/bugs.cgi' target='_blank'
+      action='https://support.billing.axiostv.ru/bugs.cgi' target='_blank'
       method='post' >
   <input type='hidden' name='index' value='$index'/>
   <input type='hidden' name='SYS_ID' value='%SYS_ID%'/>

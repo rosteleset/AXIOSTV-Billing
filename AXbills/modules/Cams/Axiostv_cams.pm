@@ -217,7 +217,7 @@ sub _auth {
   my $self = shift;
   my ($attr) = @_;
 
-  my $url = '/admin/api/v0/auth/';
+  my $url = '/bill/api/auth/';
   if ($attr->{USER}) {
     $url = '/api/v0/auth/';
     $self->{URL} = "https://video.axiostv.ru";
@@ -226,7 +226,7 @@ sub _auth {
   my $result = $self->_send_request({
     ACTION => $url,
     PARAMS => {
-      username => $attr->{USER} ? $attr->{UID} : $self->{LOGIN},
+      username => $attr->{USER} ? $attr->{LOGIN} : $self->{LOGIN},
       password => $attr->{USER} ? $attr->{PASSWORD} : $self->{PASSWORD},
     },
     POST   => 1,
@@ -239,7 +239,8 @@ sub _auth {
 =head2 user_info($attr)
 
    Arguments:
-     $attr
+     $attr\
+       UID - user id
        ID
 
    Results:
@@ -250,11 +251,143 @@ sub _auth {
 #**********************************************************
 sub user_info {
   my $self = shift;
+  my ($attr) = @_;
 
   my $auth_result = $self->_auth();
 
   $self->_send_request({
-    ACTION => '/admin/api/v0/users/clients/',
+    ACTION => '/bill/api/rights_list/',
+    PARAMS => {
+    uid => $attr->{UID}
+    },
+    POST   => 1,
+    TOKEN  => $auth_result->{token}
+  });
+
+  return $self;
+}
+
+#**********************************************************
+=head2 user_rights_list($attr)
+
+   Arguments:
+     $attr\
+       UID - user id
+       ID
+
+   Results:
+     $self->
+       {RESULT}->{results}
+
+=cut
+#**********************************************************
+sub user_rights_list {
+  my $self = shift;
+  my ($attr) = @_;
+
+  my $auth_result = $self->_auth();
+
+  $self->_send_request({
+    ACTION => '/bill/api/rights_list/',
+    PARAMS => {
+    uid => $attr->{UID}
+    },
+    POST   => 1,
+    TOKEN  => $auth_result->{token}
+  });
+
+  return $self;
+}
+
+#**********************************************************
+=head2 user_rights_add($attr)
+
+   Arguments:
+     $attr\
+       UID - user id
+       #DID - device_id
+
+   Results:
+     $self->
+       {RESULT}->{results}
+
+=cut
+#**********************************************************
+sub user_rights_add {
+  my $self = shift;
+  my ($attr) = @_;
+
+  my $auth_result = $self->_auth();
+
+  $self->_send_request({
+    ACTION => '/bill/api/rights_add/',
+    PARAMS => {
+    uid => $attr->{UID}
+    },
+    POST   => 1,
+    TOKEN  => $auth_result->{token}
+  });
+
+  return $self;
+}
+
+#**********************************************************
+=head2 user_rights_del($attr)
+
+   Arguments:
+     $attr\
+       UID - user id
+       #DID - device_id
+
+   Results:
+     $self->
+       {RESULT}->{results}
+
+=cut
+#**********************************************************
+sub user_rights_del {
+  my $self = shift;
+  my ($attr) = @_;
+
+  my $auth_result = $self->_auth();
+
+  $self->_send_request({
+    ACTION => '/bill/api/rights_del/',
+    PARAMS => {
+    uid => $attr->{UID}
+    },
+    POST   => 1,
+    TOKEN  => $auth_result->{token}
+  });
+
+  return $self;
+}
+
+#**********************************************************
+=head2 user_devices_list($attr)
+
+   Arguments:
+     $attr\
+       UID - user id
+       ID
+
+   Results:
+     $self->
+       {RESULT}->{results}
+
+=cut
+#**********************************************************
+sub user_devices_list {
+  my $self = shift;
+  my ($attr) = @_;
+
+  my $auth_result = $self->_auth();
+
+  $self->_send_request({
+    ACTION => '/bill/api/devices_list/',
+    PARAMS => {
+    uid => $attr->{UID}
+    },
     POST   => 1,
     TOKEN  => $auth_result->{token}
   });
@@ -267,7 +400,7 @@ sub user_info {
 
    Arguments:
      $attr
-       ID
+       UID
 
    Results:
      $self->
@@ -282,10 +415,12 @@ sub user_add {
   my $auth_result = $self->_auth();
 
   my $result = $self->_send_request({
-    ACTION => '/admin/api/v0/users/clients/create/',
+    ACTION => '/bill/api/users/clients/create/',
     PARAMS => {
-      username => $attr->{UID},
-      password => $attr->{PASSWORD}
+      uid => $attr->{UID}
+#      username => $attr->{LOGIN},
+#      password => $attr->{PASSWORD},
+#      description => $attr->{FIO}
     },
     POST   => 1,
     TOKEN  => $auth_result->{token}
@@ -320,10 +455,10 @@ sub user_change {
 
   my $auth_result = $self->_auth();
   my $result = $self->_send_request({
-    ACTION => "/admin/api/v0/users/clients/edit/",
+    ACTION => "/bill/api/users/clients/edit/",
     POST   => 'true',
     PARAMS => {
-      username  => $attr->{UID},
+      username  => $attr->{LOGIN},
       id        => $attr->{SUBSCRIBE_ID} || 0,
       is_active => 'null',
     },
@@ -337,7 +472,7 @@ sub user_change {
   }
 
   $self->_send_request({
-    ACTION => "/admin/api/v0/users/clients/change_password/",
+    ACTION => "/bill/api/users/clients/change_password/",
     POST   => 'true',
     PARAMS => {
       password => $attr->{PASSWORD},
@@ -354,7 +489,7 @@ sub user_change {
 
    Arguments:
      $attr
-       ID
+       UID
 
    Results:
      $self->
@@ -368,12 +503,12 @@ sub user_del {
 
   my $auth_result = $self->_auth();
 
-  $attr->{SUBSCRIBE_ID} ||= "";
+  #$attr->{SUBSCRIBE_ID} ||= "";
 
   $self->_send_request({
-    ACTION => '/admin/api/v0/users/clients/delete/',
+    ACTION => '/bill/api/users/clients/delete/',
     PARAMS => {
-      id => $attr->{SUBSCRIBE_ID}
+      uid => $attr->{UID}
     },
     POST   => 1,
     TOKEN  => $auth_result->{token}
@@ -408,7 +543,7 @@ sub camera_add {
   $stream_url = "rtsp://" . $attr->{HOST} . ":" . $attr->{RTSP_PORT} . $attr->{RTSP_PATH};
 
   $result = $self->_send_request({
-    ACTION => "/admin/api/v0/cameras/create/",
+    ACTION => "/bill/api/cameras/create/",
     POST   => 'true',
     PARAMS => {
       title            => $attr->{NAME},
@@ -455,7 +590,7 @@ sub camera_del {
   $attr->{NUMBER_ID} ||= "";
 
   $result = $self->_send_request({
-    ACTION => "/admin/api/v0/cameras/delete/",
+    ACTION => "/bill/api/cameras/delete/",
     POST   => 'true',
     PARAMS => {
       camera_numbers => "[\\\"$attr->{NUMBER_ID}\\\"]",
@@ -489,7 +624,7 @@ sub camera_info {
   $attr->{NUMBER_ID} ||= "";
 
   $result = $self->_send_request({
-    ACTION => "/admin/api/v0/cameras/",
+    ACTION => "/bill/api/cameras/",
     POST   => 'true',
     PARAMS => {
       camera_numbers => "[\\\"$attr->{NUMBER_ID}\\\"]",
@@ -527,7 +662,7 @@ sub camera_change {
   $stream_url = "rtsp://" . $attr->{HOST} . ":" . $attr->{RTSP_PORT} . $attr->{RTSP_PATH};
 
   my $result = $self->_send_request({
-    ACTION => "/admin/api/v0/cameras/edit/",
+    ACTION => "/bill/api/cameras/edit/",
     POST   => 'true',
     PARAMS => {
       number           => "$attr->{NUMBER_ID}",
@@ -572,7 +707,7 @@ sub group_add {
   my $auth_result = $self->_auth();
 
   $result = $self->_send_request({
-    ACTION => "/admin/api/v0/camera_groups/create/",
+    ACTION => "/bill/api/camera_groups/create/",
     POST   => 'true',
     PARAMS => {
       name                 => $attr->{NAME},
@@ -612,7 +747,7 @@ sub group_change {
   my $auth_result = $self->_auth();
 
   my $result = $self->_send_request({
-    ACTION => "/admin/api/v0/camera_groups/edit/",
+    ACTION => "/bill/api/camera_groups/edit/",
     POST   => 'true',
     PARAMS => {
       name                 => $attr->{NAME},
@@ -656,7 +791,7 @@ sub group_del {
   $attr->{SUBGROUP_ID} ||= "";
 
   $result = $self->_send_request({
-    ACTION => "/admin/api/v0/camera_groups/delete/",
+    ACTION => "/bill/api/camera_groups/delete/",
     POST   => 'true',
     PARAMS => {
       ids => "[$attr->{SUBGROUP_ID}]",
@@ -700,7 +835,7 @@ sub change_user_groups {
 
   return $self if !$attr->{IDS} || !$attr->{ID};
 
-  my $user_info = $Cams->_info($attr->{ID});
+  my $user_info = $Cams->_info($attr->{UID});
 
   if (!$Cams->{TOTAL} && $user_info->{SUBSCRIBE_ID}) {
     $self->{errno} = '10101';
@@ -714,7 +849,7 @@ sub change_user_groups {
     my $info = $Cams->group_info($group);
     if ($Cams->{TOTAL} && $info->{SUBGROUP_ID}) {
       $result = $self->_send_request({
-        ACTION => "/admin/api/v0/permissions/camera_groups/add/",
+        ACTION => "/bill/api/permissions/camera_groups/add/",
         POST   => 'true',
         PARAMS => {
           user_id     => "$user_info->{SUBSCRIBE_ID}",
@@ -750,7 +885,7 @@ sub _user_groups {
   my $auth_result = $self->_auth();
 
   $result = $self->_send_request({
-    ACTION => "/admin/api/v0/permissions/camera_groups/filters/",
+    ACTION => "/bill/api/permissions/camera_groups/filters/",
     POST   => 'true',
     PARAMS => {
       user_id => "$user_info->{SUBSCRIBE_ID}",
@@ -793,7 +928,7 @@ sub change_user_cameras {
     my $info = $Cams->stream_info($cameras);
     if ($Cams->{TOTAL} && $info->{NUMBER_ID}) {
       $result = $self->_send_request({
-        ACTION => "/admin/api/v0/permissions/cameras/add/",
+        ACTION => "/bill/api/permissions/cameras/add/",
         POST   => 'true',
         PARAMS => {
           user_id     => "$user_info->[0]{subscribe_id}",

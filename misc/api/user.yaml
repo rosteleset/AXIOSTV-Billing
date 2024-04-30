@@ -5,10 +5,10 @@ info:
   description: "Last modified 2023-07-26"
   contact:
     name: Have a question? Support
-    url: https://support.axbills.net.ua/
-    email: dev@axbills.net.ua
+    url: https://support.billing.axiostv.ru/
+    email: dev@billing.axiostv.ru
 servers:
-  - url: https://demo.axbills.net.ua:9443/api.cgi
+  - url: https://demo.billing.axiostv.ru:9443/api.cgi
     description: Test Demo Server
 tags:
   - name: user

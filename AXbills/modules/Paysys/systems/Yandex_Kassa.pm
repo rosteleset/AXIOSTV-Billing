@@ -82,7 +82,7 @@ sub get_settings {
     NAME    => $PAYSYSTEM_NAME,
     CONF    => \%PAYSYSTEM_CONF,
     IP      => '109.235.160.0/21,185.71.76.0/22,77.75.152.0/21',
-    DOCS    => 'http://axbills.net.ua:8090/pages/viewpage.action?pageId=11404160',
+    DOCS    => 'http://billing.axiostv.ru:8090/pages/viewpage.action?pageId=11404160',
   );
 
   return %SETTINGS;

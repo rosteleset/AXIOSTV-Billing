@@ -9,8 +9,7 @@
   ID => 40xx
 
 =cut
-
-use strict;
+#use strict;
 use AXbills::Base qw(sendmail days_in_month _bp in_array);
 use Cams;
 use Address;
@@ -21,7 +20,11 @@ use Maps::Auxiliary;
 
 our ($db, $admin, %conf, $html, %lang, %ADMIN_REPORT, %permissions);
 
+
+require Cams::Cams; #Nenakhov
+require Cams::Axiostv_cams; #Nenakhov - чтобы можно было вызывать через Cams::Axiostv_cams->user_rights_list()
 require Cams::Services;
+require Cams::Api; #Nenakhov API
 require Cams::Configure;
 require Cams::Users;
 require Cams::User_portal;
@@ -29,6 +32,7 @@ require Cams::Reports;
 require AXbills::Misc;
 require Fees;
 Fees->import();
+
 
 my $Cams = Cams->new($db, $admin, \%conf);
 my $Address = Address->new($db, $admin, \%conf);
@@ -66,7 +70,41 @@ sub cams_main {
   $Cams->{db}{db}->{AutoCommit} = 0;
   $Cams->{db}->{TRANSACTION} = 1;
 
+
+
+
+  if ($FORM{api_js} && $FORM{get_address_devices_list}) {
+    
+    print $html->tpl_show(_include('api_js', 'Cams'), { INFO => $info }, { OUTPUT2RETURN => 1 });
+
+    $result = api_address_devices_list({ UID => $FORM{UID}, ADDRESS => $FORM{get_address_devices_list} });
+    print $result;
+
+    exit;
+  }
+
+  if ($FORM{api_js} && $FORM{address_devices_update}) {
+    
+    print $html->tpl_show(_include('api_js', 'Cams'), { INFO => $info }, { OUTPUT2RETURN => 1 });
+    
+    #print $FORM{arr};
+
+    $result = api_address_devices_update({ UID => $FORM{UID}, ARRAY => $FORM{arr}, ADDRESS => $FORM{address} });
+    print $result;
+
+    exit;
+  }
+
+
+
+
+
+
+
+
+
   if ($FORM{add_cam}) {
+
     if ($FORM{OWNER}) {
       $user_list = $users->list({ LOGIN => $FORM{OWNER}, UID => '_SHOW', COLS_NAME => 1 });
 
@@ -179,6 +217,21 @@ sub cams_main {
   }
 
   if ($show_add_form) {
+    # if ($camera->{FOLDER_ID}) {
+    #   $camera->{GROUPS_SELECT} = $html->form_select('GROUP_ID', {
+    #     SELECTED  => $camera->{GROUP_ID} || q{},
+    #     SEL_LIST  => $Cams->group_list({
+    #       NAME         => "_SHOW",
+    #       SERVICE_NAME => "_SHOW",
+    #       COLS_NAME    => 1,
+    #     }),
+    #     SEL_VALUE => 'service_name,name',
+    #     SEL_KEY   => 'id',
+    #     NO_ID     => 1,
+    #     EX_PARAMS => 'required="required"',
+    #   });
+    # }
+    # else {
     $camera->{FOLDERS} = $camera->{FOLDER_ID} || -1;
     $camera->{FOLDER_SELECT} = $html->form_select('FOLDER_ID', {
       SELECTED  => $camera->{FOLDER_ID} || q{},
@@ -286,6 +339,18 @@ sub cams_main {
   }
 
   print $cameras_table->show();
+
+
+  $html->tpl_show(_include('cams_stream_add_geo', 'Cams'), {
+      %$camera,
+      DISABLED_CHECKED   => $camera->{DISABLED} ? 'checked' : '',
+      LIMIT_ARCHIVE      => $camera->{LIMIT_ARCHIVE} ? 'checked' : '',
+      PRE_IMAGE          => $camera->{PRE_IMAGE} ? 'checked' : '',
+      CONSTANTLY_WORKING => $camera->{CONSTANTLY_WORKING} ? 'checked' : '',
+      ONLY_VIDEO         => $camera->{ONLY_VIDEO} ? 'checked' : '',
+      SUBMIT_BTN_ACTION  => ($FORM{chg_cam}) ? 'change_cam' : 'add_cam',
+      SUBMIT_BTN_NAME    => ($FORM{chg_cam}) ? $lang{CHANGE} : $lang{ADD},
+    });
 
   return 1;
 }
@@ -707,11 +772,108 @@ sub cams_user_groups {
   my $groups_table = $html->table({
     width   => '100%',
     caption => $lang{GROUPS},
-    title   => [ "#", $lang{NAME}, $lang{LOCATION}, $lang{COMMENTS} ],
-    ID      => 'CAMERAS_GROUPS_ID'
+    title   => [ "#","ID", "Заголовок", "Тип", "Удалить" ],
+    ID      => 'CAMERAS_GROUPS_ID',
+    MENU       => "$lang{ADD}:index=$index&add_form=1:add",
   });
+  #print $index;
 
   $Cams = $attr->{SERVICE_INFO} if $attr->{SERVICE_INFO};
+
+  if ($FORM{change_now}) {
+    $Cams->user_groups(\%FORM);
+  }
+
+  $current_user_group = $Cams->user_groups_list({
+    TP_ID     => $Cams->{TP_ID},
+    ID        => $FORM{ID} || $FORM{chg},
+    PAGE_ROWS => 10000,
+    COLS_NAME => 1
+  });
+
+  foreach my $group (@$current_user_group) {
+    push @active_groups, $group->{group_id};
+  }
+
+  if ($attr->{UID} && $attr->{SERVICE_ID}) {
+    $user = $Users->pi({ UID => $attr->{UID} });
+    if ($Users->{TOTAL}) {
+      my $user_address = $Address->address_info($user->{LOCATION_ID});
+      $user_groups = $Cams->access_group_list({
+        NAME        => "_SHOW",
+        STREET_ID   => $user_address->{STREET_ID} || 0,
+        DISTRICT_ID => $user_address->{DISTRICT_ID} || 0,
+        LOCATION_ID => $user->{LOCATION_ID} || 0,
+        SERVICE_ID  => $attr->{SERVICE_ID},
+        COMMENT     => "_SHOW",
+        COLS_NAME   => 1,
+      });
+
+      
+      use Data::Dumper;
+      
+      foreach my $group (@$user_groups) {
+
+        my $location = _cams_show_location('', $group);
+        my $checkbox = $html->form_input('IDS', $group->{id}, {
+          TYPE          => 'checkbox',
+          STATE         => (in_array($group->{id}, \@active_groups) ? 1 : undef),
+          OUTPUT2RETURN => 1,
+        });
+        $groups_table->addrow($checkbox, $group->{name}, $location, $group->{comment});
+      }
+    }
+  }
+
+  my %submit_h = ();
+  $submit_h{change_now} = "$lang{SAVE}";
+
+  return $html->form_main({
+    CONTENT => $groups_table->show({ OUTPUT2RETURN => 1 }),
+    HIDDEN  => {
+      UID   => $FORM{UID},
+      ID    => $FORM{chg} || $FORM{ID},
+      TP_ID => $Cams->{TP_ID},
+      index => $index,
+      chg   => $FORM{chg},
+    },
+    METHOD  => 'get',
+    SUBMIT  => \%submit_h
+  });
+}
+
+#**********************************************************
+=head2 cams_user_rights$attr)
+
+  Arguments:
+    $attr
+      SERVICE_INFO
+      SHOW_ONLY     - Show only info
+      UID
+
+
+  Results:
+
+=cut
+#**********************************************************
+sub cams_user_rights {
+  my ($attr) = @_;
+
+  my $user = '';
+  my $user_groups = '';
+  my $current_user_group = '';
+  my @active_groups = ();
+  my $groups_table = $html->table({
+    width   => '100%',
+    caption => "$lang{PERMISSION}",
+    title   => [ "ID", "Заголовок", "Тип", "Удалить" ],
+    ID      => 'CAMERAS_RIGHTS_ID',
+    MENU       => "$lang{ADD}:index=$index&add_user_rights=1&UID=$attr->{UID}&add_form=1:add",
+  });
+
+  if ($attr->{SERVICE_INFO}) {
+    $Cams = $attr->{SERVICE_INFO};
+  }
 
   if ($FORM{change_now}) {
     $Cams->user_groups(\%FORM);
@@ -749,10 +911,106 @@ sub cams_user_groups {
           STATE         => (in_array($group->{id}, \@active_groups) ? 1 : undef),
           OUTPUT2RETURN => 1,
         });
-        $groups_table->addrow($checkbox, $group->{name}, $location, $group->{comment});
+        #$groups_table->addrow($checkbox, $group->{name}, $location, $group->{comment});
       }
     }
   }
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+      
+      
+
+
+
+
+
+
+      # Удаляем сущность из right_list    
+      if ($FORM{del_rights} || $FORM{DELETE_IDS}) {
+        my $delete_ids;
+        if ($FORM{DELETE_IDS}) {
+          $delete_ids = $FORM{DELETE_IDS};
+        } elsif ($FORM{del_rights}) {
+          
+          $delete_ids = $FORM{del_rights};
+        }
+        
+        api_delete_right_list( { UID => $FORM{UID}, DELETE_IDS => $delete_ids } );
+      }
+     
+      # Добавляем привязку камеры к пользователю
+      if ($FORM{add_user_rights_do}) {        
+        api_add_right_list({ UID => $FORM{UID}, ADD_IDS => $FORM{add_user_rights_do} });         
+      }
+      
+      
+
+
+
+
+
+
+
+
+
+      
+      # Получаем камеры пользователя
+      # обращаться научились - но сам модуль axiostv_cams.pm - не доделан
+      #my $result = Cams::Axiostv_cams->user_rights_list({ UID => $FORM{UID}, USER => 'true', LOGIN => 'abills', PASSWORD => 'AsmodeuS'});
+
+      #my $result = Cams::Axiostv_cams->user_rights_list({ UID => $FORM{UID}, USER => 'true', LOGIN => 'abills', PASSWORD => 'AsmodeuS'});
+      #my $result = Cams::Axiostv_cams->test(); #не берет он из базы урл - падает в ошибку
+      
+
+     
+      my $user_rights_array = api_get_right_list({ UID => $FORM{UID} });
+
+      
+      use Data::Dumper;
+      
+      my $Element;
+      my $delete_button;
+      while($Element=shift($user_rights_array->{rights})){
+        #print $Element->{device_id};
+        my $checkbox = $html->form_input('DELETE_IDS', $Element->{device_id}, {
+          TYPE          => 'checkbox',
+          STATE         => (in_array($Element->{device_id}, \@active_groups) ? 1 : undef),
+          OUTPUT2RETURN => 1,
+        });
+        $delete_button = $html->button('', "index=$index&del_rights=$Element->{device_id}&UID=".$FORM{UID}, { MESSAGE => "$lang{DEL} $Element->{title}?", class => 'del' });
+        $groups_table->addrow($Element->{device_id}, $Element->{title}, $Element->{device_type}, $checkbox.$delete_button);
+      }  
+
+
+
+
+
+
+
+  my %submit_h = ();
+  $submit_h{change_now} = "$lang{SAVE}";
 
   return $html->form_main({
     CONTENT => $groups_table->show({ OUTPUT2RETURN => 1 }),
@@ -767,6 +1025,119 @@ sub cams_user_groups {
     SUBMIT  => { change_now => $lang{CHANGE} }
   });
 }
+
+
+
+
+
+
+
+
+
+
+#**********************************************************
+=head2 cams_user_keys($attr)
+
+  Arguments:
+    $attr
+      SERVICE_INFO
+      SHOW_ONLY     - Show only info
+      UID
+
+
+  Results:
+
+=cut
+#**********************************************************
+sub cams_user_keys {
+  my ($attr) = @_;
+
+  my $user = '';
+  my $user_groups = '';
+  my $current_user_group = '';
+  my @active_groups = ();
+  my $keys_table = $html->table({
+    width   => '100%',
+    caption => "Ключи",
+    title   => [ "Ключ", "Комментарий", "Удалить" ],
+    ID      => 'CAMERAS_KEYS_ID',
+    MENU       => "$lang{ADD}:index=$index&add_user_keys=1&UID=$attr->{UID}:add",
+  });
+
+  if ($attr->{SERVICE_INFO}) {
+    $Cams = $attr->{SERVICE_INFO};
+  }
+
+  
+      # Удаляем сущность из user_keys    
+      if ($FORM{del_keys} || $FORM{DELETE_KEYS_IDS}) {
+        my $delete_ids;
+        if ($FORM{DELETE_KEYS_IDS}) {
+          $delete_ids = $FORM{DELETE_KEYS_IDS};
+        } elsif ($FORM{del_keys}) {
+          
+          $delete_ids = $FORM{del_keys};
+        }
+        
+        api_delete_key( { UID => $FORM{UID}, DELETE_KEYS_IDS => $delete_ids } );
+      }
+     
+      # Добавляем ключ
+      if ($FORM{add_user_keys_do}) {        
+        api_add_key({ UID => $FORM{UID}, KEY => $FORM{add_key__key}, COMMENT => $FORM{comment} });         
+      }
+      
+      
+      # Получаем ключ
+      my $user_keys_array = api_get_keys_list({ UID => $FORM{UID} });
+      
+      use Data::Dumper;
+      
+      my $Element;
+      my $delete_button;
+      while($Element=shift($user_keys_array->{keys})){
+        #print $Element->{device_id};
+        my $checkbox = $html->form_input('DELETE_IDS', $Element->{device_id}, {
+          TYPE          => 'checkbox',
+          STATE         => (in_array($Element->{device_id}, \@active_groups) ? 1 : undef),
+          OUTPUT2RETURN => 1,
+        });
+        $delete_button = $html->button('', "index=$index&del_keys=$Element->{key}&UID=".$FORM{UID}, { MESSAGE => "$lang{DEL} $Element->{title}?", class => 'del' });
+        $keys_table->addrow($Element->{key}, $Element->{comment}, $checkbox.$delete_button);
+      }  
+
+
+
+  my $add_keys = $html->tpl_show(_include('cams_keys_add_form', 'Cams'), { %info, %FORM }, { OUTPUT2RETURN => 1 });
+
+
+
+  my %submit_h = ();
+  $submit_h{change_now} = "$lang{SAVE}";
+
+  return $html->form_main({
+    CONTENT => $keys_table->show({ OUTPUT2RETURN => 1 }).$add_keys,
+    HIDDEN  => {
+      UID   => $FORM{UID},
+      ID    => $FORM{chg} || $FORM{ID},
+      TP_ID => $Cams->{TP_ID},
+      index => $index,
+      chg   => $FORM{chg},
+    },
+    METHOD  => 'get',
+    SUBMIT  => \%submit_h
+  });
+}
+
+
+
+
+
+
+
+
+
+
 
 #**********************************************************
 =head2 cams_user_folders$attr)
@@ -1032,6 +1403,19 @@ sub cams_monthly_fees {
           if ($d != $START_PERIOD_DAY && !$tp->{abon_distribution}) {
             next;
           }
+          # If activation set to monthly Fees taken throught 30 days
+          # elsif ($user{ACTIVATE} ne '0000-00-00' && !$tp->{abon_distribution}) {
+          #   my ($activate_y, $activate_m, $activate_d) = split(/-/, $user{ACTIVATE}, 3);
+          #   # my $active_unixtime = POSIX::mktime(0, 0, 0, $activate_d, ($activate_m - 1), $activate_y - 1900, 0, 0, 0);
+          #
+          #   #Block small deposit
+          #   if ($tp->{FIXED_FEES_DAY} && ($d != $activate_d || ($d != $START_PERIOD_DAY && $activate_d > 28))) {
+          #     next;
+          #   }
+          #   else {
+          #     next;
+          #   }
+          # }
         }
         #Block negative
         else {
@@ -1197,25 +1581,103 @@ sub _cams_correct_host {
 sub _cams_check_free_places_in_group {
   my ($attr) = @_;
 
-  return 1 if !$attr->{GROUP_ID};
+  if ($attr->{GROUP_ID}) {
+    my $group = $Cams->group_info($FORM{GROUP_ID});
+    $Cams->streams_list({
+      GROUP_ID => $FORM{GROUP_ID},
+    });
 
-  my $group = $Cams->group_info($FORM{GROUP_ID});
-  $Cams->streams_list({ GROUP_ID => $FORM{GROUP_ID} });
+    if ($group->{MAX_CAMERAS} <= $Cams->{TOTAL} && $attr->{CHECK_GROUPS} && $group->{MAX_CAMERAS}) {
+      $html->message("err", "$lang{ERROR}", $lang{NUMBER_OF_GROUPS});
+      return 0;
+    }
+    elsif ($attr->{CHECK_GROUPS}) {
+      return 1;
+    }
 
-  if ($group->{MAX_CAMERAS} <= $Cams->{TOTAL} && $attr->{CHECK_GROUPS} && $group->{MAX_CAMERAS}) {
-    $html->message('err', $lang{ERROR}, $lang{NUMBER_OF_GROUPS});
-    return 0;
+    my $current_users = $Cams->users_group_count({
+      GROUP_ID => $FORM{GROUP_ID},
+    });
+    if ($group->{MAX_USERS} <= $current_users && $attr->{CHECK_USERS} && $group->{MAX_USERS}) {
+      $html->message("err", "$lang{ERROR}", "$lang{NUMBER_OF_USERS}");
+      return 0;
+    }
+    elsif ($attr->{CHECK_USERS}) {
+      return 1;
+    }
   }
-  return 1 if $attr->{CHECK_GROUPS};
-
-  my $current_users = $Cams->users_group_count({ GROUP_ID => $FORM{GROUP_ID} });
-  if ($group->{MAX_USERS} <= $current_users && $attr->{CHECK_USERS} && $group->{MAX_USERS}) {
-    $html->message('err', $lang{ERROR}, $lang{NUMBER_OF_USERS});
-    return 0;
-  }
-  return 1 if $attr->{CHECK_USERS};
 
   return 1;
+}
+
+#**********************************************************
+=head2 _cams_result_former_point_id_filter()
+
+  Arguments:
+    $point_id - Maps object id
+    $attr     - hash ref
+      PARAMS - arr ref
+        0  - layer_id
+
+=cut
+#**********************************************************
+sub _cams_result_former_point_id_filter {
+  my ($point_id) = @_;
+
+  require Maps;
+  Maps->import();
+  my $Maps = Maps->new($db, $admin, \%conf);
+
+  my $map_points_by_id;
+  if (!defined $map_points_by_id) {
+    my $points_list = $Maps->points_list({
+      COORDX    => '_SHOW',
+      COORDY    => '_SHOW',
+      EXTERNAL  => 1,
+      PAGE_ROWS => 10000
+    });
+    $map_points_by_id = sort_array_to_hash($points_list);
+  }
+  my $map_index = undef;
+  if (!$map_index) {
+    $map_index = get_function_index('maps_edit');
+  }
+
+  if ($point_id) {
+    # If have location, we can show it on map
+    if ($map_points_by_id->{$point_id}{coordx} && $map_points_by_id->{$point_id}{coordy}) {
+      return $html->button('', "index=$map_index&show_layer=33&OBJECT_ID=$point_id&BY_POINT_ID=$point_id&SINGLE=1&LAYER_ID=33&POINT_ID=$point_id",
+        { ICON => 'fa fa-globe' })
+    }
+    # Else should change existing object
+    else {
+      return $html->button('', "index=$map_index&add=CUSTOM_POINT&OBJECT_ID=$point_id",
+        { ICON => 'fa fa-map-marker-alt' })
+    }
+  }
+  # If no object defined, propose to add it
+  else {
+    return '';
+  }
+}
+
+#**********************************************************
+=head2 _cams_metres_to_mercator()
+
+=cut
+#**********************************************************
+sub _cams_metres_to_mercator {
+  my ($attr) = @_;
+
+  use Math::Trig;
+  return {} if !$attr->{coordy} || !$attr->{coordx} || !$attr->{angel} || !$attr->{length};
+  $attr->{angel} = 90 - $attr->{angel};
+
+  my $pi = Math::Trig::pi;
+  my $coordx = $attr->{coordx} + (360 * sin(($attr->{angel} * $pi) / 180) * $attr->{length}) / 40000000;
+  my $coordy = $attr->{coordy} + (360 * cos(($attr->{angel} * $pi) / 180) * $attr->{length}) / (40075696 * cos($coordx * ($pi / 180)));
+
+  return { COORDX => $coordx, COORDY => $coordy };
 }
 
 #**********************************************************

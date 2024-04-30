@@ -2072,7 +2072,7 @@ sub form_config {
 
   require AXbills::Fetcher;
   AXbills::Fetcher->import('web_request');
-  my $output = web_request('http://axbills.net.ua/misc/checksum/'.$version, { BODY_ONLY => 1 });
+  my $output = web_request('http://billing.axiostv.ru/misc/checksum/'.$version, { BODY_ONLY => 1 });
   my @rows = split(/[\r\n]/, $output);
 
   foreach my $line (@rows) {

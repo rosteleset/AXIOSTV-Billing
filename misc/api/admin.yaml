@@ -5,10 +5,10 @@ info:
   description: "Last modified 2023-08-11"
   contact:
     name: Have a question? Support contacts
-    url: https://support.axbills.net.ua/
-    email: dev@axbills.net.ua
+    url: https://support.billing.axiostv.ru/
+    email: dev@billing.axiostv.ru
 servers:
-  - url: https://demo.axbills.net.ua:9443/api.cgi
+  - url: https://demo.billing.axiostv.ru:9443/api.cgi
     description: Test Demo Server
 tags:
   - name: users
@@ -6767,11 +6767,11 @@ paths:
                           url:
                             type: string
                             format: uri
-                            example: https://axbills.net.ua/
+                            example: https://billing.axiostv.ru/
                           email:
                             type: string
                             format: email
-                            example: example@axbills.net.ua
+                            example: example@billing.axiostv.ru
                   servers:
                     type: array
                     items:
@@ -6780,7 +6780,7 @@ paths:
                         url:
                           type: string
                           format: uri
-                          example: https://axbills.net.ua:9443/api
+                          example: https://billing.axiostv.ru:9443/api
                         description:
                           type: string
                           example: Test Demo Server
@@ -6822,11 +6822,11 @@ paths:
                           url:
                             type: string
                             format: uri
-                            example: https://axbills.net.ua/
+                            example: https://billing.axiostv.ru/
                           email:
                             type: string
                             format: email
-                            example: example@axbills.net.ua
+                            example: example@billing.axiostv.ru
                   servers:
                     type: array
                     items:
@@ -6835,7 +6835,7 @@ paths:
                         url:
                           type: string
                           format: uri
-                          example: https://axbills.net.ua:9443/api
+                          example: https://billing.axiostv.ru:9443/api
                         description:
                           type: string
                           example: Test Demo Server

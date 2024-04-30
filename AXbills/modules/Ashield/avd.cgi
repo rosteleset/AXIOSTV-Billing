@@ -459,7 +459,7 @@ else {
 #          <end></end>
 #        </grace-period>
 #        <subscription-period>30</subscription-period>
-#        <url>http://drweb.mlan.net.ua:9080/download/download.ds?id=hoc-aa2a08c6-570c-5021-8c19-e994c1d4</url>
+#        <url>http://drweb.mlan.ru:9080/download/download.ds?id=hoc-aa2a08c6-570c-5021-8c19-e994c1d4</url>
 #      </agent>
 #      <agent unsubscribed="0" auto-prolongation="1">
 #        <createdtime>2010-11-27 12:42:36</createdtime>
@@ -471,7 +471,7 @@ else {
 #          <end>2010-12-28 13:42:36</end>
 #        </grace-period>
 #        <subscription-period>30</subscription-period>
-#        <url>http://drweb.mlan.net.ua:9080/download/download.ds?id=hoc-c0196230-aaac-c4f8-4ebf-a4fd6ac3</url>
+#        <url>http://drweb.mlan.ru:9080/download/download.ds?id=hoc-c0196230-aaac-c4f8-4ebf-a4fd6ac3</url>
 #      </agent>
 #    </agents>
 #  </user>
@@ -482,7 +482,7 @@ else {
 #    <billing-id></billing-id>
 #    <billing-login></billing-login>
 #    <billing-contract></billing-contract>
-#    <email>axbills@mlan.net.ua</email>
+#    <email>axbills@mlan.ru</email>
 #    <status>ENABLE</status>
 #    <max-agents>-1</max-agents>
 #    <address></address>
@@ -505,7 +505,7 @@ else {
 #    <billing-id>2263</billing-id>
 #    <billing-login>test</billing-login>
 #    <billing-contract></billing-contract>
-#    <email>asm@yes.net.ua</email>
+#    <email>asm@yes.ru</email>
 #    <status>ENABLE</status>
 #    <max-agents>-1</max-agents>
 #    <address></address>

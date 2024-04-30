@@ -332,6 +332,6 @@ sub finish_execution {
 print "\nExit 0\n";
 
 1;
-=head1 AUTHOR Anykey <dev@axbills.net.ua>
+=head1 AUTHOR Anykey <dev@billing.axiostv.ru>
 
 =cut

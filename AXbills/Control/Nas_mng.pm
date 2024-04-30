@@ -211,7 +211,7 @@ sub form_nas_mng {
       );
     }
     else {
-      $html->message('callout', 'Install wrt_configure.cgi', $html->button("ABillS Wiki ", '', { GLOBAL_URL => 'http://axbills.net.ua/wiki/doku.php/axbills:docs:nas:chillispot:openwrt#axbills' }));
+      $html->message('callout', 'Install wrt_configure.cgi', $html->button("ABillS Wiki ", '', { GLOBAL_URL => 'http://billing.axiostv.ru/wiki/doku.php/axbills:docs:nas:chillispot:openwrt#axbills' }));
     }
   }
   elsif ($Nas->{NAS_TYPE} && $Nas->{NAS_TYPE} =~ /mikrotik/) {

@@ -178,7 +178,7 @@ if [ ! x"${NOT_INSTALLED}" = x'' ]; then
   echo "!!! You have non-installed programs:";
   for program in ${NOT_INSTALLED}; do
     echo "  You should install: ${program}";
-    echo " TIP: Please visit http://axbills.net.ua/wiki/doku.php/axbills:docs:manual:install_${OS_NAME}:ru for instructions";
+    echo " TIP: Please visit http://billing.axiostv.ru/wiki/doku.php/axbills:docs:manual:install_${OS_NAME}:ru for instructions";
 
   done
 fi;
@@ -195,7 +195,7 @@ if [ ! x"${NOT_INSTALLED}" = x'' ]; then
   echo "  !!! You have non-installed services:";
   for program in ${NOT_INSTALLED}; do
     echo "  You should install if it is required in your scheme: ${program} ";
-    echo " TIP: Please visit http://axbills.net.ua/wiki/doku.php/axbills:docs:manual:install_${OS_NAME}:ru for instructions";
+    echo " TIP: Please visit http://billing.axiostv.ru/wiki/doku.php/axbills:docs:manual:install_${OS_NAME}:ru for instructions";
   done
 fi;
 

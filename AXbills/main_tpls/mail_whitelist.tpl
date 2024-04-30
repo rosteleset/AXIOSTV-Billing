@@ -1286,7 +1286,7 @@ executivemail.co.za
 exemail.com.au
 exg6.exghost.com
 explodemail.com
-express.net.ua
+express.ru
 expressasia.com
 extenda.net
 extended.com
@@ -4082,7 +4082,7 @@ my10minutemail.com
 mybox.it
 mycabin.com
 mycampus.com
-mycard.net.ua
+mycard.ru
 mycity.com
 mycleaninbox.net
 mycool.com

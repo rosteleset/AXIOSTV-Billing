@@ -26,7 +26,7 @@ BEGIN {
 # 2 is first peer network
 my %class_source = (
   #UA-IX
-  2 => 'https://noc.ix.net.ua/ua-list.txt', #'http://noc.ua-ix.net.ua/ua-list.txt',
+  2 => 'https://noc.ix.ru/ua-list.txt', #'http://noc.ua-ix.ru/ua-list.txt',
   #Crimea IX
   # 3 => 'http://193.33.236.1/crimea-ix.txt'
   # Belarus AX

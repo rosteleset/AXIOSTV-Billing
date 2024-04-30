@@ -11,7 +11,7 @@
 
   This is main controlling script for running axbills related daemons
   
-  http://axbills.net.ua/wiki/doku.php/axbills:docs:manual:websocket_backend
+  http://billing.axiostv.ru/wiki/doku.php/axbills:docs:manual:websocket_backend
   
 =head1 OPTIONS
 

@@ -70,7 +70,7 @@ BEGIN {
     GIT_BRANCH     => 'master',
     SOURCE         => 'git',
     DEBUG          => 0,
-    GIT_REPO_HOST  => 'git@axbills.net.ua',
+    GIT_REPO_HOST  => 'git@billing.axiostv.ru',
     USERNAME       => '',
     PASSWORD       => '',
     update_sql     => '',
@@ -119,8 +119,8 @@ my $SOURCE = $OPTIONS{SOURCE};
 my $DEBUG = $OPTIONS{DEBUG} || 0;
 my $GIT_REPO_HOST = $OPTIONS{GIT_REPO_HOST};
 
-my $ABILLS_UPDATE_URL = "http://axbills.net.ua/misc/update.php";
-my $SUPPORT_URL = 'https://support.axbills.net.ua/index.cgi';
+my $ABILLS_UPDATE_URL = "http://billing.axiostv.ru/misc/update.php";
+my $SUPPORT_URL = 'https://support.billing.axiostv.ru/index.cgi';
 
 if ($DEBUG) {
   require Carp::Always;
@@ -571,7 +571,7 @@ sub sources_update {
       push(@git_options, "-C $TEMP_DIR");
       if ($GIT_BRANCH) {
         push(@command_options, "-b $GIT_BRANCH --single-branch");
-        push(@command_options, 'git@axbills.net.ua:axbills.git');
+        push(@command_options, 'git@billing.axiostv.ru:axbills.git');
       }
     }
 
@@ -711,7 +711,7 @@ sub update_sql {
 
     # if ($conf{version}) {
     #   (undef, $update_date) = split('\/', $conf{version});
-    #   $update_url = "http://axbills.net.ua/wiki/doku.php?id=axbills:changelogs:0.5x&do=export_raw";
+    #   $update_url = "http://billing.axiostv.ru/wiki/doku.php?id=axbills:changelogs:0.5x&do=export_raw";
     #   say "Update date: $update_date";
     # }
 
@@ -719,7 +719,7 @@ sub update_sql {
       my $version_content = _read_file("$base_dir/VERSION");
       (undef, $update_date) = split(' ', $version_content);
       $update_date ||= 0;
-      #$update_url = "http://axbills.net.ua/wiki/doku.php?id=axbills:changelogs:0.7x&do=export_raw";
+      #$update_url = "http://billing.axiostv.ru/wiki/doku.php?id=axbills:changelogs:0.7x&do=export_raw";
     }
 
     if ($update_date < 99999999) {
@@ -1043,7 +1043,7 @@ sub download_module {
 
     say "There was an error while receiving module.
     Please try again or download it manually.
-    https://support.axbills.net.ua/index.cgi?get_index=sharing_user_main";
+    https://support.billing.axiostv.ru/index.cgi?get_index=sharing_user_main";
     return 0;
   }
 
@@ -1242,7 +1242,7 @@ sub check_ssh_access {
   push(@identities, split('\n', $user_idenity_file_str)) if ($user_idenity_file_str);
   push(@identities, split('\n', $system_wide_identity_file_str)) if ($system_wide_identity_file_str);
 
-  # Check each identity for connection to git@axbills.net.ua
+  # Check each identity for connection to git@billing.axiostv.ru
   my $ssh = `which ssh`;
   chomp($ssh);
   my $has_access_with_identity = sub {
@@ -1269,9 +1269,9 @@ sub check_ssh_access {
     # TODO: Look for key and save it to /root/.ssh/config
     # TODO: Ask for credentials and save it to $PREFIX/.credentials
 
-    #    Host axbills.net.ua
+    #    Host billing.axiostv.ru
     #      User git
-    #      Hostname axbills.net.ua
+    #      Hostname billing.axiostv.ru
     #      IdentityFile ~/.ssh/id_dsa.anton
 
   }

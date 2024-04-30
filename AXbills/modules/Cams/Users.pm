@@ -55,7 +55,9 @@ sub cams_user {
     $Cams->user_add({
       UID    => $FORM{UID} || "",
       TP_ID  => $FORM{TP_ID} || 0,
-      STATUS => $FORM{STATUS} || 0
+      STATUS => $FORM{STATUS} || 0,
+      ACTIVATE => $FORM{ACTIVATE} || "",
+      EXPIRE   => $FORM{EXPIRE} || ""
     });
 
     show_result($Cams, $lang{ADDED}) if !$Cams->{errno};
@@ -128,6 +130,8 @@ sub cams_user {
       $Cams->{SERVICE_ID} = $result->{SERVICE_ID};
       $Cams->{TP_ID} = $result->{TP_ID};
       $Cams->{STATUS} = $result->{STATUS};
+      $Cams->{ACTIVATE} = $result->{ACTIVATE};
+      $Cams->{EXPIRE} = $result->{EXPIRE};
     }
 
     if ($FORM{UID}) {
@@ -135,6 +139,9 @@ sub cams_user {
 
       $user_groups .= defined($user_folders) ?
         $user_folders : cams_user_groups({ SERVICE_INFO => $Cams, UID => $FORM{UID}, SERVICE_ID => $Cams->{SERVICE_ID} });
+
+      $user_groups .= "<br>";
+
     }
   }
 
@@ -157,15 +164,50 @@ sub cams_user {
 
   $html->tpl_show(_include('cams_user', 'Cams'), { %FORM, %$Cams, });
 
-  print $user_groups if ($user_groups);
-  print $html->br();
+# Перед выводом таблички
+  if ($FORM{add_user_rights}) {
+
+    my $user_rights_array = api_get_devices_list({ UID => $FORM{UID} });
+    my $user_rights_array_items = $user_rights_array->{devices};      
+
+    my $html_txt = "<table class='table table-striped table-hover ' id='add_user_rights'>"; 
+    #for (my $i = 0; $i <= $#user_rights_array_items; $i++) {
+    foreach my $el (@$user_rights_array_items) {
+
+      my $checkbox = $html->form_input('ADD_IDS', $el->{device_id}, {
+        TYPE          => 'checkbox',
+        STATE         => undef,
+        OUTPUT2RETURN => 1,
+      });
+
+      $html_txt .= '<tr><td>'.$checkbox.'</td><td>'.$el->{device_id}.'</td><td>'.$el->{device_type}.'</td><td>'.$el->{title}.'</td></tr>';
+    }  
+    $html_txt .= '</table>';
+    $FORM{html} = $html_txt;
+
+    $html->tpl_show(_include('cams_user_add_user_rights', 'Cams'), { %FORM, %$Cams, });  
+
+  } else {
+    print $user_groups  if ($user_groups);
+    print cams_user_rights({ SERVICE_INFO => $Cams, UID => $FORM{UID}, SERVICE_ID => $Cams->{SERVICE_ID} })  if ($user_groups);
+    print $html->br();print $html->br();
+    if ($FORM{UID}) {
+      my $user_keys = cams_user_keys({ SERVICE_INFO => $Cams, UID => $FORM{UID}, SERVICE_ID => $Cams->{SERVICE_ID} });
+      print $user_keys;
+      print $html->br();
+      print $html->br();
+
+    }
+
+  }
+
 
   $LIST_PARAMS{SERVICE_NAME} = "_SHOW";
   result_former({
     INPUT_DATA      => $Cams,
     FUNCTION        => 'users_list',
     BASE_FIELDS     => 0,
-    DEFAULT_FIELDS  => 'ID,TP_NAME,SERVICE_STATUS',
+    DEFAULT_FIELDS  => 'ID,TP_NAME,SERVICE_STATUS,SERVICE_NAME,ACTIVATE,EXPIRE',
     FUNCTION_FIELDS => 'change, del',
     SKIP_USER_TITLE => 1,
     EXT_TITLES      => {
@@ -173,6 +215,8 @@ sub cams_user {
       tp_name        => $lang{TARIF_PLAN},
       service_status => $lang{STATUS},
       service_name   => $lang{SERVICE},
+      activate       => $lang{ACTIVATE},
+      expire         => $lang{EXPIRE}
     },
     STATUS_VALS     => sel_status({ HASH_RESULT => 1 }),
     TABLE           => {

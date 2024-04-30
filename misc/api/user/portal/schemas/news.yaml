@@ -49,4 +49,4 @@ properties:
           example: Акції від нас
         url:
           type: string
-          example: "https://demo.axbills.net.ua:9443/"
+          example: "https://demo.billing.axiostv.ru:9443/"

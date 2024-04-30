@@ -26,7 +26,7 @@ sub modinfo_start_page_show {
   require AXbills::Fetcher;
   AXbills::Fetcher->import(qw(web_request));
 
-  my $output = web_request('http://axbills.net.ua/info.txt', { BODY_ONLY => 1 });
+  my $output = web_request('http://billing.axiostv.ru/info.txt', { BODY_ONLY => 1 });
   my @modules_list = ();
 
   if ($output) {
@@ -62,8 +62,8 @@ sub modinfo_show {
   my ($module_name, $url) = @_;
   my $desc_info = $url;
   unless ($url) {
-    $url = 'http://axbills.net.ua:8090/display/AB/'. lc($module_name);
-    $desc_info = 'http://axbills.net.ua/wiki/doku.php?id=axbills:docs:modules:'. lc($module_name) .':ru';
+    $url = 'http://billing.axiostv.ru:8090/display/AB/'. lc($module_name);
+    $desc_info = 'http://billing.axiostv.ru/wiki/doku.php?id=axbills:docs:modules:'. lc($module_name) .':ru';
   }
 
   #Get module info

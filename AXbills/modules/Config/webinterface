@@ -440,7 +440,7 @@ sub config_update_docs {
     return;
   }
 
-  my $base_site = 'http://axbills.net.ua';
+  my $base_site = 'http://billing.axiostv.ru';
   my $base_docu_link = "$base_site/wiki";
   my $doc_id = "113745617";
 

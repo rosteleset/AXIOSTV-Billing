@@ -2069,7 +2069,7 @@ var init_map = function () {
   L.Control.Watermark = L.Control.extend({
     onAdd: function () {
       let href = L.DomUtil.create('a', 'axbills_href');
-      href.href = MAPS_WATERMARK_URL || 'http://axbills.net.ua/';
+      href.href = MAPS_WATERMARK_URL || 'http://billing.axiostv.ru/';
       href.target = '_blank';
 
       let img = L.DomUtil.create('img', 'axbills_href', href);

@@ -18,7 +18,7 @@
         accountId: accountId, //идентификатор плательщика (обязательно для создания подписки)
         invoiceId: '%TRANSACTION%',
         onSuccess: '%SUCCESS_URL%',
-        onFail: 'http://axbills.net.ua/wiki/doku.php/axbills:docs:modules:paysys:cloudpayments',
+        onFail: 'http://billing.axiostv.ru/wiki/doku.php/axbills:docs:modules:paysys:cloudpayments',
         data: ''
     });
 };    

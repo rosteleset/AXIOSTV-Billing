@@ -5,7 +5,7 @@ properties:
     example: ABillS Lite
   domainName:
     type: string
-    example: demo.axbills.net.ua
+    example: demo.billing.axiostv.ru
   epochTimestamp:
     type: number
     example: 1675887175073

@@ -1721,7 +1721,7 @@ sub DESTROY{};
 
   Copyright (с) 2003-2023 Andy Gulay (ABillS DevTeam) Ukraine
   All rights reserved.
-  https://axbills.net.ua/
+  https://billing.axiostv.ru/
 
 =cut
 

@@ -136,7 +136,7 @@ sub sysinfo_perl {
       $desc,
       $ver || '-',
       $date,
-      $html->button($lang{INFO}, "", { GLOBAL_URL => "http://axbills.net.ua/wiki/doku.php/axbills:docs:manual:soft:$name", ex_params => "TARGET=_new", class => 'info' }),
+      $html->button($lang{INFO}, "", { GLOBAL_URL => "http://billing.axiostv.ru/wiki/doku.php/axbills:docs:manual:soft:$name", ex_params => "TARGET=_new", class => 'info' }),
     );
   }
 

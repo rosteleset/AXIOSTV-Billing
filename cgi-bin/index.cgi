@@ -3,7 +3,7 @@
 =head1 NAME
 
   ABillS User Web interface
-  axbills.net.ua
+  billing.axiostv.ru
 
 =cut
 

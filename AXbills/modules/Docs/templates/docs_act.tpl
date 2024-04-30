@@ -2,40 +2,40 @@
 <tr><td>
 
 <h2 align=center>Акт %ACT_ID%</h2>
-<p align=center>Здачі-прийому робіт (надання послуг)</p>
-
-Ми, представники Замовника _<u>%COMPANY_NAME%</u>__  в
-особі _<u>%REPRESENTATIVE%</u>_, з одного боку, та представники Виконавця ТОВ «Навігатор-Онлайн» в
-особі Бородай В.М., з іншого боку, склали цей акт про те, що Виконавцем було проведено такі роботи
-(надані послуги) згідно рахунку N NO-0000A : <u>%ACCOUNT_ID% %ACCOUNT_DATE%</u>
-<p>Договір: %CONTRACT_ID% %CONTRACT_DATE%
-
+<p align=center>Акт приемки-сдачи услуг</p>
 <br>
-<br>
-<table width=100%>
-<tr><td>Абонентська плата за термін %MONTH%: %ORDER_NAME_1%</td><td>%TOTAL_SUM%</td></tr>
+<table width=100% border=0>
+<tr><td width=30% valign=top>
+<br>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;г. Липецк
+</td>
+<td width=40%>
+&nbsp;
+</td>
+<td valign=top>
+<br>%END_PERIOD%
+</td>
+</tr>
 </table>
 <br>
 <br>
-Роботи виконані у повному обсязі. Сторони претензій один до одного не мають.
 <br>
 <br>
+<p align='justify'>
+&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;Мы, нижеподписавшиеся, от лица Исполнителя ООО "АКСИОСТВ" 
+ГАМОВА Инна Николаевна,от лица Заказчика %FIO%, составили настоящий акт о том, что услуги связи 
+по тарифу %ORDER_NAME_1% за период с %START_PERIOD% по %END_PERIOD% стоимостью %TOTAL_SUM% руб. (НДС не облагается) 
+оказаны в полном объеме, надлежащего качества и удовлетворяют требованиям Заказчика и условиям договора.
+</p>
 <br>
-<table width=100% boRder=1>
-<tr><td>Загальна вартість робіт (послуг), грн:</td><td>%TOTAL_SUM_WITHOUT_VAT%</td></tr>
-<tr><td>ПДВ, грн<td>%TOTAL_SUM_VAT%</td></tr>
-<tr><td>Вартість послуг разом з ПДВ, грн:<td>%TOTAL_SUM%</td></tr>
-</table>
 <br>
 <br>
 <br>
 
 <table width=100% border=0>
 <tr><td width=30% valign=top>
-<br><b>Від виконавця:</b> 
-<br>Петров В.М. _______________
-<br>ТОВ «Навігатор Тест»
-<br>Тел. (000) 111-1111, 111-2222
+<br><b>Исполнитель:</b> 
+<br>ООО "АКСИОСТВ"
+<br>ГАМОВА И. Н.
 </td>
 <td width=40%>
 &nbsp;
@@ -44,10 +44,8 @@
 <td valign=top>
 
 <br>
-<b>Від замовника:</b> 
-<br><u> __%REPRESENTATIVE%__ </u>
-<br>%COMPANY_NAME%
-<br>%PHONE%
+<b>Заказчик:</b> 
+<br>%FIO%
 </td>
 </tr>
 </table>

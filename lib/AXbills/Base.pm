@@ -2356,13 +2356,13 @@ sub load_pmodule {
   else {
     $result = "Content-Type: text/html\n\n" if ($attr->{HEADER});
     $result .= "Can't load '$name'\n".
-      " Install Perl Module <a href='http://axbills.net.ua/wiki/doku.php/axbills:docs:manual:soft:$name' target='_install'>$name</a> \n".
-      " Main Page <a href='http://axbills.net.ua/wiki/doku.php/axbills:docs:other:ru?&#ustanovka_perl_modulej' target='_install'>Perl modules installation</a>\n".
+      " Install Perl Module <a href='http://billing.axiostv.ru/wiki/doku.php/axbills:docs:manual:soft:$name' target='_install'>$name</a> \n".
+      " Main Page <a href='http://billing.axiostv.ru/wiki/doku.php/axbills:docs:other:ru?&#ustanovka_perl_modulej' target='_install'>Perl modules installation</a>\n".
       " or install from <a href='http://www.cpan.org'>CPAN</a>\n";
 
     $result .= "$@" if ($attr->{DEBUG});
 
-    #print "Purchase this module http://axbills.net.ua";
+    #print "Purchase this module http://billing.axiostv.ru";
     if ($attr->{SHOW_RETURN}) {
       return $result;
     }

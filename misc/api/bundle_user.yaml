@@ -5,10 +5,10 @@ info:
   description: "Last modified 2023-07-26"
   contact:
     name: Have a question? Support
-    url: https://support.axbills.net.ua/
-    email: dev@axbills.net.ua
+    url: https://support.billing.axiostv.ru/
+    email: dev@billing.axiostv.ru
 servers:
-  - url: https://demo.axbills.net.ua:9443/api.cgi
+  - url: https://demo.billing.axiostv.ru:9443/api.cgi
     description: Test Demo Server
 tags:
   - name: user
@@ -1680,7 +1680,7 @@ paths:
                       example: Your test code is
                     serviceImg:
                       type: string
-                      example: https://demo.axbills.net.ua/9443/images/attach/abon
+                      example: https://demo.billing.axiostv.ru/9443/images/attach/abon
                     serviceLink:
                       type: string
                       example: Скачати|https://sourceforge.net/projects/axbills/
@@ -2446,7 +2446,7 @@ paths:
                     example: ABillS Lite
                   domainName:
                     type: string
-                    example: demo.axbills.net.ua
+                    example: demo.billing.axiostv.ru
                   epochTimestamp:
                     type: number
                     example: 1675887175073
@@ -4717,7 +4717,7 @@ paths:
                           example: 1
                   url:
                     type: string
-                    example: "https://demo.axbills.net.ua:9443/"
+                    example: "https://demo.billing.axiostv.ru:9443/"
       security:
         - USERSID: [ ]
   /user/portal/news:
@@ -4782,7 +4782,7 @@ paths:
                           example: Акції від нас
                         url:
                           type: string
-                          example: "https://demo.axbills.net.ua:9443/"
+                          example: "https://demo.billing.axiostv.ru:9443/"
       security:
         - USERSID: [ ]
   /user/portal/news/{id}:
@@ -4857,7 +4857,7 @@ paths:
                           example: Акції від нас
                         url:
                           type: string
-                          example: "https://demo.axbills.net.ua:9443/"
+                          example: "https://demo.billing.axiostv.ru:9443/"
       security:
         - USERSID: [ ]
 

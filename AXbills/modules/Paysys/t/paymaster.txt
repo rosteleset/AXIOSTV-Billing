@@ -10,7 +10,7 @@ LMI_SUCCESS_METHOD -> 0
 LMI_FAIL_METHOD -> 2
 LMI_PAYMENT_SYSTEM -> 18
 LMI_SYS_PAYMENT_ID -> 12669798
-LMI_RESULT_URL -> http://demo.axbills.net.ua:9443/paysys_check.cgi
+LMI_RESULT_URL -> http://demo.billing.axiostv.ru:9443/paysys_check.cgi
 LMI_MODE -> 1
 LMI_PAYER_PHONE_NUMBER ->
 LMI_PAYMENT_DESC -> Login: testuser, UID: 2592

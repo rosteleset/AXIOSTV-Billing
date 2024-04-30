@@ -175,12 +175,12 @@ sub form_purchase_module {
     }
 
     print "<div class='alert alert-block alert-danger'><p>модуль '$attr->{MODULE}' не установлен в системе, по вопросам приобретения модуля обратитесь к разработчику
-    <a href='http://axbills.net.ua' target=_newa>ABillS.net.ua</a>
+    <a href='http://billing.axiostv.ru' target=_newa>billing.axiostv.ru</a>
     </p>
     <p>
     Purchase this module '$attr->{MODULE}'. </p>
     <p>
-    For more information visit <a href='http://axbills.net.ua' target=_newa>ABillS.net.ua</a>
+    For more information visit <a href='http://billing.axiostv.ru' target=_newa>billing.axiostv.ru</a>
     </p>
     </div>";
 
@@ -491,7 +491,7 @@ sub _function {
 
     my $version = get_version();
     print << "[END]";
-<form action='https://support.axbills.net.ua/bugs.cgi' method='post'>
+<form action='https://support.billing.axiostv.ru/bugs.cgi' method='post'>
 <input type=hidden name='FN_INDEX' value='$index'>
 <input type=hidden name='FN_NAME' value='$function_name'>
 <input type=hidden name='INPUTS' value='$inputs'>
@@ -2404,7 +2404,7 @@ sub system_info {
   }
 
   my $version     = get_version();
-  my $request_url = 'http://axbills.net.ua/misc/update.php';
+  my $request_url = 'http://billing.axiostv.ru/misc/update.php';
   my @info        = ('users', 'nas', 'tarif_plans', 'admins');
   my @info_data   = ();
 

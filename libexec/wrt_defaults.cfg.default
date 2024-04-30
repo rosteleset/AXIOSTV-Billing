@@ -18,18 +18,18 @@ router_name         "router.ABillSpot%NAS_ID%.com"
 chilli_net			"192.168.182.0/24"
 chilli_enable       "1"
 chilli_nowifibridge "1"
-chilli_radius       "dev.axbills.net.ua"
-chilli_backup      "dev.axbills.net.ua"
-chilli_url          "https://dev.axbills.net.ua:9443/hotspotlogin.cgi"
+chilli_radius       "dev.billing.axiostv.ru"
+chilli_backup      "dev.billing.axiostv.ru"
+chilli_url          "https://dev.billing.axiostv.ru:9443/hotspotlogin.cgi"
 chilli_pass         "radiuspassword"
 chilli_interface    "eth2"
 chilli_radiusnasid  "%NAS_ID%"
 chilli_uamsecret    "secrete"
 chilli_uamanydns    "1"
 chilli_macauth      "0"
-chilli_uamallowed   "dev.axbills.net.ua"
+chilli_uamallowed   "dev.billing.axiostv.ru"
 
-rc_startup          "/bin/sh -c 'echo \"/usr/bin/wget \"\"http://dev.axbills.net.ua/hotspot/wrt_configure.cgi?MAC=\`nvram get wl0_hwaddr|sed s/:/-/g\`\&NAS_ID=\`nvram get chilli_radiusnasid\`\&os_date=\`nvram get os_date|sed s/\" \"/-/g\`\&uptime=\\\`\`\`uptime|sed s/\\\" \\\"/\"\\\\\%20\"/g|sed s/:/\"\\\\\%3A\"/g|sed s/,/\"\\\\\%2C\"/g\\\`\`\` \"\" -O /tmp/up.html\" ' > /tmp/up ; chmod 755 /tmp/up;"
+rc_startup          "/bin/sh -c 'echo \"/usr/bin/wget \"\"http://dev.billing.axiostv.ru/hotspot/wrt_configure.cgi?MAC=\`nvram get wl0_hwaddr|sed s/:/-/g\`\&NAS_ID=\`nvram get chilli_radiusnasid\`\&os_date=\`nvram get os_date|sed s/\" \"/-/g\`\&uptime=\\\`\`\`uptime|sed s/\\\" \\\"/\"\\\\\%20\"/g|sed s/:/\"\\\\\%3A\"/g|sed s/,/\"\\\\\%2C\"/g\\\`\`\` \"\" -O /tmp/up.html\" ' > /tmp/up ; chmod 755 /tmp/up;"
 
 rc_firewall         "iptables -t mangle -A POSTROUTING -p tcp --tcp-flags SYN,RST SYN -m tcpmss --mss 1412:65535 -j TCPMSS --clamp-mss-to-pmtu"
 chilli_additional  "uamhomepage http://192.168.182.1:3990/prelogin"
@@ -52,7 +52,7 @@ is_modified         "1"
 
 
 
-exec:wget http://dev.axbills.net.ua/hotspot/wrt_configure.cgi?MAC=`nvram get wl0_hwaddr|sed s/:/-/g`\&NAS_ID=%NAS_ID% -O /tmp/up.html
+exec:wget http://dev.billing.axiostv.ru/hotspot/wrt_configure.cgi?MAC=`nvram get wl0_hwaddr|sed s/:/-/g`\&NAS_ID=%NAS_ID% -O /tmp/up.html
 exec:nvram commit
 exec:reboot
 

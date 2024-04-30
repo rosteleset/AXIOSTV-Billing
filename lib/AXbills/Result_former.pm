@@ -162,7 +162,7 @@ sub result_row_former {
     $list    - result array list
 
   Examples:
-    http://axbills.net.ua/wiki/doku.php/axbills:docs:development:modules:ru#result_former
+    http://billing.axiostv.ru/wiki/doku.php/axbills:docs:development:modules:ru#result_former
 
 =cut
 #**********************************************************

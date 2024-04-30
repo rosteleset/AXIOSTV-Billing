@@ -234,7 +234,7 @@ sub get_settings {
     ID      => $PAYSYSTEM_ID,
     NAME    => $PAYSYSTEM_NAME,
     CONF    => \%PAYSYSTEM_CONF,
-    DOCS    => 'http://axbills.net.ua:8090/display/AB/Ipay',
+    DOCS    => 'http://billing.axiostv.ru:8090/display/AB/Ipay',
     IP      => '89.111.46.143,89.111.46.144,89.21.77.5,81.94.235.66'
   );
 

@@ -63,7 +63,7 @@ sub json_test_remove {
   open(my $FILE, '<:encoding(UTF-8)', $Bin . "/.test") or die "Could not open file .test' $!";
   my @user_data = split(/[\s\-\:]+/, <$FILE>);
 
-  my $url = "https://demo.axbills.net.ua:9443/index.cgi?&json=1&user=$user_data[0]&passwd=$user_data[1]";
+  my $url = "https://demo.billing.axiostv.ru:9443/index.cgi?&json=1&user=$user_data[0]&passwd=$user_data[1]";
 
   my $test_name = $attr->{TEST_NAME} || 'Test JSON';
   my $test_ = $test_list->[0];

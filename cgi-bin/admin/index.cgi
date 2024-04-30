@@ -2,7 +2,6 @@
 
 =head1 NAME
 
-  АСР Каза 39 Admin Web interface
   billing.axiostv.ru
 
 =cut
@@ -3099,7 +3098,7 @@ sub post_page {
         #Get new version
         require AXbills::Fetcher;
         AXbills::Fetcher->import('web_request');
-#        $output = web_request('http://axiostv.ru/VERSION', { BODY_ONLY => 1, TIMEOUT => 1, METHOD => 'GET' });
+#        $output = web_request('http://billing.axiostv.ru/VERSION', { BODY_ONLY => 1, TIMEOUT => 1, METHOD => 'GET' });
         if (!$output) {
           $output = $conf{VERSION};
         }
@@ -3118,7 +3117,7 @@ sub post_page {
           "$lang{NEW_VERSION}: $new_version_stringed",
           "",
           {
-            GLOBAL_URL => 'https://billing.axiostv.ru/asr-kazna-39/releases/39/-/blob/master/CHANGELOG',
+            GLOBAL_URL => 'https://billing.axiostv.ru/CHANGELOG',
             class => 'btn btn-xs btn-success ml-1',
             ex_params => ' target=_blank'
           }

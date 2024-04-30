@@ -209,7 +209,7 @@ sub equipment_check {
                 . ' VLAN:' . ($data{VLAN} || q{})
                 . ' PORT:' . ($data{PORT} || q{})
                 . ' PORT_NAME:' . ($data{PORT_NAME} || q{}),
-              EXTRA       => 'http://axbills.net.ua',
+              EXTRA       => 'http://billing.axiostv.ru',
               PRIORITY_ID => 0,
             );
             $Events->add_event(\%parameters);

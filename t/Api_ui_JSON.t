@@ -16,7 +16,7 @@ do $Bin . "/JSON_REMOVE.t";
 $ENV{REMOTE_ADDR} = '127.0.0.15';
 
 my @test_list = (
-  # https://demo.axbills.net.ua:9443/index.cgi?user=testuser&passwd=testuser&json=1
+  # https://demo.billing.axiostv.ru:9443/index.cgi?user=testuser&passwd=testuser&json=1
   {
     name       => 'MAIN_MENU',
     params     => {
@@ -25,7 +25,7 @@ my @test_list = (
     result     => '',
     valid_json => 1
   },
-  # https://demo.axbills.net.ua:9443/index.cgi?user=testuser&passwd=testuser&json=1&get_index=form_info
+  # https://demo.billing.axiostv.ru:9443/index.cgi?user=testuser&passwd=testuser&json=1&get_index=form_info
   {
     name       => 'FORM_INFO',
     params     => {
@@ -1325,7 +1325,7 @@ my @test_list = (
   }
 })
   },
-  # https://demo.axbills.net.ua:9443/index.cgi?get_index=internet_user_info&del=1&ID=&COMMENTS=test
+  # https://demo.billing.axiostv.ru:9443/index.cgi?get_index=internet_user_info&del=1&ID=&COMMENTS=test
   {
     name       => 'ACTIVE_SERVICE',
     params     => {
@@ -1401,7 +1401,7 @@ my @test_list = (
   }
 })
   },
-  # https://demo.axbills.net.ua:9443/index.cgi?&get_index=internet_user_info&user=test&passwd=123456&activate=1
+  # https://demo.billing.axiostv.ru:9443/index.cgi?&get_index=internet_user_info&user=test&passwd=123456&activate=1
   {
     name       => 'ACTIVE_TARIFF',
     params     => {
@@ -1496,7 +1496,7 @@ my @test_list = (
   }
 })
   },
-  # https://demo.axbills.net.ua:9443/index.cgi?user=test&passwd=123456&ID=8254&UID=&m=&get_index=internet_user_chg_tp&TP_ID=168&ACCEPT_RULES=Приостановление&set=Установить
+  # https://demo.billing.axiostv.ru:9443/index.cgi?user=test&passwd=123456&ID=8254&UID=&m=&get_index=internet_user_chg_tp&TP_ID=168&ACCEPT_RULES=Приостановление&set=Установить
   {
     name       => 'CHANGE_TARIFF',
     params     => {
@@ -1646,7 +1646,7 @@ my @test_list = (
   }
 })
   },
-  # https://demo.axbills.net.ua:9443/index.cgi?index=44&user=test&passwd=123456&UID=&ID=8254&FROM_DATE=2019-09-01&TO_DATE=2100-01-01&ACCEPT_RULES=1&add=Приостановление
+  # https://demo.billing.axiostv.ru:9443/index.cgi?index=44&user=test&passwd=123456&UID=&ID=8254&FROM_DATE=2019-09-01&TO_DATE=2100-01-01&ACCEPT_RULES=1&add=Приостановление
   {
     name       => 'SUSPENSION_OF_SERVICE',
     params     => {
@@ -1725,7 +1725,7 @@ my @test_list = (
   }
 })
   },
-  # https://demo.axbills.net.ua:9443/index.cgi?get_index=internet_user_chg_tp&ID=&user=test&passwd=123456
+  # https://demo.billing.axiostv.ru:9443/index.cgi?get_index=internet_user_chg_tp&ID=&user=test&passwd=123456
   {
     name       => 'CHG_TARIFF',
     params     => {
@@ -1867,7 +1867,7 @@ my @test_list = (
   }
 })
   },
-  # https://demo.axbills.net.ua:9443/index.cgi?get_index=paysys_user_log&user=test&passwd=123456&json=1
+  # https://demo.billing.axiostv.ru:9443/index.cgi?get_index=paysys_user_log&user=test&passwd=123456&json=1
   {
     name       => 'PAYSYS_LOG',
     params     => {
@@ -2059,7 +2059,7 @@ my @test_list = (
   }
 })
   },
-  # https://demo.axbills.net.ua:9443/index.cgi?get_index=paysys_user_log&info=506&json=1&user=test&passwd=123456
+  # https://demo.billing.axiostv.ru:9443/index.cgi?get_index=paysys_user_log&info=506&json=1&user=test&passwd=123456
   {
     name       => 'PAYSYS_LOG_EXTRA',
     params     => {

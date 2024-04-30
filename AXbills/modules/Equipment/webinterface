@@ -450,7 +450,7 @@ sub equipment_info {
         MAIN_MENU      => defined( $permissions{7}{6} ) ? get_function_index('equipment_model') : '',
         MAIN_MENU_ARGV => "chg=" . ($Equipment->{MODEL_ID} || ''),
         EXT_BUTTON     => $html->button(undef, undef, {
-          GLOBAL_URL => 'http://axbills.net.ua/wiki/doku.php/axbills:docs:manual:admin:equipment:equipment_info',
+          GLOBAL_URL => 'http://billing.axiostv.ru/wiki/doku.php/axbills:docs:manual:admin:equipment:equipment_info',
           ID         => 'MODEL_ID_WIKI_LINK',
           ICON       => 'fa fa-question',
           target     => '_blank',

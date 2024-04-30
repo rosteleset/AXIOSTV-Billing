@@ -7,6 +7,8 @@
 use strict;
 use warnings FATAL => 'all';
 use Cams;
+use AXbills::Filters qw(_utf8_encode);
+use AXbills::Base qw(_bp);
 
 our (
   $html,

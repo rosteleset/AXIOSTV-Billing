@@ -18,7 +18,7 @@
   <input type=hidden name='add_form' value=''>
 
   %NEXT_FEES_WARNING%
-  <div class='card card-primary card-outline card-form'>
+  <div class='card card-primary card-outline container-md'>
     <div class='card-header with-border'>
       <h3 class='card-title'>_{CAMERAS}_: %ID%</h3>
     </div>
@@ -110,4 +110,33 @@
   </div>
 
 </form>
+
+<script>
+  jQuery(document).ready(function() {
+      var flagDateToday = %FLAG_DATE_TODAY%;
+      if (flagDateToday == 1) {
+          var selectedValue = jQuery("#STATUS").val();
+  
+          if (selectedValue == 0) {
+              var currentDate = new Date().toISOString().split("T")[0];
+              jQuery("#ACTIVATE").val(currentDate);
+          } else if ('%ACTION%' == 'change') {
+              jQuery("#ACTIVATE").val('%ACTIVATE%');
+          }
+      }
+  
+      jQuery("#STATUS").on("change", function() {
+          var selectedValue = jQuery(this).val();
+  
+          if (flagDateToday == 1) {
+              if (selectedValue == 0) {
+                  var currentDate = new Date().toISOString().split("T")[0];
+                  jQuery("#ACTIVATE").val(currentDate);
+              } else if ('%ACTION%' == 'change') {
+                  jQuery("#ACTIVATE").val('%ACTIVATE%');
+              }
+          }
+      });
+  });
+  </script>
 

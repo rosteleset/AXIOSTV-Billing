@@ -99,7 +99,7 @@ sub _list {
   my $EXT_TABLE = $self->{EXT_TABLES} || '';
 
   $self->query(
-    "SELECT $self->{SEARCH_FIELDS} cm.uid
+    "SELECT $self->{SEARCH_FIELDS} cm.uid, cm.activate, cm.expire
    FROM cams_main cm
    LEFT JOIN users u           ON (cm.uid=u.uid)
    LEFT JOIN cams_streams cs   ON (cm.uid=cs.uid)
@@ -434,7 +434,7 @@ sub user_change {
 
   my $old_info = $self->_info($attr->{ID});
   $self->{OLD_STATUS} = $old_info->{STATUS};
-  $attr->{EXPIRE}  = $attr->{SERVICE_EXPIRE};
+  #$attr->{EXPIRE}  = $attr->{SERVICE_EXPIRE};
   $attr->{DISABLE} = $attr->{STATUS};
 
   $admin->{MODULE} = $MODULE;
