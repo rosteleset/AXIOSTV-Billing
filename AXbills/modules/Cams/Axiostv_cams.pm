@@ -2,31 +2,32 @@ package Cams::Axiostv_cams;
 
 =head1 NAME
 
+Cams::Axiostv_cams - A Perl module for interacting with the Axiostv_cams service
+
 =head1 VERSION
 
   VERSION: 0.02
-  Revision: 20191010
 
 =head1 SYNOPSIS
 
 =cut
 
-#**********************************************************
-
 use strict;
-use warnings FATAL => 'all';
-
-our $VERSION = 0.02;
-
+use warnings;
 use parent qw(dbcore);
 use AXbills::Base qw(load_pmodule mk_unique_value in_array urlencode convert _bp);
 use AXbills::Fetcher;
 use Digest::SHA qw(hmac_sha256_hex);
-my $MODULE = 'Axoistv_cams';
+
+use JSON;
+
+ use Data::Dumper;
 
 my ($admin, $CONF);
+our $VERSION = 0.02;
+my $MODULE = 'Axoistv_cams';
 my $json;
-my AXbills::HTML $html;
+my $html;
 my $lang;
 my $Cams;
 
@@ -36,9 +37,10 @@ my $Cams;
 sub new {
   my $class = shift;
   my $db = shift;
-  $admin = shift;
-  $CONF = shift;
+   $admin = shift;
+   $CONF = shift;
   my $attr = shift;
+
 
   $Cams = Cams->new($db, $admin, $CONF);
 
@@ -74,7 +76,7 @@ sub new {
   if ($self->{debug}) {
     print "Content-Type: text/html\n\n";
   }
-
+  
   return $self;
 }
 
@@ -998,6 +1000,389 @@ sub get_stream {
 
   $result->{CAMERA} = $camera;
 
+  return $result;
+}
+
+################################
+#### BLOCK DOORPHONE / KEYS ####
+################################
+
+#**********************************************************
+=head2 get_api_token($attr)
+
+RESULT: 
+  return $token
+
+=cut
+#**********************************************************
+
+sub get_api_token {
+    my ($self,$attr) = @_;
+
+    $self->{URL} = $attr->{URL};
+    $self->{LOGIN} = $attr->{LOGIN};
+    $self->{PASSWORD} = $attr->{PASSWORD};
+
+    my @params = ('Content-Type: application/json');
+    my $request_url = "$self->{URL}/bill/api/auth/";
+    my $result = web_request($request_url,
+        {
+            HEADERS      => \@params,
+            DEBUG        => '0',
+            CURL         => 1,
+            CURL_OPTIONS => undef,
+            POST         => '[{\"username\":\"' . $self->{LOGIN} . '\",\"password\":\"' . $self->{PASSWORD} . '\"}]',
+        });
+
+    unless ($result) {
+        warn "Failed to fetch API token";
+        return;
+    }
+
+    my $perl_scalar = eval { $json->decode($result) };
+    if ($@) {
+        warn "Failed to decode JSON response: $@";
+        return;
+    }
+
+    return $perl_scalar->{token};
+}
+
+#**********************************************************
+=head2 dph_keys_get_devices_list($attr)
+
+=cut
+#**********************************************************
+
+sub dph_keys_get_devices_list {
+  my ($self, $attr) = @_;
+
+  my $token = $self->get_api_token($attr);
+  unless ($token) {
+    warn "Failed to get API token";
+    return;
+  }
+
+  my @params = (
+    'Content-Type: application/json',
+    'Authorization: Bearer ' . $token
+  );
+
+  my $result = web_request("$self->{URL}/bill/api/devices_list/",
+    {
+      HEADERS      => \@params,
+      DEBUG        => "0",
+      CURL         => 1,
+      CURL_OPTIONS => "-X POST",
+      POST         => '{\"uid\":\"'.$attr->{UID}.'\"}',
+    }
+  );  
+  my $user_rights_array = $json->decode($result);
+
+  return $user_rights_array;
+}
+
+#**********************************************************
+=head2 dph_keys_get_right_list($attr)
+
+=cut
+#**********************************************************
+
+sub dph_keys_get_right_list {
+    my ($self, $attr) = @_;
+
+    my $token = $self->get_api_token($attr);
+    unless ($token) {
+        warn "Failed to get API token";
+        return;
+    }
+
+    my @params = (
+        'Content-Type: application/json',
+        'Authorization: Bearer ' . $token
+    );
+
+
+    my $result = web_request("$self->{URL}/bill/api/rights_list/",
+        {
+            HEADERS      => \@params,
+            DEBUG        => "0",
+            CURL         => 1,
+            CURL_OPTIONS => "-X POST",
+            POST         => '{\"uid\":\"' . $attr->{UID} . '\"}',
+        }
+    );
+
+
+    unless ($result) {
+        warn "Failed to fetch rights list";
+        return;
+    }
+
+    my $user_rights_array = eval { $json->decode($result) };
+    if ($@) {
+        warn "Failed to decode JSON response: $@";
+        return;
+    }
+
+    return $user_rights_array;
+}
+
+#**********************************************************
+=head2  dph_keys_delete_right_list($attr)
+
+=cut
+#**********************************************************
+
+sub dph_keys_delete_right_list {
+  my ($self, $attr) = @_;
+
+  my $token = $self->get_api_token($attr);
+  unless ($token) {
+    warn "Failed to get API token";
+    return;
+  }
+
+  my @params = (
+    'Content-Type: application/json',
+    'Authorization: Bearer ' . $token
+  );
+
+  my $result = web_request("$self->{URL}/bill/api/rights_del/",
+    {
+      HEADERS      => \@params,
+      DEBUG        => "0",
+      CURL         => 1,
+      CURL_OPTIONS => "-X POST",
+      POST         => '{\"uid\":\"'.$attr->{UID}.'\",\"device_id\":\"[' . $attr->{DELETE_IDS} . ']\"}',
+    }
+  );
+
+  return "TRUE";
+}
+
+#**********************************************************
+=head2  dph_keys_add_right_list($attr)
+
+=cut
+#**********************************************************
+
+sub dph_keys_add_right_list {
+  my ($self, $attr) = @_;
+
+
+  my $token = $self->get_api_token($attr);
+  unless ($token) {
+    warn "Failed to get API token";
+    return;
+  }
+  # Получаем текущие права
+  my $user_rights_array = $self->dph_keys_get_right_list({ UID => $attr->{UID}, URL => $attr->{URL}, PASSWORD => $attr->{PASSWORD}, LOGIN => $attr->{LOGIN} });
+
+  # Проверяем есть ли уже эти айдишники       
+  my @aIds = split(', ', $attr->{ADD_IDS});
+  my $Element;
+  while($Element=shift@{($user_rights_array->{rights})} ){   
+    while (my ($key, $value) = each @aIds) {
+        if ($value) {
+          if ($value == $Element->{device_id}) {
+            delete(@aIds[$key]);
+          }
+        }
+    }
+  }
+
+  my $sIds = "";
+  while (my ($key, $value) = each @aIds) {
+    $sIds .= $value.', ';
+  }
+  $sIds = substr $sIds, 0, -2;
+ 
+  my @params = (
+    'Content-Type: application/json',
+    'Authorization: Bearer ' . $token
+  );
+
+  my $result1 = web_request("$self->{URL}/bill/api/rights_add/",
+    {
+      HEADERS      => \@params,
+      DEBUG        => "0",
+      CURL         => 1,
+      CURL_OPTIONS => "-X POST",
+      POST         => '{\"uid\":\"'. $attr->{UID} .'\",\"device_id\":['.$sIds.']}',
+    }
+  );
+
+  return "TRUE";
+}
+
+#**********************************************************
+=head2  dph_keys_add_key($attr)
+
+=cut
+#**********************************************************
+
+sub dph_keys_add_key {
+  my ($self, $attr) = @_;
+
+  my $token = $self->get_api_token($attr);
+  unless ($token) {
+    warn "Failed to get API token";
+    return;
+  }
+
+  my @params = (
+    'Content-Type: application/json',
+    'Authorization: Bearer ' . $token
+  );
+
+  my $result1 = web_request("$self->{URL}/bill/api/keys_add/",
+    {
+      HEADERS      => \@params,
+      DEBUG        => "0",
+      CURL         => 1,
+      CURL_OPTIONS => "-X POST",
+      POST         => '{\"uid\":\"'.$attr->{UID}.'\",\"key\":\"'.$attr->{KEY}.'\",\"comment\":\"'.$attr->{COMMENT}.'\"}',
+    }
+  ); 
+
+  return "TRUE";
+}
+
+#**********************************************************
+=head2  dph_keys_delete_key($attr)
+
+=cut
+#**********************************************************
+
+sub dph_keys_delete_key {
+  my ($self, $attr) = @_;
+
+  my $token = $self->get_api_token($attr);
+  unless ($token) {
+    warn "Failed to get API token";
+    return;
+  }
+
+  my @params = (
+    'Content-Type: application/json',
+    'Authorization: Bearer ' . $token
+  );
+
+  my @aKeys = split /,/, $attr->{DELETE_KEYS_IDS};
+
+  while (my ($key, $value) = each @aKeys) {
+
+    my $result = web_request("$self->{URL}/bill/api/keys_del/",
+      {
+        HEADERS      => \@params,
+        DEBUG        => "0",
+        CURL         => 1,
+        CURL_OPTIONS => "-X POST",
+        POST         => '{\"uid\":\"'.$attr->{UID}.'\",\"key\":\"' . $value . '\"}',
+      }
+    );
+  }
+
+  return "TRUE";
+}
+
+#**********************************************************
+=head2  dph_keys_get_keys_list($attr)
+
+=cut
+#**********************************************************
+
+sub dph_keys_get_keys_list {
+  my ($self, $attr) = @_;
+
+  my $token = $self->get_api_token($attr);
+  unless ($token) {
+    warn "Failed to get API token";
+    return;
+  }
+
+  my @params = (
+    'Content-Type: application/json',
+    'Authorization: Bearer ' . $token
+  );
+
+  my $result = web_request("$self->{URL}/bill/api/keys_list/",
+    {
+      HEADERS      => \@params,
+      DEBUG        => "0",
+      CURL         => 1,
+      CURL_OPTIONS => "-X POST",
+      POST         => '{\"uid\":\"'.$attr->{UID}.'\"}',
+    }
+  );
+  my $user_keys_array = $json->decode($result);
+
+  return $user_keys_array;
+}
+
+sub dph_keys_address_devices_list {
+  my ($self, $attr) = @_;
+
+  my $token = $self->get_api_token($attr);
+  unless ($token) {
+    warn "Failed to get API token";
+    return;
+  }
+
+  my @params = (
+    'Content-Type: application/json',
+    'Authorization: Bearer ' . $token
+  );
+
+  my $result = web_request("$self->{URL}/bill/api/address_devices_list/",
+    {
+      HEADERS      => \@params,
+      DEBUG        => "0",
+      CURL         => 1,
+      CURL_OPTIONS => "-X POST",
+      POST         => '{\"address\":\"'.$attr->{ADDRESS}.'\"}',
+    }
+  );
+  my $address_devices_list = $json->decode($result);
+  
+  return $result;
+}
+
+#**********************************************************
+=head2  dph_keys_address_devices_update($attr)
+
+=cut
+#**********************************************************
+
+sub dph_keys_address_devices_update {
+  my ($self, $attr) = @_;
+
+  my $token = $self->get_api_token($attr);
+  unless ($token) {
+    warn "Failed to get API token";
+    return;
+  }
+
+  my @params = (
+    'Content-Type: application/json',
+    'Authorization: Bearer ' . $token
+  );
+
+
+  my $result = web_request("$self->{URL}/bill/api/address_devices_update/",
+    {
+      HEADERS      => \@params,
+      DEBUG        => "2",
+      CURL         => 1,
+      CURL_OPTIONS => "-X POST",
+      POST         => '{ \"data\": ['.$attr->{ARRAY}.']}',
+    }
+  );
+  
+  print Dumper("TUT3" . $attr->{ARRAY});
+
+  my $address_devices_list = $json->decode($result);
   return $result;
 }
 

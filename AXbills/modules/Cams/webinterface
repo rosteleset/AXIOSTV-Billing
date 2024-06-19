@@ -10,6 +10,7 @@
 
 =cut
 #use strict;
+
 use AXbills::Base qw(sendmail days_in_month _bp in_array);
 use Cams;
 use Address;
@@ -22,9 +23,9 @@ our ($db, $admin, %conf, $html, %lang, %ADMIN_REPORT, %permissions);
 
 
 require Cams::Cams; #Nenakhov
-require Cams::Axiostv_cams; #Nenakhov - чтобы можно было вызывать через Cams::Axiostv_cams->user_rights_list()
+require Cams::Axiostv_cams;
 require Cams::Services;
-require Cams::Api; #Nenakhov API
+#require Cams::Api; #Nenakhov API
 require Cams::Configure;
 require Cams::Users;
 require Cams::User_portal;
@@ -53,6 +54,9 @@ my @service_status = ("$lang{ENABLE}",
 
 my $Cams_service;
 
+use Data::Dumper;
+
+
 #**********************************************************
 =head2 cams_main($attr)
 
@@ -67,17 +71,38 @@ sub cams_main {
   my $service_id = '';
   my $user_list;
 
+  my $cams_object = Cams::Axiostv_cams->new($db, $admin, \%conf, $attr);
+  my $service_name = $cams_object->{SERVICE_NAME};
+
+  my $services_list = $Cams->services_list({
+    MODULE    => "$service_name",
+    PASSWORD  => '_SHOW',
+    LOGIN     => '_SHOW',
+    MODULE    => '_SHOW',
+    COLS_NAME => 1
+  });
+
+  foreach my $record (@$services_list) {
+    if ($record->{module} == $service_name) {
+        $service_id = $record->{id};
+        last;
+    }
+  }
+
+  my $auth_data = $Cams->services_info($service_id);
+
   $Cams->{db}{db}->{AutoCommit} = 0;
   $Cams->{db}->{TRANSACTION} = 1;
 
-
-
-
   if ($FORM{api_js} && $FORM{get_address_devices_list}) {
-    
     print $html->tpl_show(_include('api_js', 'Cams'), { INFO => $info }, { OUTPUT2RETURN => 1 });
 
-    $result = api_address_devices_list({ UID => $FORM{UID}, ADDRESS => $FORM{get_address_devices_list} });
+    $result = $cams_object->dph_keys_address_devices_list({
+      ADDRESS   => $FORM{get_address_devices_list},
+      URL       => $auth_data->{URL},
+      PASSWORD  => $auth_data->{PASSWORD},
+      LOGIN     => $auth_data->{LOGIN} 
+    });
     print $result;
 
     exit;
@@ -87,21 +112,17 @@ sub cams_main {
     
     print $html->tpl_show(_include('api_js', 'Cams'), { INFO => $info }, { OUTPUT2RETURN => 1 });
     
-    #print $FORM{arr};
-
-    $result = api_address_devices_update({ UID => $FORM{UID}, ARRAY => $FORM{arr}, ADDRESS => $FORM{address} });
+    $result = $cams_object->dph_keys_address_devices_update({
+      ARRAY     => $FORM{arr},
+      ADDRESS   => $FORM{address},
+      URL       => $auth_data->{URL},
+      PASSWORD  => $auth_data->{PASSWORD},
+      LOGIN     => $auth_data->{LOGIN}
+    });
     print $result;
 
     exit;
   }
-
-
-
-
-
-
-
-
 
   if ($FORM{add_cam}) {
 
@@ -350,6 +371,8 @@ sub cams_main {
       ONLY_VIDEO         => $camera->{ONLY_VIDEO} ? 'checked' : '',
       SUBMIT_BTN_ACTION  => ($FORM{chg_cam}) ? 'change_cam' : 'add_cam',
       SUBMIT_BTN_NAME    => ($FORM{chg_cam}) ? $lang{CHANGE} : $lang{ADD},
+      INDEX_PAGE         => $index,
+      SERVICE_ID         => $service_id,
     });
 
   return 1;
@@ -808,9 +831,6 @@ sub cams_user_groups {
         COMMENT     => "_SHOW",
         COLS_NAME   => 1,
       });
-
-      
-      use Data::Dumper;
       
       foreach my $group (@$user_groups) {
 
@@ -843,7 +863,7 @@ sub cams_user_groups {
 }
 
 #**********************************************************
-=head2 cams_user_rights$attr)
+=head2 cams_user_rights($attr)
 
   Arguments:
     $attr
@@ -870,6 +890,9 @@ sub cams_user_rights {
     ID      => 'CAMERAS_RIGHTS_ID',
     MENU       => "$lang{ADD}:index=$index&add_user_rights=1&UID=$attr->{UID}&add_form=1:add",
   });
+
+  my $cams_object = Cams::Axiostv_cams->new($db, $admin, \%conf, $attr);
+  my $auth_data = $Cams->services_info($attr->{SERVICE_ID});
 
   if ($attr->{SERVICE_INFO}) {
     $Cams = $attr->{SERVICE_INFO};
@@ -916,80 +939,40 @@ sub cams_user_rights {
     }
   }
 
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-      
-      
-
-
-
-
-
-
       # Удаляем сущность из right_list    
       if ($FORM{del_rights} || $FORM{DELETE_IDS}) {
         my $delete_ids;
         if ($FORM{DELETE_IDS}) {
           $delete_ids = $FORM{DELETE_IDS};
         } elsif ($FORM{del_rights}) {
-          
           $delete_ids = $FORM{del_rights};
-        }
-        
-        api_delete_right_list( { UID => $FORM{UID}, DELETE_IDS => $delete_ids } );
+        }        
+        $cams_object->dph_keys_delete_right_list({
+          UID         => $FORM{UID},
+          DELETE_IDS  => $delete_ids,
+          URL         => $auth_data->{URL},
+          PASSWORD    => $auth_data->{PASSWORD},
+          LOGIN       => $auth_data->{LOGIN}
+        });
       }
-     
       # Добавляем привязку камеры к пользователю
       if ($FORM{add_user_rights_do}) {        
-        api_add_right_list({ UID => $FORM{UID}, ADD_IDS => $FORM{add_user_rights_do} });         
+        $cams_object->dph_keys_add_right_list({
+          UID         => $FORM{UID},
+          ADD_IDS     => $FORM{add_user_rights_do},
+          URL         => $auth_data->{URL},
+          PASSWORD    => $auth_data->{PASSWORD},
+          LOGIN       => $auth_data->{LOGIN} 
+        }); 
       }
-      
-      
 
+      my $user_rights_array = $cams_object->dph_keys_get_right_list({
+        UID       => $FORM{UID},
+        URL       => $auth_data->{URL},
+        PASSWORD  => $auth_data->{PASSWORD},
+        LOGIN     => $auth_data->{LOGIN}
+      });
 
-
-
-
-
-
-
-
-      
-      # Получаем камеры пользователя
-      # обращаться научились - но сам модуль axiostv_cams.pm - не доделан
-      #my $result = Cams::Axiostv_cams->user_rights_list({ UID => $FORM{UID}, USER => 'true', LOGIN => 'abills', PASSWORD => 'AsmodeuS'});
-
-      #my $result = Cams::Axiostv_cams->user_rights_list({ UID => $FORM{UID}, USER => 'true', LOGIN => 'abills', PASSWORD => 'AsmodeuS'});
-      #my $result = Cams::Axiostv_cams->test(); #не берет он из базы урл - падает в ошибку
-      
-
-     
-      my $user_rights_array = api_get_right_list({ UID => $FORM{UID} });
-
-      
-      use Data::Dumper;
-      
       my $Element;
       my $delete_button;
       while($Element=shift($user_rights_array->{rights})){
@@ -1002,11 +985,6 @@ sub cams_user_rights {
         $delete_button = $html->button('', "index=$index&del_rights=$Element->{device_id}&UID=".$FORM{UID}, { MESSAGE => "$lang{DEL} $Element->{title}?", class => 'del' });
         $groups_table->addrow($Element->{device_id}, $Element->{title}, $Element->{device_type}, $checkbox.$delete_button);
       }  
-
-
-
-
-
 
 
   my %submit_h = ();
@@ -1025,14 +1003,6 @@ sub cams_user_rights {
     SUBMIT  => { change_now => $lang{CHANGE} }
   });
 }
-
-
-
-
-
-
-
-
 
 
 #**********************************************************
@@ -1063,6 +1033,9 @@ sub cams_user_keys {
     ID      => 'CAMERAS_KEYS_ID',
     MENU       => "$lang{ADD}:index=$index&add_user_keys=1&UID=$attr->{UID}:add",
   });
+  my $cams_object = Cams::Axiostv_cams->new($db, $admin, \%conf, $attr);
+  my $auth_data = $Cams->services_info($attr->{SERVICE_ID});
+
 
   if ($attr->{SERVICE_INFO}) {
     $Cams = $attr->{SERVICE_INFO};
@@ -1079,38 +1052,49 @@ sub cams_user_keys {
           $delete_ids = $FORM{del_keys};
         }
         
-        api_delete_key( { UID => $FORM{UID}, DELETE_KEYS_IDS => $delete_ids } );
+        $cams_object->dph_keys_delete_key({
+          UID             => $FORM{UID},
+          DELETE_KEYS_IDS => $delete_ids,
+          URL             => $auth_data->{URL},
+          PASSWORD        => $auth_data->{PASSWORD},
+          LOGIN           => $auth_data->{LOGIN} } );
       }
      
       # Добавляем ключ
       if ($FORM{add_user_keys_do}) {        
-        api_add_key({ UID => $FORM{UID}, KEY => $FORM{add_key__key}, COMMENT => $FORM{comment} });         
+        $cams_object->dph_keys_add_key({
+          UID         => $FORM{UID},
+          KEY         => $FORM{add_key__key}, 
+          COMMENT     => $FORM{comment},
+          URL         => $auth_data->{URL},
+          PASSWORD    => $auth_data->{PASSWORD},
+          LOGIN       => $auth_data->{LOGIN} });       
       }
       
       
       # Получаем ключ
-      my $user_keys_array = api_get_keys_list({ UID => $FORM{UID} });
-      
-      use Data::Dumper;
-      
+      my $user_keys_array = $cams_object->dph_keys_get_keys_list({
+        UID       => $FORM{UID},
+        URL       => $auth_data->{URL},
+        PASSWORD  => $auth_data->{PASSWORD},
+        LOGIN     => $auth_data->{LOGIN}
+      });
+            
       my $Element;
       my $delete_button;
-      while($Element=shift($user_keys_array->{keys})){
-        #print $Element->{device_id};
+if (ref($user_keys_array->{keys}) eq 'ARRAY') {
+    while ($Element = shift(@{$user_keys_array->{keys}})) {
         my $checkbox = $html->form_input('DELETE_IDS', $Element->{device_id}, {
-          TYPE          => 'checkbox',
-          STATE         => (in_array($Element->{device_id}, \@active_groups) ? 1 : undef),
-          OUTPUT2RETURN => 1,
+            TYPE          => 'checkbox',
+            STATE         => (in_array($Element->{device_id}, \@active_groups) ? 1 : undef),
+            OUTPUT2RETURN => 1,
         });
         $delete_button = $html->button('', "index=$index&del_keys=$Element->{key}&UID=".$FORM{UID}, { MESSAGE => "$lang{DEL} $Element->{title}?", class => 'del' });
         $keys_table->addrow($Element->{key}, $Element->{comment}, $checkbox.$delete_button);
-      }  
-
-
+    }
+}  
 
   my $add_keys = $html->tpl_show(_include('cams_keys_add_form', 'Cams'), { %info, %FORM }, { OUTPUT2RETURN => 1 });
-
-
 
   my %submit_h = ();
   $submit_h{change_now} = "$lang{SAVE}";
@@ -1130,17 +1114,8 @@ sub cams_user_keys {
 }
 
 
-
-
-
-
-
-
-
-
-
 #**********************************************************
-=head2 cams_user_folders$attr)
+=head2 cams_user_folders($attr)
 
   Arguments:
     $attr
@@ -1248,7 +1223,7 @@ sub cams_user_folders {
     METHOD  => 'get',
     SUBMIT  => \%submit_h
   });
-}
+} 
 
 #**********************************************************
 =head2 cams_monthly_fees($attr) -  Monthly periodic

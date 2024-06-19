@@ -8,6 +8,7 @@ use strict;
 use warnings FATAL => 'all';
 use AXbills::Base qw(in_array cmd _bp);
 require AXbills::Misc;
+use Cams::Axiostv_cams; 
 
 our (
   %FORM,
@@ -166,9 +167,13 @@ sub cams_user {
 
 # Перед выводом таблички
   if ($FORM{add_user_rights}) {
+    my $service_id = $FORM{SERVICE_ID} || $Cams->{SERVICE_ID};
+    my $cams_object = Cams::Axiostv_cams->new($db, $admin, \%conf);
+    my $auth_data = $Cams->services_info($service_id);
 
-    my $user_rights_array = api_get_devices_list({ UID => $FORM{UID} });
-    my $user_rights_array_items = $user_rights_array->{devices};      
+
+    my $user_rights_array = $cams_object->dph_keys_get_devices_list({ UID => $FORM{UID}, URL=> $auth_data->{URL}, PASSWORD => $auth_data->{PASSWORD}, LOGIN => $auth_data->{LOGIN} });
+    my $user_rights_array_items = $user_rights_array->{devices};  
 
     my $html_txt = "<table class='table table-striped table-hover ' id='add_user_rights'>"; 
     #for (my $i = 0; $i <= $#user_rights_array_items; $i++) {
@@ -188,6 +193,7 @@ sub cams_user {
     $html->tpl_show(_include('cams_user_add_user_rights', 'Cams'), { %FORM, %$Cams, });  
 
   } else {
+
     print $user_groups  if ($user_groups);
     print cams_user_rights({ SERVICE_INFO => $Cams, UID => $FORM{UID}, SERVICE_ID => $Cams->{SERVICE_ID} })  if ($user_groups);
     print $html->br();print $html->br();
@@ -200,7 +206,6 @@ sub cams_user {
     }
 
   }
-
 
   $LIST_PARAMS{SERVICE_NAME} = "_SHOW";
   result_former({
